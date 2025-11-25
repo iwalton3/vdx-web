@@ -74,18 +74,10 @@ export default defineComponent('user-tools', {
                 `}
                 <p>
                     <label>
-                        <input type="checkbox" id="dark-theme-toggle" on-change="toggleDarkTheme"> Use Dark Theme?
+                        <input type="checkbox" id="dark-theme-toggle" on-change="toggleDarkTheme" checked="${this.state.darkThemeEnabled}"> Use Dark Theme?
                     </label>
                 </p>
             </div>
         `;
-    },
-
-    afterRender() {
-        // Set checkbox state
-        const checkbox = this.querySelector('#dark-theme-toggle');
-        if (checkbox) {
-            checkbox.checked = this.state.darkThemeEnabled;
-        }
     }
 });

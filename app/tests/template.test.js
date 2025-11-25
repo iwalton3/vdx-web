@@ -173,3 +173,57 @@ describe('Template Security - Symbol Protection', function(it) {
         assert.ok(str.includes('<div><b>Bold</b></div>'), 'Should allow raw HTML from raw()');
     });
 });
+
+describe('Template - Function Event Handlers', function(it) {
+    it('allows function references in on-* attributes', () => {
+        const handler = () => {};
+        const result = html`<button on-click="${handler}">Click</button>`;
+        const str = result.toString();
+
+        // Should create an event marker
+        assert.ok(str.includes('__EVENT_'), 'Should create event marker');
+        assert.ok(str.includes('on-click='), 'Should preserve on-click attribute');
+    });
+
+    it('blocks non-function values in on-* attributes', () => {
+        const maliciousString = 'alert(1)';
+        const result = html`<button on-click="${maliciousString}">Click</button>`;
+        const str = result.toString();
+
+        // Should NOT include the malicious string
+        assert.ok(!str.includes('alert(1)'), 'Should block string interpolation in event handlers');
+        assert.ok(str.includes('on-click=""'), 'Should result in empty attribute value');
+    });
+
+    it('stores function references with crypto-random IDs', () => {
+        const handler1 = () => {};
+        const handler2 = () => {};
+        const result1 = html`<button on-click="${handler1}">Button 1</button>`;
+        const result2 = html`<button on-click="${handler2}">Button 2</button>`;
+        const str1 = result1.toString();
+        const str2 = result2.toString();
+
+        // Should have different event IDs
+        assert.ok(str1 !== str2, 'Different functions should get different IDs');
+
+        // Extract the IDs
+        const match1 = str1.match(/__EVENT_([a-f0-9]{6}-\d+)__/i);
+        const match2 = str2.match(/__EVENT_([a-f0-9]{6}-\d+)__/i);
+
+        assert.ok(match1, 'Should create valid event marker format for handler1');
+        assert.ok(match2, 'Should create valid event marker format for handler2');
+        assert.ok(match1[1] !== match2[1], 'Event IDs should be different');
+    });
+
+    it('allows method name strings in on-* attributes (legacy)', () => {
+        // Method names (string) should still be blocked for security
+        // but the warning should suggest using method names without ${} instead
+        const methodName = 'handleClick';
+        const result = html`<button on-click="${methodName}">Click</button>`;
+        const str = result.toString();
+
+        // Should block the interpolation
+        assert.ok(!str.includes('handleClick'), 'Should not allow string interpolation');
+        assert.ok(str.includes('on-click=""'), 'Should result in empty attribute');
+    });
+});

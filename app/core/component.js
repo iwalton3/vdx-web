@@ -5,7 +5,7 @@
 
 import { reactive, createEffect } from './reactivity.js';
 import { patchHTML } from './vdom.js';
-import { html, getPropValue } from './template.js';
+import { html, getPropValue, getEventHandler } from './template.js';
 
 /**
  * Define a custom component
@@ -244,8 +244,6 @@ export function defineComponent(name, options) {
         }
 
         _bindEvents(root) {
-            if (!options.methods) return;
-
             // Find all elements with on-* attributes
             // Only bind events on this component's own elements, not child components
             const allElements = root.querySelectorAll('*');
@@ -274,7 +272,7 @@ export function defineComponent(name, options) {
                 Array.from(el.attributes).forEach(attr => {
                     if (attr.name.startsWith('on-')) {
                         const fullAttrName = attr.name;
-                        const methodName = attr.value;
+                        const attrValue = attr.value;
 
                         // Parse event name and modifiers
                         // Format: on-eventName or on-eventName-modifier
@@ -284,6 +282,9 @@ export function defineComponent(name, options) {
 
                         // DON'T remove the attribute - we need it for re-renders
                         // The cleanup phase will remove old listeners before re-binding
+
+                        // Check if this is an event handler marker from template
+                        const eventHandler = getEventHandler(attrValue);
 
                         // Create event listener
                         const listener = (e) => {
@@ -295,11 +296,15 @@ export function defineComponent(name, options) {
                                 e.stopPropagation();
                             }
 
-                            // Call method (already bound to this in constructor)
-                            if (this[methodName]) {
-                                this[methodName](e);
-                            } else {
-                                console.warn(`Method "${methodName}" not found in component ${name}`);
+                            // If event handler marker, call the stored function
+                            if (eventHandler) {
+                                eventHandler.call(this, e);
+                            }
+                            // Otherwise look up method by name (if we have methods)
+                            else if (options.methods && this[attrValue]) {
+                                this[attrValue](e);
+                            } else if (!eventHandler) {
+                                console.warn(`Method "${attrValue}" not found in component ${name}`);
                             }
                         };
 
@@ -328,7 +333,7 @@ export function defineComponent(name, options) {
 
             modelElements.forEach(el => {
                 const prop = el.getAttribute('x-model');
-                el.removeAttribute('x-model');
+                // Don't remove x-model attribute - we need it on subsequent renders
 
                 // Set initial value
                 if (prop in this.state) {

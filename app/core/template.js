@@ -15,10 +15,17 @@ export const isRaw = (obj) => obj && obj[RAW_MARKER] === true;
 // Prop binding registry - stores actual object/array values
 const propRegistry = new Map();
 
+// Event handler registry - stores function references for event binding
+const eventRegistry = new Map();
+
 // Security: Use crypto-random prefix to prevent prop marker tampering
 // Generate once on page load for performance, then use sequential IDs
 let propIdPrefix = null;
 let propIdCounter = 0;
+
+// Event handler IDs use same security model as props
+let eventIdPrefix = null;
+let eventIdCounter = 0;
 
 function generatePropId() {
     // Generate 6-char random hex prefix once on first use (16^6 = 16.7M combinations)
@@ -34,6 +41,22 @@ function generatePropId() {
     }
     // Use prefix + sequential counter for performance
     return `${propIdPrefix}-${propIdCounter++}`;
+}
+
+function generateEventId() {
+    // Generate 6-char random hex prefix once on first use (16^6 = 16.7M combinations)
+    if (eventIdPrefix === null) {
+        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+            const arr = new Uint8Array(3); // 3 bytes = 6 hex chars
+            crypto.getRandomValues(arr);
+            eventIdPrefix = Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+        } else {
+            // Fallback: random hex from Math.random
+            eventIdPrefix = Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0');
+        }
+    }
+    // Use prefix + sequential counter for performance
+    return `${eventIdPrefix}-${eventIdCounter++}`;
 }
 
 // URL attributes that need URL sanitization
@@ -299,13 +322,21 @@ export function html(strings, ...values) {
                     break;
 
                 case 'event-handler':
-                    // Block interpolation in event handlers
-                    console.error(
-                        '[Security] Interpolation blocked in event handler attribute.',
-                        'Use on-event="method" syntax instead.',
-                        'Value was:', value
-                    );
-                    result += '';
+                    // Allow function references, block everything else
+                    if (typeof value === 'function') {
+                        // Store function and use marker
+                        const id = generateEventId();
+                        eventRegistry.set(id, value);
+                        result += `__EVENT_${id}__`;
+                    } else {
+                        // Block non-function interpolation in event handlers
+                        console.error(
+                            '[Security] Interpolation blocked in event handler attribute.',
+                            'Use on-event="method" syntax for method names or pass a function reference.',
+                            'Value was:', value
+                        );
+                        result += '';
+                    }
                     break;
 
                 case 'dangerous':
@@ -393,14 +424,41 @@ export function getPropValue(str) {
 }
 
 /**
- * Manual cleanup of old prop markers (called periodically if needed)
+ * Check if a string is an event handler marker and retrieve the function
+ * Returns null if not an event marker
+ * Security: Markers use 6-char random hex prefix to prevent tampering
+ */
+export function getEventHandler(str) {
+    if (typeof str !== 'string') return null;
+
+    // Match format: __EVENT_<6-hex-chars>-<number>__
+    const match = str.match(/^__EVENT_([a-f0-9]{6}-\d+)__$/i);
+    if (match) {
+        const id = match[1];
+        const handler = eventRegistry.get(id);
+        // Don't delete immediately - let multiple reads happen
+        // Registry will grow but clears on page navigation
+        return handler;
+    }
+    return null;
+}
+
+/**
+ * Manual cleanup of old prop and event markers (called periodically if needed)
  */
 export function cleanupPropRegistry() {
-    // Keep only the last 1000 entries
+    // Keep only the last 1000 entries in prop registry
     if (propRegistry.size > 1000) {
         const entries = Array.from(propRegistry.keys()).sort((a, b) => a - b);
         const toDelete = entries.slice(0, entries.length - 1000);
         toDelete.forEach(id => propRegistry.delete(id));
+    }
+
+    // Keep only the last 1000 entries in event registry
+    if (eventRegistry.size > 1000) {
+        const entries = Array.from(eventRegistry.keys()).sort((a, b) => a - b);
+        const toDelete = entries.slice(0, entries.length - 1000);
+        toDelete.forEach(id => eventRegistry.delete(id));
     }
 }
 

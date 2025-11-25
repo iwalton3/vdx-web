@@ -19,9 +19,6 @@ export default defineComponent('user-manager', {
     },
 
     async mounted() {
-        // Initialize listener tracking on the component instance
-        this._eventListeners = [];
-
         await this.updateUserList();
         await this.loadRoles();
     },
@@ -101,9 +98,9 @@ export default defineComponent('user-manager', {
                                     <td>${user.username}</td>
                                     <td>
                                         <x-lazy-select-box
-                                            id="user-role-${index}"
                                             value="${user.role}"
-                                            options="${JSON.stringify(this.state.roles)}">
+                                            options="${this.state.roles}"
+                                            on-change="${(e) => this.handleRoleChange(user, e)}">
                                         </x-lazy-select-box>
                                     </td>
                                 </tr>
@@ -117,9 +114,9 @@ export default defineComponent('user-manager', {
                         <label>User: <input type="text" x-model="userToAdd"></label>
                         <label>Role:
                             <x-select-box
-                                id="new-user-role"
                                 value="${this.state.userToAddRole}"
-                                options="${JSON.stringify(this.state.roles)}">
+                                options="${this.state.roles}"
+                                on-change="${(e) => { this.state.userToAddRole = e.detail.value; }}">
                             </x-select-box>
                         </label>
                         <input type="submit" value="Add"/>
@@ -127,36 +124,5 @@ export default defineComponent('user-manager', {
                 </div>
             </div>
         `;
-    },
-
-    afterRender() {
-        // Clean up old event listeners
-        if (this._eventListeners) {
-            this._eventListeners.forEach(({ element, handler }) => {
-                element.removeEventListener('change', handler);
-            });
-            this._eventListeners = [];
-        }
-
-        // Manually set up change listeners for the select boxes
-        this.state.users.forEach((user, index) => {
-            const selectBox = this.querySelector(`#user-role-${index}`);
-            if (selectBox) {
-                const handler = (e) => {
-                    this.handleRoleChange(user, e);
-                };
-                selectBox.addEventListener('change', handler);
-                this._eventListeners.push({ element: selectBox, handler });
-            }
-        });
-
-        const newUserRoleSelect = this.querySelector('#new-user-role');
-        if (newUserRoleSelect) {
-            const handler = (e) => {
-                this.state.userToAddRole = e.detail.value;
-            };
-            newUserRoleSelect.addEventListener('change', handler);
-            this._eventListeners.push({ element: newUserRoleSelect, handler });
-        }
     }
 });
