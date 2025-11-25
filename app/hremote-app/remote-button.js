@@ -65,7 +65,7 @@ export default defineComponent('remote-button', {
 
     template() {
         return html`
-            <button on-click="handleClick" ${this.state.disabled ? 'disabled' : ''}>
+            <button on-click="handleClick" disabled="${this.state.disabled}">
                 ${this.props.action}
             </button>
         `;
