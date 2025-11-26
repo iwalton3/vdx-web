@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Framework Bundle Demos</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 40px 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 3rem;
+            opacity: 0.9;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 3rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 24px;
+            color: #333;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            display: block;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0 0 12px 0;
+            color: #667eea;
+        }
+
+        .card-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .card-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #667eea;
+            color: white;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-right: 8px;
+        }
+
+        .features {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 32px;
+            color: #333;
+            margin-bottom: 2rem;
+        }
+
+        .features h2 {
+            color: #667eea;
+            margin-top: 0;
+        }
+
+        .features ul {
+            column-count: 2;
+            column-gap: 40px;
+            list-style: none;
+            padding: 0;
+        }
+
+        .features li {
+            margin-bottom: 12px;
+            padding-left: 24px;
+            position: relative;
+        }
+
+        .features li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .docs {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 32px;
+            color: #333;
+        }
+
+        .docs h2 {
+            color: #667eea;
+            margin-top: 0;
+        }
+
+        .docs a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .docs a:hover {
+            text-decoration: underline;
+        }
+
+        .docs ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .docs li {
+            margin-bottom: 12px;
+            padding-left: 24px;
+            position: relative;
+        }
+
+        .docs li::before {
+            content: "📄";
+            position: absolute;
+            left: 0;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .features ul {
+                column-count: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Framework Bundle</h1>
+        <p class="subtitle">Self-contained reactive framework - No build step, zero dependencies</p>
+
+        <div class="stats">
+            <div class="stat">
+                <span class="stat-value">89 KB</span>
+                <span class="stat-label">Uncompressed</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value">20 KB</span>
+                <span class="stat-label">Gzipped</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value">0</span>
+                <span class="stat-label">Dependencies</span>
+            </div>
+        </div>
+
+        <div class="cards">
+            <a href="test-bundle.html" class="card">
+                <h3 class="card-title">Basic Tests</h3>
+                <p class="card-description">
+                    Simple test page that verifies all framework features work correctly.
+                    Includes automated tests and an interactive counter component.
+                </p>
+                <span class="card-badge">Test Suite</span>
+                <span class="card-badge">Interactive</span>
+            </a>
+
+            <a href="jellyfin-modal-demo.html" class="card">
+                <h3 class="card-title">Jellyfin Settings Modal</h3>
+                <p class="card-description">
+                    Complete POC of a settings modal that replaces 230 lines of manual DOM manipulation
+                    with clean, reactive components. Features forms, validation, and notifications.
+                </p>
+                <span class="card-badge">Full Demo</span>
+                <span class="card-badge">Production Ready</span>
+            </a>
+        </div>
+
+        <div class="features">
+            <h2>Features</h2>
+            <ul>
+                <li>Reactive state management (Vue 3-style proxies)</li>
+                <li>Web Components with Preact rendering</li>
+                <li>Template system with <code>html``</code> tagged templates</li>
+                <li>Two-way data binding with <code>x-model</code></li>
+                <li>Event handling with <code>on-*</code> attributes</li>
+                <li>Built-in XSS protection</li>
+                <li>Conditional rendering with <code>when()</code></li>
+                <li>List rendering with <code>each()</code></li>
+                <li>Automatic memory leak prevention</li>
+                <li>No build step required</li>
+                <li>Works in any modern browser</li>
+                <li>Perfect for embedding in static sites</li>
+            </ul>
+        </div>
+
+        <div class="docs">
+            <h2>Documentation</h2>
+            <ul>
+                <li><a href="README.md">README.md</a> - Complete API reference and usage guide</li>
+                <li><a href="COMPARISON.md">COMPARISON.md</a> - Manual DOM vs Framework comparison</li>
+                <li><a href="../playground.html">Playground</a> - Interactive framework demos</li>
+                <li><a href="../tests/">Test Suite</a> - Comprehensive framework tests</li>
+            </ul>
+
+            <h3 style="margin-top: 2rem;">Quick Start</h3>
+            <pre style="background: #f5f5f5; padding: 16px; border-radius: 8px; overflow-x: auto;"><code>&lt;script type="module"&gt;
+import { defineComponent, html } from './framework-bundle.js';
+
+defineComponent('my-counter', {
+    data() {
+        return { count: 0 };
+    },
+
+    methods: {
+        increment() { this.state.count++; }
+    },
+
+    template() {
+        return html`
+            &lt;div&gt;
+                &lt;h2&gt;Count: ${this.state.count}&lt;/h2&gt;
+                &lt;button on-click="increment"&gt;+1&lt;/button&gt;
+            &lt;/div&gt;
+        `;
+    }
+});
+&lt;/script&gt;
+
+&lt;my-counter&gt;&lt;/my-counter&gt;</code></pre>
+        </div>
+    </div>
+</body>
+</html>

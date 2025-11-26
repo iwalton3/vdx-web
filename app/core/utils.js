@@ -8,6 +8,96 @@ import { createStore } from './store.js';
 // memo is now in reactivity.js (old vdom.js version no longer used)
 
 /**
+ * Create a computed property with dependency-based caching
+ *
+ * Caches the result until dependencies change. Useful for expensive operations
+ * like sorting, filtering large arrays, or complex calculations.
+ *
+ * @param {Function} fn - Computation function that takes dependencies as arguments
+ * @returns {Function} Memoized function
+ *
+ * @example
+ * data() {
+ *   return {
+ *     items: [...],
+ *     sortedItems: computed((items) => [...items].sort((a, b) => a.name.localeCompare(b.name)))
+ *   };
+ * }
+ *
+ * template() {
+ *   // Only recomputes when items array changes
+ *   const sorted = this.state.sortedItems(this.state.items);
+ *   return html`...`;
+ * }
+ */
+export function computed(fn) {
+    let cache = null;
+    let deps = [];
+    let hasCache = false;
+
+    return function(...currentDeps) {
+        // Check if dependencies changed
+        if (hasCache && depsEqual(deps, currentDeps)) {
+            return cache;
+        }
+
+        // Recompute
+        deps = currentDeps;
+        cache = fn.apply(this, currentDeps);
+        hasCache = true;
+        return cache;
+    };
+}
+
+/**
+ * Deep equality check for dependencies
+ */
+function depsEqual(a, b) {
+    if (a.length !== b.length) return false;
+
+    for (let i = 0; i < a.length; i++) {
+        if (!shallowEqual(a[i], b[i])) return false;
+    }
+
+    return true;
+}
+
+/**
+ * Shallow equality check
+ */
+function shallowEqual(a, b) {
+    // Same reference
+    if (a === b) return true;
+
+    // Null/undefined
+    if (a == null || b == null) return false;
+
+    // Primitives
+    if (typeof a !== 'object' || typeof b !== 'object') return false;
+
+    // Arrays
+    if (Array.isArray(a) && Array.isArray(b)) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) return false;
+        }
+        return true;
+    }
+
+    // Objects
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+
+    if (keysA.length !== keysB.length) return false;
+
+    for (const key of keysA) {
+        if (a[key] !== b[key]) return false;
+    }
+
+    return true;
+}
+
+/**
  * Sleep/delay utility
  */
 export function sleep(ms) {

@@ -4,6 +4,7 @@
  */
 
 import { createStore } from './store.js';
+import { pruneTemplateCache } from './template-compiler.js';
 
 /**
  * Parse query string into object
@@ -303,16 +304,24 @@ export class Router {
         for (const hook of this.afterHooks) {
             await hook({ path, query, route });
         }
+
+        // Clean up template cache on navigation to prevent unbounded growth
+        pruneTemplateCache();
     }
 
     /**
      * Set the outlet element where components will be rendered
      */
     setOutlet(element) {
+        // Clean up previous subscription if it exists
+        if (this._outletUnsubscribe) {
+            this._outletUnsubscribe();
+        }
+
         this.outletElement = element;
 
         // Subscribe to route changes and re-render
-        this.currentRoute.subscribe(() => {
+        this._outletUnsubscribe = this.currentRoute.subscribe(() => {
             this._renderOutlet();
         });
     }
@@ -330,7 +339,8 @@ export class Router {
         if (component) {
             this.outletElement.innerHTML = `<${component}></${component}>`;
         } else {
-            this.outletElement.innerHTML = '<div>Page not found</div>';
+            // Fallback if no component is found (should not happen with proper 404 route)
+            this.outletElement.innerHTML = '<page-not-found></page-not-found>';
         }
     }
 

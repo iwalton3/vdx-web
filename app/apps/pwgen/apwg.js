@@ -30,16 +30,8 @@ export default defineComponent('apwg-page', {
                 this.state.response = await apwg(this.state.pwType, this.state.length);
             } catch (error) {
                 console.error('Failed to generate password:', error);
-                this.state.response = '<p class="error">Failed to generate password</p>';
+                this.state.response = '<p class="banner-error">Failed to generate password</p>';
             }
-        },
-
-        handleLengthChange(e) {
-            this.state.length = parseInt(e.detail.value);
-        },
-
-        handleTypeChange(e) {
-            this.state.pwType = e.detail.value;
         }
     },
 
@@ -53,8 +45,7 @@ export default defineComponent('apwg-page', {
                     <label style="display: inline;">
                         Generate a
                         <x-select-box
-                            on-change="handleLengthChange"
-                            value="${this.state.length}"
+                            x-model="length"
                             options="${this.state.lengthOptions}">
                         </x-select-box>
                          word
@@ -62,8 +53,7 @@ export default defineComponent('apwg-page', {
                     <label style="display: inline;">
                         password using
                         <x-select-box
-                            on-change="handleTypeChange"
-                            value="${this.state.pwType}"
+                            x-model="pwType"
                             options="${this.state.pwTypeOptions}">
                         </x-select-box>
                          words.

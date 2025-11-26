@@ -46,8 +46,6 @@ app/
 ├── auth/                    # Authentication system
 ├── apps/                    # Application modules (pwgen, etc.)
 ├── hremote-app/             # Home remote control
-├── locationtool-app/        # Location tracking
-├── hometool-app/            # Home automation
 ├── playground/              # Interactive framework demos
 ├── styles/                  # Global CSS
 │   └── global.css
@@ -202,38 +200,53 @@ afterRender() {
 
 ## Passing Props to Child Components
 
-### ✅ Automatic Object Passing for Custom Elements
+### ✅ Automatic Object/Function Passing for Custom Elements
 
-The framework **automatically** passes objects and arrays to custom elements (Web Components) without stringification. Just use regular `${}` interpolation:
+The framework **automatically** passes objects, arrays, and functions to custom elements (Web Components) without stringification. Just use regular `${}` interpolation:
 
 ```javascript
 template() {
     return html`
-        <!-- ✅ CORRECT - Arrays/objects passed automatically -->
+        <!-- ✅ CORRECT - Arrays/objects/functions passed automatically -->
         <x-select-box
             options="${this.state.lengthOptions}"
             value="${this.state.length}"
             on-change="handleChange">
         </x-select-box>
+
+        <!-- ✅ Functions work too! -->
+        <virtual-list
+            items="${this.state.items}"
+            renderItem="${this._boundRenderItem}">
+        </virtual-list>
     `;
 }
 ```
 
 **How it works:**
 - Framework detects custom elements (tags with hyphens like `x-select-box`)
-- For custom element attributes, objects/arrays are passed by reference automatically
+- For custom element attributes, objects/arrays/functions are passed by reference automatically
 - For native HTML elements (`<input>`, `<div>`, etc.), values are converted to strings as normal
 - You can pass any JavaScript expression: `"${this.state.items.filter(x => x.active)}"`
 
 ### Examples
 
 ```javascript
+methods: {
+    handleItemRender(item, index) {
+        return html`<div>${item.name}</div>`;
+    }
+},
+
 template() {
     return html`
-        <!-- Custom elements: objects passed automatically -->
+        <!-- Custom elements: objects/functions passed automatically -->
         <x-select-box options="${this.state.options}"></x-select-box>
         <my-list items="${this.getFilteredItems()}"></my-list>
         <data-table rows="${this.state.rows}" config="${{ sortable: true }}"></data-table>
+
+        <!-- Methods are auto-bound - just pass them directly! -->
+        <virtual-list items="${this.state.items}" renderItem="${this.handleItemRender}"></virtual-list>
 
         <!-- Native HTML: values converted to strings -->
         <input value="${this.state.username}">
@@ -242,11 +255,25 @@ template() {
 }
 ```
 
-### ❌ Don't Use JSON.stringify
+**Important:** Methods are **automatically bound** to the component instance in the constructor. Just pass them directly like `this.methodName` - no manual binding needed!
+
+### ❌ Don't Use JSON.stringify or Manual Binding
 
 ```javascript
 // ❌ WRONG - Don't stringify (framework does it automatically)
 <x-select-box options="${JSON.stringify(this.state.options)}">
+
+// ❌ WRONG - Don't manually bind (methods are already bound!)
+mounted() {
+    this._boundRender = this.handleRender.bind(this);
+}
+
+// ✅ CORRECT - Just pass the method directly
+template() {
+    return html`
+        <virtual-list renderItem="${this.handleRender}">
+    `;
+}
 
 // ❌ WRONG - Don't manually set props in afterRender
 afterRender() {
@@ -523,6 +550,86 @@ Use manual binding if you need:
     }}">
 ```
 
+### Using x-model with Custom Components
+
+**`x-model` now works with custom components!** Your custom component just needs to:
+
+1. Accept a `value` prop
+2. Emit a `change` event with the new value in `event.detail.value`
+
+**Example: Creating a reusable input component**
+
+```javascript
+export default defineComponent('my-input', {
+    props: {
+        value: '',
+        placeholder: ''
+    },
+
+    methods: {
+        handleInput(e) {
+            // Use emitChange helper - handles stopPropagation, prop update, and CustomEvent
+            this.emitChange(e, e.target.value);
+        }
+    },
+
+    template() {
+        return html`
+            <input
+                type="text"
+                value="${this.props.value}"
+                placeholder="${this.props.placeholder}"
+                on-input="handleInput">
+        `;
+    }
+});
+```
+
+**The `emitChange()` helper** handles all the boilerplate for you:
+- Calls `e.stopPropagation()` to prevent native event leakage
+- Updates `this.props.value` with the new value
+- Dispatches a CustomEvent with `detail: { value }` and proper bubbling
+
+**Manual approach** (if you need custom behavior):
+```javascript
+handleInput(e) {
+    e.stopPropagation();  // Stop native event
+    this.props.value = e.target.value;  // Update prop
+    this.dispatchEvent(new CustomEvent('change', {
+        bubbles: true,
+        composed: true,
+        detail: { value: e.target.value }
+    }));
+}
+```
+
+**Using it with x-model:**
+
+```javascript
+template() {
+    return html`
+        <form>
+            <!-- Simple! The framework handles the rest -->
+            <my-input x-model="username" placeholder="Enter username"></my-input>
+            <p>You typed: ${this.state.username}</p>
+        </form>
+    `;
+}
+```
+
+**What happens behind the scenes:**
+
+1. Framework binds `value` prop to `this.state.username`
+2. Framework listens for `change` events
+3. When `change` fires, framework reads `e.detail.value` and updates `this.state.username`
+4. Component re-renders with new value
+
+**Important notes:**
+
+- For custom components, the framework uses the `change` event (not `input`). This follows the convention that `change` events signal completed changes, while `input` events signal ongoing typing.
+- **Use `this.emitChange(e, value)`** to emit change events - this helper automatically handles event propagation stopping, prop updates, and CustomEvent creation.
+- Parent components should only receive your CustomEvent with `e.detail.value`, never the underlying native events.
+
 ## State Management
 
 ### Reactive State
@@ -768,6 +875,8 @@ template() {
 // ✅ No afterRender() needed!
 ```
 
+**Note:** Custom components like `x-select-box` emit CustomEvents with `detail: { value }`. They automatically stop propagation of native events, so you'll only receive the clean CustomEvent.
+
 **For native select elements**, use value attribute and on-change:
 
 ```javascript
@@ -795,10 +904,9 @@ The framework has built-in security protections with defense-in-depth:
 ### Security Architecture
 
 1. **Symbol-based trust markers**: The framework uses non-exported Symbols for `html` and `raw` markers, preventing JSON injection attacks
-2. **Crypto-random prop IDs**: Object/array props use unpredictable IDs to prevent reference tampering
-3. **Context-aware escaping**: Automatic XSS protection based on interpolation context
-4. **toString() attack prevention**: Uses `Object.prototype.toString.call()` to prevent malicious custom toString() methods from executing
-5. **Attribute sanitization**: URL validation, boolean attribute handling, and dangerous attribute blocking
+2. **Context-aware escaping**: Automatic XSS protection based on interpolation context
+3. **toString() attack prevention**: Uses `Object.prototype.toString.call()` to prevent malicious custom toString() methods from executing
+4. **Attribute sanitization**: URL validation, boolean attribute handling, and dangerous attribute blocking
 
 ### 1. XSS Protection
 
@@ -990,8 +1098,6 @@ Python-based web API framework built on Werkzeug:
 ### Backend Apps
 
 - **HRemote**: Philips Hue control, home automation (requires `root`)
-- **LocationTool**: Bluetooth MAC tracking (requires `locationtool`)
-- **HomeApi**: Garage door, device tracking (requires `homeapi`)
 
 ## Coding Best Practices
 

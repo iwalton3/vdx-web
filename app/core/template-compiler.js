@@ -93,6 +93,12 @@ import { h, Fragment } from '../vendor/preact/index.js';
 /** @type {Map<string, CompiledNode>} Template cache - keyed by template strings joined */
 const templateCache = new Map();
 
+/** Maximum template cache size before cleanup */
+const MAX_CACHE_SIZE = 500;
+
+/** Track cache access times for LRU eviction */
+const cacheAccessTimes = new Map();
+
 /**
  * Compile a template string into an optimized tree structure
  * @param {Array<string>} strings - Template literal string parts
@@ -107,6 +113,8 @@ export function compileTemplate(strings) {
     const cacheKey = strings.join('␞'); // Use rare char as separator
 
     if (templateCache.has(cacheKey)) {
+        // Update access time for LRU tracking
+        cacheAccessTimes.set(cacheKey, Date.now());
         return templateCache.get(cacheKey);
     }
 
@@ -124,8 +132,32 @@ export function compileTemplate(strings) {
 
     // Cache the compiled template
     templateCache.set(cacheKey, compiled);
+    cacheAccessTimes.set(cacheKey, Date.now());
+
+    // Trigger cleanup if cache is getting too large
+    if (templateCache.size > MAX_CACHE_SIZE) {
+        cleanupTemplateCache();
+    }
 
     return compiled;
+}
+
+/**
+ * Clean up least recently used templates when cache grows too large
+ * Removes oldest 25% of entries based on access time
+ */
+function cleanupTemplateCache() {
+    // Sort entries by access time
+    const entries = Array.from(cacheAccessTimes.entries())
+        .sort((a, b) => a[1] - b[1]); // Sort by timestamp (oldest first)
+
+    // Remove oldest 25% of entries
+    const toRemove = Math.floor(entries.length * 0.25);
+    for (let i = 0; i < toRemove; i++) {
+        const [key] = entries[i];
+        templateCache.delete(key);
+        cacheAccessTimes.delete(key);
+    }
 }
 
 /**
@@ -137,25 +169,16 @@ function parseXMLToTree(xmlString) {
     const voidElements = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
                           'link', 'meta', 'param', 'source', 'track', 'wbr'];
 
-    // List of boolean attributes that can appear without values in HTML
-    const booleanAttrs = ['checked', 'selected', 'disabled', 'readonly', 'multiple',
-                         'ismap', 'defer', 'declare', 'noresize', 'nowrap', 'noshade',
-                         'compact', 'autofocus', 'required', 'autoplay', 'controls', 'loop',
-                         'muted', 'default', 'open', 'reversed', 'scoped', 'seamless',
-                         'sortable', 'novalidate', 'formnovalidate', 'itemscope'];
-
     // Convert boolean attributes to have explicit values for XML compatibility
-    // Match: attribute_name followed by whitespace, > or / (not followed by =)
-    booleanAttrs.forEach(attr => {
-        // Match boolean attribute without value: readonly> or readonly /> or readonly space
-        const regex = new RegExp(`\\s(${attr})(?=\\s|>|/)`, 'gi');
-        xmlString = xmlString.replace(regex, ` ${attr}="${attr}"`);
-    });
+    // Use a single regex with alternation for better performance
+    const booleanAttrPattern = /\s(checked|selected|disabled|readonly|multiple|ismap|defer|declare|noresize|nowrap|noshade|compact|autofocus|required|autoplay|controls|loop|muted|default|open|reversed|scoped|seamless|sortable|novalidate|formnovalidate|itemscope)(?=\s|>|\/)/gi;
+    xmlString = xmlString.replace(booleanAttrPattern, (match, attr) => ` ${attr}="${attr}"`);
 
     // Auto-close void elements for XML compatibility
-    // Match opening tags that aren't already self-closed or followed by a closing tag
     voidElements.forEach(tag => {
-        const regex = new RegExp(`<${tag}([^>]*?)(?<!/)>`, 'gi');
+        // Match opening tag that isn't already self-closed
+        // Use a more robust pattern that handles attributes with quotes
+        const regex = new RegExp(`<${tag}(\\s[^>]*?)?(?<!/)>`, 'gi');
         xmlString = xmlString.replace(regex, `<${tag}$1 />`);
     });
 
@@ -168,6 +191,8 @@ function parseXMLToTree(xmlString) {
     if (parseError) {
         console.error('[parseXMLToTree] Parse error:', parseError.textContent);
         console.error('[parseXMLToTree] Input:', xmlString);
+        console.error('[parseXMLToTree] Processed XML:', `<root>${xmlString}</root>`);
+        // Return empty fragment instead of failing completely
         return { type: 'fragment', wrapped: false, children: [] };
     }
 
@@ -269,45 +294,64 @@ function nodeToTree(node) {
 
             // x-model two-way binding (convert to value/checked + onInput/onChange)
             if (name === 'x-model') {
-                // Determine which attribute and event to use based on input type
-                const inputType = node.getAttribute('type');
+                const isCustomElement = tag.includes('-');
 
-                if (inputType === 'checkbox') {
-                    // Checkboxes use 'checked' attribute and 'change' event
-                    attrs['checked'] = {
-                        xModel: value,
-                        context: 'x-model-checked'
-                    };
-                    events['change'] = {
-                        xModel: value,
-                        modifier: null
-                    };
-                } else if (inputType === 'radio') {
-                    // Radio buttons use 'checked' attribute and 'change' event
-                    attrs['checked'] = {
-                        xModel: value,
-                        context: 'x-model-checked'
-                    };
-                    events['change'] = {
-                        xModel: value,
-                        modifier: null
-                    };
-                } else if (inputType === 'file') {
-                    // File inputs can't have value binding, only change event
-                    events['change'] = {
-                        xModel: value,
-                        modifier: null
-                    };
-                } else {
-                    // Text, number, select, textarea, etc. use 'value' and 'input'
+                if (isCustomElement) {
+                    // Custom elements: use 'value' prop and 'change' event
+                    // The custom component should emit a 'change' event with e.detail.value
                     attrs['value'] = {
                         xModel: value,
                         context: 'x-model-value'
                     };
-                    events['input'] = {
+                    events['change'] = {
                         xModel: value,
-                        modifier: null
+                        modifier: null,
+                        customElement: true  // Flag to use e.detail.value
                     };
+                } else {
+                    // Native elements: determine attribute and event based on input type
+                    const inputType = node.getAttribute('type');
+
+                    if (inputType === 'checkbox') {
+                        // Checkboxes use 'checked' attribute and 'change' event
+                        attrs['checked'] = {
+                            xModel: value,
+                            context: 'x-model-checked'
+                        };
+                        events['change'] = {
+                            xModel: value,
+                            modifier: null
+                        };
+                    } else if (inputType === 'radio') {
+                        // Radio buttons use 'checked' attribute and 'change' event
+                        // Store the radio button's value for comparison
+                        const radioValue = node.getAttribute('value');
+                        attrs['checked'] = {
+                            xModel: value,
+                            radioValue: radioValue,
+                            context: 'x-model-radio'
+                        };
+                        events['change'] = {
+                            xModel: value,
+                            modifier: null
+                        };
+                    } else if (inputType === 'file') {
+                        // File inputs can't have value binding, only change event
+                        events['change'] = {
+                            xModel: value,
+                            modifier: null
+                        };
+                    } else {
+                        // Text, number, select, textarea, etc. use 'value' and 'input'
+                        attrs['value'] = {
+                            xModel: value,
+                            context: 'x-model-value'
+                        };
+                        events['input'] = {
+                            xModel: value,
+                            modifier: null
+                        };
+                    }
                 }
                 continue;
             }
@@ -322,24 +366,34 @@ function nodeToTree(node) {
 
                 const slotMatch = value.match(/^__SLOT_(\d+)__$/);
 
+                let newHandler;
                 if (slotMatch) {
-                    events[eventName] = {
+                    newHandler = {
                         slot: parseInt(slotMatch[1], 10),
                         modifier: modifier
                     };
                 } else if (value.match(/__EVENT_/)) {
                     // Event handler from registry
-                    events[eventName] = {
+                    newHandler = {
                         handler: value,
                         modifier: modifier
                     };
                 } else {
                     // Method name
-                    events[eventName] = {
+                    newHandler = {
                         method: value,
                         modifier: modifier
                     };
                 }
+
+                // Check if this event already has a handler (e.g., from x-model)
+                if (events[eventName]) {
+                    // Store both handlers for later chaining
+                    const existingHandler = events[eventName];
+                    newHandler._chainWith = existingHandler;
+                }
+
+                events[eventName] = newHandler;
                 continue;
             }
 
@@ -367,19 +421,21 @@ function nodeToTree(node) {
                     attrName: name
                 };
             } else if (value.includes('__SLOT_')) {
-                // Partial slot (mixed static and dynamic) - rare but possible
-                // For now, treat as dynamic
+                // Partial slot (mixed static and dynamic)
                 const matches = value.match(/__SLOT_(\d+)__/g);
-                if (matches && matches.length === 1) {
-                    const slotIndex = parseInt(matches[0].match(/\d+/)[0], 10);
+                if (matches && matches.length >= 1) {
+                    // Extract all slot indices
+                    const slots = matches.map(m => parseInt(m.match(/\d+/)[0], 10));
+
+                    // Store template and all slot indices for interpolation
                     attrs[name] = {
-                        slot: slotIndex,
+                        slots: slots,  // Array of slot indices
                         context: 'attribute',
                         attrName: name,
                         template: value  // Keep template for interpolation
                     };
                 } else {
-                    // Multiple slots in one attribute - complex case
+                    // Shouldn't happen, but fallback just in case
                     attrs[name] = { value };
                 }
             } else if (value.match(/__PROP_/)) {
@@ -527,23 +583,46 @@ export function applyValues(compiled, values, component = null) {
                 if (component && component.state) {
                     value = component.state[attrDef.xModel];
 
-                    // For checked attribute (checkbox/radio), ensure boolean
+                    // For checked attribute (checkbox), ensure boolean
                     if (attrDef.context === 'x-model-checked') {
                         value = !!value;
                     }
+                    // For radio buttons, compare state value with radio's value attribute
+                    else if (attrDef.context === 'x-model-radio') {
+                        value = (value === attrDef.radioValue);
+                    }
                 } else {
-                    value = attrDef.context === 'x-model-checked' ? false : '';
+                    value = (attrDef.context === 'x-model-checked' || attrDef.context === 'x-model-radio') ? false : '';
                 }
-            } else if (attrDef.slot !== undefined) {
-                value = values[attrDef.slot];
+            } else if (attrDef.slot !== undefined || attrDef.slots !== undefined) {
+                // Handle single slot (attrDef.slot) or multiple slots (attrDef.slots)
+                if (attrDef.slots) {
+                    // Multiple slots: replace all __SLOT_N__ markers in template
+                    value = attrDef.template;
+                    for (const slotIndex of attrDef.slots) {
+                        const slotMarker = `__SLOT_${slotIndex}__`;
+                        const slotValue = values[slotIndex];
+                        value = value.replace(slotMarker, String(slotValue !== null && slotValue !== undefined ? slotValue : ''));
+                    }
+                } else {
+                    // Single slot
+                    value = values[attrDef.slot];
+
+                    // If there's a template with static parts, interpolate
+                    if (attrDef.template) {
+                        // Replace __SLOT_N__ with the actual value
+                        const slotMarker = `__SLOT_${attrDef.slot}__`;
+                        value = attrDef.template.replace(slotMarker, String(value));
+                    }
+                }
 
                 // Handle different contexts
                 if (attrDef.context === 'url') {
                     value = sanitizeUrl(value) || '';
                 } else if (attrDef.context === 'custom-element-attr') {
-                    // For custom elements, check if it's an object/array
-                    if (typeof value === 'object' && value !== null) {
-                        // Store for ref callback
+                    // For custom elements, check if it's an object/array/function
+                    if ((typeof value === 'object' || typeof value === 'function') && value !== null) {
+                        // Store for ref callback (includes functions, objects, arrays)
                         customElementProps[name] = value;
                         continue;
                     } else {
@@ -613,9 +692,8 @@ export function applyValues(compiled, values, component = null) {
             };
         }
 
-        // Convert events to Preact event handlers
-        for (const [eventName, eventDef] of Object.entries(compiled.events)) {
-            const propName = 'on' + eventName.charAt(0).toUpperCase() + eventName.slice(1);
+        // Helper function to resolve a single event handler
+        const resolveHandler = (eventDef) => {
             let handler = null;
 
             if (eventDef.xModel !== undefined) {
@@ -623,32 +701,39 @@ export function applyValues(compiled, values, component = null) {
                 const propName = eventDef.xModel;
                 handler = (e) => {
                     if (component && component.state) {
-                        const target = e.target;
                         let value;
 
-                        // Determine value based on input type
-                        if (target.type === 'checkbox') {
-                            value = target.checked;
-                        } else if (target.type === 'radio') {
-                            // For radio buttons, only update if this one is checked
-                            if (target.checked) {
-                                value = target.value;
-                            } else {
-                                return; // Don't update state for unchecked radios
-                            }
-                        } else if (target.type === 'number' || target.type === 'range') {
-                            // Convert to number for number/range inputs
-                            value = target.valueAsNumber;
-                            // Fall back to string value if valueAsNumber is NaN
-                            if (isNaN(value)) {
-                                value = target.value;
-                            }
-                        } else if (target.type === 'file') {
-                            // For file inputs, provide the FileList
-                            value = target.files;
+                        // For custom elements, value is in e.detail.value
+                        if (eventDef.customElement) {
+                            value = e.detail.value !== undefined ? e.detail.value : e.detail;
                         } else {
-                            // Default: text, textarea, select, etc.
-                            value = target.value;
+                            // For native elements, extract value from target
+                            const target = e.target;
+
+                            // Determine value based on input type
+                            if (target.type === 'checkbox') {
+                                value = target.checked;
+                            } else if (target.type === 'radio') {
+                                // For radio buttons, only update if this one is checked
+                                if (target.checked) {
+                                    value = target.value;
+                                } else {
+                                    return; // Don't update state for unchecked radios
+                                }
+                            } else if (target.type === 'number' || target.type === 'range') {
+                                // Convert to number for number/range inputs
+                                value = target.valueAsNumber;
+                                // Fall back to string value if valueAsNumber is NaN
+                                if (isNaN(value)) {
+                                    value = target.value;
+                                }
+                            } else if (target.type === 'file') {
+                                // For file inputs, provide the FileList
+                                value = target.files;
+                            } else {
+                                // Default: text, textarea, select, etc.
+                                value = target.value;
+                            }
                         }
 
                         component.state[propName] = value;
@@ -678,7 +763,30 @@ export function applyValues(compiled, values, component = null) {
                         return originalHandler(e);
                     };
                 }
+            }
 
+            return handler;
+        };
+
+        // Convert events to Preact event handlers
+        for (const [eventName, eventDef] of Object.entries(compiled.events)) {
+            const propName = 'on' + eventName.charAt(0).toUpperCase() + eventName.slice(1);
+            let handler = resolveHandler(eventDef);
+
+            // Check if this handler needs to be chained with a previous one (e.g., x-model + on-input)
+            if (eventDef._chainWith && handler) {
+                const firstHandler = resolveHandler(eventDef._chainWith);
+                if (firstHandler) {
+                    // Create closure that calls both handlers in sequence
+                    const secondHandler = handler;
+                    handler = (e) => {
+                        firstHandler(e);
+                        secondHandler(e);
+                    };
+                }
+            }
+
+            if (handler && typeof handler === 'function') {
                 props[propName] = handler;
             }
         }
@@ -709,6 +817,17 @@ export function applyValues(compiled, values, component = null) {
  */
 export function clearTemplateCache() {
     templateCache.clear();
+    cacheAccessTimes.clear();
+}
+
+/**
+ * Trigger template cache cleanup (can be called on route navigation)
+ * This is less aggressive than clearTemplateCache() - only removes old entries
+ */
+export function pruneTemplateCache() {
+    if (templateCache.size > MAX_CACHE_SIZE * 0.5) {
+        cleanupTemplateCache();
+    }
 }
 
 /**

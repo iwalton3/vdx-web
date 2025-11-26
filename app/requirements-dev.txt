@@ -1,0 +1,4 @@
+# Development server dependencies
+# Install with: pip install -r requirements-dev.txt
+
+aiohttp>=3.8.0

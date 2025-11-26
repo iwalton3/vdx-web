@@ -10,6 +10,7 @@ import './core/app-header.js';
 
 // Import pages
 import './home.js';
+import './page-not-found.js';
 import './apps/pwgen/spwg.js';
 import './apps/pwgen/apwg.js';
 import './apps/pwgen/v1.js';
@@ -69,6 +70,9 @@ const router = new Router({
     '/hremote/': {
         component: 'remote-control',
         require: 'root'
+    },
+    '/404': {
+        component: 'page-not-found'
     }
 });
 

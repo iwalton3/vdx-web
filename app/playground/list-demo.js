@@ -41,16 +41,6 @@ export default defineComponent('list-demo', {
 
         clearCompleted() {
             this.state.items = this.state.items.filter(item => !item.done);
-        },
-
-        handleInputChange(e) {
-            this.state.newItemText = e.target.value;
-        },
-
-        handleKeyPress(e) {
-            if (e.key === 'Enter') {
-                this.addItem();
-            }
         }
     },
 
@@ -60,15 +50,14 @@ export default defineComponent('list-demo', {
 
         return html`
             <h2>List Demo</h2>
-            <p>List rendering with add/remove</p>
+            <p>Interactive todo list with x-model two-way binding and each() helper</p>
 
             <div style="margin-bottom: 15px;">
                 <input
                     type="text"
                     placeholder="New item..."
-                    value="${this.state.newItemText}"
-                    on-input="handleInputChange"
-                    on-keypress="handleKeyPress"
+                    x-model="newItemText"
+                    on-keypress="${(e) => e.key === 'Enter' && this.addItem()}"
                     style="flex: 1; margin-right: 10px;">
                 <button on-click="addItem">Add</button>
             </div>

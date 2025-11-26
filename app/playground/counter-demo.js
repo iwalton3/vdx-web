@@ -23,17 +23,13 @@ export default defineComponent('counter-demo', {
 
         reset() {
             this.state.count = 0;
-        },
-
-        handleStepChange(e) {
-            this.state.step = parseInt(e.target.value) || 1;
         }
     },
 
     template() {
         return html`
             <h2>Counter Demo</h2>
-            <p>Demonstrates reactive state updates</p>
+            <p>Demonstrates reactive state updates with x-model two-way binding</p>
 
             <div class="counter-display">${this.state.count}</div>
 
@@ -48,8 +44,8 @@ export default defineComponent('counter-demo', {
                     Step:
                     <input
                         type="number"
-                        value="${this.state.step}"
-                        on-change="handleStepChange"
+                        x-model="step"
+                        min="1"
                         style="width: 80px; margin-left: 5px;">
                 </label>
             </div>

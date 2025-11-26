@@ -16,9 +16,7 @@ export default defineComponent('form-demo', {
     },
 
     methods: {
-        handleSubmit(e) {
-            e.preventDefault();
-
+        handleSubmit() {
             // Validation
             const errors = {};
             if (!this.state.username || this.state.username.length < 3) {
@@ -43,18 +41,9 @@ export default defineComponent('form-demo', {
             }
         },
 
-        handleUsernameChange(e) {
-            this.state.username = e.target.value;
-            if (this.state.errors.username) {
-                delete this.state.errors.username;
-                this.state.errors = { ...this.state.errors };
-            }
-        },
-
-        handleEmailChange(e) {
-            this.state.email = e.target.value;
-            if (this.state.errors.email) {
-                delete this.state.errors.email;
+        clearError(field) {
+            if (this.state.errors[field]) {
+                delete this.state.errors[field];
                 this.state.errors = { ...this.state.errors };
             }
         },
@@ -67,19 +56,20 @@ export default defineComponent('form-demo', {
     template() {
         return html`
             <h2>Form Demo</h2>
-            <p>Form handling with validation</p>
+            <p>Form handling with x-model two-way binding and validation</p>
 
             ${when(this.state.submitted,
                 html`<div style="padding: 10px; background: #d4edda; color: #155724; border-radius: 4px; margin-bottom: 15px;">
                     ✓ Form submitted successfully!
                 </div>`,
-                html`<form on-submit="handleSubmit">
+                html`<form on-submit-prevent="handleSubmit">
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px;">Username:</label>
                         <input
                             type="text"
-                            value="${this.state.username}"
-                            on-input="handleUsernameChange"
+                            x-model="username"
+                            on-input="${() => this.clearError('username')}"
+                            placeholder="Enter username (min 3 chars)"
                             style="width: 100%; box-sizing: border-box;">
                         ${when(this.state.errors.username,
                             html`<div style="color: #dc3545; font-size: 0.85em; margin-top: 3px;">
@@ -93,8 +83,9 @@ export default defineComponent('form-demo', {
                         <label style="display: block; margin-bottom: 5px;">Email:</label>
                         <input
                             type="email"
-                            value="${this.state.email}"
-                            on-input="handleEmailChange"
+                            x-model="email"
+                            on-input="${() => this.clearError('email')}"
+                            placeholder="your@email.com"
                             style="width: 100%; box-sizing: border-box;">
                         ${when(this.state.errors.email,
                             html`<div style="color: #dc3545; font-size: 0.85em; margin-top: 3px;">

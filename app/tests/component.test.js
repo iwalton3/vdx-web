@@ -5,6 +5,7 @@
 import { describe, assert } from './test-runner.js';
 import { defineComponent } from '../core/component.js';
 import { createStore } from '../core/store.js';
+import { html } from '../core/template.js';
 
 describe('Component State Management', function(it) {
     it('initializes component state', () => {
@@ -13,7 +14,7 @@ describe('Component State Management', function(it) {
                 return { count: 0, name: 'test' };
             },
             template() {
-                return `<div>${this.state.count} ${this.state.name}</div>`;
+                return html`<div>${this.state.count} ${this.state.name}</div>`;
             }
         });
 
@@ -32,7 +33,7 @@ describe('Component State Management', function(it) {
                 return { count: 0 };
             },
             template() {
-                return `<div id="counter">${this.state.count}</div>`;
+                return html`<div id="counter">${this.state.count}</div>`;
             }
         });
 
@@ -74,7 +75,7 @@ describe('Component State Management', function(it) {
                 if (this.unsubscribe) this.unsubscribe();
             },
             template() {
-                return `<div id="value">${this.state.storeValue || 'none'}</div>`;
+                return html`<div id="value">${this.state.storeValue || 'none'}</div>`;
             }
         });
 
@@ -110,27 +111,24 @@ describe('Component Event Binding', function(it) {
                 }
             },
             template() {
-                return `<button id="btn" on-click="handleClick">Click me</button>`;
+                return html`<button id="btn" on-click="handleClick">Click me</button>`;
             }
         });
 
         const el = document.createElement('test-click-event');
         document.body.appendChild(el);
 
-        // Use requestAnimationFrame to wait for component to mount and render
-        requestAnimationFrame(() => {
-            setTimeout(() => {
-                const btn = el.querySelector('#btn');
-                assert.ok(btn, 'Should find button');
-                assert.ok(btn.hasAttribute('on-click'), 'Should keep on-click attribute for re-renders');
+        // Wait for component to mount and render
+        setTimeout(() => {
+            const btn = el.querySelector('#btn');
+            assert.ok(btn, 'Should find button');
 
-                btn.click();
-                assert.ok(clicked, 'Should call handleClick on click');
+            btn.click();
+            assert.ok(clicked, 'Should call handleClick on click');
 
-                document.body.removeChild(el);
-                done();
-            }, 50);
-        });
+            document.body.removeChild(el);
+            done();
+        }, 100);
     });
 
     it('binds submit events with on-submit', (done) => {
@@ -145,7 +143,7 @@ describe('Component Event Binding', function(it) {
                 }
             },
             template() {
-                return `<form id="form" on-submit-prevent="handleSubmit">
+                return html`<form id="form" on-submit-prevent="handleSubmit">
                     <input type="text" value="test">
                     <button type="submit">Submit</button>
                 </form>`;
@@ -184,7 +182,7 @@ describe('Component Event Binding', function(it) {
                 }
             },
             template() {
-                return `<input type="checkbox" id="cb" on-change="handleChange">`;
+                return html`<input type="checkbox" id="cb" on-change="handleChange">`;
             }
         });
 
@@ -217,9 +215,9 @@ describe('Component Re-rendering', function(it) {
             },
             template() {
                 if (this.state.showForm) {
-                    return `<form id="form">Form is visible</form>`;
+                    return html`<form id="form">Form is visible</form>`;
                 } else {
-                    return `<div id="message">Click to show form</div>`;
+                    return html`<div id="message">Click to show form</div>`;
                 }
             }
         });
@@ -258,7 +256,7 @@ describe('Component Event Isolation', function(it) {
                 }
             },
             template() {
-                return `<button id="child-btn" on-click="handleChildClick">Child Button</button>`;
+                return html`<button id="child-btn" on-click="handleChildClick">Child Button</button>`;
             }
         });
 
@@ -274,7 +272,7 @@ describe('Component Event Isolation', function(it) {
                 }
             },
             template() {
-                return `
+                return html`
                     <div>
                         <button id="parent-btn" on-click="handleParentClick">Parent Button</button>
                         <test-child-light></test-child-light>

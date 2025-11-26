@@ -14,53 +14,6 @@ const RAW_MARKER = Symbol('raw');
 export const isHtml = (obj) => obj && obj[HTML_MARKER] === true;
 export const isRaw = (obj) => obj && obj[RAW_MARKER] === true;
 
-// Prop binding registry - stores actual object/array values
-const propRegistry = new Map();
-
-// Event handler registry - stores function references for event binding
-const eventRegistry = new Map();
-
-// Security: Use crypto-random prefix to prevent prop marker tampering
-// Generate once on page load for performance, then use sequential IDs
-let propIdPrefix = null;
-let propIdCounter = 0;
-
-// Event handler IDs use same security model as props
-let eventIdPrefix = null;
-let eventIdCounter = 0;
-
-function generatePropId() {
-    // Generate 6-char random hex prefix once on first use (16^6 = 16.7M combinations)
-    if (propIdPrefix === null) {
-        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-            const arr = new Uint8Array(3); // 3 bytes = 6 hex chars
-            crypto.getRandomValues(arr);
-            propIdPrefix = Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
-        } else {
-            // Fallback: random hex from Math.random
-            propIdPrefix = Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0');
-        }
-    }
-    // Use prefix + sequential counter for performance
-    return `${propIdPrefix}-${propIdCounter++}`;
-}
-
-function generateEventId() {
-    // Generate 6-char random hex prefix once on first use (16^6 = 16.7M combinations)
-    if (eventIdPrefix === null) {
-        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-            const arr = new Uint8Array(3); // 3 bytes = 6 hex chars
-            crypto.getRandomValues(arr);
-            eventIdPrefix = Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
-        } else {
-            // Fallback: random hex from Math.random
-            eventIdPrefix = Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0');
-        }
-    }
-    // Use prefix + sequential counter for performance
-    return `${eventIdPrefix}-${eventIdCounter++}`;
-}
-
 // URL attributes that need URL sanitization
 const URL_ATTRIBUTES = new Set([
     'href', 'src', 'action', 'formaction', 'data', 'poster',
@@ -269,151 +222,44 @@ export const USE_COMPILED_TEMPLATES = true;
  * Returns a special object that can be nested without double-escaping
  */
 export function html(strings, ...values) {
-    // Compiled template path (experimental)
-    if (USE_COMPILED_TEMPLATES && html._useCompiled) {
-        try {
-            const { compileTemplate } = html._compiler;
-            const compiled = compileTemplate(strings);
-
-            return {
-                [HTML_MARKER]: true,
-                _compiled: compiled,
-                _values: values,
-                toString() {
-                    // Compiled templates are rendered via Preact, not strings
-                    // This is only for backward compat with legacy code
-                    return '<!-- compiled template -->';
-                }
-            };
-        } catch (error) {
-            console.warn('[html] Compiled template failed, falling back to string-based:', error);
-            // Fall through to string-based
-        }
+    // All templates now use the compiled path
+    if (!html._useCompiled || !html._compiler) {
+        console.error('[html] Template compiler not initialized. Call html.init(templateCompiler) first.');
+        return {
+            [HTML_MARKER]: true,
+            _compiled: null,
+            _values: [],
+            toString() {
+                return '<!-- template compiler not initialized -->';
+            }
+        };
     }
 
-    // String-based implementation (current default)
-    let result = '';
+    try {
+        const { compileTemplate } = html._compiler;
+        const compiled = compileTemplate(strings);
 
-    strings.forEach((string, i) => {
-        result += string;
-
-        if (i < values.length) {
-            const value = values[i];
-
-            // Allow explicit raw() for trusted HTML (using Symbol for security)
-            if (isRaw(value)) {
-                result += normalizeInput(value.toString());
-                return;
+        return {
+            [HTML_MARKER]: true,
+            _compiled: compiled,
+            _values: values,
+            toString() {
+                // Compiled templates are rendered via Preact, not strings
+                // This is only for backward compat with legacy code/debugging
+                return '<!-- compiled template -->';
             }
-
-            // Allow nested html() calls without double-escaping (using Symbol)
-            if (isHtml(value)) {
-                result += value.toString();
-                return;
+        };
+    } catch (error) {
+        console.error('[html] Template compilation failed:', error);
+        return {
+            [HTML_MARKER]: true,
+            _compiled: null,
+            _values: [],
+            toString() {
+                return '<!-- compilation error -->';
             }
-
-            // Automatically detect context and apply appropriate escaping
-            const context = detectContext(result);
-
-            switch (context.type) {
-                case 'custom-element-attr':
-                    // For custom elements, store actual value and insert marker
-                    // This allows passing objects/arrays without stringification
-                    // Security: Use crypto-random IDs to prevent marker tampering
-                    if (typeof value === 'object' && value !== null) {
-                        const id = generatePropId();
-                        propRegistry.set(id, value);
-                        result += `__PROP_${id}__`;
-                    } else {
-                        // Primitives still get escaped
-                        result += escapeAttr(value);
-                    }
-                    break;
-
-                case 'url':
-                    // Automatically sanitize URLs in href, src, etc.
-                    result += sanitizeUrl(value);
-                    break;
-
-                case 'attribute':
-                    // Handle undefined/null: remove attribute entirely
-                    if (value === undefined || value === null) {
-                        result += '\x00REMOVE_ATTR\x00';
-                        break;
-                    }
-
-                    // Handle booleans in boolean attributes
-                    if (typeof value === 'boolean' && BOOLEAN_ATTRIBUTES.has(context.attrName)) {
-                        // true → empty value (selected=""), false → remove attribute
-                        result += value ? '' : '\x00REMOVE_ATTR\x00';
-                    } else if (typeof value === 'boolean') {
-                        // Non-boolean attributes: convert to string
-                        result += escapeAttr(String(value));
-                    } else {
-                        // String/number values: escape normally
-                        result += escapeAttr(value);
-                    }
-                    break;
-
-                case 'event-handler':
-                    // Allow function references, block everything else
-                    if (typeof value === 'function') {
-                        // Store function and use marker
-                        const id = generateEventId();
-                        eventRegistry.set(id, value);
-                        result += `__EVENT_${id}__`;
-                    } else {
-                        // Block non-function interpolation in event handlers
-                        console.error(
-                            '[Security] Interpolation blocked in event handler attribute.',
-                            'Use on-event="method" syntax for method names or pass a function reference.',
-                            'Value was:', value
-                        );
-                        result += '';
-                    }
-                    break;
-
-                case 'dangerous':
-                    // Block interpolation in dangerous attributes
-                    console.error(
-                        '[Security] Interpolation blocked in dangerous attribute (style, srcdoc).',
-                        'Value was:', value
-                    );
-                    result += '';
-                    break;
-
-                case 'tag':
-                    // Block interpolation in tag context (e.g., attribute names)
-                    // Use attribute value context instead: selected="${condition}"
-                    console.error(
-                        '[Security] Interpolation blocked in tag context (not in attribute value).',
-                        'Use attribute value context instead: attr="${value}"',
-                        'Value was:', value
-                    );
-                    result += '';
-                    break;
-
-                case 'content':
-                default:
-                    // Escape for HTML content
-                    result += escapeHtml(value);
-                    break;
-            }
-        }
-    });
-
-    // Clean up attributes marked for removal
-    // Pattern: attribute-name="\x00REMOVE_ATTR\x00" or attribute-name='\x00REMOVE_ATTR\x00'
-    result = result.replace(/\s+[\w-]+\s*=\s*["']\x00REMOVE_ATTR\x00["']/g, '');
-
-    // Return a special object that marks this as already-processed HTML
-    // Security: Use Symbol for trust verification (JSON can't fake this)
-    return {
-        [HTML_MARKER]: true,
-        toString() {
-            return result;
-        }
-    };
+        };
+    }
 }
 
 /**
@@ -439,61 +285,20 @@ export function debugContext(templateString) {
 
 /**
  * Check if a string is a prop marker and retrieve the actual value
- * Returns null if not a prop marker
- * Security: Markers use 6-char random hex prefix to prevent tampering
+ * Note: With compiled templates, prop markers are no longer used.
+ * This function is kept for backward compatibility and always returns null.
  */
 export function getPropValue(str) {
-    if (typeof str !== 'string') return null;
-
-    // Match format: __PROP_<6-hex-chars>-<number>__
-    const match = str.match(/^__PROP_([a-f0-9]{6}-\d+)__$/i);
-    if (match) {
-        const id = match[1];
-        const value = propRegistry.get(id);
-        // Don't delete immediately - let multiple reads happen
-        // Registry will grow but clears on page navigation
-        return value;
-    }
     return null;
 }
 
 /**
  * Check if a string is an event handler marker and retrieve the function
- * Returns null if not an event marker
- * Security: Markers use 6-char random hex prefix to prevent tampering
+ * Note: With compiled templates, event markers are no longer used.
+ * This function is kept for backward compatibility and always returns null.
  */
 export function getEventHandler(str) {
-    if (typeof str !== 'string') return null;
-
-    // Match format: __EVENT_<6-hex-chars>-<number>__
-    const match = str.match(/^__EVENT_([a-f0-9]{6}-\d+)__$/i);
-    if (match) {
-        const id = match[1];
-        const handler = eventRegistry.get(id);
-        // Don't delete immediately - let multiple reads happen
-        // Registry will grow but clears on page navigation
-        return handler;
-    }
     return null;
-}
-
-/**
- * Manual cleanup of old prop and event markers (called periodically if needed)
- */
-export function cleanupPropRegistry() {
-    // Keep only the last 1000 entries in prop registry
-    if (propRegistry.size > 1000) {
-        const entries = Array.from(propRegistry.keys()).sort((a, b) => a - b);
-        const toDelete = entries.slice(0, entries.length - 1000);
-        toDelete.forEach(id => propRegistry.delete(id));
-    }
-
-    // Keep only the last 1000 entries in event registry
-    if (eventRegistry.size > 1000) {
-        const entries = Array.from(eventRegistry.keys()).sort((a, b) => a - b);
-        const toDelete = entries.slice(0, entries.length - 1000);
-        toDelete.forEach(id => eventRegistry.delete(id));
-    }
 }
 
 /**

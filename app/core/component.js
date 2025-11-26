@@ -6,10 +6,7 @@
 import { reactive, createEffect, trackAllDependencies } from './reactivity.js';
 import { render as preactRender } from '../vendor/preact/index.js';
 import { applyValues } from './template-compiler.js';
-import { html, getPropValue, getEventHandler, cleanupPropRegistry } from './template.js';
-
-// Global render counter for periodic cleanup
-let globalRenderCount = 0;
+import { html, getPropValue, getEventHandler } from './template.js';
 
 // Debug logging control - only enable for specific components
 const DEBUG_COMPONENTS = new Set([
@@ -18,6 +15,147 @@ const DEBUG_COMPONENTS = new Set([
     // 'X-TILES',
     // 'USER-TOOLS'
 ]);
+
+// Cache for processed component styles (tag name -> processed CSS string)
+const processedStylesCache = new Map();
+
+/**
+ * Scope component styles to prevent leakage to other components
+ * Transforms selectors to be prefixed with component tag name
+ *
+ * Strategy: Prefix selectors with tag name using descendant combinator.
+ * This allows styling nested elements within the component, but prevents
+ * styles from affecting other custom components (which have hyphenated tag names).
+ *
+ * Example:
+ *   Input:  "button { color: blue; }"
+ *   Output: "x-select-box button { color: blue; }"
+ *
+ * This means:
+ * - ✅ Styles apply to <button> inside x-select-box
+ * - ✅ Styles apply to nested <div><button></div> inside x-select-box
+ * - ❌ Styles DON'T apply to <my-other-component> inside x-select-box
+ *
+ * @param {string} css - Raw CSS from component
+ * @param {string} tagName - Component tag name (e.g., 'x-select-box')
+ * @returns {string} Scoped CSS
+ */
+function scopeComponentStyles(css, tagName) {
+    let result = '';
+    let i = 0;
+    const len = css.length;
+
+    // Replace :host with tag name
+    css = css.replace(/:host/g, tagName);
+
+    while (i < len) {
+        // Skip whitespace
+        while (i < len && /\s/.test(css[i])) {
+            result += css[i];
+            i++;
+        }
+
+        if (i >= len) break;
+
+        // Check for @-rules (media queries, keyframes, etc.)
+        if (css[i] === '@') {
+            // Find the opening brace of the @-rule
+            let j = i;
+            while (j < len && css[j] !== '{') {
+                j++;
+            }
+
+            // Add the @-rule declaration (e.g., "@media screen and (max-width: 600px)")
+            result += css.substring(i, j + 1);
+            i = j + 1;
+
+            // Find the matching closing brace
+            let depth = 1;
+            let atRuleBody = '';
+            while (i < len && depth > 0) {
+                if (css[i] === '{') depth++;
+                if (css[i] === '}') depth--;
+
+                if (depth > 0) {
+                    atRuleBody += css[i];
+                }
+                i++;
+            }
+
+            // Recursively scope the rules inside the @-rule
+            result += scopeComponentStyles(atRuleBody, tagName);
+            result += '}';
+            continue;
+        }
+
+        // Regular rule: find selector and body
+        let selector = '';
+        while (i < len && css[i] !== '{') {
+            selector += css[i];
+            i++;
+        }
+
+        selector = selector.trim();
+        if (!selector) {
+            if (i < len) {
+                result += css[i];
+                i++;
+            }
+            continue;
+        }
+
+        // Skip the opening brace
+        if (i < len && css[i] === '{') {
+            i++;
+        }
+
+        // Find the rule body
+        let depth = 1;
+        let body = '';
+        while (i < len && depth > 0) {
+            if (css[i] === '{') depth++;
+            if (css[i] === '}') depth--;
+
+            if (depth > 0) {
+                body += css[i];
+            }
+            i++;
+        }
+
+        // Scope the selector
+        const scopedSelector = scopeSelector(selector, tagName);
+        result += `${scopedSelector} { ${body} }\n`;
+    }
+
+    return result;
+}
+
+/**
+ * Scope a single selector (or comma-separated selectors)
+ * @param {string} selector - CSS selector(s)
+ * @param {string} tagName - Component tag name
+ * @returns {string} Scoped selector(s)
+ */
+function scopeSelector(selector, tagName) {
+    // Split by comma for multiple selectors
+    const selectors = selector.split(',').map(s => s.trim());
+
+    return selectors.map(sel => {
+        // Don't scope special selectors
+        if (sel === '*' || sel === 'body' || sel === 'html' || sel.startsWith('@')) {
+            return sel;
+        }
+
+        // Already scoped (starts with tag name)
+        if (sel.startsWith(tagName)) {
+            return sel;
+        }
+
+        // Scope with descendant combinator
+        // This allows styling nested elements but prevents leakage to other components
+        return `${tagName} ${sel}`;
+    }).join(', ');
+}
 
 /**
  * Define a custom component
@@ -47,9 +185,6 @@ export function defineComponent(name, options) {
             // Cleanup functions
             this._cleanups = [];
 
-            // Track bound event listeners for cleanup
-            this._boundListeners = [];
-
             // Track model bindings for cleanup
             this._modelListeners = [];
             this._modelEffects = [];
@@ -61,6 +196,32 @@ export function defineComponent(name, options) {
             // Create a container div for Preact to render into
             // This gives us a stable mount point for Preact's reconciliation
             this._container = null;
+        }
+
+        /**
+         * Emit a change event for x-model binding
+         * Handles all the boilerplate: stopPropagation, update prop, emit CustomEvent
+         * @param {Event} e - The original event (will have propagation stopped)
+         * @param {*} value - The new value to emit
+         * @param {string} propName - The prop name to update (default: 'value')
+         */
+        emitChange(e, value, propName = 'value') {
+            // Stop the native event from bubbling
+            if (e && e.stopPropagation) {
+                e.stopPropagation();
+            }
+
+            // Update the prop
+            if (propName in this.props) {
+                this.props[propName] = value;
+            }
+
+            // Emit CustomEvent with detail
+            this.dispatchEvent(new CustomEvent('change', {
+                bubbles: true,
+                composed: true,
+                detail: { value }
+            }));
         }
 
         connectedCallback() {
@@ -89,19 +250,20 @@ export function defineComponent(name, options) {
                 // Track all state dependencies efficiently
                 trackAllDependencies(this.state);
 
-                // Only re-render if component is mounted
-                if (this._isMounted) {
-                    this.render();
-                }
+                // Call render - it has its own guards to prevent rendering when unmounted
+                this.render();
             });
 
             // Store disposal function for cleanup
             this._cleanups.push(disposeRenderEffect);
 
-            // Call mounted hook
+            // Call mounted hook AFTER initial render (async, non-blocking)
+            // This ensures the component renders immediately and doesn't block navigation
             if (options.mounted) {
-                Promise.resolve().then(() => {
-                    if (!this._isDestroyed) {
+                // Use queueMicrotask to ensure mounted runs after current render cycle
+                queueMicrotask(() => {
+                    // Check if still mounted (might have unmounted during render)
+                    if (this._isMounted && !this._isDestroyed) {
                         options.mounted.call(this);
                     }
                 });
@@ -109,20 +271,24 @@ export function defineComponent(name, options) {
         }
 
         disconnectedCallback() {
+            // Set flags FIRST to prevent any new operations
             this._isDestroyed = true;
             this._isMounted = false;
 
-            // Call unmounted hook
+            // Dispose reactive effects IMMEDIATELY to stop state updates from triggering renders
+            // This must happen before calling unmounted() hook
+            if (this._cleanups && this._cleanups.length > 0) {
+                this._cleanups.forEach(fn => fn());
+                this._cleanups = [];
+            }
+
+            // Call unmounted hook (after effects are disposed)
             if (options.unmounted) {
                 options.unmounted.call(this);
             }
 
             // Unmount Preact tree
             preactRender(null, this);
-
-            // Run cleanup functions
-            this._cleanups.forEach(fn => fn());
-            this._cleanups = [];
         }
 
         attributeChangedCallback(name, oldValue, newValue) {
@@ -242,58 +408,35 @@ export function defineComponent(name, options) {
         }
 
         render() {
+            // Guard: Don't render if component is destroyed or not mounted
+            if (this._isDestroyed || !this._isMounted) {
+                return;
+            }
+
             if (!options.template) return;
 
             const isDebug = DEBUG_COMPONENTS.has(this.tagName);
 
-            // Periodic cleanup of prop and event registries (every 100 renders)
-            globalRenderCount++;
-            if (globalRenderCount % 100 === 0) {
-                cleanupPropRegistry();
-            }
-
             // Inject styles into document head if not already done
             if (options.styles && !this._stylesInjected) {
                 const styleId = `component-styles-${options.name || this.tagName}`;
+                const tagName = this.tagName.toLowerCase();
+
                 if (!document.getElementById(styleId)) {
+                    // Check cache first
+                    let processedStyles = processedStylesCache.get(tagName);
+
+                    if (!processedStyles) {
+                        // Process styles: scope all selectors to this component
+                        processedStyles = scopeComponentStyles(options.styles, tagName);
+
+                        // Cache the processed styles
+                        processedStylesCache.set(tagName, processedStyles);
+                    }
+
+                    // Inject into document head
                     const styleEl = document.createElement('style');
                     styleEl.id = styleId;
-
-                    // Replace :host selector with component tag name
-                    let processedStyles = options.styles.replace(/:host/g, this.tagName.toLowerCase());
-
-                    // Wrap all rules with component tag name for scoping (basic CSS namespacing)
-                    // This prevents component styles from leaking globally
-                    // Split by } to get individual rules, then prefix each selector
-                    processedStyles = processedStyles
-                        .split('}')
-                        .map(rule => {
-                            if (!rule.trim()) return '';
-                            // Check if rule already starts with tag name
-                            const trimmed = rule.trim();
-                            if (trimmed.startsWith(this.tagName.toLowerCase())) {
-                                return rule + '}';
-                            }
-                            // Prefix selector with tag name
-                            const parts = rule.split('{');
-                            if (parts.length === 2) {
-                                const selector = parts[0].trim();
-                                const body = parts[1];
-                                // Split multiple selectors by comma
-                                const selectors = selector.split(',').map(s => {
-                                    s = s.trim();
-                                    // Don't prefix @-rules, *, or body/html selectors
-                                    if (s.startsWith('@') || s === '*' || s === 'body' || s === 'html') {
-                                        return s;
-                                    }
-                                    return `${this.tagName.toLowerCase()} ${s}`;
-                                }).join(', ');
-                                return `${selectors} { ${body}}`;
-                            }
-                            return rule + '}';
-                        })
-                        .join('\n');
-
                     styleEl.textContent = processedStyles;
                     document.head.appendChild(styleEl);
                 }
@@ -328,90 +471,20 @@ export function defineComponent(name, options) {
                 // Preact automatically maintains vdom state between renders
                 preactRender(preactElement, this);
             } else {
-                // Fallback: String-based templates (for tests and legacy components)
-                const templateString = templateResult && templateResult.toString
-                    ? templateResult.toString()
-                    : String(templateResult || '');
-
-                // Simple innerHTML replacement for string templates
-                this.innerHTML = templateString;
-
-                // Bind events for string templates (Preact doesn't handle these)
-                this._bindEvents(this);
+                // No compiled template - this shouldn't happen in production
+                console.error(`[${this.tagName}] Template was not compiled. Ensure you're using the html\`\` tag.`);
             }
 
             // Call afterRender hook if provided
             if (options.afterRender && this._isMounted) {
                 Promise.resolve().then(() => {
-                    if (!this._isDestroyed) {
+                    if (!this._isDestroyed && this._isMounted) {
                         options.afterRender.call(this);
                     }
                 });
             }
         }
 
-        _cleanupEventListeners() {
-            // Remove all tracked event listeners
-            this._boundListeners.forEach(({ element, eventName, listener }) => {
-                element.removeEventListener(eventName, listener);
-            });
-            this._boundListeners = [];
-        }
-
-        _bindEvents(root) {
-            // Clean up old listeners first
-            this._cleanupEventListeners();
-
-            // Find all elements with on-* attributes
-            const allElements = root.querySelectorAll('*');
-
-            allElements.forEach(el => {
-                // Check all attributes for on- prefix
-                Array.from(el.attributes).forEach(attr => {
-                    if (attr.name.startsWith('on-')) {
-                        const fullAttrName = attr.name;
-                        const attrValue = attr.value;
-
-                        // Parse event name and modifiers
-                        // Format: on-eventName or on-eventName-modifier
-                        const parts = fullAttrName.substring(3).split('-');
-                        const eventName = parts[0];
-                        const modifier = parts[1];
-
-                        // Check if this is an event handler marker from template
-                        const eventHandler = getEventHandler(attrValue);
-
-                        // Create event listener
-                        const listener = (e) => {
-                            // Handle modifiers
-                            if (modifier === 'prevent') {
-                                e.preventDefault();
-                            }
-                            if (modifier === 'stop') {
-                                e.stopPropagation();
-                            }
-
-                            // If event handler marker, call the stored function
-                            if (eventHandler) {
-                                eventHandler.call(this, e);
-                            }
-                            // Otherwise look up method by name (if we have methods)
-                            else if (options.methods && this[attrValue]) {
-                                this[attrValue](e);
-                            } else if (!eventHandler) {
-                                console.warn(`Method "${attrValue}" not found in component`);
-                            }
-                        };
-
-                        // Add event listener
-                        el.addEventListener(eventName, listener);
-
-                        // Track for cleanup
-                        this._boundListeners.push({ element: el, eventName, listener });
-                    }
-                });
-            });
-        }
 
         _setupBindings(root) {
             // Clean up old model bindings to prevent memory leaks

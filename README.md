@@ -15,6 +15,10 @@ This is a client for SWAPI (Simple Web API) built with a custom zero-dependency 
 - **Vendored Preact** - Includes Preact 10.x (~4KB) for efficient rendering
 - **Innovative template compiler** - Compiles `html` templates once, applies values on re-render
 - **Smart two-way binding** - `x-model` with automatic type conversion (even React doesn't have this!)
+- **Chainable event handlers** - Combine x-model with on-input/on-change for custom logic
+- **Auto-bound methods** - No manual `.bind(this)` needed, just works
+- **Computed properties** - Memoized values with dependency tracking
+- **Virtual scrolling** - Efficiently render massive lists
 - **Modern & secure** - Built-in XSS protection, reactive state, component system
 - **Production ready** - Comprehensive test suite with 125 passing tests
 - **Clean architecture** - ~3000 lines of well-documented framework code
@@ -48,8 +52,6 @@ app/
 ├── apps/                    # Application modules
 │   └── pwgen/              # Password generators (3 variants)
 ├── hremote-app/            # Home remote control (Philips Hue)
-├── hometool-app/           # Home automation
-├── locationtool-app/       # Location tracking
 ├── components/             # Shared UI components
 ├── playground/             # Interactive framework demos
 ├── styles/                 # Global CSS
@@ -104,6 +106,12 @@ state.count++; // Automatically triggers re-render
 <input type="checkbox" x-model="agreed">   // Automatic boolean
 <select x-model="country">...</select>
 <textarea x-model="bio"></textarea>
+
+// Combine x-model with additional event handlers!
+<input
+    type="text"
+    x-model="username"
+    on-input="${() => this.clearError('username')}">
 ```
 
 The framework automatically:
@@ -111,6 +119,7 @@ The framework automatically:
 - Sets up the right event (`input` or `change`)
 - Converts types (numbers, booleans) automatically
 - Updates state and re-renders on changes
+- **Chains handlers** - x-model works seamlessly with on-input/on-change for custom logic
 
 **Supports all input types**: text, number, email, password, checkbox, radio, select, textarea, range, file
 
@@ -204,10 +213,52 @@ defineComponent('my-component', {
 ```
 
 Components automatically:
+- **Auto-bind methods** - No `.bind(this)` needed, methods just work!
 - Compile templates on first render (cached)
 - Use Preact for efficient DOM updates
 - Scope styles to component tag name (`:host` → `my-component`)
 - Clean up effects and subscriptions on unmount
+
+### Computed Properties
+
+Memoized computed properties with automatic dependency tracking:
+
+```javascript
+import { computed } from './core/utils.js';
+
+defineComponent('product-list', {
+    data() {
+        return {
+            items: [...], // 1000 items
+            searchQuery: '',
+            sortBy: 'name',
+
+            // Computed property - only recalculates when dependencies change
+            filteredItems: computed((items, query) => {
+                console.log('[Computed] Filtering...');  // Only logs when needed!
+                return items.filter(item =>
+                    item.name.toLowerCase().includes(query.toLowerCase())
+                );
+            })
+        };
+    },
+
+    template() {
+        // Call computed with current dependencies
+        const filtered = this.state.filteredItems(
+            this.state.items,
+            this.state.searchQuery
+        );
+
+        return html`
+            <input type="text" x-model="searchQuery" placeholder="Search...">
+            <div>${filtered.length} items found</div>
+        `;
+    }
+});
+```
+
+Computed properties cache results and only recalculate when dependencies change - perfect for expensive operations like filtering/sorting large lists!
 
 ### Router
 
@@ -289,7 +340,7 @@ cd app
 python3 test-server.py
 ```
 
-Then open: http://localhost:8000/tests/
+Then open: http://localhost:9000/tests/
 
 All 125 tests pass, covering:
 - Reactive state system
@@ -307,18 +358,20 @@ View live demos of framework features:
 
 ```bash
 cd app
-python3 -m http.server 8000
+python3 test-server.py
 ```
 
 Then open: http://localhost:8000/playground.html
 
 Features demonstrated:
-- Counter (reactive state)
-- Form validation
-- List rendering with `each()`
-- Conditional rendering with `when()`
-- Nested components
-- Notification system
+- **Counter** - Reactive state with x-model two-way binding
+- **Form** - Validation with x-model + on-input chaining
+- **List** - Todo list with each(), when(), and x-model
+- **Conditional** - Advanced when() patterns (nested, state machines)
+- **Nested** - Component composition and prop passing
+- **Notifications** - Toast notification system
+- **Computed** - Memoized properties for efficient filtering/sorting (1000 items)
+- **Virtual Scroll** - Efficiently render huge lists (only visible items)
 
 ## Security Features
 

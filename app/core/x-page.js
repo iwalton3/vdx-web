@@ -8,7 +8,7 @@ import { defineComponent } from './component.js';
 
 export default defineComponent('x-page', {
     styles: `
-        x-page {
+        :host {
             display: block;
             margin: 0 auto;
             max-width: 700px;

@@ -109,7 +109,7 @@ defineComponent('spwg-page', {
             try {
                 this.state.response = await frombits(this.state.entropy);
             } catch (error) {
-                this.state.response = '<p class="error">Error generating password from bits.</p>';
+                this.state.response = '<p class="banner-error">Error generating password from bits.</p>';
             }
         },
 
@@ -117,7 +117,7 @@ defineComponent('spwg-page', {
             try {
                 this.state.response = await fromlength(this.state.words);
             } catch (error) {
-                this.state.response = '<p class="error">Error generating password from word count.</p>';
+                this.state.response = '<p class="banner-error">Error generating password from word count.</p>';
             }
         },
 
@@ -125,7 +125,7 @@ defineComponent('spwg-page', {
             try {
                 this.state.response = await frommax(this.state.combinations);
             } catch (error) {
-                this.state.response = '<p class="error">Error generating password from combinations.</p>';
+                this.state.response = '<p class="banner-error">Error generating password from combinations.</p>';
             }
         },
 
@@ -133,7 +133,7 @@ defineComponent('spwg-page', {
             try {
                 this.state.response = await towords(this.state.number);
             } catch (error) {
-                this.state.response = '<p class="error">Error converting number to words.</p>';
+                this.state.response = '<p class="banner-error">Error converting number to words.</p>';
             }
         },
 
@@ -141,7 +141,7 @@ defineComponent('spwg-page', {
             try {
                 this.state.response = await tonumber(this.state.password);
             } catch (error) {
-                this.state.response = '<p class="error">That password cannot be converted to a number.</p>';
+                this.state.response = '<p class="banner-error">That password cannot be converted to a number.</p>';
             }
         },
 
@@ -149,7 +149,7 @@ defineComponent('spwg-page', {
             try {
                 this.state.response = await fromlengthbatch(this.state.words, this.state.count);
             } catch (error) {
-                this.state.response = '<p class="error">Error generating batch passwords.</p>';
+                this.state.response = '<p class="banner-error">Error generating batch passwords.</p>';
             }
         }
     },

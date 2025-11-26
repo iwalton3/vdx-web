@@ -1,0 +1,288 @@
+        /* Basic Jellyfin-like styling */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #101010;
+            color: #fff;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .demo-button {
+            display: block;
+            margin: 0 auto;
+            padding: 12px 24px;
+            background: #00a4dc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .demo-button:hover {
+            background: #0086b3;
+        }
+
+        /* Modal Styles */
+        .modal-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: #1c1c1c;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #333;
+        }
+
+        .modal-title {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 500;
+        }
+
+        .modal-content {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .section {
+            margin-bottom: 32px;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 500;
+            margin: 0 0 16px 0;
+            text-transform: capitalize;
+            color: #00a4dc;
+        }
+
+        .section-description {
+            font-size: 14px;
+            color: #aaa;
+            margin: 8px 0 16px 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #ddd;
+        }
+
+        .help-icon {
+            margin-left: 8px;
+            position: relative;
+            cursor: help;
+            width: 18px;
+            height: 18px;
+            background: #444;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .help-icon::before {
+            content: '?';
+            font-weight: bold;
+        }
+
+        .help-icon:hover .tooltip {
+            display: block;
+        }
+
+        .tooltip {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            margin-left: 10px;
+            background: #000;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            max-width: 300px;
+            white-space: normal;
+            z-index: 10;
+            border: 1px solid #555;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #00a4dc;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px 0;
+        }
+
+        .checkbox-label input {
+            margin: 0;
+            margin-right: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: #00a4dc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0086b3;
+        }
+
+        .btn-secondary {
+            background: #444;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #555;
+        }
+
+        .btn-danger {
+            background: #c1121f;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #a00e1a;
+        }
+
+        /* Notification styles */
+        notification-list {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .notification {
+            background: #2a2a2a;
+            padding: 16px 20px;
+            border-radius: 6px;
+            border-left: 4px solid;
+            min-width: 300px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.info {
+            border-left-color: #00a4dc;
+        }
+
+        .notification.success {
+            border-left-color: #2a9d8f;
+        }
+
+        .notification.error {
+            border-left-color: #c1121f;
+        }
+
+        .notification.warning {
+            border-left-color: #f77f00;
+        }

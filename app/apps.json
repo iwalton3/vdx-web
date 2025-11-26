@@ -8,45 +8,17 @@
     },
     {
         "spa": false,
-        "name": "Autopassword",
-        "path": "/autopassword/",
-        "icon": "/theme/autopassword.svg",
-        "info": "Generate many passwords from a passphrase."
+        "name": "Test Suite",
+        "path": "/tests/",
+        "icon": "/theme/terminal.svg",
+        "info": "Comprehensive test suite for the framework (~160 tests covering all features)."
     },
     {
         "spa": false,
-        "name": "Dark Theme",
-        "path": "/wiki/#[[Dark%20Theme%20Solution]]",
-        "icon": "/theme/dark-document.svg",
-        "info": "Make all the web pages readable at night."
-    },
-    {
-        "spa": false,
-        "name": "Fast Link",
-        "path": "/fl/",
-        "icon": "/theme/fastlink.svg",
-        "info": "Allows quick sharing of temporary links."
-    },
-    {
-        "spa": false,
-        "name": "ICL-Backup",
-        "path": "/wiki/#ICL-Backup",
-        "icon": "/theme/icl-backup.svg",
-        "info": "Incremental Windows/Linux Backup with SecureBoot, LVM, and CryptLuks support."
-    },
-    {
-        "spa": false,
-        "name": "Project Wiki",
-        "path": "/wiki/",
-        "icon": "/theme/applications-internet.svg",
-        "info": "A wiki with a bunch of random projects I have made."
-    },
-    {
-        "spa": false,
-        "name": "Quick Note",
-        "path": "/qnote/",
-        "icon": "/theme/qknote.svg",
-        "info": "This is an editable version of the pastebin."
+        "name": "Embedding",
+        "path": "/bundle-demo/",
+        "icon": "/theme/terminal.svg",
+        "info": "Self-contained framework bundle demo - single file, no build step, perfect for embedding in static sites."
     },
     {
         "spa": true,
@@ -57,13 +29,6 @@
     }
 ],"other":[
     {
-        "spa": false,
-        "name": "Adblock Tool",
-        "path": "/wiki/#[[Windows%20Hosts%20Updater]]",
-        "icon": "/theme/stop.svg",
-        "info": "Block ads in all applications on Windows."
-    },
-    {
         "spa": true,
         "name": "APWG",
         "path": "/pwgen/apwg/",
@@ -71,24 +36,10 @@
         "info": "Generate gibberish passwords. Shorter and more secure, but harder to remember."
     },
     {
-        "spa": false,
-        "name": "BASH Config",
-        "path": "/wiki/#[[Terminal%20Prompt%203]]",
-        "icon": "/theme/terminal.svg",
-        "info": "This makes the Linux terminal easier to use."
-    },
-    {
         "spa": true,
         "name": "PWGen",
         "path": "/pwgen/v1/",
         "icon": "/theme/pwgen.svg",
         "info": "This is the first and least secure password generator I made."
-    },
-    {
-        "spa": false,
-        "name": "Web Grep",
-        "path": "/webgrep/",
-        "icon": "/theme/mdconv.svg",
-        "info": "Filter text in a browser,."
     }
 ]}

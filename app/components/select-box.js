@@ -12,43 +12,18 @@ export default defineComponent('x-select-box', {
 
     methods: {
         handleChange(e) {
-            // Update value and dispatch custom event
-            const newValue = e.target.value;
-            this.props.value = newValue;
-
-            this.dispatchEvent(new CustomEvent('change', {
-                bubbles: true,
-                composed: true,  // Allow event to cross shadow DOM boundaries
-                detail: { value: newValue }
-            }));
+            this.emitChange(e, this.props.options[Number(e.target.value)]);
         }
     },
 
     template() {
-        // Handle both arrays and JSON strings for options
-        let optionsList = this.props.options;
-
-        if (typeof optionsList === 'string') {
-            try {
-                optionsList = JSON.parse(optionsList);
-            } catch (e) {
-                optionsList = [];
-            }
-        }
-
-        // Ensure options is an array
-        if (!Array.isArray(optionsList)) {
-            optionsList = [];
-        }
-
-        // Convert value to string for comparison (since HTML attributes are strings)
-        const valueStr = String(this.props.value);
+        const optionsList = this.props.options || [];
+        const valueIndex = optionsList.indexOf(this.props.value);
 
         return html`
-            <select on-change="handleChange" value="${this.props.value}">
-                ${each(optionsList, option => {
-                    const optionStr = String(option);
-                    return html`<option value="${optionStr}">${option}</option>`;
+            <select on-change="handleChange" value="${valueIndex !== -1 ? valueIndex : ''}">
+                ${each(optionsList, (option, index) => {
+                    return html`<option value="${index}">${option}</option>`;
                 })}
             </select>
         `;

@@ -16,22 +16,20 @@ defineComponent('user-card', {
         const statusClass = this.props.status === 'active' ? 'active' : 'inactive';
 
         return html`
-            <div class="user-card">
-                <div class="user-info">
-                    <strong>${this.props.name}</strong>
-                    <div style="font-size: 0.85em; color: var(--text-secondary, #666);">
-                        ${this.props.role}
-                    </div>
+            <div class="info">
+                <strong>${this.props.name}</strong>
+                <div class="role">
+                    ${this.props.role}
                 </div>
-                <span class="status-indicator ${statusClass}">
-                    ${this.props.status}
-                </span>
             </div>
+            <span class="status ${statusClass}">
+                ${this.props.status}
+            </span>
         `;
     },
 
     styles: `
-        .user-card {
+        :host {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -41,23 +39,28 @@ defineComponent('user-card', {
             margin-bottom: 8px;
         }
 
-        .user-info {
+        .info {
             flex: 1;
         }
 
-        .status-indicator {
+        .role {
+            font-size: 0.85em;
+            color: var(--text-secondary, #666);
+        }
+
+        .status {
             padding: 4px 12px;
             border-radius: 12px;
             font-size: 0.85em;
             font-weight: bold;
         }
 
-        .status-indicator.active {
+        .status.active {
             background: #d4edda;
             color: #155724;
         }
 
-        .status-indicator.inactive {
+        .status.inactive {
             background: #f8d7da;
             color: #721c24;
         }
@@ -100,13 +103,13 @@ export default defineComponent('nested-demo', {
 
             <div class="users-list">
                 ${each(this.state.users, user => html`
-                    <div on-click="${() => this.toggleUserStatus(user.id)}" style="cursor: pointer;">
-                        <user-card
-                            name="${user.name}"
-                            role="${user.role}"
-                            status="${user.status}">
-                        </user-card>
-                    </div>
+                    <user-card
+                        name="${user.name}"
+                        role="${user.role}"
+                        status="${user.status}"
+                        on-click="${() => this.toggleUserStatus(user.id)}"
+                        style="cursor: pointer;">
+                    </user-card>
                 `)}
             </div>
 

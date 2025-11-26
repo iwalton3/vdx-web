@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Framework Bundle Test</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .test-result {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .pass {
+            border-left: 4px solid #2a9d8f;
+        }
+        .fail {
+            border-left: 4px solid #c1121f;
+        }
+        simple-counter {
+            display: block;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #00a4dc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #0086b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Framework Bundle Test</h1>
+
+    <div id="tests"></div>
+
+    <h2>Interactive Component Test</h2>
+    <simple-counter></simple-counter>
+
+    <script type="module">
+        import { defineComponent, html, reactive, createEffect } from './framework-bundle.js';
+
+        const tests = [];
+
+        // Test 1: Check exports
+        tests.push({
+            name: 'Framework exports are available',
+            pass: typeof defineComponent === 'function' &&
+                  typeof html === 'function' &&
+                  typeof reactive === 'function'
+        });
+
+        // Test 2: Reactivity works
+        let reactivityWorks = false;
+        const state = reactive({ count: 0 });
+        createEffect(() => {
+            if (state.count === 5) {
+                reactivityWorks = true;
+            }
+        });
+        state.count = 5;
+        tests.push({
+            name: 'Reactive system works',
+            pass: reactivityWorks
+        });
+
+        // Test 3: html template function works
+        let templateWorks = false;
+        try {
+            const result = html`<div>Hello</div>`;
+            templateWorks = result !== null;
+        } catch (e) {
+            templateWorks = false;
+        }
+        tests.push({
+            name: 'html template function works',
+            pass: templateWorks
+        });
+
+        // Test 4: Component definition works
+        let componentWorks = false;
+        try {
+            defineComponent('test-component', {
+                template() {
+                    return html`<div>Test</div>`;
+                }
+            });
+            componentWorks = customElements.get('test-component') !== undefined;
+        } catch (e) {
+            console.error('Component definition error:', e);
+            componentWorks = false;
+        }
+        tests.push({
+            name: 'Component definition works',
+            pass: componentWorks
+        });
+
+        // Display test results
+        const testsContainer = document.getElementById('tests');
+        tests.forEach(test => {
+            const div = document.createElement('div');
+            div.className = `test-result ${test.pass ? 'pass' : 'fail'}`;
+            div.innerHTML = `
+                <strong>${test.pass ? '✅' : '❌'} ${test.name}</strong>
+            `;
+            testsContainer.appendChild(div);
+        });
+
+        // Create interactive counter component
+        defineComponent('simple-counter', {
+            data() {
+                return {
+                    count: 0
+                };
+            },
+
+            methods: {
+                increment() {
+                    this.state.count++;
+                },
+
+                decrement() {
+                    this.state.count--;
+                },
+
+                reset() {
+                    this.state.count = 0;
+                }
+            },
+
+            template() {
+                return html`
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <h3>Count: ${this.state.count}</h3>
+                        <button on-click="increment">+</button>
+                        <button on-click="decrement" style="background: #c1121f; margin: 0 10px;">-</button>
+                        <button on-click="reset" style="background: #666;">Reset</button>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

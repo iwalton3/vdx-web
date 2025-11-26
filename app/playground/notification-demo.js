@@ -28,7 +28,7 @@ export default defineComponent('notification-demo', {
         },
 
         showWarning() {
-            notify('Warning: Please review your settings', 'warning', 4);
+            notify('Warning: Please review your settings', 'warn', 4);
         },
 
         showError() {
@@ -38,26 +38,14 @@ export default defineComponent('notification-demo', {
         showMultiple() {
             notify('First notification', 'info', 3);
             setTimeout(() => notify('Second notification', 'success', 3), 500);
-            setTimeout(() => notify('Third notification', 'warning', 3), 1000);
-        },
-
-        handleMessageChange(e) {
-            this.state.message = e.target.value;
-        },
-
-        handleSeverityChange(e) {
-            this.state.severity = e.target.value;
-        },
-
-        handleDurationChange(e) {
-            this.state.duration = parseInt(e.target.value) || 3;
+            setTimeout(() => notify('Third notification', 'warn', 3), 1000);
         }
     },
 
     template() {
         return html`
             <h2>Notification Demo</h2>
-            <p>Trigger various notification types</p>
+            <p>Trigger various notification types using the notify() utility</p>
 
             <h3>Quick Actions</h3>
             <div class="controls">
@@ -73,18 +61,17 @@ export default defineComponent('notification-demo', {
                 <label style="display: block; margin-bottom: 5px;">Message:</label>
                 <input
                     type="text"
-                    value="${this.state.message}"
-                    on-input="handleMessageChange"
+                    x-model="message"
                     style="width: 100%; box-sizing: border-box;">
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                 <div>
                     <label style="display: block; margin-bottom: 5px;">Severity:</label>
-                    <select on-change="handleSeverityChange" value="${this.state.severity}" style="width: 100%;">
+                    <select x-model="severity" style="width: 100%;">
                         <option value="info">Info</option>
                         <option value="success">Success</option>
-                        <option value="warning">Warning</option>
+                        <option value="warn">Warning</option>
                         <option value="error">Error</option>
                     </select>
                 </div>
@@ -95,8 +82,7 @@ export default defineComponent('notification-demo', {
                         type="number"
                         min="1"
                         max="10"
-                        value="${this.state.duration}"
-                        on-input="handleDurationChange"
+                        x-model="duration"
                         style="width: 100%; box-sizing: border-box;">
                 </div>
             </div>
