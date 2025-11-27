@@ -4,13 +4,13 @@ Standalone, pre-bundled versions of the framework libraries for easy embedding.
 
 ## Available Bundles
 
-### `framework.js` (~78 KB)
+### `framework.js` (~74 KB)
 Complete framework bundle including:
-- Component system (`defineComponent`)
-- Reactivity (`reactive`, `createEffect`, `computed`)
-- Template system (`html`, `when`, `each`, `raw`)
-- Store system (`createStore`)
-- Preact rendering internals (`h`, `Fragment`, `render`, `Component`)
+- **Component system:** `defineComponent`
+- **Reactivity:** `reactive`, `createEffect`, `computed`, `isReactive`, `watch`, `memo`, `trackAllDependencies`
+- **Template system:** `html`, `when`, `each`, `raw`, `pruneTemplateCache`
+- **Store system:** `createStore`
+- **Preact rendering:** `h`, `Fragment`, `render`, `Component`, `createContext`
 
 **Usage:**
 ```html
@@ -36,12 +36,13 @@ Complete framework bundle including:
 <my-app></my-app>
 ```
 
-### `router.js` (~39 KB)
+### `router.js` (~10 KB)
 Router library for client-side routing:
 - Hash-based routing (default)
 - HTML5 History API routing (with `<base>` tag)
 - Route guards and hooks
 - Query parameters
+- Nested routes
 
 **Usage:**
 ```html
@@ -62,11 +63,41 @@ Router library for client-side routing:
 <router-outlet></router-outlet>
 ```
 
+### `utils.js` (~7 KB)
+Utility functions for common tasks:
+- **Notifications:** `notify(message, severity, ttl)`, `notifications` store
+- **Dark theme:** `darkTheme` reactive store
+- **localStorage:** `localStore(key, initial)` - reactive localStorage wrapper
+- **Helpers:** `sleep(ms)`, `range(start, end)`
+
+**Usage:**
+```html
+<script type="module">
+  import { notify, darkTheme, localStore } from './dist/utils.js';
+
+  // Show notification
+  notify('Hello!', 'info', 3);
+
+  // Toggle dark theme
+  darkTheme.update(s => ({ enabled: !s.enabled }));
+
+  // Reactive localStorage
+  const settings = localStore('app-settings', { theme: 'light' });
+  settings.state.theme = 'dark'; // Automatically syncs to localStorage
+</script>
+```
+
 ## Building
 
 Bundles are generated with:
 ```bash
-node build-dist.js
+node bundler-esm.js      # Builds framework.js
+node copy-dist-extras.js # Copies router.js and utils.js (strips comments)
+```
+
+Or build all at once:
+```bash
+node bundler-esm.js && node copy-dist-extras.js
 ```
 
 ## Notes

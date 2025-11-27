@@ -1,12 +1,17 @@
-# Framework Bundle
+# Bundle Demo
 
-This directory contains the bundled version of the custom framework, packaged as a single self-contained JavaScript file that can be used in any static website without a build step.
+This directory contains examples demonstrating how to use the pre-bundled framework distributions from `../dist/`.
 
 ## Files
 
-- **framework-bundle.js** - The complete framework bundle (~146 KB)
-- **test-bundle.html** - Simple test page to verify the framework works
+- **test-bundle.html** - Simple test page verifying framework.js works
 - **jellyfin-modal-demo.html** - Complete POC of a Jellyfin settings modal
+- **index.html** - Overview of bundle demos
+
+The bundles themselves are in `../dist/`:
+- **../dist/framework.js** - Complete framework bundle (~74 KB)
+- **../dist/router.js** - Router system (~10 KB)
+- **../dist/utils.js** - Utilities (~7 KB)
 
 ## Usage
 
@@ -22,7 +27,7 @@ This directory contains the bundled version of the custom framework, packaged as
     <my-counter></my-counter>
 
     <script type="module">
-        import { defineComponent, html } from './framework-bundle.js';
+        import { defineComponent, html } from '../dist/framework.js';
 
         defineComponent('my-counter', {
             data() {
@@ -51,19 +56,27 @@ This directory contains the bundled version of the custom framework, packaged as
 
 ### Features
 
-The bundled framework includes:
+The framework.js bundle includes:
 
 - **defineComponent** - Define reactive Web Components
 - **html** - Tagged template for creating templates with auto-escaping
 - **raw** - Render trusted HTML without escaping
 - **when** - Conditional rendering helper
 - **each** - List rendering helper
+- **pruneTemplateCache** - Clear template compilation cache
 - **reactive** - Create reactive objects
 - **createEffect** - Create reactive effects
+- **computed** - Create computed values
+- **isReactive** - Check if value is reactive
+- **watch** - Watch reactive dependencies
+- **memo** - Memoize function result
+- **trackAllDependencies** - Deep dependency tracking
 - **createStore** - Create reactive stores with persistence
-- **notify** - Show notifications
-- **darkTheme** - Dark theme store
-- **localStore** - localStorage wrapper
+- **h, Fragment, render, Component, createContext** - Preact primitives (advanced)
+
+Additional bundles available:
+- **utils.js** - `notify`, `darkTheme`, `localStore`, etc.
+- **router.js** - `Router`, `defineRouterOutlet`, `defineRouterLink`
 
 ### Two-Way Data Binding
 
@@ -106,7 +119,7 @@ template() {
 ### Conditional and List Rendering
 
 ```javascript
-import { defineComponent, html, when, each } from './framework-bundle.js';
+import { defineComponent, html, when, each } from '../dist/framework.js';
 
 template() {
     return html`
@@ -139,12 +152,13 @@ To test the bundle:
    - http://localhost:8000/test-bundle.html - Basic functionality tests
    - http://localhost:8000/jellyfin-modal-demo.html - Full modal demo
 
-## Rebuilding the Bundle
+## Rebuilding the Bundles
 
-To rebuild the bundle after making changes to the framework:
+To rebuild the bundles after making changes to the framework:
 
 ```bash
-node ../build-bundle.js
+cd ../..  # Go to project root
+node bundler-esm.js && node copy-dist-extras.js
 ```
 
 ## Use Cases
@@ -169,15 +183,19 @@ Always use the `html` template tag for user-generated content. Only use `raw()` 
 
 ## Size
 
-- Uncompressed: ~146 KB
-- Gzipped: ~35 KB (estimated)
+**framework.js:**
+- Uncompressed: ~74 KB
+- Gzipped: ~20 KB (estimated)
 
-The bundle includes:
+Includes:
 - Preact 10.x (~4 KB core)
-- Reactive system
-- Template compiler
-- Component system
-- Utilities
+- Reactive system (reactive, createEffect, computed, watch, memo, isReactive)
+- Template compiler and helpers (html, when, each, raw)
+- Component system (defineComponent)
+- Store system (createStore)
+
+**router.js:** ~10 KB uncompressed
+**utils.js:** ~7 KB uncompressed
 
 ## Comparison to Manual DOM Manipulation
 

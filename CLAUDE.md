@@ -25,40 +25,93 @@ The `/app/` directory contains a completely custom web framework built from scra
 
 ```
 app/
-├── core/                    # Framework core (~3000 lines)
-│   ├── component.js         # Component definition system
-│   ├── reactivity.js        # Reactive proxy system
-│   ├── template.js          # Template helpers (html, when, each, raw)
-│   ├── template-compiler.js # Template → Preact VNode compiler
-│   ├── router.js            # Routing system
-│   ├── store.js             # State management
-│   ├── utils.js             # Utility functions (notify, darkTheme, etc.)
-│   ├── app-header.js        # App header component
-│   └── x-page.js            # Page wrapper component
-├── vendor/
-│   └── preact/              # Vendored Preact 10.x (~4KB, no npm!)
+├── lib/                     # Framework library
+│   ├── framework.js         # Main barrel export (defineComponent, html, reactive, etc.)
+│   ├── router.js            # Router system
+│   ├── utils.js             # Utilities (notify, darkTheme, localStore, etc.)
+│   ├── core/                # Framework internals (~3000 lines)
+│   │   ├── component.js     # Component definition system
+│   │   ├── reactivity.js    # Reactive proxy system
+│   │   ├── template.js      # Template helpers (html, when, each, raw)
+│   │   ├── template-compiler.js # Template → Preact VNode compiler
+│   │   └── store.js         # State management
+│   └── vendor/
+│       └── preact/          # Vendored Preact 10.x (~4KB, no npm!)
+├── dist/                    # Pre-bundled versions for embedding
+│   ├── framework.js         # Complete framework bundle (~74KB)
+│   ├── router.js            # Standalone router (~10KB)
+│   └── utils.js             # Standalone utilities (~7KB)
 ├── components/              # Reusable UI components
+│   ├── app-header.js        # App header component
+│   ├── page.js              # Page component
+│   ├── x-page.js            # Page wrapper component
 │   ├── icon.js
 │   ├── select-box.js
 │   ├── lazy-select-box.js
 │   ├── tiles.js
+│   ├── virtual-list.js
 │   └── notification-list.js
 ├── auth/                    # Authentication system
 ├── apps/                    # Application modules (pwgen, etc.)
-├── hremote-app/             # Home remote control
 ├── playground/              # Interactive framework demos
+├── bundle-demo/             # Examples of using dist/ bundles
 ├── styles/                  # Global CSS
 │   └── global.css
 └── tests/                   # Comprehensive unit tests (125 tests)
 ```
+
+### Using the Framework
+
+The framework can be used in two ways:
+
+**1. Library Imports (Recommended for development)**
+Import from `lib/` for full ES module support with separate files:
+
+```javascript
+// Main framework components
+import { defineComponent, html, reactive, createEffect } from './lib/framework.js';
+
+// Router
+import { Router, defineRouterOutlet, defineRouterLink } from './lib/router.js';
+
+// Utilities
+import { notify, darkTheme, localStore } from './lib/utils.js';
+```
+
+**Benefits:**
+- Clean imports from single barrel export file
+- Individual file caching in browser
+- Easy debugging with source maps
+- Smaller initial load for simple apps
+
+**2. Pre-bundled Versions (For embedding or simple projects)**
+Import from `dist/` for single-file bundles:
+
+```html
+<script type="module">
+  import { defineComponent, html, reactive } from './dist/framework.js';
+
+  // Everything you need is in one file!
+  defineComponent('my-app', {
+    template() {
+      return html`<h1>Hello World!</h1>`;
+    }
+  });
+</script>
+```
+
+**Benefits:**
+- Single file download (~74KB framework.js)
+- No dependency resolution needed
+- Perfect for demos and embedding
+- See `app/bundle-demo/` for examples
 
 ## Component Development
 
 ### ✅ CORRECT Component Pattern
 
 ```javascript
-import { defineComponent } from './core/component.js';
-import { html, when, each } from './core/template.js';
+import { defineComponent, html, when, each } from './lib/framework.js';
 
 export default defineComponent('my-component', {
     // Props (attributes) - automatically observed
@@ -786,7 +839,7 @@ Use `router-link` for navigation:
 ## Dark Theme
 
 ```javascript
-import { darkTheme } from './core/utils.js';
+import { darkTheme } from './lib/utils.js';
 
 // Toggle
 darkTheme.update(s => ({ enabled: !s.enabled }));
@@ -803,7 +856,7 @@ styles: `
 ## Notifications
 
 ```javascript
-import { notify } from './core/utils.js';
+import { notify } from './lib/utils.js';
 
 methods: {
     async save() {

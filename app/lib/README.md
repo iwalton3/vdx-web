@@ -7,16 +7,14 @@ Source code for the zero-dependency reactive web framework.
 ```
 lib/
 ├── framework.js         # Barrel export: Component system, reactivity, templates, stores
-├── router.js            # Barrel export: Client-side routing
-├── utils.js             # Barrel export: Notifications, dark theme, localStorage
+├── router.js            # Router system (moved from core/)
+├── utils.js             # Utilities (moved from core/)
 ├── core/                # Framework internals (use barrel exports instead)
 │   ├── component.js     # Component definition system
 │   ├── reactivity.js    # Reactive proxy system
 │   ├── template.js      # Template helpers (html, when, each, raw)
 │   ├── template-compiler.js # Template → Preact VNode compiler
-│   ├── router.js        # Routing implementation
-│   ├── store.js         # State management
-│   └── utils.js         # Utility functions
+│   └── store.js         # State management
 └── vendor/
     └── preact/          # Vendored Preact 10.x (~4KB, zero npm dependencies)
 ```
@@ -41,16 +39,30 @@ import { defineComponent } from './lib/core/component.js';
 ## Framework API
 
 ### `framework.js`
+**Components:**
 - `defineComponent(name, options)` - Define a custom element component
+
+**Templates:**
 - `html`` ` - Tagged template for HTML with auto-escaping
 - `when(condition, then, else)` - Conditional rendering
 - `each(array, mapFn)` - List rendering
 - `raw(htmlString)` - Unsafe HTML (use sparingly)
+- `pruneTemplateCache()` - Clear template compilation cache
+
+**Reactivity:**
 - `reactive(obj)` - Create reactive proxy
 - `createEffect(fn)` - Run function when dependencies change
 - `computed(fn)` - Create computed value
+- `isReactive(value)` - Check if value is reactive
+- `watch(fn, callback)` - Watch reactive dependencies
+- `memo(fn, deps)` - Memoize function result
+- `trackAllDependencies(obj)` - Deep dependency tracking
+
+**Stores:**
 - `createStore(initial)` - Create reactive store with pub/sub
-- `h, Fragment, render, Component, createContext` - Preact primitives (advanced usage)
+
+**Preact (advanced):**
+- `h, Fragment, render, Component, createContext` - Preact primitives
 
 ### `router.js`
 - `Router(routes)` - Create router instance

@@ -38,25 +38,50 @@ That's it! No `npm install`, no build process, no dependencies to install.
 
 ```
 app/
-├── core/                    # Framework core (~3000 lines)
-│   ├── reactivity.js       # Proxy-based reactive state (Vue 3-inspired)
-│   ├── store.js            # Stores with localStorage persistence
-│   ├── template.js         # Tagged template literals with XSS protection
-│   ├── template-compiler.js # Innovative template→VNode compiler
-│   ├── component.js        # Web Components with Preact rendering
-│   ├── router.js           # Hash/HTML5 router with capability checks
-│   └── utils.js            # Utilities, notifications, dark theme
-├── vendor/
-│   └── preact/             # Vendored Preact 10.x (~4KB, no npm!)
+├── lib/                     # Framework library
+│   ├── framework.js         # Main barrel export (defineComponent, html, reactive, etc.)
+│   ├── router.js            # Router system
+│   ├── utils.js             # Utilities (notify, darkTheme, localStore, etc.)
+│   ├── core/                # Framework internals (~3000 lines)
+│   │   ├── reactivity.js    # Proxy-based reactive state (Vue 3-inspired)
+│   │   ├── store.js         # Stores with localStorage persistence
+│   │   ├── template.js      # Tagged template literals with XSS protection
+│   │   ├── template-compiler.js # Innovative template→VNode compiler
+│   │   └── component.js     # Web Components with Preact rendering
+│   └── vendor/
+│       └── preact/          # Vendored Preact 10.x (~4KB, no npm!)
+├── dist/                    # Pre-bundled versions for embedding
+│   ├── framework.js         # Complete framework bundle (~74KB)
+│   ├── router.js            # Standalone router (~10KB)
+│   └── utils.js             # Standalone utilities (~7KB)
+├── components/              # Shared UI components
+│   ├── app-header.js
+│   ├── page.js, x-page.js
+│   ├── icon.js, select-box.js, tiles.js, etc.
+│   └── notification-list.js
 ├── auth/                    # Authentication system
 ├── apps/                    # Application modules
-│   └── pwgen/              # Password generators (3 variants)
-├── hremote-app/            # Home remote control (Philips Hue)
-├── components/             # Shared UI components
-├── playground/             # Interactive framework demos
-├── styles/                 # Global CSS
-├── tests/                  # Test suite (125 tests)
-└── index.html              # Entry point
+│   └── pwgen/               # Password generators (3 variants)
+├── playground/              # Interactive framework demos
+├── bundle-demo/             # Examples using dist/ bundles
+├── styles/                  # Global CSS
+├── tests/                   # Test suite (125 tests)
+└── index.html               # Entry point
+```
+
+### Two Ways to Use the Framework
+
+**1. Library imports (development):**
+```javascript
+import { defineComponent, html, reactive } from './lib/framework.js';
+import { Router } from './lib/router.js';
+import { notify, darkTheme } from './lib/utils.js';
+```
+
+**2. Pre-bundled (embedding/simple projects):**
+```javascript
+import { defineComponent, html, reactive } from './dist/framework.js';
+// Everything in one file - perfect for demos!
 ```
 
 ## Architecture: Template Compilation → Preact Rendering
@@ -89,7 +114,7 @@ const template = html`<div>${this.state.count}</div>`;
 Proxy-based reactivity system inspired by Vue 3:
 
 ```javascript
-import { reactive } from './core/reactivity.js';
+import { reactive } from './lib/framework.js';
 
 const state = reactive({ count: 0 });
 state.count++; // Automatically triggers re-render
@@ -128,7 +153,7 @@ The framework automatically:
 Tagged template literals with compile-time optimization and runtime XSS protection:
 
 ```javascript
-import { html, raw } from './core/template.js';
+import { html, raw } from './lib/framework.js';
 
 // Automatically escaped - SAFE
 html`<div>${userInput}</div>`
@@ -164,8 +189,7 @@ html`<option value="1" selected="${isSelected}">Option</option>`
 Web Components with Preact-powered rendering:
 
 ```javascript
-import { defineComponent } from './core/component.js';
-import { html } from './core/template.js';
+import { defineComponent, html } from './lib/framework.js';
 
 defineComponent('my-component', {
     data() {
@@ -224,7 +248,7 @@ Components automatically:
 Memoized computed properties with automatic dependency tracking:
 
 ```javascript
-import { computed } from './core/utils.js';
+import { computed } from './lib/utils.js';
 
 defineComponent('product-list', {
     data() {
@@ -265,7 +289,7 @@ Computed properties cache results and only recalculate when dependencies change 
 Supports both hash routing (default) and HTML5 routing:
 
 ```javascript
-import { Router } from './core/router.js';
+import { Router } from './lib/router.js';
 
 const router = new Router({
     '/': { component: 'home-page' },
@@ -289,13 +313,14 @@ html`<router-link to="/about">About</router-link>`
 Reactive stores with optional localStorage persistence:
 
 ```javascript
-import { createStore, persistentStore } from './core/store.js';
+import { createStore } from './lib/framework.js';
+import { localStore } from './lib/utils.js';
 
 // Simple store
 const counter = createStore({ count: 0 });
 
 // Persistent store (automatically syncs to localStorage)
-const userPrefs = persistentStore('user-prefs', { theme: 'light' });
+const userPrefs = localStore('user-prefs', { theme: 'light' });
 
 // Subscribe to changes
 userPrefs.subscribe(state => {
@@ -303,7 +328,7 @@ userPrefs.subscribe(state => {
 });
 
 // Update store (automatically persists)
-userPrefs.set({ theme: 'dark' });
+userPrefs.state.theme = 'dark';
 ```
 
 ## HTML5 Routing
