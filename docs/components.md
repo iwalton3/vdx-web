@@ -7,6 +7,7 @@ Complete guide to building components with the framework.
 - [Basic Component Pattern](#basic-component-pattern)
 - [Props System](#props-system)
 - [Passing Props to Child Components](#passing-props-to-child-components)
+- [Children Props (React-style Composition)](#children-props-react-style-composition)
 - [Lifecycle Hooks](#lifecycle-hooks)
 - [Component Styles](#component-styles)
 - [Best Practices](#best-practices)
@@ -338,6 +339,167 @@ template() {
 // ❌ WRONG - Don't manually set props in afterRender
 afterRender() {
     this.querySelector('x-select-box').props.options = this.state.options;
+}
+```
+
+## Children Props (React-style Composition)
+
+The framework supports **React-style children props** for component composition. This enables powerful component composition patterns.
+
+### Basic Children
+
+Children passed to a component are automatically available as `this.props.children`:
+
+```javascript
+// Define a wrapper component
+defineComponent('my-wrapper', {
+    template() {
+        return html`
+            <div class="wrapper">
+                ${this.props.children}
+            </div>
+        `;
+    }
+});
+
+// Usage
+<my-wrapper>
+    <p>Hello, World!</p>
+    <p>This content is passed as children</p>
+</my-wrapper>
+```
+
+### Named Children (Named Slots)
+
+Use the `slot="name"` attribute to pass children to specific named slots:
+
+```javascript
+// Usage
+<my-dialog>
+    <div slot="header">Dialog Title</div>
+    <p>Main content goes here</p>
+    <div slot="footer">
+        <button>OK</button>
+        <button>Cancel</button>
+    </div>
+</my-dialog>
+
+// Component definition
+defineComponent('my-dialog', {
+    template() {
+        // Extract named children safely
+        const defaultChildren = Array.isArray(this.props.children)
+            ? this.props.children
+            : (this.props.children?.default || []);
+        const headerChildren = this.props.children?.header || [];
+        const footerChildren = this.props.children?.footer || [];
+
+        return html`
+            <div class="dialog">
+                <div class="header">${headerChildren}</div>
+                <div class="body">${defaultChildren}</div>
+                ${when(footerChildren.length > 0, html`
+                    <div class="footer">${footerChildren}</div>
+                `)}
+            </div>
+        `;
+    }
+});
+```
+
+### Children API Reference
+
+**`this.props.children`** is always available, even if no children are provided (defaults to empty array `[]`).
+
+**Type:** `Array` or `Object`
+
+- **Array form:** When only default children are provided
+  ```javascript
+  this.props.children // [vnode1, vnode2, ...]
+  ```
+
+- **Object form:** When named children (slots) are provided
+  ```javascript
+  this.props.children.default // Default children array
+  this.props.children.header  // Named slot "header" children array
+  this.props.children.footer  // Named slot "footer" children array
+  ```
+
+### Conditional Rendering and State Preservation
+
+**⚠️ Important:** When using `when()` to conditionally render children, child components will **unmount and lose state** when hidden.
+
+To preserve state, use CSS hiding instead:
+
+```javascript
+// ✅ PRESERVES STATE - Use CSS display:none
+template() {
+    return html`
+        <div class="tab1 ${this.state.activeTab === 'tab1' ? '' : 'hidden'}">
+            ${this.props.children.tab1}
+        </div>
+        <div class="tab2 ${this.state.activeTab === 'tab2' ? '' : 'hidden'}">
+            ${this.props.children.tab2}
+        </div>
+    `;
+},
+styles: `
+    .hidden { display: none; }
+`
+
+// ❌ LOSES STATE - Unmounts component when hidden
+template() {
+    return html`
+        ${when(this.state.activeTab === 'tab1', html`
+            <div>${this.props.children.tab1}</div>
+        `)}
+    `;
+}
+```
+
+### Using raw() with Children
+
+The `raw()` function works with children for rendering dynamic HTML (password generators, markdown renderers, etc.):
+
+```javascript
+defineComponent('password-generator', {
+    data() {
+        return {
+            passwordHtml: '<code>aB3$xY9!</code>'
+        };
+    },
+
+    template() {
+        return html`
+            <password-display>
+                <h3>Your Generated Password:</h3>
+                ${raw(this.state.passwordHtml)}
+                <button on-click="copyPassword">Copy</button>
+            </password-display>
+        `;
+    }
+});
+```
+
+**Security Note:** Only use `raw()` with HTML you trust (your own generated content). Never use it with user input without sanitization.
+
+### Empty Children Handling
+
+Handle empty children gracefully:
+
+```javascript
+template() {
+    return html`
+        <div class="wrapper">
+            ${when(this.props.children.length > 0, html`
+                <div class="has-children">
+                    ${this.props.children}
+                </div>
+            `, html`
+                <div class="empty">No content provided</div>
+            `)}
+        </div>
+    `;
 }
 ```
 

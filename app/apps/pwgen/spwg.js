@@ -6,7 +6,7 @@ import { defineComponent } from '../../lib/framework.js';
 import { html, raw } from '../../lib/framework.js';
 import { fromlength, fromlengthbatch, frombits, frommax, tonumber, towords } from './spwg_api.js';
 
-defineComponent('spwg-page', {
+export default defineComponent('spwg-page', {
     data() {
         return {
             response: '',

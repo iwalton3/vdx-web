@@ -1,6 +1,13 @@
 {"featured":[
     {
         "spa": false,
+        "name": "ComponentLib",
+        "path": "componentlib/",
+        "icon": "/theme/terminal.svg",
+        "info": "Professional UI component library with 30+ components - forms, data tables, overlays, panels and more. PrimeReact-level features, zero dependencies."
+    },
+    {
+        "spa": false,
         "name": "Playground",
         "path": "playground.html",
         "icon": "/theme/terminal.svg",

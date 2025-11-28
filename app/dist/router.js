@@ -31,11 +31,13 @@ function stringifyQuery(params) {
 }
 
 export class Router {
+    
     constructor(routes, options = {}) {
         this.routes = {};
         this.beforeHooks = [];
         this.afterHooks = [];
         this.outletElement = null;
+        this.loadedComponents = new Set(); 
 
         
         this.useHTML5 = this._detectRoutingMode();
@@ -252,6 +254,18 @@ export class Router {
             if (result === false) {
                 
                 return;
+            }
+        }
+
+        
+        if (route.load && route.component && !this.loadedComponents.has(route.component)) {
+            try {
+                await route.load();
+                this.loadedComponents.add(route.component);
+            } catch (error) {
+                console.error(`Failed to load component for route ${path}:`, error);
+                
+                route = this.routes['/404'] || { component: 'page-not-found' };
             }
         }
 

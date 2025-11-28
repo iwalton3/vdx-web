@@ -36,10 +36,11 @@ app/
 │   ├── utils.js             # Utilities (notify, darkTheme, localStore, etc.)
 │   └── core/                # Framework internals (~3000 lines)
 ├── dist/                    # Pre-bundled versions for embedding
+├── componentlib/            # Professional UI component library (cl-* components)
 ├── components/              # Reusable UI components
 ├── auth/                    # Authentication system
 ├── apps/                    # Application modules
-├── tests/                   # Comprehensive unit tests (125 tests)
+├── tests/                   # Comprehensive unit tests (160 tests)
 └── index.html               # Entry point
 ```
 
@@ -195,7 +196,105 @@ template() {
 
 **See [docs/components.md](docs/components.md) for prop passing details.**
 
-### 6. Reactive State - CRITICAL
+### 6. Children Props (React-style Composition)
+
+The framework supports **React-style children** for component composition:
+
+```javascript
+// ✅ Basic children - always available as this.props.children
+defineComponent('wrapper', {
+    template() {
+        return html`
+            <div class="wrapper">
+                ${this.props.children}
+            </div>
+        `;
+    }
+});
+
+// Usage
+<wrapper>
+    <p>Hello, World!</p>
+</wrapper>
+```
+
+**Named children (named slots):**
+
+```javascript
+// ✅ Named children using slot attribute
+defineComponent('dialog', {
+    template() {
+        const defaultChildren = Array.isArray(this.props.children)
+            ? this.props.children
+            : (this.props.children?.default || []);
+        const footerChildren = this.props.children?.footer || [];
+
+        return html`
+            <div class="dialog">
+                <div class="content">${defaultChildren}</div>
+                ${when(footerChildren.length > 0, html`
+                    <div class="footer">${footerChildren}</div>
+                `)}
+            </div>
+        `;
+    }
+});
+
+// Usage
+<dialog>
+    <p>Main content</p>
+    <div slot="footer">
+        <button>OK</button>
+    </div>
+</dialog>
+```
+
+**⚠️ State Preservation:** When conditionally rendering children with `when()`, child components will **unmount and lose state**. To preserve state, use CSS hiding instead:
+
+```javascript
+// ✅ PRESERVES STATE - Use CSS display:none
+template() {
+    return html`
+        <div class="tab1 ${this.state.activeTab === 'tab1' ? '' : 'hidden'}">
+            ${this.props.children.tab1}
+        </div>
+    `;
+},
+styles: `
+    .hidden { display: none; }
+`
+
+// ❌ LOSES STATE - Unmounts component
+${when(this.state.activeTab === 'tab1', html`
+    <div>${this.props.children.tab1}</div>
+`)}
+```
+
+**Using `raw()` with children:**
+
+```javascript
+// For password generators, markdown renderers, etc.
+defineComponent('result-display', {
+    data() {
+        return {
+            generatedHtml: '<code>aB3$xY9!</code>' // Your generated HTML
+        };
+    },
+    template() {
+        return html`
+            <password-card>
+                <h3>Generated:</h3>
+                ${raw(this.state.generatedHtml)}  <!-- Creates vnode with dangerouslySetInnerHTML -->
+                <button>Copy</button>
+            </password-card>
+        `;
+    }
+});
+```
+
+**See [docs/components.md](docs/components.md) for complete children documentation.**
+
+### 7. Reactive State - CRITICAL
 
 ⚠️ **NEVER mutate reactive arrays with `.sort()`** - This causes infinite re-render loops!
 
@@ -227,7 +326,7 @@ addItem(item) {
 
 **See [docs/reactivity.md](docs/reactivity.md) for complete reactivity guide.**
 
-### 7. Router
+### 8. Router
 
 ```javascript
 import { Router } from './lib/router.js';
@@ -251,7 +350,7 @@ const router = new Router({
 
 **See [docs/routing.md](docs/routing.md) for complete router documentation.**
 
-### 8. Stores
+### 9. Stores
 
 Always call methods on `store.state`, not the original object:
 
@@ -291,13 +390,14 @@ unmounted() {
 
 For detailed information, see:
 
-- **[docs/components.md](docs/components.md)** - Component development patterns, props, lifecycle
+- **[docs/components.md](docs/components.md)** - Component development patterns, props, children, lifecycle
 - **[docs/templates.md](docs/templates.md)** - Template system, x-model, helpers, event binding
 - **[docs/reactivity.md](docs/reactivity.md)** - Reactive state, stores, computed properties
 - **[docs/routing.md](docs/routing.md)** - Router setup, lazy loading, navigation
-- **[docs/security.md](docs/security.md)** - XSS protection, input validation, CSRF
+- **[docs/security.md](docs/security.md)** - XSS protection, input validation, CSRF, CSP
 - **[docs/testing.md](docs/testing.md)** - Running tests, writing tests, test structure
 - **[docs/bundles.md](docs/bundles.md)** - Using pre-bundled framework versions
+- **[docs/componentlib.md](docs/componentlib.md)** - Professional UI component library (cl-* components)
 - **[docs/api-reference.md](docs/api-reference.md)** - Complete API reference
 
 For project overview and quickstart, see [README.md](README.md).

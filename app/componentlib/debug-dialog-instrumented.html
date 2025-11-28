@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Dialog - Instrumented</title>
+    <script>
+        // Enable all debug flags BEFORE loading framework
+        window.__DEBUG_REACTIVITY = true;
+        window.__DEBUG_COMPONENTS = true;
+        window.__DEBUG_VNODES = true; // Set to true for full VNode trees
+    </script>
+</head>
+<body>
+    <h1>Dialog Debug - Instrumented</h1>
+    <p>Open console to see debug logs</p>
+    <debug-dialog></debug-dialog>
+
+    <script type="module">
+        // Import debug-enable FIRST to monkey-patch the framework
+        import '../lib/debug-enable.js';
+
+        import { defineComponent, html } from '../lib/framework.js';
+        import './overlay/dialog.js';
+        import './button/button.js';
+
+        defineComponent('debug-dialog', {
+            data() {
+                return { visible: false };
+            },
+            template() {
+                return html`
+                    <div>
+                        <p>Dialog visible: ${this.state.visible}</p>
+
+                        <cl-button
+                            label="Show Dialog"
+                            on-click="${() => {
+                                console.log('\n============ OPENING DIALOG ============');
+                                this.state.visible = true;
+                            }}">
+                        </cl-button>
+
+                        <cl-dialog
+                            visible="${this.state.visible}"
+                            header="Test Dialog"
+                            closable="true"
+                            on-change="${(e, val) => {
+                                console.log('\n============ DIALOG CHANGE EVENT ============');
+                                console.log('Event detail:', e.detail);
+                                console.log('Val:', val);
+                                this.state.visible = val;
+                            }}">
+                            <p>Dialog content</p>
+                        </cl-dialog>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

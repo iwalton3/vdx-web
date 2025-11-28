@@ -170,9 +170,43 @@ function parseXMLToTree(xmlString) {
                           'link', 'meta', 'param', 'source', 'track', 'wbr'];
 
     // Convert boolean attributes to have explicit values for XML compatibility
-    // Use a single regex with alternation for better performance
-    const booleanAttrPattern = /\s(checked|selected|disabled|readonly|multiple|ismap|defer|declare|noresize|nowrap|noshade|compact|autofocus|required|autoplay|controls|loop|muted|default|open|reversed|scoped|seamless|sortable|novalidate|formnovalidate|itemscope)(?=\s|>|\/)/gi;
-    xmlString = xmlString.replace(booleanAttrPattern, (match, attr) => ` ${attr}="${attr}"`);
+    // Split by tags first to process only opening tags
+    const tagPattern = /<([a-zA-Z][\w-]*)([^>]*)>/g;
+    const booleanAttrs = ['checked', 'selected', 'disabled', 'readonly', 'multiple', 'ismap',
+                          'defer', 'declare', 'noresize', 'nowrap', 'noshade', 'compact',
+                          'autofocus', 'required', 'autoplay', 'controls', 'loop', 'muted',
+                          'default', 'open', 'reversed', 'scoped', 'seamless', 'sortable',
+                          'novalidate', 'formnovalidate', 'itemscope'];
+
+    xmlString = xmlString.replace(tagPattern, (fullMatch, tagName, attrs) => {
+        // Skip closing tags and tags that are already processed
+        if (fullMatch.startsWith('</')) {
+            return fullMatch;
+        }
+
+        // Process each boolean attribute
+        let processedAttrs = attrs;
+        for (const boolAttr of booleanAttrs) {
+            // Only match the boolean attribute when it's:
+            // 1. Preceded by whitespace
+            // 2. Not inside quotes (no = before it, or if there is =, it's already quoted)
+            // 3. Followed by whitespace, >, /, or end of string
+            const pattern = new RegExp(`(\\s${boolAttr})(?=\\s|>|/|$)`, 'gi');
+
+            // Before replacing, make sure we're not inside a quoted string
+            // Split by quotes and only process parts outside quotes
+            const parts = processedAttrs.split(/("[^"]*"|'[^']*')/);
+            processedAttrs = parts.map((part, index) => {
+                // Even indices are outside quotes, odd indices are inside quotes
+                if (index % 2 === 0) {
+                    return part.replace(pattern, `$1="${boolAttr}"`);
+                }
+                return part;  // Don't modify quoted parts
+            }).join('');
+        }
+
+        return `<${tagName}${processedAttrs}>`;
+    });
 
     // Auto-close void elements for XML compatibility
     voidElements.forEach(tag => {
@@ -497,7 +531,12 @@ export function applyValues(compiled, values, component = null) {
                 const childValues = child._itemValues !== undefined ? child._itemValues : values;
                 return applyValues(child, childValues, component);
             })
-            .filter(child => child !== undefined && child !== false);
+            .filter(child => child !== undefined && child !== false && child !== null);
+
+        // If no children after filtering, return null instead of empty Fragment
+        if (children.length === 0) {
+            return null;
+        }
 
         // Return Preact Fragment vnode
         const props = compiled.key !== undefined ? { key: compiled.key } : null;
@@ -539,6 +578,34 @@ export function applyValues(compiled, values, component = null) {
             // Handle null/undefined
             if (value === null || value === undefined) {
                 return null;
+            }
+
+            // Handle arrays - could be array of vnodes (children) or primitives
+            if (Array.isArray(value)) {
+                // Empty array - return null
+                if (value.length === 0) {
+                    return null;
+                }
+
+                // Check if array contains vnodes (Preact elements)
+                // Preact vnodes have 'type', 'props', 'key' properties
+                // Also check for strings (text nodes) which Preact can handle
+                const hasVNodesOrText = value.some(item => {
+                    if (!item) return false;
+                    // String or number - valid child
+                    if (typeof item === 'string' || typeof item === 'number') return true;
+                    // Object with 'type' property - likely a vnode
+                    if (typeof item === 'object' && ('type' in item || 'props' in item || '__' in item)) return true;
+                    return false;
+                });
+
+                if (hasVNodesOrText) {
+                    // Return array directly - Preact will handle mixed arrays of strings and vnodes
+                    return value;
+                }
+
+                // Array of other primitives - join to string
+                return value.join('');
             }
 
             // Security: For objects, use Object.prototype.toString to prevent
@@ -591,6 +658,11 @@ export function applyValues(compiled, values, component = null) {
                     else if (attrDef.context === 'x-model-radio') {
                         value = (value === attrDef.radioValue);
                     }
+                    // For custom elements with arrays/objects, store in customElementProps
+                    else if (attrDef.context === 'x-model-value' && isCustomElement && (typeof value === 'object' || typeof value === 'function') && value !== null) {
+                        customElementProps[name] = value;
+                        continue;  // Skip normal attribute handling
+                    }
                 } else {
                     value = (attrDef.context === 'x-model-checked' || attrDef.context === 'x-model-radio') ? false : '';
                 }
@@ -626,6 +698,18 @@ export function applyValues(compiled, values, component = null) {
                         customElementProps[name] = value;
                         continue;
                     } else {
+                        value = String(value);
+                    }
+                } else if (attrDef.context === 'x-model-value') {
+                    // This path is for when x-model value comes from a slot, not directly from component state
+                    // For custom elements, preserve arrays/objects
+                    if (isCustomElement && (typeof value === 'object' || typeof value === 'function') && value !== null) {
+                        // Store arrays/objects for ref callback
+                        customElementProps[name] = value;
+                        continue;
+                    }
+                    // For native elements or primitive values, convert to string
+                    if (typeof value !== 'object' && typeof value !== 'function') {
                         value = String(value);
                     }
                 } else if (attrDef.context === 'attribute') {
@@ -670,26 +754,6 @@ export function applyValues(compiled, values, component = null) {
             } else {
                 props[propName] = value;
             }
-        }
-
-        // If custom element has props, use ref to set them
-        if (isCustomElement && Object.keys(customElementProps).length > 0) {
-            props.ref = (el) => {
-                if (el) {
-                    // For framework components that haven't mounted yet, store as pending
-                    if ('_isMounted' in el && !el._isMounted) {
-                        if (!el._pendingProps) {
-                            el._pendingProps = {};
-                        }
-                        Object.assign(el._pendingProps, customElementProps);
-                    } else {
-                        // For plain custom elements or mounted components, set directly
-                        for (const [name, value] of Object.entries(customElementProps)) {
-                            el[name] = value;
-                        }
-                    }
-                }
-            };
         }
 
         // Helper function to resolve a single event handler
@@ -786,6 +850,17 @@ export function applyValues(compiled, values, component = null) {
                 }
             }
 
+            // For custom elements, wrap handler to pass e.detail.value as second argument
+            // This allows handlers like (e, val) => this.state.x = val
+            if (isCustomElement && handler && typeof handler === 'function' && !eventDef.xModel) {
+                const originalHandler = handler;
+                handler = (e) => {
+                    // Extract value from e.detail.value (or e.detail if value not present)
+                    const value = (e.detail && e.detail.value !== undefined) ? e.detail.value : e.detail;
+                    return originalHandler(e, value);
+                };
+            }
+
             if (handler && typeof handler === 'function') {
                 props[propName] = handler;
             }
@@ -805,7 +880,82 @@ export function applyValues(compiled, values, component = null) {
             })
             .filter(child => child !== undefined && child !== false);
 
+        // For custom elements, pass children as a prop so components can access this.props.children
+        if (isCustomElement && children.length > 0) {
+            // Group children by slot name
+            const defaultChildren = [];
+            const namedChildren = {};
+
+            for (const child of children) {
+                // Check if child has a slot attribute
+                if (child && typeof child === 'object' && child.props && child.props.slot) {
+                    const slotName = child.props.slot;
+                    if (!namedChildren[slotName]) {
+                        namedChildren[slotName] = [];
+                    }
+                    namedChildren[slotName].push(child);
+                } else {
+                    defaultChildren.push(child);
+                }
+            }
+
+            // Build children prop
+            let childrenProp;
+            if (Object.keys(namedChildren).length > 0) {
+                // Has named slots - create object with default and named children
+                childrenProp = defaultChildren.length > 0 ? defaultChildren : [];
+                // Attach named children as properties
+                for (const [name, namedChildArray] of Object.entries(namedChildren)) {
+                    if (!Array.isArray(childrenProp)) {
+                        childrenProp = { default: childrenProp };
+                    }
+                    childrenProp[name] = namedChildArray;
+                }
+            } else {
+                // Only default children
+                childrenProp = defaultChildren;
+            }
+
+            customElementProps.children = childrenProp;
+        }
+
+        // If custom element has props (including children), use ref to set them
+        if (isCustomElement && Object.keys(customElementProps).length > 0) {
+            props.ref = (el) => {
+                if (el) {
+                    // For framework components that haven't mounted yet, store as pending
+                    if ('_isMounted' in el && !el._isMounted) {
+                        if (!el._pendingProps) {
+                            el._pendingProps = {};
+                        }
+                        Object.assign(el._pendingProps, customElementProps);
+                    } else {
+                        // For plain custom elements or mounted components, set directly
+                        for (const [name, value] of Object.entries(customElementProps)) {
+                            // Special handling for children: Element.prototype.children is read-only
+                            if (name === 'children') {
+                                if ('_isMounted' in el && el.props) {
+                                    // Framework component - set on props object directly
+                                    el.props.children = value;
+                                    // Trigger re-render if mounted
+                                    if (el._isMounted && typeof el.render === 'function') {
+                                        el.render();
+                                    }
+                                }
+                                // Skip for non-framework components (can't override Element.prototype.children)
+                            } else {
+                                // Regular prop - set normally
+                                el[name] = value;
+                            }
+                        }
+                    }
+                }
+            };
+        }
+
         // Return Preact element vnode
+        // ALWAYS pass children to h() so plain custom elements (like router-link) get them as DOM children
+        // Framework components will ALSO get children via props.children (set in ref callback above)
         return h(compiled.tag, props, ...children);
     }
 

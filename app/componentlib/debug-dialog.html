@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Dialog</title>
+</head>
+<body>
+    <h1>Dialog Debug</h1>
+    <debug-dialog></debug-dialog>
+
+    <script type="module">
+        import { defineComponent, html } from '../lib/framework.js';
+        import './overlay/dialog.js';
+        import './button/button.js';
+
+        defineComponent('debug-dialog', {
+            data() {
+                return { visible: false };
+            },
+            template() {
+                console.log('[Template] Rendering with visible=', this.state.visible);
+                return html`
+                    <div>
+                        <p>Dialog visible: ${this.state.visible}</p>
+
+                        <cl-button
+                            label="Show Dialog"
+                            on-click="${() => {
+                                console.log('Opening dialog');
+                                this.state.visible = true;
+                            }}">
+                        </cl-button>
+
+                        <cl-dialog
+                            visible="${this.state.visible}"
+                            header="Test Dialog"
+                            closable="true"
+                            on-change="${(e, val) => {
+                                console.log('Dialog change event:', {
+                                    event: e,
+                                    val: val,
+                                    detail: e.detail,
+                                    detailValue: e.detail?.value
+                                });
+                                this.state.visible = val;
+                            }}">
+                            <p>Dialog content</p>
+                        </cl-dialog>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

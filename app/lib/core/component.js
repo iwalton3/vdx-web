@@ -8,6 +8,17 @@ import { render as preactRender } from '../vendor/preact/index.js';
 import { applyValues } from './template-compiler.js';
 import { html } from './template.js';
 
+// Debug hooks - can be set by debug-enable.js
+let debugRenderCycleHook = null;
+let debugPropSetHook = null;
+let debugVNodeHook = null;
+
+export function setDebugComponentHooks(hooks) {
+    debugRenderCycleHook = hooks.renderCycle;
+    debugPropSetHook = hooks.propSet;
+    debugVNodeHook = hooks.vnode;
+}
+
 // Cache for processed component styles (tag name -> processed CSS string)
 const processedStylesCache = new Map();
 
@@ -160,8 +171,10 @@ export function defineComponent(name, options) {
             // Initialize reactive state
             this.state = reactive(options.data ? options.data.call(this) : {});
 
-            // Store props
-            this.props = {};
+            // Store props (always include children, even if empty)
+            this.props = {
+                children: []
+            };
 
             // Bind all methods to this instance
             if (options.methods) {
@@ -199,10 +212,14 @@ export function defineComponent(name, options) {
                 e.stopPropagation();
             }
 
-            // Update the prop
-            if (propName in this.props) {
-                this.props[propName] = value;
-            }
+            // NOTE: Removed direct prop mutation - props should only be updated by parent
+            // The parent component will handle the change event and update its state,
+            // which will trigger a re-render and pass new props to this component
+            //
+            // Old code (caused reactivity issues):
+            // if (propName in this.props) {
+            //     this.props[propName] = value;
+            // }
 
             // Emit CustomEvent with detail
             this.dispatchEvent(new CustomEvent('change', {
@@ -228,6 +245,15 @@ export function defineComponent(name, options) {
                     this.props[name] = value;
                 }
                 delete this._pendingProps;
+            }
+
+            // Clear light DOM children before rendering
+            // Framework components render children via props.children in their template,
+            // but Preact may have added children as light DOM nodes. We need to clear these
+            // to prevent duplication. Plain custom elements (like router-link) are not
+            // framework components and won't reach this code.
+            while (this.firstChild) {
+                this.removeChild(this.firstChild);
             }
 
             // Mark as mounted BEFORE initial render to prevent double-render
@@ -281,7 +307,9 @@ export function defineComponent(name, options) {
 
         attributeChangedCallback(name, oldValue, newValue) {
             // Only react to changes after initial mount
-            if (!this._isMounted || oldValue === newValue) return;
+            if (!this._isMounted || oldValue === newValue) {
+                return;
+            }
 
             // Update props
             if (options.props && name in options.props) {
@@ -303,17 +331,47 @@ export function defineComponent(name, options) {
         }
 
         _setupPropertySetters() {
+            // Security: Block reserved property names to prevent DOM clobbering
+            const reservedNames = new Set([
+                'constructor', '__proto__', 'prototype', 'toString',
+                'valueOf', 'hasOwnProperty', 'isPrototypeOf'
+            ]);
+
+            // Always create a setter for 'children' prop
+            if (!reservedNames.has('children')) {
+                const existingChildren = this.hasOwnProperty('children') ? this.children : undefined;
+
+                Object.defineProperty(this, 'children', {
+                    get() {
+                        return this.props.children;
+                    },
+                    set(value) {
+                        if (debugPropSetHook) {
+                            debugPropSetHook(this.tagName, 'children', value, value, this._isMounted);
+                        }
+                        this.props.children = value;
+                        // Re-render when children change
+                        if (this._isMounted) {
+                            this.render();
+                        }
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+
+                // Restore the pre-existing value if there was one
+                if (existingChildren !== undefined) {
+                    this.props.children = existingChildren;
+                }
+            }
+
             // Create property setters that automatically update props and trigger re-render
             if (options.props) {
-                // Security: Block reserved property names to prevent DOM clobbering
-                const reservedNames = new Set([
-                    'constructor', '__proto__', 'prototype', 'toString',
-                    'valueOf', 'hasOwnProperty', 'isPrototypeOf'
-                ]);
-
                 for (const propName of Object.keys(options.props)) {
-                    if (reservedNames.has(propName)) {
-                        console.warn(`[Security] Skipping reserved prop name: ${propName}`);
+                    if (reservedNames.has(propName) || propName === 'children') {
+                        if (reservedNames.has(propName)) {
+                            console.warn(`[Security] Skipping reserved prop name: ${propName}`);
+                        }
                         continue;
                     }
 
@@ -328,7 +386,22 @@ export function defineComponent(name, options) {
                             return this.props[propName];
                         },
                         set(value) {
-                            this.props[propName] = value;
+                            // Parse string values to match expected types
+                            let parsedValue = value;
+                            if (typeof value === 'string') {
+                                // Try JSON parse for booleans, numbers, objects
+                                try {
+                                    parsedValue = JSON.parse(value);
+                                } catch {
+                                    // Keep as string if not valid JSON
+                                    parsedValue = value;
+                                }
+                            }
+
+                            if (debugPropSetHook) {
+                                debugPropSetHook(this.tagName, propName, parsedValue, value, this._isMounted);
+                            }
+                            this.props[propName] = parsedValue;
                             // Re-parse and re-render
                             if (this._isMounted) {
                                 this.render();
@@ -385,6 +458,10 @@ export function defineComponent(name, options) {
 
             if (!options.template) return;
 
+            if (debugRenderCycleHook) {
+                debugRenderCycleHook(this, 'before-template');
+            }
+
             // Inject styles into document head if not already done
             if (options.styles && !this._stylesInjected) {
                 const styleId = `component-styles-${options.name || this.tagName}`;
@@ -414,6 +491,13 @@ export function defineComponent(name, options) {
             // Call template function to get compiled tree
             const templateResult = options.template.call(this);
 
+            if (debugRenderCycleHook) {
+                debugRenderCycleHook(this, 'after-template', {
+                    hasCompiled: !!templateResult?._compiled,
+                    valuesCount: templateResult?._values?.length || 0
+                });
+            }
+
             // Convert compiled tree to Preact elements
             if (templateResult && templateResult._compiled) {
                 // Apply values and convert to Preact VNode
@@ -423,9 +507,23 @@ export function defineComponent(name, options) {
                     this
                 );
 
+                if (debugRenderCycleHook) {
+                    debugRenderCycleHook(this, 'before-vnode', {
+                        isNull: preactElement === null,
+                        type: preactElement?.type || 'null'
+                    });
+                }
+                if (debugVNodeHook) {
+                    debugVNodeHook(this, preactElement);
+                }
+
                 // Render using Preact's reconciliation
                 // Preact automatically maintains vdom state between renders
                 preactRender(preactElement, this);
+
+                if (debugRenderCycleHook) {
+                    debugRenderCycleHook(this, 'after-vnode');
+                }
             } else {
                 // No compiled template - this shouldn't happen in production
                 console.error(`[${this.tagName}] Template was not compiled. Ensure you're using the html\`\` tag.`);

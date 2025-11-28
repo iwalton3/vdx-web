@@ -174,7 +174,10 @@ describe('Template Value Application', function(it) {
 
         const div = container.querySelector('div');
         // Preact/browser should escape quotes in attributes
-        assert.ok(!div.outerHTML.includes('><script'), 'Should not allow script injection');
+        // The output will contain "><script with escaped quotes: &quot;><script
+        // This is safe - the quotes prevent breaking out of the attribute context
+        assert.ok(!div.outerHTML.includes('"><script'), 'Should not allow unescaped attribute injection');
+        assert.ok(div.outerHTML.includes('&quot;') || div.outerHTML.includes('&#34;'), 'Should escape quotes');
     });
 
     it('handles boolean true in attribute', () => {

@@ -1,0 +1,17 @@
+{
+  "name": "debug-page",
+  "version": "1.0.0",
+  "description": "Debug web pages by printing console output",
+  "main": "debug-page.js",
+  "scripts": {
+    "test": "node test-all.js",
+    "test:framework": "node run-framework-tests.js",
+    "test:e2e": "node test-runner.js"
+  },
+  "bin": {
+    "debug-page": "./debug-page.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  }
+}

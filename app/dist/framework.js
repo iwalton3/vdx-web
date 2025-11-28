@@ -1,6 +1,6 @@
 /**
  * Custom Framework Bundle
- * Generated: 2025-11-27T05:46:39.142Z
+ * Generated: 2025-11-28T04:31:51.031Z
  *
  * Includes Preact (https://preactjs.com/)
  * Copyright (c) 2015-present Jason Miller
@@ -1487,6 +1487,11 @@ const preactRender = render;
 
 // ============= reactivity.js =============
 
+let debugReactivityHook = null;
+function setDebugReactivityHook(hook) {
+    debugReactivityHook = hook;
+}
+
 let activeEffect = null;
 
 const effectStack = [];
@@ -1556,6 +1561,9 @@ function trigger(target, key) {
 
     const deps = depsMap.get(key);
     if (deps) {
+        if (debugReactivityHook) {
+            debugReactivityHook(target, key, target[key], `trigger(${deps.size} effects)`);
+        }
         const effects = [...deps];
         effects.forEach(effect => effect());
     }
@@ -1615,6 +1623,9 @@ function reactive(obj) {
 
             const isObjectAssignment = value !== null && typeof value === 'object';
             if (oldValue !== value || isObjectAssignment) {
+                if (debugReactivityHook) {
+                    debugReactivityHook(target, key, value, 'set');
+                }
                 trigger(target, key);
             }
 
@@ -2059,8 +2070,36 @@ function parseXMLToTree(xmlString) {
     const voidElements = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
                           'link', 'meta', 'param', 'source', 'track', 'wbr'];
 
-    const booleanAttrPattern = /\s(checked|selected|disabled|readonly|multiple|ismap|defer|declare|noresize|nowrap|noshade|compact|autofocus|required|autoplay|controls|loop|muted|default|open|reversed|scoped|seamless|sortable|novalidate|formnovalidate|itemscope)(?=\s|>|\/)/gi;
-    xmlString = xmlString.replace(booleanAttrPattern, (match, attr) => ` ${attr}="${attr}"`);
+    const tagPattern = /<([a-zA-Z][\w-]*)([^>]*)>/g;
+    const booleanAttrs = ['checked', 'selected', 'disabled', 'readonly', 'multiple', 'ismap',
+                          'defer', 'declare', 'noresize', 'nowrap', 'noshade', 'compact',
+                          'autofocus', 'required', 'autoplay', 'controls', 'loop', 'muted',
+                          'default', 'open', 'reversed', 'scoped', 'seamless', 'sortable',
+                          'novalidate', 'formnovalidate', 'itemscope'];
+
+    xmlString = xmlString.replace(tagPattern, (fullMatch, tagName, attrs) => {
+
+        if (fullMatch.startsWith('</')) {
+            return fullMatch;
+        }
+
+        let processedAttrs = attrs;
+        for (const boolAttr of booleanAttrs) {
+
+            const pattern = new RegExp(`(\\s${boolAttr})(?=\\s|>|/|$)`, 'gi');
+
+            const parts = processedAttrs.split(/("[^"]*"|'[^']*')/);
+            processedAttrs = parts.map((part, index) => {
+
+                if (index % 2 === 0) {
+                    return part.replace(pattern, `$1="${boolAttr}"`);
+                }
+                return part;  
+            }).join('');
+        }
+
+        return `<${tagName}${processedAttrs}>`;
+    });
 
     voidElements.forEach(tag => {
 
@@ -2354,7 +2393,11 @@ function applyValues(compiled, values, component = null) {
                 const childValues = child._itemValues !== undefined ? child._itemValues : values;
                 return applyValues(child, childValues, component);
             })
-            .filter(child => child !== undefined && child !== false);
+            .filter(child => child !== undefined && child !== false && child !== null);
+
+        if (children.length === 0) {
+            return null;
+        }
 
         const props = compiled.key !== undefined ? { key: compiled.key } : null;
         return h(Fragment, props, ...children);
@@ -2388,6 +2431,29 @@ function applyValues(compiled, values, component = null) {
 
             if (value === null || value === undefined) {
                 return null;
+            }
+
+            if (Array.isArray(value)) {
+
+                if (value.length === 0) {
+                    return null;
+                }
+
+                const hasVNodesOrText = value.some(item => {
+                    if (!item) return false;
+
+                    if (typeof item === 'string' || typeof item === 'number') return true;
+
+                    if (typeof item === 'object' && ('type' in item || 'props' in item || '__' in item)) return true;
+                    return false;
+                });
+
+                if (hasVNodesOrText) {
+
+                    return value;
+                }
+
+                return value.join('');
             }
 
             if (typeof value === 'object') {
@@ -2432,6 +2498,11 @@ function applyValues(compiled, values, component = null) {
                     else if (attrDef.context === 'x-model-radio') {
                         value = (value === attrDef.radioValue);
                     }
+
+                    else if (attrDef.context === 'x-model-value' && isCustomElement && (typeof value === 'object' || typeof value === 'function') && value !== null) {
+                        customElementProps[name] = value;
+                        continue;  
+                    }
                 } else {
                     value = (attrDef.context === 'x-model-checked' || attrDef.context === 'x-model-radio') ? false : '';
                 }
@@ -2465,6 +2536,17 @@ function applyValues(compiled, values, component = null) {
                         customElementProps[name] = value;
                         continue;
                     } else {
+                        value = String(value);
+                    }
+                } else if (attrDef.context === 'x-model-value') {
+
+                    if (isCustomElement && (typeof value === 'object' || typeof value === 'function') && value !== null) {
+
+                        customElementProps[name] = value;
+                        continue;
+                    }
+
+                    if (typeof value !== 'object' && typeof value !== 'function') {
                         value = String(value);
                     }
                 } else if (attrDef.context === 'attribute') {
@@ -2506,25 +2588,6 @@ function applyValues(compiled, values, component = null) {
             } else {
                 props[propName] = value;
             }
-        }
-
-        if (isCustomElement && Object.keys(customElementProps).length > 0) {
-            props.ref = (el) => {
-                if (el) {
-
-                    if ('_isMounted' in el && !el._isMounted) {
-                        if (!el._pendingProps) {
-                            el._pendingProps = {};
-                        }
-                        Object.assign(el._pendingProps, customElementProps);
-                    } else {
-
-                        for (const [name, value] of Object.entries(customElementProps)) {
-                            el[name] = value;
-                        }
-                    }
-                }
-            };
         }
 
         const resolveHandler = (eventDef) => {
@@ -2616,6 +2679,15 @@ function applyValues(compiled, values, component = null) {
                 }
             }
 
+            if (isCustomElement && handler && typeof handler === 'function' && !eventDef.xModel) {
+                const originalHandler = handler;
+                handler = (e) => {
+
+                    const value = (e.detail && e.detail.value !== undefined) ? e.detail.value : e.detail;
+                    return originalHandler(e, value);
+                };
+            }
+
             if (handler && typeof handler === 'function') {
                 props[propName] = handler;
             }
@@ -2632,6 +2704,76 @@ function applyValues(compiled, values, component = null) {
                 return applyValues(child, childValues, component);
             })
             .filter(child => child !== undefined && child !== false);
+
+        if (isCustomElement && children.length > 0) {
+
+            const defaultChildren = [];
+            const namedChildren = {};
+
+            for (const child of children) {
+
+                if (child && typeof child === 'object' && child.props && child.props.slot) {
+                    const slotName = child.props.slot;
+                    if (!namedChildren[slotName]) {
+                        namedChildren[slotName] = [];
+                    }
+                    namedChildren[slotName].push(child);
+                } else {
+                    defaultChildren.push(child);
+                }
+            }
+
+            let childrenProp;
+            if (Object.keys(namedChildren).length > 0) {
+
+                childrenProp = defaultChildren.length > 0 ? defaultChildren : [];
+
+                for (const [name, namedChildArray] of Object.entries(namedChildren)) {
+                    if (!Array.isArray(childrenProp)) {
+                        childrenProp = { default: childrenProp };
+                    }
+                    childrenProp[name] = namedChildArray;
+                }
+            } else {
+
+                childrenProp = defaultChildren;
+            }
+
+            customElementProps.children = childrenProp;
+        }
+
+        if (isCustomElement && Object.keys(customElementProps).length > 0) {
+            props.ref = (el) => {
+                if (el) {
+
+                    if ('_isMounted' in el && !el._isMounted) {
+                        if (!el._pendingProps) {
+                            el._pendingProps = {};
+                        }
+                        Object.assign(el._pendingProps, customElementProps);
+                    } else {
+
+                        for (const [name, value] of Object.entries(customElementProps)) {
+
+                            if (name === 'children') {
+                                if ('_isMounted' in el && el.props) {
+
+                                    el.props.children = value;
+
+                                    if (el._isMounted && typeof el.render === 'function') {
+                                        el.render();
+                                    }
+                                }
+
+                            } else {
+
+                                el[name] = value;
+                            }
+                        }
+                    }
+                }
+            };
+        }
 
         return h(compiled.tag, props, ...children);
     }
@@ -2655,6 +2797,16 @@ function getTemplateCacheSize() {
 }
 
 // ============= component.js =============
+
+let debugRenderCycleHook = null;
+let debugPropSetHook = null;
+let debugVNodeHook = null;
+
+function setDebugComponentHooks(hooks) {
+    debugRenderCycleHook = hooks.renderCycle;
+    debugPropSetHook = hooks.propSet;
+    debugVNodeHook = hooks.vnode;
+}
 
 const processedStylesCache = new Map();
 
@@ -2764,7 +2916,9 @@ function defineComponent(name, options) {
 
             this.state = reactive(options.data ? options.data.call(this) : {});
 
-            this.props = {};
+            this.props = {
+                children: []
+            };
 
             if (options.methods) {
                 for (const [name, method] of Object.entries(options.methods)) {
@@ -2789,10 +2943,6 @@ function defineComponent(name, options) {
                 e.stopPropagation();
             }
 
-            if (propName in this.props) {
-                this.props[propName] = value;
-            }
-
             this.dispatchEvent(new CustomEvent('change', {
                 bubbles: true,
                 composed: true,
@@ -2813,6 +2963,10 @@ function defineComponent(name, options) {
                     this.props[name] = value;
                 }
                 delete this._pendingProps;
+            }
+
+            while (this.firstChild) {
+                this.removeChild(this.firstChild);
             }
 
             this._isMounted = true;
@@ -2856,7 +3010,9 @@ function defineComponent(name, options) {
 
         attributeChangedCallback(name, oldValue, newValue) {
 
-            if (!this._isMounted || oldValue === newValue) return;
+            if (!this._isMounted || oldValue === newValue) {
+                return;
+            }
 
             if (options.props && name in options.props) {
 
@@ -2878,16 +3034,43 @@ function defineComponent(name, options) {
 
         _setupPropertySetters() {
 
+            const reservedNames = new Set([
+                'constructor', '__proto__', 'prototype', 'toString',
+                'valueOf', 'hasOwnProperty', 'isPrototypeOf'
+            ]);
+
+            if (!reservedNames.has('children')) {
+                const existingChildren = this.hasOwnProperty('children') ? this.children : undefined;
+
+                Object.defineProperty(this, 'children', {
+                    get() {
+                        return this.props.children;
+                    },
+                    set(value) {
+                        if (debugPropSetHook) {
+                            debugPropSetHook(this.tagName, 'children', value, value, this._isMounted);
+                        }
+                        this.props.children = value;
+
+                        if (this._isMounted) {
+                            this.render();
+                        }
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+
+                if (existingChildren !== undefined) {
+                    this.props.children = existingChildren;
+                }
+            }
+
             if (options.props) {
-
-                const reservedNames = new Set([
-                    'constructor', '__proto__', 'prototype', 'toString',
-                    'valueOf', 'hasOwnProperty', 'isPrototypeOf'
-                ]);
-
                 for (const propName of Object.keys(options.props)) {
-                    if (reservedNames.has(propName)) {
-                        console.warn(`[Security] Skipping reserved prop name: ${propName}`);
+                    if (reservedNames.has(propName) || propName === 'children') {
+                        if (reservedNames.has(propName)) {
+                            console.warn(`[Security] Skipping reserved prop name: ${propName}`);
+                        }
                         continue;
                     }
 
@@ -2900,7 +3083,22 @@ function defineComponent(name, options) {
                             return this.props[propName];
                         },
                         set(value) {
-                            this.props[propName] = value;
+
+                            let parsedValue = value;
+                            if (typeof value === 'string') {
+
+                                try {
+                                    parsedValue = JSON.parse(value);
+                                } catch {
+
+                                    parsedValue = value;
+                                }
+                            }
+
+                            if (debugPropSetHook) {
+                                debugPropSetHook(this.tagName, propName, parsedValue, value, this._isMounted);
+                            }
+                            this.props[propName] = parsedValue;
 
                             if (this._isMounted) {
                                 this.render();
@@ -2954,6 +3152,10 @@ function defineComponent(name, options) {
 
             if (!options.template) return;
 
+            if (debugRenderCycleHook) {
+                debugRenderCycleHook(this, 'before-template');
+            }
+
             if (options.styles && !this._stylesInjected) {
                 const styleId = `component-styles-${options.name || this.tagName}`;
                 const tagName = this.tagName.toLowerCase();
@@ -2979,6 +3181,13 @@ function defineComponent(name, options) {
 
             const templateResult = options.template.call(this);
 
+            if (debugRenderCycleHook) {
+                debugRenderCycleHook(this, 'after-template', {
+                    hasCompiled: !!templateResult?._compiled,
+                    valuesCount: templateResult?._values?.length || 0
+                });
+            }
+
             if (templateResult && templateResult._compiled) {
 
                 const preactElement = applyValues(
@@ -2987,7 +3196,21 @@ function defineComponent(name, options) {
                     this
                 );
 
+                if (debugRenderCycleHook) {
+                    debugRenderCycleHook(this, 'before-vnode', {
+                        isNull: preactElement === null,
+                        type: preactElement?.type || 'null'
+                    });
+                }
+                if (debugVNodeHook) {
+                    debugVNodeHook(this, preactElement);
+                }
+
                 preactRender(preactElement, this);
+
+                if (debugRenderCycleHook) {
+                    debugRenderCycleHook(this, 'after-vnode');
+                }
             } else {
 
                 console.error(`[${this.tagName}] Template was not compiled. Ensure you're using the html\`\` tag.`);

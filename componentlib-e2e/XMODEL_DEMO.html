@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>x-model Demo - Component Library</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .demo-section h2 {
+            margin-top: 0;
+        }
+        .state-display {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>✨ x-model Support Demo</h1>
+    <p>All form components support x-model for automatic two-way data binding!</p>
+
+    <x-model-demo></x-model-demo>
+
+    <script type="module">
+        import { defineComponent, html } from '../app/lib/framework.js';
+        import '../app/componentlib/form/input-text.js';
+        import '../app/componentlib/form/input-number.js';
+        import '../app/componentlib/form/textarea.js';
+        import '../app/componentlib/form/checkbox.js';
+        import '../app/componentlib/form/slider.js';
+        import '../app/componentlib/selection/dropdown.js';
+
+        defineComponent('x-model-demo', {
+            data() {
+                return {
+                    name: 'John Doe',
+                    age: 25,
+                    bio: '',
+                    agreed: false,
+                    volume: 50,
+                    language: 'javascript',
+                    languages: [
+                        { label: 'JavaScript', value: 'javascript' },
+                        { label: 'Python', value: 'python' },
+                        { label: 'Java', value: 'java' },
+                        { label: 'Go', value: 'go' }
+                    ]
+                };
+            },
+
+            template() {
+                return html`
+                    <div>
+                        <div class="demo-section">
+                            <h2>InputText with x-model</h2>
+                            <cl-input-text
+                                label="Full Name"
+                                placeholder="Enter your name"
+                                x-model="name">
+                            </cl-input-text>
+                        </div>
+
+                        <div class="demo-section">
+                            <h2>InputNumber with x-model</h2>
+                            <cl-input-number
+                                label="Age"
+                                min="0"
+                                max="120"
+                                x-model="age">
+                            </cl-input-number>
+                        </div>
+
+                        <div class="demo-section">
+                            <h2>TextArea with x-model</h2>
+                            <cl-textarea
+                                label="Bio"
+                                placeholder="Tell us about yourself"
+                                rows="4"
+                                x-model="bio">
+                            </cl-textarea>
+                        </div>
+
+                        <div class="demo-section">
+                            <h2>Checkbox with x-model</h2>
+                            <cl-checkbox
+                                label="I agree to the terms and conditions"
+                                x-model="agreed">
+                            </cl-checkbox>
+                        </div>
+
+                        <div class="demo-section">
+                            <h2>Slider with x-model</h2>
+                            <cl-slider
+                                label="Volume"
+                                min="0"
+                                max="100"
+                                step="5"
+                                x-model="volume">
+                            </cl-slider>
+                        </div>
+
+                        <div class="demo-section">
+                            <h2>Dropdown with x-model</h2>
+                            <cl-dropdown
+                                label="Favorite Language"
+                                options="${this.state.languages}"
+                                x-model="language">
+                            </cl-dropdown>
+                        </div>
+
+                        <div class="state-display">
+                            <h3>Current State (updates automatically!):</h3>
+                            <pre>{
+  "name": "${this.state.name}",
+  "age": ${this.state.age},
+  "bio": "${this.state.bio}",
+  "agreed": ${this.state.agreed},
+  "volume": ${this.state.volume},
+  "language": "${this.state.language}"
+}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

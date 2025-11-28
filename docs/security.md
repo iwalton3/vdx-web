@@ -4,6 +4,7 @@ Complete guide to security features and best practices in the framework.
 
 ## Table of Contents
 
+- [Security Architecture](#security-architecture)
 - [XSS Protection](#xss-protection)
 - [Dynamic Content and Boolean Attributes](#dynamic-content-and-boolean-attributes)
 - [Event Handler Security](#event-handler-security)
@@ -11,17 +12,44 @@ Complete guide to security features and best practices in the framework.
 - [Input Validation](#input-validation)
 - [Sensitive Data Storage](#sensitive-data-storage)
 - [Memory Leak Prevention](#memory-leak-prevention)
+- [Content Security Policy](#content-security-policy)
+- [Additional Security Headers](#additional-security-headers)
+
+## Security Architecture
+
+The framework implements **defense-in-depth** with multiple security layers:
+
+| Layer | Protection |
+|-------|-----------|
+| **Automatic HTML escaping** | Preact auto-escapes all text content |
+| **URL scheme allowlisting** | Blocks `javascript:`, `data:`, `vbscript:` |
+| **Symbol-based trust markers** | Prevents JSON spoofing of `raw()` |
+| **Unicode normalization** | Removes BOM and zero-width characters |
+| **Event handler protection** | No eval(), compile-time binding only |
+| **Prototype pollution blocking** | Reserved property names blocked |
+| **Children type checking** | VNode validation, safe defaults |
+
+### Attack Vectors Blocked
+
+| Attack | Protection | Status |
+|--------|-----------|--------|
+| XSS via content | Preact auto-escaping | ✅ Blocked |
+| XSS via attributes | Quote escaping | ✅ Blocked |
+| XSS via URLs | Scheme allowlist | ✅ Blocked |
+| XSS via event handlers | No eval, compile-time binding | ✅ Blocked |
+| Prototype pollution | Reserved name blocking | ✅ Blocked |
+| JSON spoofing of raw() | Symbol-based trust | ✅ Blocked |
+| Unicode encoding bypass | NFC normalization + entity decoding | ✅ Blocked |
+| Control character injection | Filtered in normalizeInput() | ✅ Blocked |
 
 ## XSS Protection
 
-The framework has built-in security protections with defense-in-depth:
+### How XSS Protection Works
 
-### Security Architecture
-
-1. **Symbol-based trust markers**: The framework uses non-exported Symbols for `html` and `raw` markers, preventing JSON injection attacks
-2. **Context-aware escaping**: Automatic XSS protection based on interpolation context
-3. **toString() attack prevention**: Uses `Object.prototype.toString.call()` to prevent malicious custom toString() methods from executing
-4. **Attribute sanitization**: URL validation, boolean attribute handling, and dangerous attribute blocking
+1. **Symbol-based trust markers** - The framework uses non-exported Symbols (`HTML_MARKER`, `RAW_MARKER`) that cannot be faked via JSON
+2. **Context-aware escaping** - Automatic protection based on interpolation context (content, attributes, URLs)
+3. **toString() attack prevention** - Uses `Object.prototype.toString.call()` to prevent malicious custom toString() methods
+4. **Attribute sanitization** - URL validation, boolean attribute handling, dangerous attribute blocking
 
 ### Always Use `html` Tag
 
@@ -365,6 +393,75 @@ unmounted() {
 }
 ```
 
+## Content Security Policy
+
+Recommended CSP headers for production deployment:
+
+```
+Content-Security-Policy: script-src 'self'; object-src 'none'; base-uri 'self';
+```
+
+**Why this works:**
+- Framework uses no inline event handlers (all `on-*` bindings are compile-time)
+- No `eval()` or `Function()` used anywhere
+- No dynamic script loading
+
+**Example server configuration (Apache):**
+```apache
+Header always set Content-Security-Policy "script-src 'self'; object-src 'none'; base-uri 'self';"
+```
+
+**Example server configuration (Nginx):**
+```nginx
+add_header Content-Security-Policy "script-src 'self'; object-src 'none'; base-uri 'self';";
+```
+
+## Additional Security Headers
+
+Recommended security headers for production:
+
+```
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+Referrer-Policy: strict-origin-when-cross-origin
+```
+
+**Purpose:**
+- **X-Content-Type-Options** - Prevents MIME type sniffing
+- **X-Frame-Options** - Prevents clickjacking
+- **Referrer-Policy** - Controls referrer information leakage
+
+## Using raw() Safely
+
+When using `raw()` with user-generated content (markdown, comments), sanitize with DOMPurify:
+
+```javascript
+// Install DOMPurify as a vendored dependency or use a CDN
+import DOMPurify from './vendor/dompurify.js';
+
+// ✅ SAFE - Sanitized user HTML
+${raw(DOMPurify.sanitize(userMarkdown))}
+
+// ❌ DANGEROUS - Unsanitized user HTML
+${raw(userMarkdown)}
+```
+
+**DOMPurify configuration for common use cases:**
+
+```javascript
+// Allow basic formatting only
+const clean = DOMPurify.sanitize(userInput, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br'],
+    ALLOWED_ATTR: ['href']
+});
+
+// Allow more for rich text
+const rich = DOMPurify.sanitize(userInput, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'code', 'pre'],
+    ALLOWED_ATTR: ['href', 'class']
+});
+```
+
 ## Security Checklist
 
 - [ ] Use `html` tag for all templates (auto-escaping)
@@ -379,6 +476,8 @@ unmounted() {
 - [ ] Use HTTPS in production
 - [ ] Implement rate limiting on backend
 - [ ] Use secure, httpOnly cookies for auth tokens
+- [ ] Add CSP headers in production
+- [ ] Add security headers (X-Frame-Options, etc.)
 
 ## See Also
 

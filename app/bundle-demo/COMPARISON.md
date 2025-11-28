@@ -193,7 +193,9 @@ defineComponent('settings-modal', {
 
     methods: {
         close() {
-            this.props.visible = false;
+            // Emit change event for parent to handle
+            this.emitChange(null, false, 'visible');
+            // Remove from DOM (this is a dynamically created modal)
             this.remove();
         },
 

@@ -48,8 +48,11 @@ describe('Template Security', function(it) {
         const userInput = '"><script>alert("xss")</script>';
         const result = html`<div title="${userInput}">content</div>`;
         const str = renderToString(result);
-        assert.ok(!str.includes('><script'), 'Should escape quotes');
-        assert.ok(!str.includes('"><script'), 'Should not allow attribute injection');
+        // The quotes should be escaped, preventing attribute injection
+        // Note: ><script will appear in the output, but with escaped quotes (&quot;><script)
+        // This is safe because the < and > don't have special meaning inside attribute values
+        assert.ok(!str.includes('"><script'), 'Should not allow unescaped attribute injection');
+        assert.ok(str.includes('&quot;') || str.includes('&#34;'), 'Should escape quotes in attribute');
     });
 
     it('sanitizes URLs in href', () => {

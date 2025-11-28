@@ -44,8 +44,9 @@ export default defineComponent('user-tools', {
             await login.state.logoff();
         },
 
-        toggleDarkTheme() {
-            darkTheme.update(state => ({ enabled: !state.enabled }));
+        handleDarkThemeChange() {
+            // Update store with current checkbox state
+            darkTheme.update(() => ({ enabled: this.state.darkThemeEnabled }));
         }
     },
 
@@ -74,7 +75,7 @@ export default defineComponent('user-tools', {
                 `)}
                 <p>
                     <label>
-                        <input type="checkbox" id="dark-theme-toggle" on-change="toggleDarkTheme" checked="${this.state.darkThemeEnabled}"> Use Dark Theme?
+                        <input type="checkbox" id="dark-theme-toggle" x-model="darkThemeEnabled" on-change="handleDarkThemeChange"> Use Dark Theme?
                     </label>
                 </p>
             </div>

@@ -26,7 +26,7 @@ export default defineComponent('page-wrapper', {
                 </nav>
             ` : ''}
             <div class="page-content">
-                <slot></slot>
+                ${this.props.children}
             </div>
         `;
     },

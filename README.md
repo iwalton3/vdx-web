@@ -179,6 +179,7 @@ app/
 │   ├── framework.js         # Complete framework bundle (~74KB)
 │   ├── router.js            # Standalone router (~10KB)
 │   └── utils.js             # Standalone utilities (~7KB)
+├── componentlib/            # Professional UI component library (cl-* components)
 ├── components/              # Shared UI components
 ├── auth/                    # Authentication system
 ├── apps/                    # Application modules
@@ -186,7 +187,7 @@ app/
 ├── playground/              # Interactive framework demos
 ├── bundle-demo/             # Examples using dist/ bundles
 ├── styles/                  # Global CSS
-├── tests/                   # Test suite (125 tests)
+├── tests/                   # Test suite (160 tests)
 └── index.html               # Entry point
 ```
 
@@ -292,13 +293,14 @@ Requires modern browsers with ES6+ support:
 ## Documentation
 
 - **[CLAUDE.md](CLAUDE.md)** - Quick reference for AI coding assistants
-- **[docs/components.md](docs/components.md)** - Component development patterns
+- **[docs/components.md](docs/components.md)** - Component development patterns, props, children
 - **[docs/templates.md](docs/templates.md)** - Template system, x-model, helpers
 - **[docs/reactivity.md](docs/reactivity.md)** - Reactive state, stores, computed
 - **[docs/routing.md](docs/routing.md)** - Router setup, lazy loading
-- **[docs/security.md](docs/security.md)** - XSS protection, input validation
+- **[docs/security.md](docs/security.md)** - XSS protection, input validation, CSP
 - **[docs/testing.md](docs/testing.md)** - Running tests, writing tests
 - **[docs/bundles.md](docs/bundles.md)** - Using pre-bundled versions
+- **[docs/componentlib.md](docs/componentlib.md)** - Professional UI component library
 - **[docs/api-reference.md](docs/api-reference.md)** - Complete API reference
 
 ## Deployment

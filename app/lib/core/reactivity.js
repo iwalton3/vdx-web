@@ -5,6 +5,12 @@
  * @module core/reactivity
  */
 
+// Debug hooks - can be set by debug-enable.js
+let debugReactivityHook = null;
+export function setDebugReactivityHook(hook) {
+    debugReactivityHook = hook;
+}
+
 /** @type {Function|null} Current active effect being tracked */
 let activeEffect = null;
 
@@ -119,6 +125,9 @@ function trigger(target, key) {
 
     const deps = depsMap.get(key);
     if (deps) {
+        if (debugReactivityHook) {
+            debugReactivityHook(target, key, target[key], `trigger(${deps.size} effects)`);
+        }
         const effects = [...deps];
         effects.forEach(effect => effect());
     }
@@ -203,6 +212,9 @@ export function reactive(obj) {
             // 2. Assigning an object/Proxy (internal state might have changed)
             const isObjectAssignment = value !== null && typeof value === 'object';
             if (oldValue !== value || isObjectAssignment) {
+                if (debugReactivityHook) {
+                    debugReactivityHook(target, key, value, 'set');
+                }
                 trigger(target, key);
             }
 

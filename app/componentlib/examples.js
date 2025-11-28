@@ -1,0 +1,636 @@
+/**
+ * Component Examples - Simplified demos
+ */
+
+export const componentExamples = {
+    // FORM COMPONENTS
+    inputText: {
+        id: 'inputText',
+        name: 'InputText',
+        category: 'form',
+        description: 'Text input with validation support',
+        demo: `<example-input-text></example-input-text>`,
+        source: `defineComponent('example-input-text', {
+    data() {
+        return { value: '', email: '', pattern: '' };
+    },
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
+                <cl-input-text
+                    label="Basic Input"
+                    placeholder="Enter text..."
+                    x-model="value">
+                </cl-input-text>
+
+                <cl-input-text
+                    label="Email Validation"
+                    placeholder="email@example.com"
+                    pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\\\\.[a-z]{2,}$"
+                    required="true"
+                    helptext="Enter a valid email address"
+                    x-model="email">
+                </cl-input-text>
+
+                <cl-input-text
+                    label="Min/Max Length"
+                    minlength="5"
+                    maxlength="20"
+                    helptext="Between 5-20 characters"
+                    x-model="pattern">
+                </cl-input-text>
+            </div>
+        \`;
+    }
+});`
+    },
+
+    inputNumber: {
+        id: 'inputNumber',
+        name: 'InputNumber',
+        category: 'form',
+        description: 'Number input with increment/decrement buttons',
+        demo: `<example-input-number></example-input-number>`,
+        source: `<cl-input-number
+    label="Quantity"
+    value="\${quantity}"
+    min="1"
+    max="100"
+    step="1"
+    on-change="\${handleChange}">
+</cl-input-number>`
+    },
+
+    textarea: {
+        id: 'textarea',
+        name: 'TextArea',
+        category: 'form',
+        description: 'Multi-line text input with auto-resize',
+        demo: `<example-textarea></example-textarea>`,
+        source: `<cl-textarea
+    label="Comments"
+    placeholder="Enter comments..."
+    rows="5"
+    maxlength="500"
+    showcount="true"
+    value="\${value}"
+    on-change="\${handleChange}">
+</cl-textarea>`
+    },
+
+    checkbox: {
+        id: 'checkbox',
+        name: 'Checkbox',
+        category: 'form',
+        description: 'Checkbox input with label',
+        demo: `<example-checkbox></example-checkbox>`,
+        source: `<cl-checkbox
+    label="Accept terms"
+    checked="\${checked}"
+    on-change="\${handleChange}">
+</cl-checkbox>`
+    },
+
+    radioButton: {
+        id: 'radioButton',
+        name: 'RadioButton',
+        category: 'form',
+        description: 'Radio button input',
+        demo: `<example-radio-button></example-radio-button>`,
+        source: `<cl-radio-button
+    name="size"
+    value="medium"
+    label="Medium"
+    modelvalue="\${selectedSize}"
+    on-change="\${handleChange}">
+</cl-radio-button>`
+    },
+
+    slider: {
+        id: 'slider',
+        name: 'Slider',
+        category: 'form',
+        description: 'Range slider input',
+        demo: `<example-slider></example-slider>`,
+        source: `defineComponent('example-slider', {
+    data() {
+        return { value: 50, volume: 75 };
+    },
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 24px; max-width: 500px;">
+                <cl-slider
+                    label="Basic Slider"
+                    x-model="value">
+                </cl-slider>
+
+                <cl-slider
+                    label="Volume (0-100)"
+                    min="0"
+                    max="100"
+                    step="5"
+                    x-model="volume">
+                </cl-slider>
+            </div>
+        \`;
+    }
+});`
+    },
+
+    calendar: {
+        id: 'calendar',
+        name: 'Calendar',
+        category: 'form',
+        description: 'Date picker component',
+        demo: `<example-calendar></example-calendar>`,
+        source: `<cl-calendar
+    label="Date"
+    value="\${selectedDate}"
+    on-change="\${handleChange}">
+</cl-calendar>`
+    },
+
+    // SELECTION COMPONENTS
+    dropdown: {
+        id: 'dropdown',
+        name: 'Dropdown',
+        category: 'selection',
+        description: 'Single select dropdown with search',
+        demo: `<example-dropdown></example-dropdown>`,
+        source: `<cl-dropdown
+    label="Select Option"
+    options="\${options}"
+    value="\${selected}"
+    filter="true"
+    on-change="\${handleChange}">
+</cl-dropdown>`
+    },
+
+    multiselect: {
+        id: 'multiselect',
+        name: 'MultiSelect',
+        category: 'selection',
+        description: 'Multi-select dropdown with chips',
+        demo: `<example-multiselect></example-multiselect>`,
+        source: `<cl-multiselect
+    label="Tags"
+    options="\${tags}"
+    value="\${selected}"
+    filter="true"
+    on-change="\${handleChange}">
+</cl-multiselect>`
+    },
+
+    autocomplete: {
+        id: 'autocomplete',
+        name: 'AutoComplete',
+        category: 'selection',
+        description: 'Text input with autocomplete suggestions',
+        demo: `<example-autocomplete></example-autocomplete>`,
+        source: `<cl-autocomplete
+    label="Search"
+    suggestions="\${suggestions}"
+    value="\${value}"
+    on-change="\${handleChange}">
+</cl-autocomplete>`
+    },
+
+    chips: {
+        id: 'chips',
+        name: 'Chips',
+        category: 'selection',
+        description: 'Tag input component',
+        demo: `<example-chips></example-chips>`,
+        source: `defineComponent('example-chips', {
+    data() {
+        return { tags: ['javascript', 'react', 'vue'] };
+    },
+    template() {
+        return html\`
+            <div style="max-width: 600px;">
+                <cl-chips
+                    label="Tags"
+                    placeholder="Add tag..."
+                    x-model="tags">
+                </cl-chips>
+
+                <div style="padding: 12px; background: #f8f9fa; border-radius: 4px; margin-top: 16px;">
+                    Tags: \${(this.state.tags || []).join(', ')}
+                </div>
+            </div>
+        \`;
+    }
+});`
+    },
+
+    // DATA COMPONENTS
+    datatable: {
+        id: 'datatable',
+        name: 'DataTable',
+        category: 'data',
+        description: 'Advanced data table with sorting and selection',
+        demo: `<example-datatable></example-datatable>`,
+        source: `<cl-datatable
+    value="\${data}"
+    columns="\${columns}"
+    selectionmode="single"
+    selection="\${selected}"
+    on-change="\${handleSelectionChange}">
+</cl-datatable>`
+    },
+
+    paginator: {
+        id: 'paginator',
+        name: 'Paginator',
+        category: 'data',
+        description: 'Pagination controls',
+        demo: `<example-paginator></example-paginator>`,
+        source: `<cl-paginator
+    totalrecords="100"
+    rows="10"
+    first="\${first}"
+    on-change="\${handlePageChange}">
+</cl-paginator>`
+    },
+
+    tree: {
+        id: 'tree',
+        name: 'Tree',
+        category: 'data',
+        description: 'Hierarchical tree view',
+        demo: `<example-tree></example-tree>`,
+        source: `<cl-tree
+    value="\${nodes}"
+    selectionmode="single"
+    selection="\${selected}"
+    on-change="\${handleSelectionChange}">
+</cl-tree>`
+    },
+
+    orderableList: {
+        id: 'orderableList',
+        name: 'OrderableList',
+        category: 'data',
+        description: 'Drag and drop reorderable list',
+        demo: `<example-orderable-list></example-orderable-list>`,
+        source: `<cl-orderable-list
+    header="Tasks"
+    value="\${items}"
+    on-change="\${handleReorder}">
+</cl-orderable-list>`
+    },
+
+    // PANEL COMPONENTS
+    accordion: {
+        id: 'accordion',
+        name: 'Accordion',
+        category: 'panel',
+        description: 'Collapsible accordion panels',
+        demo: `<example-accordion></example-accordion>`,
+        source: `<cl-accordion
+    tabs="\${tabs}"
+    activeindex="0"
+    multiple="false">
+</cl-accordion>`
+    },
+
+    tabview: {
+        id: 'tabview',
+        name: 'TabView',
+        category: 'panel',
+        description: 'Tabbed interface component',
+        demo: `<example-tabview></example-tabview>`,
+        source: `<cl-tabview
+    tabs="\${tabs}"
+    activeindex="0"
+    on-change="\${handleTabChange}">
+</cl-tabview>`
+    },
+
+    card: {
+        id: 'card',
+        name: 'Card',
+        category: 'panel',
+        description: 'Content card container',
+        demo: `<example-card></example-card>`,
+        source: `<cl-card
+    header="Title"
+    subheader="Subtitle"
+    footer="Footer content">
+    Card body content
+</cl-card>`
+    },
+
+    fieldset: {
+        id: 'fieldset',
+        name: 'Fieldset',
+        category: 'panel',
+        description: 'Fieldset with legend and toggle',
+        demo: `<example-fieldset></example-fieldset>`,
+        source: `<cl-fieldset
+    legend="Section Title"
+    toggleable="true"
+    collapsed="false">
+    Content here
+</cl-fieldset>`
+    },
+
+    splitter: {
+        id: 'splitter',
+        name: 'Splitter',
+        category: 'panel',
+        description: 'Resizable split panel',
+        demo: `<example-splitter></example-splitter>`,
+        source: `defineComponent('example-splitter', {
+    template() {
+        return html\`
+            <div style="height: 400px;">
+                <cl-splitter layout="horizontal" panelsizes="[60, 40]">
+                    <div slot="panel-1" style="padding: 20px;">
+                        <h3>Left Panel</h3>
+                        <p>Drag the divider to resize.</p>
+                    </div>
+                    <div slot="panel-2" style="padding: 20px;">
+                        <h3>Right Panel</h3>
+                        <p>This panel adjusts automatically.</p>
+                    </div>
+                </cl-splitter>
+            </div>
+        \`;
+    }
+});`
+    },
+
+    // OVERLAY COMPONENTS
+    dialog: {
+        id: 'dialog',
+        name: 'Dialog',
+        category: 'overlay',
+        description: 'Modal dialog component',
+        demo: `<example-dialog></example-dialog>`,
+        source: `defineComponent('example-dialog', {
+    data() {
+        return { visible: false };
+    },
+    template() {
+        return html\`
+            <div>
+                <cl-button
+                    label="Show Dialog"
+                    on-click="\${() => this.state.visible = true}">
+                </cl-button>
+
+                <cl-dialog
+                    visible="\${this.state.visible}"
+                    header="Dialog Header"
+                    modal="true"
+                    closable="true"
+                    style="width: 500px;"
+                    on-change="\${(e, val) => this.state.visible = val}">
+                    <p>This is a modal dialog. Click outside or press the X to close.</p>
+                    <p>You can put any content here.</p>
+                </cl-dialog>
+            </div>
+        \`;
+    }
+});`
+    },
+
+    sidebar: {
+        id: 'sidebar',
+        name: 'Sidebar',
+        category: 'overlay',
+        description: 'Slide-out sidebar panel',
+        demo: `<example-sidebar></example-sidebar>`,
+        source: `defineComponent('example-sidebar', {
+    data() {
+        return { visible: false, position: 'left' };
+    },
+    methods: {
+        show(pos) {
+            this.state.position = pos;
+            this.state.visible = true;
+        }
+    },
+    template() {
+        return html\`
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <cl-button label="Left" on-click="\${() => this.show('left')}"></cl-button>
+                <cl-button label="Right" on-click="\${() => this.show('right')}"></cl-button>
+                <cl-button label="Top" on-click="\${() => this.show('top')}"></cl-button>
+                <cl-button label="Bottom" on-click="\${() => this.show('bottom')}"></cl-button>
+
+                <cl-sidebar
+                    visible="\${this.state.visible}"
+                    position="\${this.state.position}"
+                    header="Sidebar Menu"
+                    on-change="\${(e, val) => this.state.visible = val}">
+                    <p>Sidebar content from the \${this.state.position}.</p>
+                    <p>Click outside to close.</p>
+                </cl-sidebar>
+            </div>
+        \`;
+    }
+});`
+    },
+
+    toast: {
+        id: 'toast',
+        name: 'Toast',
+        category: 'overlay',
+        description: 'Toast notification component',
+        demo: `<example-toast></example-toast>`,
+        source: `<cl-toast position="top-right"></cl-toast>
+
+// Show toast programmatically:
+toast.show({
+    severity: 'success',
+    summary: 'Title',
+    detail: 'Message',
+    life: 3000
+});`
+    },
+
+    tooltip: {
+        id: 'tooltip',
+        name: 'Tooltip',
+        category: 'overlay',
+        description: 'Tooltip component',
+        demo: `<example-tooltip></example-tooltip>`,
+        source: `defineComponent('example-tooltip', {
+    template() {
+        return html\`
+            <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: center;">
+                <cl-tooltip text="Tooltip on top" position="top">
+                    <cl-button label="Top"></cl-button>
+                </cl-tooltip>
+
+                <cl-tooltip text="Tooltip on right" position="right">
+                    <cl-button label="Right"></cl-button>
+                </cl-tooltip>
+
+                <cl-tooltip text="Tooltip on bottom" position="bottom">
+                    <cl-button label="Bottom"></cl-button>
+                </cl-tooltip>
+
+                <cl-tooltip text="Tooltip on left" position="left">
+                    <cl-button label="Left"></cl-button>
+                </cl-tooltip>
+            </div>
+        \`;
+    }
+});`
+    },
+
+    // BUTTON COMPONENTS
+    button: {
+        id: 'button',
+        name: 'Button',
+        category: 'button',
+        description: 'Styled button component',
+        demo: `<example-button></example-button>`,
+        source: `defineComponent('example-button', {
+    data() {
+        return { loading: false };
+    },
+    methods: {
+        handleLoad() {
+            this.state.loading = true;
+            setTimeout(() => this.state.loading = false, 2000);
+        }
+    },
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <cl-button label="Primary" severity="primary"></cl-button>
+                    <cl-button label="Secondary" severity="secondary"></cl-button>
+                    <cl-button label="Success" severity="success"></cl-button>
+                    <cl-button label="Danger" severity="danger"></cl-button>
+                    <cl-button label="Warning" severity="warning"></cl-button>
+                    <cl-button label="Info" severity="info"></cl-button>
+                </div>
+
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <cl-button label="Outlined" severity="primary" outlined="true"></cl-button>
+                    <cl-button label="Text" severity="primary" text="true"></cl-button>
+                    <cl-button label="Disabled" disabled="true"></cl-button>
+                    <cl-button
+                        label="Loading"
+                        loading="\${this.state.loading}"
+                        on-click="handleLoad">
+                    </cl-button>
+                </div>
+
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <cl-button label="With Icon" icon="📄" severity="primary"></cl-button>
+                    <cl-button label="Icon Right" icon="→" iconpos="right" severity="success"></cl-button>
+                </div>
+            </div>
+        \`;
+    }
+});`
+    },
+
+    splitButton: {
+        id: 'splitButton',
+        name: 'SplitButton',
+        category: 'button',
+        description: 'Button with dropdown menu',
+        demo: `<example-split-button></example-split-button>`,
+        source: `<cl-split-button
+    label="Save"
+    model="\${menuItems}"
+    severity="primary"
+    on-click="\${handleClick}">
+</cl-split-button>`
+    },
+
+    menu: {
+        id: 'menu',
+        name: 'Menu',
+        category: 'button',
+        description: 'Menu component',
+        demo: `<example-menu></example-menu>`,
+        source: `<cl-menu model="\${menuItems}"></cl-menu>
+
+// menuItems format:
+[{
+    label: 'File',
+    icon: '📁',
+    items: [...]
+}]`
+    },
+
+    breadcrumb: {
+        id: 'breadcrumb',
+        name: 'Breadcrumb',
+        category: 'button',
+        description: 'Breadcrumb navigation',
+        demo: `<example-breadcrumb></example-breadcrumb>`,
+        source: `<cl-breadcrumb
+    model="\${items}"
+    home="\${homeItem}"
+    separator="/">
+</cl-breadcrumb>`
+    },
+
+    // MISC COMPONENTS
+    progressbar: {
+        id: 'progressbar',
+        name: 'ProgressBar',
+        category: 'misc',
+        description: 'Progress indicator',
+        demo: `<example-progressbar></example-progressbar>`,
+        source: `<cl-progressbar
+    value="75"
+    showvalue="true"
+    mode="determinate">
+</cl-progressbar>`
+    },
+
+    fileupload: {
+        id: 'fileupload',
+        name: 'FileUpload',
+        category: 'misc',
+        description: 'File upload component',
+        demo: `<example-fileupload></example-fileupload>`,
+        source: `<cl-fileupload
+    multiple="true"
+    accept=".pdf,.jpg,.png"
+    maxfilesize="1048576"
+    on-upload="\${handleUpload}">
+</cl-fileupload>`
+    },
+
+    colorpicker: {
+        id: 'colorpicker',
+        name: 'ColorPicker',
+        category: 'misc',
+        description: 'Color picker component',
+        demo: `<example-colorpicker></example-colorpicker>`,
+        source: `defineComponent('my-component', {
+    data() {
+        return { color: '#3498db', inlineColor: '#e74c3c' };
+    },
+    template() {
+        return html\`
+            <cl-colorpicker
+                label="Pick Color"
+                x-model="color">
+            </cl-colorpicker>
+
+            <cl-colorpicker
+                label="Inline Color Picker"
+                inline="true"
+                x-model="inlineColor">
+            </cl-colorpicker>
+
+            <div style="padding: 40px; background: \${this.state.color};">
+                Selected Color
+            </div>
+        \`;
+    }
+});`
+    }
+};
