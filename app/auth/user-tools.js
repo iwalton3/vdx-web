@@ -8,20 +8,16 @@ import { darkTheme } from '../lib/utils.js';
 import '../components/icon.js';
 
 export default defineComponent('user-tools', {
+    stores: { login },
+
     data() {
         return {
-            loginState: null,
             darkThemeEnabled: false
         };
     },
 
     mounted() {
-        // Subscribe to login store
-        this.loginUnsubscribe = login.subscribe(state => {
-            this.state.loginState = state;
-        });
-
-        // Subscribe to darkTheme store
+        // Subscribe to darkTheme store (needs custom callback for DOM side effects)
         this.themeUnsubscribe = darkTheme.subscribe(state => {
             this.state.darkThemeEnabled = state.enabled;
 
@@ -35,7 +31,6 @@ export default defineComponent('user-tools', {
     },
 
     unmounted() {
-        if (this.loginUnsubscribe) this.loginUnsubscribe();
         if (this.themeUnsubscribe) this.themeUnsubscribe();
     },
 
@@ -51,13 +46,11 @@ export default defineComponent('user-tools', {
     },
 
     template() {
-        const state = this.state.loginState || login.state;
-
         return html`
             <div class="section">
                 <h3>Account</h3>
-                ${when(state.user, html`
-                    <p>Welcome, ${state.user}!</p>
+                ${when(this.stores.login.user, html`
+                    <p>Welcome, ${this.stores.login.user}!</p>
                     <p>
                         <x-icon icon="leave" alt="logoff"></x-icon>
                         <button class="link" on-click="logoff">Log Off</button>

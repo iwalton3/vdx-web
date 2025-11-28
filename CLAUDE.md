@@ -40,7 +40,7 @@ app/
 ├── components/              # Reusable UI components
 ├── auth/                    # Authentication system
 ├── apps/                    # Application modules
-├── tests/                   # Comprehensive unit tests (160 tests)
+├── tests/                   # Comprehensive unit tests (166 tests)
 └── index.html               # Entry point
 ```
 
@@ -166,6 +166,11 @@ ${when(this.state.isLoggedIn,
 ${each(this.state.items, item => html`
     <li>${item.name}</li>
 `)}
+
+// each() with key function - preserves DOM state on reorder
+${each(this.state.items, item => html`
+    <li><input type="text" x-model="items[${item.id}].name"></li>
+`, item => item.id)}
 
 // raw() - Only for trusted, sanitized content
 ${raw(this.state.trustedHtmlContent)}
@@ -352,26 +357,76 @@ const router = new Router({
 
 ### 9. Stores
 
-Always call methods on `store.state`, not the original object:
+**Automatic subscription** (recommended) - use `stores` option for auto-subscribe/unsubscribe:
 
 ```javascript
 import login from './auth/auth.js';
 
-// ✅ CORRECT
+export default defineComponent('my-component', {
+    stores: { login },  // Auto-subscribes on mount, unsubscribes on unmount
+
+    template() {
+        return html`
+            <p>User: ${this.stores.login.user?.name || 'Guest'}</p>
+            <button on-click="logoff">Log out</button>
+        `;
+    },
+
+    methods: {
+        async logoff() {
+            await login.state.logoff();  // Call methods on store.state
+        }
+    }
+});
+```
+
+**Manual subscription** (when you need custom logic):
+
+```javascript
+import login from './auth/auth.js';
+
 async mounted() {
     this.unsubscribe = login.subscribe(state => {
         this.state.user = state.user;
     });
 }
 
-async logoff() {
-    await login.state.logoff(); // Call on .state!
-}
-
 unmounted() {
     if (this.unsubscribe) this.unsubscribe();
 }
 ```
+
+**Important:** Always call store methods on `.state`, not the store directly: `login.state.logoff()`
+
+### 10. Refs
+
+Get direct DOM references using the `ref` attribute:
+
+```javascript
+export default defineComponent('my-form', {
+    methods: {
+        focusInput() {
+            this.refs.nameInput.focus();
+        },
+
+        handleSubmit() {
+            console.log('Value:', this.refs.nameInput.value);
+        }
+    },
+
+    template() {
+        return html`
+            <input ref="nameInput" type="text">
+            <button on-click="focusInput">Focus</button>
+            <button on-click="handleSubmit">Submit</button>
+        `;
+    }
+});
+```
+
+- Refs are available after first render
+- Automatically cleaned up when element is removed
+- Access via `this.refs.refName`
 
 ## Key Conventions
 
@@ -468,7 +523,7 @@ source ~/.venv/bin/activate
 python3 test-server.py
 ```
 
-### Framework Unit Tests (~160 tests)
+### Framework Unit Tests (~166 tests)
 
 Tests the core framework: reactivity, templates, components, router, etc.
 

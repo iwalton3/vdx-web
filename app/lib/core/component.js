@@ -185,6 +185,18 @@ export function defineComponent(name, options) {
                 children: []
             };
 
+            // Initialize stores (reactive copies of external store state)
+            if (options.stores) {
+                this.stores = {};
+                for (const [storeName, store] of Object.entries(options.stores)) {
+                    // Create reactive copy of store state
+                    this.stores[storeName] = reactive({ ...store.state });
+                }
+            }
+
+            // Initialize refs container
+            this.refs = {};
+
             // Bind all methods to this instance
             if (options.methods) {
                 for (const [name, method] of Object.entries(options.methods)) {
@@ -260,10 +272,30 @@ export function defineComponent(name, options) {
             // Mark as mounted BEFORE initial render to prevent double-render
             this._isMounted = true;
 
+            // Setup store subscriptions (auto-sync external stores)
+            if (options.stores) {
+                for (const [storeName, store] of Object.entries(options.stores)) {
+                    const unsubscribe = store.subscribe(state => {
+                        // Sync all properties from store to our reactive copy
+                        for (const key of Object.keys(state)) {
+                            this.stores[storeName][key] = state[key];
+                        }
+                    });
+                    this._cleanups.push(unsubscribe);
+                }
+            }
+
             // Setup reactivity - re-render on state changes
             const { dispose: disposeRenderEffect } = createEffect(() => {
                 // Track all state dependencies efficiently
                 trackAllDependencies(this.state);
+
+                // Track store dependencies too
+                if (this.stores) {
+                    for (const storeState of Object.values(this.stores)) {
+                        trackAllDependencies(storeState);
+                    }
+                }
 
                 // Call render - it has its own guards to prevent rendering when unmounted
                 this.render();

@@ -50,13 +50,5 @@ export default defineComponent('v1-page', {
                 </div>
             </x-page>
         `;
-    },
-
-    afterRender() {
-        // Sync the input value with state
-        const input = this.querySelector('#password-display');
-        if (input) {
-            input.value = this.state.password;
-        }
     }
 });

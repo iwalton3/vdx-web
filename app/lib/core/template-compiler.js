@@ -396,6 +396,12 @@ function nodeToTree(node) {
                 continue;
             }
 
+            // Ref binding - store element reference in component.refs
+            if (name === 'ref') {
+                attrs['__ref__'] = { refName: value };
+                continue;
+            }
+
             // Event binding
             if (name.startsWith('on-')) {
                 // Parse event name and optional modifier (e.g., "on-submit-prevent")
@@ -726,6 +732,20 @@ export function applyValues(compiled, values, component = null) {
                 }
             } else if (attrDef.value !== undefined) {
                 value = attrDef.value;
+            } else if (attrDef.refName !== undefined) {
+                // Handle ref attribute - create Preact ref callback
+                const refName = attrDef.refName;
+                props.ref = (el) => {
+                    if (component) {
+                        if (el) {
+                            component.refs[refName] = el;
+                        } else {
+                            // Element unmounted, clean up ref
+                            delete component.refs[refName];
+                        }
+                    }
+                };
+                continue;
             } else {
                 continue;
             }

@@ -8,6 +8,8 @@ Complete guide to building components with the framework.
 - [Props System](#props-system)
 - [Passing Props to Child Components](#passing-props-to-child-components)
 - [Children Props (React-style Composition)](#children-props-react-style-composition)
+- [Refs (DOM References)](#refs-dom-references)
+- [Stores (Auto-Subscribe)](#stores-auto-subscribe)
 - [Lifecycle Hooks](#lifecycle-hooks)
 - [Component Styles](#component-styles)
 - [Best Practices](#best-practices)
@@ -501,6 +503,114 @@ template() {
         </div>
     `;
 }
+```
+
+## Refs (DOM References)
+
+Use the `ref` attribute to get direct references to DOM elements:
+
+```javascript
+defineComponent('my-form', {
+    methods: {
+        focusInput() {
+            this.refs.nameInput.focus();
+        },
+
+        playVideo() {
+            this.refs.videoPlayer.play();
+        }
+    },
+
+    template() {
+        return html`
+            <div>
+                <input type="text" ref="nameInput" placeholder="Name">
+                <button on-click="focusInput">Focus Input</button>
+
+                <video ref="videoPlayer" src="movie.mp4"></video>
+                <button on-click="playVideo">Play</button>
+            </div>
+        `;
+    }
+});
+```
+
+**Key points:**
+- Refs are available in `this.refs` after the component mounts
+- Ref names must be unique within the component
+- Refs are automatically cleaned up when elements unmount
+- Use refs for imperative DOM operations (focus, play, scroll, etc.)
+
+**When to use refs:**
+- Focusing form inputs
+- Controlling media elements (video, audio)
+- Measuring element dimensions
+- Integrating with third-party DOM libraries
+
+**When NOT to use refs:**
+- Reading input values (use `x-model` instead)
+- Changing element content (use reactive state)
+- Toggling classes (use template interpolation)
+
+## Stores (Auto-Subscribe)
+
+The `stores` option automatically subscribes to external stores and syncs their state:
+
+```javascript
+import { loginStore } from './auth/auth.js';
+import { themeStore } from './utils.js';
+
+defineComponent('user-dashboard', {
+    stores: {
+        login: loginStore,
+        theme: themeStore
+    },
+
+    template() {
+        return html`
+            <div class="${this.stores.theme.dark ? 'dark' : 'light'}">
+                ${when(this.stores.login.user, html`
+                    <h1>Welcome, ${this.stores.login.user.name}!</h1>
+                    <button on-click="handleLogout">Logout</button>
+                `, html`
+                    <p>Please log in</p>
+                `)}
+            </div>
+        `;
+    },
+
+    methods: {
+        async handleLogout() {
+            await this.stores.login.logoff();
+        }
+    }
+});
+```
+
+**How it works:**
+1. On mount, the component subscribes to each store
+2. Store state is synced to `this.stores[name]`
+3. Changes to store state automatically trigger re-renders
+4. On unmount, subscriptions are automatically cleaned up
+
+**Benefits over manual subscription:**
+```javascript
+// ❌ OLD WAY - Manual subscribe/unsubscribe
+mounted() {
+    this.unsubscribe = loginStore.subscribe(state => {
+        this.state.user = state.user;
+    });
+}
+unmounted() {
+    if (this.unsubscribe) this.unsubscribe();
+}
+
+// ✅ NEW WAY - Automatic with stores option
+stores: {
+    login: loginStore
+}
+// Access via this.stores.login.user
+// Cleanup is automatic!
 ```
 
 ## Lifecycle Hooks

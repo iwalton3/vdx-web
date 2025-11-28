@@ -459,6 +459,25 @@ ${each(this.state.items, (item, index) => html`
 `)}
 ```
 
+**With key function (preserves DOM state on reorder):**
+```javascript
+${each(this.state.items, item => html`
+    <li>
+        <input type="text" x-model="items[${item.id}].name">
+    </li>
+`, item => item.id)}
+```
+
+The third parameter is a `keyFn` that returns a unique identifier for each item. This is **essential** when:
+- Items can be reordered, inserted, or deleted
+- List items contain form inputs (text boxes, checkboxes)
+- List items have internal state that should be preserved
+
+Without a key function, Preact uses array index for reconciliation, which can cause:
+- Text inputs to "shift" content when items are reordered
+- Checkbox states to appear on wrong items
+- Focus to be lost during updates
+
 **Filtering:**
 ```javascript
 ${each(this.state.items.filter(item => item.active), item => html`

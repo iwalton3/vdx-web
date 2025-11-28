@@ -1,6 +1,6 @@
 /**
  * Custom Framework Bundle
- * Generated: 2025-11-28T05:47:44.780Z
+ * Generated: 2025-11-28T07:11:55.971Z
  *
  * Includes Preact (https://preactjs.com/)
  * Copyright (c) 2015-present Jason Miller
@@ -2217,6 +2217,11 @@ function nodeToTree(node) {
                 continue;
             }
 
+            if (name === 'ref') {
+                attrs['__ref__'] = { refName: value };
+                continue;
+            }
+
             if (name.startsWith('on-')) {
 
                 const fullEventName = name.substring(3);
@@ -2508,6 +2513,20 @@ function applyValues(compiled, values, component = null) {
                 }
             } else if (attrDef.value !== undefined) {
                 value = attrDef.value;
+            } else if (attrDef.refName !== undefined) {
+
+                const refName = attrDef.refName;
+                props.ref = (el) => {
+                    if (component) {
+                        if (el) {
+                            component.refs[refName] = el;
+                        } else {
+
+                            delete component.refs[refName];
+                        }
+                    }
+                };
+                continue;
             } else {
                 continue;
             }
@@ -2878,6 +2897,16 @@ function defineComponent(name, options) {
                 children: []
             };
 
+            if (options.stores) {
+                this.stores = {};
+                for (const [storeName, store] of Object.entries(options.stores)) {
+
+                    this.stores[storeName] = reactive({ ...store.state });
+                }
+            }
+
+            this.refs = {};
+
             if (options.methods) {
                 for (const [name, method] of Object.entries(options.methods)) {
                     this[name] = method.bind(this);
@@ -2924,9 +2953,27 @@ function defineComponent(name, options) {
 
             this._isMounted = true;
 
+            if (options.stores) {
+                for (const [storeName, store] of Object.entries(options.stores)) {
+                    const unsubscribe = store.subscribe(state => {
+
+                        for (const key of Object.keys(state)) {
+                            this.stores[storeName][key] = state[key];
+                        }
+                    });
+                    this._cleanups.push(unsubscribe);
+                }
+            }
+
             const { dispose: disposeRenderEffect } = createEffect(() => {
 
                 trackAllDependencies(this.state);
+
+                if (this.stores) {
+                    for (const storeState of Object.values(this.stores)) {
+                        trackAllDependencies(storeState);
+                    }
+                }
 
                 this.render();
             });

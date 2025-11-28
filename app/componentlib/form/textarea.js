@@ -34,11 +34,8 @@ export default defineComponent('cl-textarea', {
         },
 
         afterRender() {
-            if (this.props.autoresize) {
-                const textarea = this.querySelector('textarea');
-                if (textarea) {
-                    this.resizeTextarea(textarea);
-                }
+            if (this.props.autoresize && this.refs.textarea) {
+                this.resizeTextarea(this.refs.textarea);
             }
         }
     },
@@ -56,6 +53,7 @@ export default defineComponent('cl-textarea', {
                     </label>
                 `)}
                 <textarea
+                    ref="textarea"
                     class="${this.props.error ? 'error' : ''}"
                     rows="${this.props.rows}"
                     placeholder="${this.props.placeholder}"

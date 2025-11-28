@@ -37,8 +37,7 @@ export default defineComponent('cl-splitter', {
         handleMouseMove(event) {
             if (!this.state.isDragging) return;
 
-            const container = this.querySelector('.splitter-container');
-            const rect = container.getBoundingClientRect();
+            const rect = this.refs.container.getBoundingClientRect();
 
             const currentPos = this.props.layout === 'horizontal' ? event.clientX : event.clientY;
             const containerSize = this.props.layout === 'horizontal' ? rect.width : rect.height;
@@ -74,7 +73,7 @@ export default defineComponent('cl-splitter', {
         const panel2Children = this.props.children?.['panel-2'] || [];
 
         return html`
-            <div class="splitter-container ${isHorizontal ? 'horizontal' : 'vertical'}">
+            <div ref="container" class="splitter-container ${isHorizontal ? 'horizontal' : 'vertical'}">
                 <div
                     class="splitter-panel panel-1"
                     style="${isHorizontal ? `width: ${this.state.sizes[0]}%` : `height: ${this.state.sizes[0]}%`}">

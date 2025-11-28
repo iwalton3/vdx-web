@@ -13,6 +13,7 @@ import { html } from '../lib/framework.js';
 import { computed } from '../lib/utils.js';
 import { compileTemplate, applyValues } from '../lib/core/template-compiler.js';
 import { render as preactRender } from '../lib/vendor/preact/index.js';
+import { createStore } from '../lib/core/store.js';
 import '../components/virtual-list.js';
 
 describe('x-model Two-Way Binding', function(it) {
@@ -802,5 +803,247 @@ describe('Virtual List Component', function(it) {
             document.body.removeChild(el);
             done();
         }, 200);
+    });
+});
+
+describe('Refs (DOM References)', function(it) {
+    it('stores element references via ref attribute', (done) => {
+        const TestComponent = defineComponent('test-refs-basic', {
+            data() {
+                return { focused: false };
+            },
+            methods: {
+                focusInput() {
+                    if (this.refs.myInput) {
+                        this.refs.myInput.focus();
+                        this.state.focused = true;
+                    }
+                }
+            },
+            template() {
+                return html`
+                    <div>
+                        <input type="text" ref="myInput" id="test-input">
+                        <button on-click="focusInput">Focus</button>
+                    </div>
+                `;
+            }
+        });
+
+        const el = document.createElement('test-refs-basic');
+        document.body.appendChild(el);
+
+        setTimeout(() => {
+            // Check ref was set
+            assert.ok(el.refs.myInput, 'Ref should be stored');
+            assert.equal(el.refs.myInput.tagName, 'INPUT', 'Ref should point to input element');
+
+            // Test that focusInput method works
+            el.focusInput();
+            assert.ok(el.state.focused, 'focusInput should have been called');
+
+            document.body.removeChild(el);
+            done();
+        }, 100);
+    });
+
+    it('supports multiple refs', (done) => {
+        const TestComponent = defineComponent('test-refs-multiple', {
+            template() {
+                return html`
+                    <div>
+                        <input ref="inputA" type="text">
+                        <input ref="inputB" type="number">
+                        <button ref="submitBtn">Submit</button>
+                    </div>
+                `;
+            }
+        });
+
+        const el = document.createElement('test-refs-multiple');
+        document.body.appendChild(el);
+
+        setTimeout(() => {
+            assert.ok(el.refs.inputA, 'inputA ref should exist');
+            assert.ok(el.refs.inputB, 'inputB ref should exist');
+            assert.ok(el.refs.submitBtn, 'submitBtn ref should exist');
+            assert.equal(el.refs.inputA.type, 'text', 'inputA should be text type');
+            assert.equal(el.refs.inputB.type, 'number', 'inputB should be number type');
+            assert.equal(el.refs.submitBtn.tagName, 'BUTTON', 'submitBtn should be button');
+
+            document.body.removeChild(el);
+            done();
+        }, 100);
+    });
+});
+
+describe('Stores (Auto-Subscribe/Unsubscribe)', function(it) {
+    it('auto-subscribes to store and syncs state', (done) => {
+        // Create a simple store for testing
+        const testStore = createStore({
+            count: 0,
+            name: 'initial'
+        });
+
+        const TestComponent = defineComponent('test-stores-basic', {
+            stores: {
+                test: testStore
+            },
+            template() {
+                return html`
+                    <div>
+                        <span id="count">${this.stores.test.count}</span>
+                        <span id="name">${this.stores.test.name}</span>
+                    </div>
+                `;
+            }
+        });
+
+        const el = document.createElement('test-stores-basic');
+        document.body.appendChild(el);
+
+        setTimeout(() => {
+            // Check initial values
+            assert.equal(el.querySelector('#count').textContent, '0', 'Initial count should be 0');
+            assert.equal(el.querySelector('#name').textContent, 'initial', 'Initial name should be "initial"');
+
+            // Update store
+            testStore.set({ count: 5, name: 'updated' });
+
+            setTimeout(() => {
+                // Check values updated
+                assert.equal(el.querySelector('#count').textContent, '5', 'Count should update to 5');
+                assert.equal(el.querySelector('#name').textContent, 'updated', 'Name should update to "updated"');
+
+                document.body.removeChild(el);
+                done();
+            }, 100);
+        }, 100);
+    });
+
+    it('auto-unsubscribes when component is unmounted', (done) => {
+        const testStore = createStore({ value: 'test' });
+        let subscriberCount = 0;
+
+        // Wrap subscribe to count subscribers
+        const originalSubscribe = testStore.subscribe.bind(testStore);
+        testStore.subscribe = (fn) => {
+            subscriberCount++;
+            const unsubscribe = originalSubscribe(fn);
+            return () => {
+                subscriberCount--;
+                unsubscribe();
+            };
+        };
+
+        const TestComponent = defineComponent('test-stores-unsub', {
+            stores: {
+                test: testStore
+            },
+            template() {
+                return html`<div>${this.stores.test.value}</div>`;
+            }
+        });
+
+        const el = document.createElement('test-stores-unsub');
+        document.body.appendChild(el);
+
+        setTimeout(() => {
+            assert.equal(subscriberCount, 1, 'Should have 1 subscriber after mount');
+
+            document.body.removeChild(el);
+
+            setTimeout(() => {
+                assert.equal(subscriberCount, 0, 'Should have 0 subscribers after unmount');
+                done();
+            }, 100);
+        }, 100);
+    });
+});
+
+describe('Event Handler Support', function(it) {
+    it('supports media element events (timeupdate, loadedmetadata)', (done) => {
+        let timeupdateCalled = false;
+        let loadedmetadataCalled = false;
+
+        const TestComponent = defineComponent('test-media-events', {
+            methods: {
+                handleTimeUpdate() {
+                    timeupdateCalled = true;
+                },
+                handleLoadedMetadata() {
+                    loadedmetadataCalled = true;
+                }
+            },
+            template() {
+                return html`
+                    <audio
+                        ref="audio"
+                        on-timeupdate="handleTimeUpdate"
+                        on-loadedmetadata="handleLoadedMetadata">
+                    </audio>
+                `;
+            }
+        });
+
+        const el = document.createElement('test-media-events');
+        document.body.appendChild(el);
+
+        setTimeout(() => {
+            const audio = el.refs.audio;
+            assert.ok(audio, 'Audio element should exist');
+
+            // Simulate events
+            audio.dispatchEvent(new Event('timeupdate'));
+            audio.dispatchEvent(new Event('loadedmetadata'));
+
+            assert.ok(timeupdateCalled, 'timeupdate handler should be called');
+            assert.ok(loadedmetadataCalled, 'loadedmetadata handler should be called');
+
+            document.body.removeChild(el);
+            done();
+        }, 100);
+    });
+
+    it('supports form events (focus, blur, keydown)', (done) => {
+        let focusCalled = false;
+        let blurCalled = false;
+        let keydownCalled = false;
+
+        const TestComponent = defineComponent('test-form-events', {
+            methods: {
+                handleFocus() { focusCalled = true; },
+                handleBlur() { blurCalled = true; },
+                handleKeydown() { keydownCalled = true; }
+            },
+            template() {
+                return html`
+                    <input
+                        ref="input"
+                        type="text"
+                        on-focus="handleFocus"
+                        on-blur="handleBlur"
+                        on-keydown="handleKeydown">
+                `;
+            }
+        });
+
+        const el = document.createElement('test-form-events');
+        document.body.appendChild(el);
+
+        setTimeout(() => {
+            const input = el.refs.input;
+
+            input.dispatchEvent(new Event('focus'));
+            input.dispatchEvent(new Event('blur'));
+            input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+
+            assert.ok(focusCalled, 'focus handler should be called');
+            assert.ok(blurCalled, 'blur handler should be called');
+            assert.ok(keydownCalled, 'keydown handler should be called');
+
+            document.body.removeChild(el);
+            done();
+        }, 100);
     });
 });
