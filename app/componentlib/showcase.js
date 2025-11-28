@@ -31,17 +31,38 @@ export default defineComponent('component-showcase', {
     },
 
     mounted() {
-        // Select first component by default
-        const firstComponent = Object.values(componentExamples)[0];
-        if (firstComponent) {
-            this.state.selectedComponent = firstComponent;
-        }
+        // Check for component in URL hash
+        this.loadFromHash();
+
+        // Listen for hash changes
+        window.addEventListener('hashchange', () => this.loadFromHash());
+    },
+
+    unmounted() {
+        window.removeEventListener('hashchange', () => this.loadFromHash());
     },
 
     methods: {
+        loadFromHash() {
+            const hash = window.location.hash.slice(1); // Remove the #
+            if (hash && componentExamples[hash]) {
+                this.state.selectedComponent = componentExamples[hash];
+            } else {
+                // Select first component by default
+                const firstComponent = Object.values(componentExamples)[0];
+                if (firstComponent) {
+                    this.state.selectedComponent = firstComponent;
+                    // Update URL without triggering hashchange
+                    history.replaceState(null, '', '#' + firstComponent.id);
+                }
+            }
+        },
+
         selectComponent(component) {
             this.state.selectedComponent = component;
             this.state.selectedTab = 'demo';
+            // Update URL hash
+            history.pushState(null, '', '#' + component.id);
         },
 
         selectTab(tab) {

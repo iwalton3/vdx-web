@@ -42,6 +42,7 @@ import './button/breadcrumb.js';
 import './misc/progressbar.js';
 import './misc/fileupload.js';
 import './misc/colorpicker.js';
+import './misc/spinner.js';
 
 // InputText Example
 defineComponent('example-input-text', {
@@ -1239,6 +1240,53 @@ defineComponent('example-stepper', {
                         </div>
                     </div>
                 </cl-stepper>
+            </div>
+        `;
+    }
+});
+
+// Spinner Example
+defineComponent('example-spinner', {
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 32px;">
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: #666;">Variants</h4>
+                    <div style="display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap;">
+                        <cl-spinner variant="border" label="Border"></cl-spinner>
+                        <cl-spinner variant="dots" label="Dots"></cl-spinner>
+                        <cl-spinner variant="bars" label="Bars"></cl-spinner>
+                        <cl-spinner variant="pulse" label="Pulse"></cl-spinner>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: #666;">Sizes</h4>
+                    <div style="display: flex; gap: 48px; align-items: flex-end; flex-wrap: wrap;">
+                        <cl-spinner size="small" label="Small"></cl-spinner>
+                        <cl-spinner size="medium" label="Medium"></cl-spinner>
+                        <cl-spinner size="large" label="Large"></cl-spinner>
+                        <cl-spinner size="80px" label="Custom (80px)"></cl-spinner>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: #666;">Colors</h4>
+                    <div style="display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap;">
+                        <cl-spinner color="#007bff" label="Primary"></cl-spinner>
+                        <cl-spinner color="#28a745" label="Success"></cl-spinner>
+                        <cl-spinner color="#dc3545" label="Danger"></cl-spinner>
+                        <cl-spinner color="#ffc107" label="Warning"></cl-spinner>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: #666;">Label Position</h4>
+                    <div style="display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap;">
+                        <cl-spinner label="Bottom (default)" labelposition="bottom"></cl-spinner>
+                        <cl-spinner label="Right side" labelposition="right"></cl-spinner>
+                    </div>
+                </div>
             </div>
         `;
     }

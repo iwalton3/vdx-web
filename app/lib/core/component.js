@@ -23,6 +23,86 @@ export function setDebugComponentHooks(hooks) {
 const processedStylesCache = new Map();
 
 /**
+ * Strip CSS comments from a string
+ * @param {string} css - CSS string potentially containing comments
+ * @returns {string} CSS with comments removed
+ */
+function stripCSSComments(css) {
+    let result = '';
+    let i = 0;
+    const len = css.length;
+
+    while (i < len) {
+        // Check for comment start
+        if (css[i] === '/' && i + 1 < len && css[i + 1] === '*') {
+            // Skip until comment end
+            i += 2;
+            while (i < len - 1 && !(css[i] === '*' && css[i + 1] === '/')) {
+                i++;
+            }
+            i += 2; // Skip the */
+            // Add a space to prevent tokens from merging
+            result += ' ';
+        } else {
+            result += css[i];
+            i++;
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Namespace keyframes in CSS to prevent conflicts between components
+ * Also updates animation/animation-name properties to reference the namespaced names
+ * @param {string} css - CSS string
+ * @param {string} tagName - Component tag name for namespacing
+ * @returns {string} CSS with namespaced keyframes
+ */
+function namespaceKeyframes(css, tagName) {
+    // Find all keyframe names defined in this CSS
+    const keyframeNames = new Set();
+    const keyframeRegex = /@(?:-webkit-)?keyframes\s+([a-zA-Z_][\w-]*)/g;
+    let match;
+
+    while ((match = keyframeRegex.exec(css)) !== null) {
+        keyframeNames.add(match[1]);
+    }
+
+    if (keyframeNames.size === 0) {
+        return css;
+    }
+
+    // Create namespace prefix from tag name (e.g., 'cl-button' -> 'cl-button--')
+    const prefix = tagName + '--';
+
+    // Replace keyframe definitions
+    let result = css.replace(
+        /@(-webkit-)?keyframes\s+([a-zA-Z_][\w-]*)/g,
+        (match, webkit, name) => {
+            if (keyframeNames.has(name)) {
+                return `@${webkit || ''}keyframes ${prefix}${name}`;
+            }
+            return match;
+        }
+    );
+
+    // Replace animation and animation-name references
+    // This handles: animation: name 1s; animation-name: name;
+    for (const name of keyframeNames) {
+        // Match animation-name: name or animation: name (with various formats)
+        // Be careful not to replace partial matches (e.g., 'spin' in 'spinner')
+        const animationRegex = new RegExp(
+            `(animation(?:-name)?\\s*:[^;]*?)\\b(${name})\\b`,
+            'g'
+        );
+        result = result.replace(animationRegex, `$1${prefix}${name}`);
+    }
+
+    return result;
+}
+
+/**
  * Scope component styles to prevent leakage to other components
  * Transforms selectors to be prefixed with component tag name
  *
@@ -46,6 +126,13 @@ const processedStylesCache = new Map();
 function scopeComponentStyles(css, tagName) {
     let result = '';
     let i = 0;
+
+    // Strip comments first to avoid parsing issues
+    css = stripCSSComments(css);
+
+    // Namespace keyframes to prevent conflicts between components
+    css = namespaceKeyframes(css, tagName);
+
     const len = css.length;
 
     // Replace :host with tag name

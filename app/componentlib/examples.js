@@ -736,6 +736,35 @@ toast.show({
 });`
     },
 
+    spinner: {
+        id: 'spinner',
+        name: 'Spinner',
+        category: 'misc',
+        description: 'Loading spinner with multiple variants and sizes',
+        demo: `<example-spinner></example-spinner>`,
+        source: `<!-- Border spinner (default) -->
+<cl-spinner></cl-spinner>
+
+<!-- Different variants -->
+<cl-spinner variant="border"></cl-spinner>
+<cl-spinner variant="dots"></cl-spinner>
+<cl-spinner variant="bars"></cl-spinner>
+<cl-spinner variant="pulse"></cl-spinner>
+
+<!-- Sizes: small, medium, large, or custom -->
+<cl-spinner size="small"></cl-spinner>
+<cl-spinner size="medium"></cl-spinner>
+<cl-spinner size="large"></cl-spinner>
+<cl-spinner size="64px"></cl-spinner>
+
+<!-- Custom color -->
+<cl-spinner color="#28a745"></cl-spinner>
+
+<!-- With label -->
+<cl-spinner label="Loading..."></cl-spinner>
+<cl-spinner label="Please wait" labelposition="right"></cl-spinner>`
+    },
+
     // LAYOUT COMPONENTS
     shell: {
         id: 'shell',

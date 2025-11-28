@@ -1,6 +1,6 @@
 /**
  * Custom Framework Bundle
- * Generated: 2025-11-28T17:42:46.759Z
+ * Generated: 2025-11-28T20:04:25.755Z
  *
  * Includes Preact (https://preactjs.com/)
  * Copyright (c) 2015-present Jason Miller
@@ -2825,9 +2825,77 @@ function setDebugComponentHooks(hooks) {
 
 const processedStylesCache = new Map();
 
+function stripCSSComments(css) {
+    let result = '';
+    let i = 0;
+    const len = css.length;
+
+    while (i < len) {
+
+        if (css[i] === '/' && i + 1 < len && css[i + 1] === '*') {
+
+            i += 2;
+            while (i < len - 1 && !(css[i] === '*' && css[i + 1] === '/')) {
+                i++;
+            }
+            i += 2; 
+
+            result += ' ';
+        } else {
+            result += css[i];
+            i++;
+        }
+    }
+
+    return result;
+}
+
+function namespaceKeyframes(css, tagName) {
+
+    const keyframeNames = new Set();
+    const keyframeRegex = /@(?:-webkit-)?keyframes\s+([a-zA-Z_][\w-]*)/g;
+    let match;
+
+    while ((match = keyframeRegex.exec(css)) !== null) {
+        keyframeNames.add(match[1]);
+    }
+
+    if (keyframeNames.size === 0) {
+        return css;
+    }
+
+    const prefix = tagName + '--';
+
+    let result = css.replace(
+        /@(-webkit-)?keyframes\s+([a-zA-Z_][\w-]*)/g,
+        (match, webkit, name) => {
+            if (keyframeNames.has(name)) {
+                return `@${webkit || ''}keyframes ${prefix}${name}`;
+            }
+            return match;
+        }
+    );
+
+    for (const name of keyframeNames) {
+
+        const animationRegex = new RegExp(
+            `(animation(?:-name)?\\s*:[^;]*?)\\b(${name})\\b`,
+            'g'
+        );
+        result = result.replace(animationRegex, `$1${prefix}${name}`);
+    }
+
+    return result;
+}
+
 function scopeComponentStyles(css, tagName) {
     let result = '';
     let i = 0;
+
+    css = stripCSSComments(css);
+
+    css = namespaceKeyframes(css, tagName);
+
     const len = css.length;
 
     css = css.replace(/:host/g, tagName);
