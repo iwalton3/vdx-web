@@ -270,5 +270,50 @@ export function each(array, mapFn, keyFn = null) {
         }
     };
 }
+/**
+ * Async content rendering helper (like Promise.then with loading state)
+ * Returns an <x-await-then> component that manages its own loading/resolved/error state.
+ * The component automatically re-renders when the promise resolves.
+ *
+ * @param {Promise|any} promiseOrValue - Promise to await, or immediate value
+ * @param {Function} thenFn - Function to render resolved data: (data) => html`...`
+ * @param {*} pendingContent - Content to show while loading
+ * @param {Function|*} [catchFn] - Content or function for errors: (error) => html`...`
+ * @returns {Object} html template containing x-await-then component
+ *
+ * @example
+ * // Direct promise - no state management needed!
+ * template() {
+ *     return html`
+ *         ${awaitThen(
+ *             fetchUser(123),
+ *             user => html`<div>${user.name}</div>`,
+ *             html`<loading-spinner></loading-spinner>`,
+ *             error => html`<div class="error">${error.message}</div>`
+ *         )}
+ *     `;
+ * }
+ *
+ * @example
+ * // With cached promise (prevents re-fetch on parent re-render)
+ * data() { return { userPromise: null }; },
+ * mounted() { this.state.userPromise = fetchUser(123); },
+ * template() {
+ *     return html`
+ *         ${awaitThen(this.state.userPromise, user => html`...`, loading)}
+ *     `;
+ * }
+ */
+export function awaitThen(promiseOrValue, thenFn, pendingContent, catchFn = null) {
+    return html`
+        <x-await-then
+            promise="${promiseOrValue}"
+            then="${thenFn}"
+            pending="${pendingContent}"
+            catch="${catchFn}">
+        </x-await-then>
+    `;
+}
+
 // Initialize template compiler at module load
 html._compiler = templateCompiler;

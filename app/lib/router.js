@@ -6,7 +6,9 @@
  * - HTML5 History API routing (with <base> tag)
  * - Lazy loading routes with dynamic imports
  * - Route guards and hooks
- * - Query parameters
+ * - URL parameters (e.g., /product/:id/:sku)
+ * - Query parameters (including hash mode: #/path?q=1)
+ * - Reactive prop updates on same-component navigation
  * - Nested routes
  */
 
@@ -50,6 +52,59 @@ function stringifyQuery(params) {
     }
 
     return pairs.join('&');
+}
+
+/**
+ * Convert route pattern to regex and extract param names
+ * @private
+ * @param {string} pattern - Route pattern (e.g., '/product/:id/:sku')
+ * @returns {{regex: RegExp, paramNames: string[]}} Compiled pattern
+ */
+function compileRoutePattern(pattern) {
+    const paramNames = [];
+
+    // Escape regex special chars except for our param syntax
+    let regexStr = pattern
+        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+        // Replace :paramName with capture group
+        .replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, (_, paramName) => {
+            paramNames.push(paramName);
+            return '([^/]+)';
+        });
+
+    // Match with or without trailing slash
+    if (regexStr.endsWith('/')) {
+        regexStr = regexStr.slice(0, -1) + '/?';
+    } else {
+        regexStr = regexStr + '/?';
+    }
+
+    return {
+        regex: new RegExp(`^${regexStr}$`),
+        paramNames
+    };
+}
+
+/**
+ * Match a path against a compiled route pattern
+ * @private
+ * @param {string} path - URL path to match
+ * @param {{regex: RegExp, paramNames: string[]}} compiledPattern - Compiled route pattern
+ * @returns {{match: boolean, params: Object<string, string>}} Match result with extracted params
+ */
+function matchRoute(path, compiledPattern) {
+    const match = path.match(compiledPattern.regex);
+
+    if (!match) {
+        return { match: false, params: {} };
+    }
+
+    const params = {};
+    for (let i = 0; i < compiledPattern.paramNames.length; i++) {
+        params[compiledPattern.paramNames[i]] = decodeURIComponent(match[i + 1]);
+    }
+
+    return { match: true, params };
 }
 
 /**
@@ -190,7 +245,7 @@ export class Router {
     }
 
     /**
-     * Flatten nested routes into flat map
+     * Flatten nested routes into flat map and compile patterns
      * @private
      * @param {Object<string, RouteConfig>} routes - Routes to flatten
      * @param {string} [prefix=''] - Path prefix for nested routes
@@ -200,23 +255,26 @@ export class Router {
         for (const [path, config] of Object.entries(routes)) {
             const fullPath = prefix + (path === '/' ? '' : path);
 
+            // Compile route pattern (handles :param syntax)
+            const compiled = compileRoutePattern(fullPath || '/');
+
             if (config.routes) {
                 // Nested routes
                 this._flattenRoutes(config.routes, fullPath);
 
                 // Also register the parent route if it has a component
                 if (config.component) {
-                    this.routes[fullPath] = config;
+                    this.routes[fullPath] = { ...config, _compiled: compiled };
                 }
             } else {
                 // Leaf route
-                this.routes[fullPath] = config;
+                this.routes[fullPath] = { ...config, _compiled: compiled };
             }
         }
 
         // Ensure root route exists
         if (!this.routes['']) {
-            this.routes[''] = this.routes['/'] || { component: null };
+            this.routes[''] = this.routes['/'] || { component: null, _compiled: compileRoutePattern('/') };
         }
     }
 
@@ -318,6 +376,56 @@ export class Router {
     }
 
     /**
+     * Find a route matching the given path
+     * @private
+     * @param {string} path - URL path to match
+     * @returns {{route: RouteConfig|null, params: Object<string, string>}} Matched route and extracted params
+     */
+    _findRoute(path) {
+        // Normalize path - ensure it starts with /
+        if (!path) path = '/';
+        if (!path.startsWith('/')) path = '/' + path;
+
+        // First, try exact match (most common case, fastest)
+        let route = this.routes[path];
+        if (route) {
+            return { route, params: {} };
+        }
+
+        // Try without trailing slash
+        if (path.endsWith('/') && path.length > 1) {
+            route = this.routes[path.slice(0, -1)];
+            if (route) {
+                return { route, params: {} };
+            }
+        }
+
+        // Try with trailing slash
+        if (!path.endsWith('/')) {
+            route = this.routes[path + '/'];
+            if (route) {
+                return { route, params: {} };
+            }
+        }
+
+        // No exact match - try pattern matching for routes with :params
+        for (const [pattern, routeConfig] of Object.entries(this.routes)) {
+            if (!routeConfig._compiled) continue;
+
+            const result = matchRoute(path, routeConfig._compiled);
+            if (result.match) {
+                return { route: routeConfig, params: result.params };
+            }
+        }
+
+        // Fallback to 404 or root
+        return {
+            route: this.routes['/404'] || this.routes[''] || { component: null },
+            params: {}
+        };
+    }
+
+    /**
      * Handle route change
      * @private
      * @returns {Promise<void>}
@@ -346,29 +454,18 @@ export class Router {
             [path, queryString] = hash.split('?');
         }
 
+        // Ensure path starts with /
+        if (!path) path = '/';
+        if (!path.startsWith('/')) path = '/' + path;
+
         const query = parseQuery(queryString);
 
-        // Find matching route
-        let route = this.routes[path];
-
-        // If no exact match, try without trailing slash
-        if (!route && path.endsWith('/')) {
-            route = this.routes[path.slice(0, -1)];
-        }
-
-        // If still no match, try with trailing slash
-        if (!route && !path.endsWith('/')) {
-            route = this.routes[path + '/'];
-        }
-
-        // Fallback to 404 or root
-        if (!route) {
-            route = this.routes['/404'] || this.routes[''] || { component: null };
-        }
+        // Find matching route with params
+        const { route, params } = this._findRoute(path);
 
         // Run before hooks
         for (const hook of this.beforeHooks) {
-            const result = await hook({ path, query, route });
+            const result = await hook({ path, query, params, route });
             if (result === false) {
                 // Navigation cancelled
                 return;
@@ -383,7 +480,16 @@ export class Router {
             } catch (error) {
                 console.error(`Failed to load component for route ${path}:`, error);
                 // Fallback to 404 on load error
-                route = this.routes['/404'] || { component: 'page-not-found' };
+                const fallback = this.routes['/404'] || { component: 'page-not-found' };
+                this.currentRoute.set({
+                    path,
+                    query,
+                    params: {},
+                    component: fallback.component,
+                    meta: fallback.meta || {}
+                });
+                this._renderOutlet();
+                return;
             }
         }
 
@@ -391,17 +497,17 @@ export class Router {
         this.currentRoute.set({
             path,
             query,
-            params: {},
+            params,
             component: route.component,
             meta: route.meta || {}
         });
 
-        // Render component
+        // Render component (handles same-component prop updates)
         this._renderOutlet();
 
         // Run after hooks
         for (const hook of this.afterHooks) {
-            await hook({ path, query, route });
+            await hook({ path, query, params, route });
         }
 
         // Clean up template cache on navigation to prevent unbounded growth
@@ -432,6 +538,7 @@ export class Router {
 
     /**
      * Render the current component in the outlet
+     * Handles same-component navigation by updating props instead of recreating
      * @private
      * @returns {void}
      */
@@ -440,13 +547,39 @@ export class Router {
             return;
         }
 
-        const component = this.currentRoute.state.component;
+        const { component, params, query } = this.currentRoute.state;
 
-        if (component) {
-            this.outletElement.innerHTML = `<${component}></${component}>`;
-        } else {
+        if (!component) {
             // Fallback if no component is found (should not happen with proper 404 route)
             this.outletElement.innerHTML = '<page-not-found></page-not-found>';
+            this._currentComponent = null;
+            this._currentElement = null;
+            return;
+        }
+
+        // Check if we can reuse the existing component (same tag name)
+        const existingElement = this.outletElement.firstElementChild;
+        if (existingElement && existingElement.tagName.toLowerCase() === component) {
+            // Same component - update props instead of recreating
+            // This triggers reactive updates via property setters
+            existingElement.params = params;
+            existingElement.query = query;
+            this._currentElement = existingElement;
+        } else {
+            // Different component - create new element
+            const element = document.createElement(component);
+
+            // Set params and query as properties (not attributes)
+            // This allows passing objects directly to the component
+            element.params = params;
+            element.query = query;
+
+            // Replace outlet content
+            this.outletElement.innerHTML = '';
+            this.outletElement.appendChild(element);
+
+            this._currentComponent = component;
+            this._currentElement = element;
         }
     }
 

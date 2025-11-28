@@ -173,7 +173,27 @@ export { reactive, createEffect, computed, trackAllDependencies, isReactive, wat
  * each(items, item => html`<li>${item.name}</li>`)
  * each(items, (item, index) => html`<li>${index + 1}. ${item.name}</li>`)
  */
-export { html, raw, when, each } from './core/template.js';
+/**
+ * Async content rendering helper (like Promise.then with loading state)
+ * Returns an x-await-then component that manages its own loading/resolved/error state.
+ * The component automatically re-renders when the promise resolves - no manual state needed!
+ *
+ * @param {Promise|any} promiseOrValue - Promise to await, or immediate value
+ * @param {(data: any) => any} thenFn - Function to render resolved data
+ * @param {any} pendingContent - Content to show while loading
+ * @param {((error: any) => any)|any} [catchFn] - Content or function for errors
+ * @returns {Object} html template containing x-await-then component
+ *
+ * @example
+ * // Just pass a promise directly!
+ * awaitThen(
+ *   fetchUser(123),
+ *   user => html`<div>${user.name}</div>`,
+ *   html`<loading-spinner></loading-spinner>`,
+ *   error => html`<div class="error">${error.message}</div>`
+ * )
+ */
+export { html, raw, when, each, awaitThen } from './core/template.js';
 
 /**
  * Clear the template compilation cache (rarely needed)
@@ -244,3 +264,6 @@ export { createStore } from './core/store.js';
  * @returns {Object} Context object
  */
 export { h, Fragment, render, Component, createContext } from './vendor/preact/index.js';
+
+// Auto-register x-await-then component (used by awaitThen() helper)
+import './core/x-await-then.js';

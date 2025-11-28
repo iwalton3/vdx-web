@@ -957,21 +957,25 @@ export function applyValues(compiled, values, component = null) {
                         Object.assign(el._pendingProps, customElementProps);
                     } else {
                         // For plain custom elements or mounted components, set directly
-                        for (const [name, value] of Object.entries(customElementProps)) {
-                            // Special handling for children: Element.prototype.children is read-only
-                            if (name === 'children') {
-                                if ('_isMounted' in el && el.props) {
-                                    // Framework component - set on props object directly
-                                    el.props.children = value;
-                                    // Trigger re-render if mounted
-                                    if (el._isMounted && typeof el.render === 'function') {
-                                        el.render();
-                                    }
+                        // IMPORTANT: Set all props BEFORE triggering re-render to avoid
+                        // rendering with partially-set props
+                        const isFrameworkComponent = '_isMounted' in el && el.props;
+
+                        if (isFrameworkComponent) {
+                            // Batch all prop updates directly on props object
+                            for (const [name, value] of Object.entries(customElementProps)) {
+                                el.props[name] = value;
+                            }
+                            // Trigger ONE re-render after all props are set
+                            if (el._isMounted && typeof el.render === 'function') {
+                                el.render();
+                            }
+                        } else {
+                            // Plain custom element - set properties directly
+                            for (const [name, value] of Object.entries(customElementProps)) {
+                                if (name !== 'children') {
+                                    el[name] = value;
                                 }
-                                // Skip for non-framework components (can't override Element.prototype.children)
-                            } else {
-                                // Regular prop - set normally
-                                el[name] = value;
                             }
                         }
                     }

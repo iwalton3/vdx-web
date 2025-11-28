@@ -163,8 +163,9 @@ export function reactive(obj) {
         return obj;
     }
 
-    // Don't wrap Set, Map, WeakSet, WeakMap - they have internal slots
-    if (obj instanceof Set || obj instanceof Map || obj instanceof WeakSet || obj instanceof WeakMap) {
+    // Don't wrap objects with internal slots that can't be proxied
+    // These include Set, Map, WeakSet, WeakMap, and Promise
+    if (obj instanceof Set || obj instanceof Map || obj instanceof WeakSet || obj instanceof WeakMap || obj instanceof Promise) {
         return obj;
     }
 

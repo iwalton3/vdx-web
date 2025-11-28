@@ -40,7 +40,7 @@ app/
 ├── components/              # Reusable UI components
 ├── auth/                    # Authentication system
 ├── apps/                    # Application modules
-├── tests/                   # Comprehensive unit tests (166 tests)
+├── tests/                   # Comprehensive unit tests (187 tests)
 └── index.html               # Entry point
 ```
 
@@ -172,8 +172,50 @@ ${each(this.state.items, item => html`
     <li><input type="text" x-model="items[${item.id}].name"></li>
 `, item => item.id)}
 
+// awaitThen() - Async data loading with loading/error states
+${awaitThen(
+    this.state.userPromise,  // Promise stored in state
+    user => html`<div>${user.name}</div>`,  // render when resolved
+    html`<loading-spinner></loading-spinner>`,  // loading content
+    error => html`<error-msg>${error.message}</error-msg>`  // error content
+)}
+
 // raw() - Only for trusted, sanitized content
 ${raw(this.state.trustedHtmlContent)}
+```
+
+**Async Data with `awaitThen`:**
+```javascript
+import { defineComponent, html, awaitThen } from './lib/framework.js';
+
+defineComponent('user-profile', {
+    data() {
+        return {
+            userPromise: null  // Store promise in state to control when it's created
+        };
+    },
+
+    mounted() {
+        this.state.userPromise = fetchUser(123);  // Create promise on mount
+    },
+
+    methods: {
+        reload() {
+            this.state.userPromise = fetchUser(123);  // New promise triggers re-render
+        }
+    },
+
+    template() {
+        return html`
+            ${awaitThen(
+                this.state.userPromise,
+                user => html`<h1>${user.name}</h1>`,
+                html`<p>Loading...</p>`,
+                error => html`<p class="error">${error.message}</p>`
+            )}
+        `;
+    }
+});
 ```
 
 ### 5. Passing Props to Child Components
@@ -341,12 +383,40 @@ const router = new Router({
         component: 'home-page',
         load: () => import('./home.js')  // Optional lazy loading
     },
+    '/users/:id/': {
+        component: 'user-profile'  // URL parameters
+    },
+    '/products/:category/:sku/': {
+        component: 'product-detail'  // Multiple params
+    },
     '/admin/': {
         component: 'admin-page',
         require: 'admin'  // Capability check
     }
 });
 ```
+
+**URL Parameters and Query Strings** - passed automatically as props:
+```javascript
+defineComponent('user-profile', {
+    props: {
+        params: {},  // { id: '123' } from /users/123/
+        query: {}    // { tab: 'settings' } from ?tab=settings
+    },
+
+    mounted() {
+        this.loadUser(this.props.params.id);
+    }
+});
+```
+
+**Reactive Navigation** - same-component navigation updates props without remounting:
+```javascript
+// Navigating from /users/1/ to /users/2/ updates params.id reactively
+<router-link to="/users/${user.id}/">${user.name}</router-link>
+```
+
+**Hash Mode Query Strings** work too: `#/search?q=hello&page=2`
 
 **Navigation:**
 ```javascript
@@ -523,7 +593,7 @@ source ~/.venv/bin/activate
 python3 test-server.py
 ```
 
-### Framework Unit Tests (~166 tests)
+### Framework Unit Tests (~187 tests)
 
 Tests the core framework: reactivity, templates, components, router, etc.
 

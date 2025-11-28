@@ -30,6 +30,46 @@ function stringifyQuery(params) {
     return pairs.join('&');
 }
 
+function compileRoutePattern(pattern) {
+    const paramNames = [];
+
+    
+    let regexStr = pattern
+        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+        
+        .replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, (_, paramName) => {
+            paramNames.push(paramName);
+            return '([^/]+)';
+        });
+
+    
+    if (regexStr.endsWith('/')) {
+        regexStr = regexStr.slice(0, -1) + '/?';
+    } else {
+        regexStr = regexStr + '/?';
+    }
+
+    return {
+        regex: new RegExp(`^${regexStr}$`),
+        paramNames
+    };
+}
+
+function matchRoute(path, compiledPattern) {
+    const match = path.match(compiledPattern.regex);
+
+    if (!match) {
+        return { match: false, params: {} };
+    }
+
+    const params = {};
+    for (let i = 0; i < compiledPattern.paramNames.length; i++) {
+        params[compiledPattern.paramNames[i]] = decodeURIComponent(match[i + 1]);
+    }
+
+    return { match: true, params };
+}
+
 export class Router {
     
     constructor(routes, options = {}) {
@@ -131,23 +171,26 @@ export class Router {
         for (const [path, config] of Object.entries(routes)) {
             const fullPath = prefix + (path === '/' ? '' : path);
 
+            
+            const compiled = compileRoutePattern(fullPath || '/');
+
             if (config.routes) {
                 
                 this._flattenRoutes(config.routes, fullPath);
 
                 
                 if (config.component) {
-                    this.routes[fullPath] = config;
+                    this.routes[fullPath] = { ...config, _compiled: compiled };
                 }
             } else {
                 
-                this.routes[fullPath] = config;
+                this.routes[fullPath] = { ...config, _compiled: compiled };
             }
         }
 
         
         if (!this.routes['']) {
-            this.routes[''] = this.routes['/'] || { component: null };
+            this.routes[''] = this.routes['/'] || { component: null, _compiled: compileRoutePattern('/') };
         }
     }
 
@@ -204,6 +247,51 @@ export class Router {
     }
 
     
+    _findRoute(path) {
+        
+        if (!path) path = '/';
+        if (!path.startsWith('/')) path = '/' + path;
+
+        
+        let route = this.routes[path];
+        if (route) {
+            return { route, params: {} };
+        }
+
+        
+        if (path.endsWith('/') && path.length > 1) {
+            route = this.routes[path.slice(0, -1)];
+            if (route) {
+                return { route, params: {} };
+            }
+        }
+
+        
+        if (!path.endsWith('/')) {
+            route = this.routes[path + '/'];
+            if (route) {
+                return { route, params: {} };
+            }
+        }
+
+        
+        for (const [pattern, routeConfig] of Object.entries(this.routes)) {
+            if (!routeConfig._compiled) continue;
+
+            const result = matchRoute(path, routeConfig._compiled);
+            if (result.match) {
+                return { route: routeConfig, params: result.params };
+            }
+        }
+
+        
+        return {
+            route: this.routes['/404'] || this.routes[''] || { component: null },
+            params: {}
+        };
+    }
+
+    
     async handleRoute() {
         let path, queryString;
 
@@ -228,29 +316,18 @@ export class Router {
             [path, queryString] = hash.split('?');
         }
 
+        
+        if (!path) path = '/';
+        if (!path.startsWith('/')) path = '/' + path;
+
         const query = parseQuery(queryString);
 
         
-        let route = this.routes[path];
-
-        
-        if (!route && path.endsWith('/')) {
-            route = this.routes[path.slice(0, -1)];
-        }
-
-        
-        if (!route && !path.endsWith('/')) {
-            route = this.routes[path + '/'];
-        }
-
-        
-        if (!route) {
-            route = this.routes['/404'] || this.routes[''] || { component: null };
-        }
+        const { route, params } = this._findRoute(path);
 
         
         for (const hook of this.beforeHooks) {
-            const result = await hook({ path, query, route });
+            const result = await hook({ path, query, params, route });
             if (result === false) {
                 
                 return;
@@ -265,7 +342,16 @@ export class Router {
             } catch (error) {
                 console.error(`Failed to load component for route ${path}:`, error);
                 
-                route = this.routes['/404'] || { component: 'page-not-found' };
+                const fallback = this.routes['/404'] || { component: 'page-not-found' };
+                this.currentRoute.set({
+                    path,
+                    query,
+                    params: {},
+                    component: fallback.component,
+                    meta: fallback.meta || {}
+                });
+                this._renderOutlet();
+                return;
             }
         }
 
@@ -273,7 +359,7 @@ export class Router {
         this.currentRoute.set({
             path,
             query,
-            params: {},
+            params,
             component: route.component,
             meta: route.meta || {}
         });
@@ -283,7 +369,7 @@ export class Router {
 
         
         for (const hook of this.afterHooks) {
-            await hook({ path, query, route });
+            await hook({ path, query, params, route });
         }
 
         
@@ -311,13 +397,39 @@ export class Router {
             return;
         }
 
-        const component = this.currentRoute.state.component;
+        const { component, params, query } = this.currentRoute.state;
 
-        if (component) {
-            this.outletElement.innerHTML = `<${component}></${component}>`;
-        } else {
+        if (!component) {
             
             this.outletElement.innerHTML = '<page-not-found></page-not-found>';
+            this._currentComponent = null;
+            this._currentElement = null;
+            return;
+        }
+
+        
+        const existingElement = this.outletElement.firstElementChild;
+        if (existingElement && existingElement.tagName.toLowerCase() === component) {
+            
+            
+            existingElement.params = params;
+            existingElement.query = query;
+            this._currentElement = existingElement;
+        } else {
+            
+            const element = document.createElement(component);
+
+            
+            
+            element.params = params;
+            element.query = query;
+
+            
+            this.outletElement.innerHTML = '';
+            this.outletElement.appendChild(element);
+
+            this._currentComponent = component;
+            this._currentElement = element;
         }
     }
 

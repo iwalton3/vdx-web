@@ -1,6 +1,6 @@
 /**
  * Custom Framework Bundle
- * Generated: 2025-11-28T07:11:55.971Z
+ * Generated: 2025-11-28T09:04:23.037Z
  *
  * Includes Preact (https://preactjs.com/)
  * Copyright (c) 2015-present Jason Miller
@@ -1580,7 +1580,7 @@ function reactive(obj) {
         return obj;
     }
 
-    if (obj instanceof Set || obj instanceof Map || obj instanceof WeakSet || obj instanceof WeakMap) {
+    if (obj instanceof Set || obj instanceof Map || obj instanceof WeakSet || obj instanceof WeakMap || obj instanceof Promise) {
         return obj;
     }
 
@@ -1955,6 +1955,17 @@ function each(array, mapFn, keyFn = null) {
             return '';  
         }
     };
+}
+
+function awaitThen(promiseOrValue, thenFn, pendingContent, catchFn = null) {
+    return html`
+        <x-await-then
+            promise="${promiseOrValue}"
+            then="${thenFn}"
+            pending="${pendingContent}"
+            catch="${catchFn}">
+        </x-await-then>
+    `;
 }
 
 html._compiler = templateCompiler;
@@ -2723,21 +2734,23 @@ function applyValues(compiled, values, component = null) {
                         Object.assign(el._pendingProps, customElementProps);
                     } else {
 
-                        for (const [name, value] of Object.entries(customElementProps)) {
+                        const isFrameworkComponent = '_isMounted' in el && el.props;
 
-                            if (name === 'children') {
-                                if ('_isMounted' in el && el.props) {
+                        if (isFrameworkComponent) {
 
-                                    el.props.children = value;
+                            for (const [name, value] of Object.entries(customElementProps)) {
+                                el.props[name] = value;
+                            }
 
-                                    if (el._isMounted && typeof el.render === 'function') {
-                                        el.render();
-                                    }
+                            if (el._isMounted && typeof el.render === 'function') {
+                                el.render();
+                            }
+                        } else {
+
+                            for (const [name, value] of Object.entries(customElementProps)) {
+                                if (name !== 'children') {
+                                    el[name] = value;
                                 }
-
-                            } else {
-
-                                el[name] = value;
                             }
                         }
                     }
@@ -2975,7 +2988,17 @@ function defineComponent(name, options) {
                     }
                 }
 
-                this.render();
+                if (!this._hasRendered) {
+                    this._hasRendered = true;
+                    queueMicrotask(() => {
+                        if (this._isMounted && !this._isDestroyed) {
+                            this.render();
+                        }
+                    });
+                } else {
+
+                    this.render();
+                }
             });
 
             this._cleanups.push(disposeRenderEffect);
@@ -3296,6 +3319,98 @@ function createStore(initial) {
     };
 }
 
+// ============= x-await-then.js =============
+
+defineComponent('x-await-then', {
+    props: {
+        promise: null,      
+        then: null,         
+        pending: null,      
+        catch: null         
+    },
+
+    data() {
+        return {
+            status: 'pending',
+            value: null,
+            err: null
+        };
+    },
+
+    methods: {
+
+        _trackPromise() {
+            const promise = this.props.promise;
+
+            if (promise === this._trackedPromise) {
+                return;
+            }
+
+            this._trackedPromise = promise;
+
+            if (!promise || typeof promise.then !== 'function') {
+                this.state.status = 'resolved';
+                this.state.value = promise;
+                this.state.err = null;
+                return;
+            }
+
+            this.state.status = 'pending';
+            this.state.value = null;
+            this.state.err = null;
+
+            const tracked = promise;
+            promise.then(
+                resolvedValue => {
+
+                    if (this._trackedPromise === tracked) {
+
+                        this.state.value = resolvedValue;
+                        this.state.status = 'resolved';
+                    }
+                },
+                error => {
+                    if (this._trackedPromise === tracked) {
+                        this.state.err = error;
+                        this.state.status = 'rejected';
+                    }
+                }
+            );
+        },
+
+        _getContent() {
+            const { status, value, err } = this.state;
+
+            const thenFn = this.props.then;
+            const pendingContent = this.props.pending;
+            const catchFn = this.props.catch;
+
+            if (status === 'pending') {
+                return pendingContent || html``;
+            }
+
+            if (status === 'rejected') {
+                if (typeof catchFn === 'function') {
+                    return catchFn(err);
+                }
+                return catchFn || html``;
+            }
+
+            if (typeof thenFn === 'function') {
+                return thenFn(value);
+            }
+            return html``;
+        }
+    },
+
+    template() {
+
+        this._trackPromise();
+        return this._getContent();
+    }
+
+});
+
 // Export aliases
 const Component = BaseComponent;
 
@@ -3306,6 +3421,7 @@ export {
     raw,
     when,
     each,
+    awaitThen,
     reactive,
     createEffect,
     createStore,

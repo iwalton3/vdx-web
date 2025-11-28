@@ -41,6 +41,7 @@ const FILES_TO_BUNDLE = [
     'app/lib/core/template.js',
     'app/lib/core/component.js',
     'app/lib/core/store.js',
+    'app/lib/core/x-await-then.js',
 ];
 
 // What to export from the final bundle
@@ -50,6 +51,7 @@ const PUBLIC_EXPORTS = [
     'raw',
     'when',
     'each',
+    'awaitThen',
     'reactive',
     'createEffect',
     'createStore',

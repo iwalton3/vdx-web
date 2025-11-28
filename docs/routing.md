@@ -6,6 +6,9 @@ Complete guide to client-side routing with the framework.
 
 - [Basic Setup](#basic-setup)
 - [Defining Routes](#defining-routes)
+- [Route Parameters](#route-parameters)
+- [Query Parameters](#query-parameters)
+- [Reactive Navigation](#reactive-navigation)
 - [Lazy Loading](#lazy-loading)
 - [Navigation](#navigation)
 - [HTML5 Routing](#html5-routing)
@@ -66,28 +69,175 @@ const router = new Router({
 });
 ```
 
-### Route Parameters
+## Route Parameters
 
-Access route parameters in your component:
+Define routes with `:param` syntax to capture URL segments:
+
+```javascript
+const router = new Router({
+    '/': { component: 'home-page' },
+    '/users/:id/': { component: 'user-profile' },
+    '/products/:category/:sku/': { component: 'product-detail' }
+});
+```
+
+### Accessing Route Parameters
+
+Parameters are automatically passed to components as the `params` prop:
 
 ```javascript
 defineComponent('user-profile', {
+    props: {
+        params: {},  // { id: '123' }
+        query: {}    // Query string parameters
+    },
+
     mounted() {
-        // Access route params from URL
-        const userId = this.getUserIdFromURL();
-        this.loadUser(userId);
+        // Access route params from props
+        this.loadUser(this.props.params.id);
     },
 
     methods: {
-        getUserIdFromURL() {
-            // Parse from window.location or router state
-            const path = window.location.hash.replace('#', '') || window.location.pathname;
-            const match = path.match(/\/users\/(\d+)\//);
-            return match ? match[1] : null;
+        loadUser(userId) {
+            console.log('Loading user:', userId);
+            // Fetch user data...
         }
     }
 });
 ```
+
+### Multiple Parameters
+
+Routes can have multiple parameters:
+
+```javascript
+// Route: /products/:category/:sku/
+// URL: /products/electronics/ABC123/
+
+defineComponent('product-detail', {
+    props: {
+        params: {},
+        query: {}
+    },
+
+    mounted() {
+        const { category, sku } = this.props.params;
+        console.log(`Category: ${category}, SKU: ${sku}`);
+        // category = 'electronics', sku = 'ABC123'
+    }
+});
+```
+
+## Query Parameters
+
+Query strings are parsed and passed as the `query` prop. This works in both hash mode (`#/path?q=1`) and HTML5 mode (`/path?q=1`):
+
+```javascript
+// URL: /search?q=hello&page=2
+
+defineComponent('search-page', {
+    props: {
+        params: {},
+        query: {}  // { q: 'hello', page: '2' }
+    },
+
+    mounted() {
+        if (this.props.query.q) {
+            this.performSearch(this.props.query.q);
+        }
+    },
+
+    methods: {
+        performSearch(term) {
+            console.log('Searching for:', term);
+            // Use this.props.query.page for pagination
+        }
+    }
+});
+```
+
+### Hash Mode Query Strings
+
+In hash mode, query strings work after the hash:
+
+```
+#/search?q=hello&page=2
+```
+
+The router correctly parses both the path (`/search`) and query (`{ q: 'hello', page: '2' }`).
+
+## Reactive Navigation
+
+When navigating to the same component with different parameters or query strings, the router **updates the existing component's props** instead of recreating it. This enables reactive updates:
+
+```javascript
+defineComponent('user-profile', {
+    props: {
+        params: {},
+        query: {}
+    },
+
+    data() {
+        return {
+            user: null
+        };
+    },
+
+    mounted() {
+        this.loadUser();
+    },
+
+    // Watch for prop changes using the computed pattern
+    template() {
+        // Re-render whenever params change
+        const userId = this.props.params.id;
+
+        // Side effect: load user when id changes
+        if (userId && userId !== this._lastUserId) {
+            this._lastUserId = userId;
+            this.loadUser();
+        }
+
+        return html`
+            <div>
+                ${when(this.state.user, html`
+                    <h1>${this.state.user.name}</h1>
+                `, html`
+                    <p>Loading user ${userId}...</p>
+                `)}
+            </div>
+        `;
+    },
+
+    methods: {
+        async loadUser() {
+            const userId = this.props.params.id;
+            this.state.user = await fetchUser(userId);
+        }
+    }
+});
+```
+
+### Navigation Between Items
+
+When clicking links to different items of the same type, the component receives updated props:
+
+```javascript
+// In a list component
+template() {
+    return html`
+        <ul>
+            ${each(this.state.users, user => html`
+                <li>
+                    <router-link to="/users/${user.id}/">${user.name}</router-link>
+                </li>
+            `)}
+        </ul>
+    `;
+}
+```
+
+Clicking different users updates the `user-profile` component's `params.id` without unmounting/remounting it.
 
 ## Lazy Loading
 

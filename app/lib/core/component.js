@@ -297,8 +297,20 @@ export function defineComponent(name, options) {
                     }
                 }
 
-                // Call render - it has its own guards to prevent rendering when unmounted
-                this.render();
+                // Defer initial render slightly to allow Preact's ref callback to set props
+                // This is needed for nested custom elements created by Preact where props
+                // are passed via ref callback after connectedCallback fires
+                if (!this._hasRendered) {
+                    this._hasRendered = true;
+                    queueMicrotask(() => {
+                        if (this._isMounted && !this._isDestroyed) {
+                            this.render();
+                        }
+                    });
+                } else {
+                    // Subsequent renders happen immediately
+                    this.render();
+                }
             });
 
             // Store disposal function for cleanup

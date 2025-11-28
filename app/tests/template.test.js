@@ -3,7 +3,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { html, raw } from '../lib/framework.js';
+import { html, raw, when, awaitThen } from '../lib/framework.js';
 import { render as preactRender } from '../lib/vendor/preact/index.js';
 import { applyValues } from '../lib/core/template-compiler.js';
 
@@ -298,5 +298,64 @@ describe('Template - Function Event Handlers', function(it) {
         assert.ok(!str.includes('handleClick'), 'Should not allow string interpolation');
         // Compiled templates omit non-function events, string-based uses on-click=""
         assert.ok(!str.includes('handleClick'), 'Should block string in event handler');
+    });
+});
+
+describe('awaitThen Helper (Component-Based)', function(it) {
+    it('returns html template with x-await-then component', () => {
+        const promise = Promise.resolve({ name: 'Test' });
+        const result = awaitThen(
+            promise,
+            data => html`<div>${data.name}</div>`,
+            html`<span>Loading...</span>`
+        );
+
+        assert.ok(result, 'Should return result');
+        assert.ok(result._compiled, 'Should return compiled template');
+    });
+
+    it('renders x-await-then component', () => {
+        const promise = Promise.resolve({ name: 'Test' });
+        const result = awaitThen(
+            promise,
+            data => html`<div>${data.name}</div>`,
+            html`<span>Loading...</span>`
+        );
+
+        const container = document.createElement('div');
+        const vnode = applyValues(result._compiled, result._values || []);
+        preactRender(vnode, container);
+
+        assert.ok(container.querySelector('x-await-then'), 'Should render x-await-then element');
+    });
+
+    it('passes all props to x-await-then', () => {
+        const promise = Promise.resolve({ name: 'Test' });
+        const thenFn = data => html`<div>${data.name}</div>`;
+        const pendingContent = html`<span>Loading...</span>`;
+        const catchFn = error => html`<span>${error.message}</span>`;
+
+        const result = awaitThen(promise, thenFn, pendingContent, catchFn);
+
+        // Check that values array contains the props
+        assert.ok(result._values, 'Should have values');
+        assert.equal(result._values.length, 4, 'Should have 4 values (promise, then, pending, catch)');
+        assert.equal(result._values[0], promise, 'First value should be promise');
+        assert.equal(result._values[1], thenFn, 'Second value should be then function');
+        assert.ok(result._values[2]._compiled, 'Third value should be pending content (html template)');
+        assert.equal(result._values[3], catchFn, 'Fourth value should be catch function');
+    });
+
+    it('handles null catch content', () => {
+        const promise = Promise.resolve({ name: 'Test' });
+        const result = awaitThen(
+            promise,
+            data => html`<div>${data.name}</div>`,
+            html`<span>Loading...</span>`
+            // No catch content
+        );
+
+        assert.ok(result, 'Should return result');
+        assert.equal(result._values[3], null, 'Fourth value should be null for catch');
     });
 });

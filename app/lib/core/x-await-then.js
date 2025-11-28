@@ -1,0 +1,113 @@
+/**
+ * x-await-then - Self-contained async rendering component
+ *
+ * Manages its own loading/resolved/error state internally.
+ * When the promise resolves, it triggers its own re-render.
+ * Parent components don't need to track async state at all.
+ */
+// Import directly from core modules to avoid circular dependency with framework.js
+import { defineComponent } from './component.js';
+import { html } from './template.js';
+
+export default defineComponent('x-await-then', {
+    props: {
+        promise: null,      // Promise or immediate value
+        then: null,         // Function: (data) => html`...` - what to render on success
+        pending: null,      // Loading content (html template)
+        catch: null         // Error content (function or html template)
+    },
+
+    data() {
+        return {
+            status: 'pending',
+            value: null,
+            err: null
+        };
+    },
+
+    methods: {
+        /**
+         * Track promise and subscribe to its resolution.
+         * Uses non-reactive _trackedPromise to avoid extra renders.
+         * Called on every render to detect prop changes.
+         */
+        _trackPromise() {
+            const promise = this.props.promise;
+
+            // Same promise reference - no action needed
+            if (promise === this._trackedPromise) {
+                return;
+            }
+
+            this._trackedPromise = promise;
+
+            // Not a promise - treat as immediate value
+            if (!promise || typeof promise.then !== 'function') {
+                this.state.status = 'resolved';
+                this.state.value = promise;
+                this.state.err = null;
+                return;
+            }
+
+            // New promise - reset to pending and subscribe
+            this.state.status = 'pending';
+            this.state.value = null;
+            this.state.err = null;
+
+            const tracked = promise;
+            promise.then(
+                resolvedValue => {
+                    // Only update if this is still the current promise
+                    if (this._trackedPromise === tracked) {
+                        // IMPORTANT: Set value BEFORE status to avoid render with null value
+                        // The reactive system triggers re-render on each state change
+                        this.state.value = resolvedValue;
+                        this.state.status = 'resolved';
+                    }
+                },
+                error => {
+                    if (this._trackedPromise === tracked) {
+                        this.state.err = error;
+                        this.state.status = 'rejected';
+                    }
+                }
+            );
+        },
+
+        /**
+         * Get the content to render based on current status
+         */
+        _getContent() {
+            const { status, value, err } = this.state;
+            // Use props named after Promise methods: then, pending (loading), catch (error)
+            const thenFn = this.props.then;
+            const pendingContent = this.props.pending;
+            const catchFn = this.props.catch;
+
+            if (status === 'pending') {
+                return pendingContent || html``;
+            }
+
+            if (status === 'rejected') {
+                if (typeof catchFn === 'function') {
+                    return catchFn(err);
+                }
+                return catchFn || html``;
+            }
+
+            // Resolved
+            if (typeof thenFn === 'function') {
+                return thenFn(value);
+            }
+            return html``;
+        }
+    },
+
+    template() {
+        // Check for promise changes on every render
+        this._trackPromise();
+        return this._getContent();
+    }
+
+    // No styles - renders to light DOM for easier composition
+});
