@@ -14,14 +14,6 @@ const RAW_MARKER = Symbol('raw');
 export const isHtml = (obj) => obj && obj[HTML_MARKER] === true;
 export const isRaw = (obj) => obj && obj[RAW_MARKER] === true;
 
-// URL attributes that need URL sanitization
-const URL_ATTRIBUTES = new Set([
-    'href', 'src', 'action', 'formaction', 'data', 'poster',
-    'cite', 'background', 'longdesc', 'manifest', 'usemap'
-]);
-
-// Dangerous attributes where interpolation should be blocked
-const DANGEROUS_ATTRIBUTES = new Set(['style', 'srcdoc']);
 
 /**
  * Normalize input to prevent encoding attacks
@@ -104,67 +96,6 @@ export function sanitizeUrl(url) {
     }
 
     return escapeUrl(normalized);
-}
-
-/**
- * Detect interpolation context by analyzing preceding string
- * Returns: { type, tagName, attrName }
- * type: 'content' | 'attribute' | 'url' | 'event-handler' | 'dangerous' | 'tag' | 'custom-element-attr'
- */
-function detectContext(precedingString) {
-    // Look at last 300 characters for context
-    const relevant = precedingString.slice(-300);
-
-    // Remove HTML comments (they can hide context)
-    const withoutComments = relevant.replace(/<!--[\s\S]*?-->/g, '');
-
-    const lastOpenTag = withoutComments.lastIndexOf('<');
-    const lastCloseTag = withoutComments.lastIndexOf('>');
-
-    // If > comes after <, we're in content (between tags)
-    if (lastCloseTag > lastOpenTag) {
-        return { type: 'content' };
-    }
-
-    // We're inside a tag - check if we're in an attribute value
-    const afterTag = withoutComments.slice(lastOpenTag);
-
-    // Extract tag name
-    const tagMatch = afterTag.match(/^<([\w-]+)/);
-    const tagName = tagMatch ? tagMatch[1].toLowerCase() : '';
-
-    // Match attribute pattern: attribute-name="value or attribute-name='value
-    const attrMatch = afterTag.match(/\s([\w-]+)\s*=\s*["']([^"']*)$/);
-
-    if (!attrMatch) {
-        // Inside tag but not in attribute value
-        return { type: 'tag', tagName };
-    }
-
-    const attrName = attrMatch[1].toLowerCase();
-
-    // Block event handlers (onclick, onload, etc.)
-    if (attrName.startsWith('on')) {
-        return { type: 'event-handler', tagName, attrName };
-    }
-
-    // Detect URL attributes
-    if (URL_ATTRIBUTES.has(attrName)) {
-        return { type: 'url', tagName, attrName };
-    }
-
-    // Detect dangerous attributes
-    if (DANGEROUS_ATTRIBUTES.has(attrName)) {
-        return { type: 'dangerous', tagName, attrName };
-    }
-
-    // Check if this is a custom element (has hyphen in tag name)
-    if (tagName.includes('-')) {
-        return { type: 'custom-element-attr', tagName, attrName };
-    }
-
-    // Regular attribute - return attribute name for boolean handling
-    return { type: 'attribute', tagName, attrName };
 }
 
 /**

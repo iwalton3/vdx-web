@@ -1,6 +1,6 @@
 /**
  * Custom Framework Bundle
- * Generated: 2025-11-28T04:31:51.031Z
+ * Generated: 2025-11-28T05:47:44.780Z
  *
  * Includes Preact (https://preactjs.com/)
  * Copyright (c) 2015-present Jason Miller
@@ -1601,8 +1601,6 @@ function reactive(obj) {
                         const result = value.apply(target, args);
 
                         trigger(target, 'length');
-
-                        trigger(target, Array.isArray(target) ? 'length' : key);
                         return result;
                     };
                 }
@@ -1767,13 +1765,6 @@ const RAW_MARKER = Symbol('raw');
 const isHtml = (obj) => obj && obj[HTML_MARKER] === true;
 const isRaw = (obj) => obj && obj[RAW_MARKER] === true;
 
-const URL_ATTRIBUTES = new Set([
-    'href', 'src', 'action', 'formaction', 'data', 'poster',
-    'cite', 'background', 'longdesc', 'manifest', 'usemap'
-]);
-
-const DANGEROUS_ATTRIBUTES = new Set(['style', 'srcdoc']);
-
 function normalizeInput(input) {
     if (input == null) return '';
     let str = String(input);
@@ -1836,52 +1827,6 @@ function sanitizeUrl(url) {
     }
 
     return escapeUrl(normalized);
-}
-
-function detectContext(precedingString) {
-
-    const relevant = precedingString.slice(-300);
-
-    const withoutComments = relevant.replace(/<!--[\s\S]*?-->/g, '');
-
-    const lastOpenTag = withoutComments.lastIndexOf('<');
-    const lastCloseTag = withoutComments.lastIndexOf('>');
-
-    if (lastCloseTag > lastOpenTag) {
-        return { type: 'content' };
-    }
-
-    const afterTag = withoutComments.slice(lastOpenTag);
-
-    const tagMatch = afterTag.match(/^<([\w-]+)/);
-    const tagName = tagMatch ? tagMatch[1].toLowerCase() : '';
-
-    const attrMatch = afterTag.match(/\s([\w-]+)\s*=\s*["']([^"']*)$/);
-
-    if (!attrMatch) {
-
-        return { type: 'tag', tagName };
-    }
-
-    const attrName = attrMatch[1].toLowerCase();
-
-    if (attrName.startsWith('on')) {
-        return { type: 'event-handler', tagName, attrName };
-    }
-
-    if (URL_ATTRIBUTES.has(attrName)) {
-        return { type: 'url', tagName, attrName };
-    }
-
-    if (DANGEROUS_ATTRIBUTES.has(attrName)) {
-        return { type: 'dangerous', tagName, attrName };
-    }
-
-    if (tagName.includes('-')) {
-        return { type: 'custom-element-attr', tagName, attrName };
-    }
-
-    return { type: 'attribute', tagName, attrName };
 }
 
 function html(strings, ...values) {
@@ -2102,9 +2047,15 @@ function parseXMLToTree(xmlString) {
     });
 
     voidElements.forEach(tag => {
+        const regex = new RegExp(`<${tag}(\\s[^>]*)?>`, 'gi');
+        xmlString = xmlString.replace(regex, (match, attrs) => {
 
-        const regex = new RegExp(`<${tag}(\\s[^>]*?)?(?<!/)>`, 'gi');
-        xmlString = xmlString.replace(regex, `<${tag}$1 />`);
+            if (match.trimEnd().endsWith('/>')) {
+                return match;
+            }
+
+            return `<${tag}${attrs || ''} />`;
+        });
     });
 
     const parser = new DOMParser();
@@ -2833,6 +2784,9 @@ function scopeComponentStyles(css, tagName) {
                 j++;
             }
 
+            const atRuleDecl = css.substring(i, j);
+            const isKeyframes = /^@keyframes\s/i.test(atRuleDecl) || /^@-webkit-keyframes\s/i.test(atRuleDecl);
+
             result += css.substring(i, j + 1);
             i = j + 1;
 
@@ -2848,7 +2802,11 @@ function scopeComponentStyles(css, tagName) {
                 i++;
             }
 
-            result += scopeComponentStyles(atRuleBody, tagName);
+            if (isKeyframes) {
+                result += atRuleBody;
+            } else {
+                result += scopeComponentStyles(atRuleBody, tagName);
+            }
             result += '}';
             continue;
         }
@@ -2930,11 +2888,6 @@ function defineComponent(name, options) {
             this._isDestroyed = false;
 
             this._cleanups = [];
-
-            this._cachedTemplate = null;
-            this._lastStateSnapshot = null;
-
-            this._container = null;
         }
 
         emitChange(e, value, propName = 'value') {
@@ -3285,16 +3238,12 @@ function createStore(initial) {
 
         set(newState) {
             Object.assign(state, newState);
-
-            notifySubscribers();
         },
 
         update(updater) {
             const newState = updater(state);
             if (newState) {
                 Object.assign(state, newState);
-
-                notifySubscribers();
             }
         }
     };

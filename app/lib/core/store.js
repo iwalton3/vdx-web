@@ -63,22 +63,20 @@ export function createStore(initial) {
 
         /**
          * Update store with new values
+         * Note: The reactive effect automatically notifies subscribers when state changes
          */
         set(newState) {
             Object.assign(state, newState);
-            // Manually trigger subscribers since Object.assign doesn't always trigger reactivity
-            notifySubscribers();
         },
 
         /**
          * Update store using updater function
+         * Note: The reactive effect automatically notifies subscribers when state changes
          */
         update(updater) {
             const newState = updater(state);
             if (newState) {
                 Object.assign(state, newState);
-                // Manually trigger subscribers since Object.assign doesn't always trigger reactivity
-                notifySubscribers();
             }
         }
     };

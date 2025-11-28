@@ -68,6 +68,10 @@ function scopeComponentStyles(css, tagName) {
                 j++;
             }
 
+            // Extract the @-rule name to check if it's @keyframes
+            const atRuleDecl = css.substring(i, j);
+            const isKeyframes = /^@keyframes\s/i.test(atRuleDecl) || /^@-webkit-keyframes\s/i.test(atRuleDecl);
+
             // Add the @-rule declaration (e.g., "@media screen and (max-width: 600px)")
             result += css.substring(i, j + 1);
             i = j + 1;
@@ -85,8 +89,13 @@ function scopeComponentStyles(css, tagName) {
                 i++;
             }
 
-            // Recursively scope the rules inside the @-rule
-            result += scopeComponentStyles(atRuleBody, tagName);
+            // Don't scope @keyframes content (selectors are percentages/from/to, not CSS selectors)
+            // Do scope @media queries (they contain normal CSS rules)
+            if (isKeyframes) {
+                result += atRuleBody;
+            } else {
+                result += scopeComponentStyles(atRuleBody, tagName);
+            }
             result += '}';
             continue;
         }
@@ -189,14 +198,6 @@ export function defineComponent(name, options) {
 
             // Cleanup functions
             this._cleanups = [];
-
-            // Template caching for performance
-            this._cachedTemplate = null;
-            this._lastStateSnapshot = null;
-
-            // Create a container div for Preact to render into
-            // This gives us a stable mount point for Preact's reconciliation
-            this._container = null;
         }
 
         /**

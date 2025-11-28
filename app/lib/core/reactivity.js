@@ -184,10 +184,8 @@ export function reactive(obj) {
                 if (arrayMethods.includes(key)) {
                     return function(...args) {
                         const result = value.apply(target, args);
-                        // Trigger on length change
+                        // Trigger on length change (covers both length and iteration tracking)
                         trigger(target, 'length');
-                        // Trigger on the array itself for iteration
-                        trigger(target, Array.isArray(target) ? 'length' : key);
                         return result;
                     };
                 }

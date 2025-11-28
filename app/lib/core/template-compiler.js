@@ -209,11 +209,17 @@ function parseXMLToTree(xmlString) {
     });
 
     // Auto-close void elements for XML compatibility
+    // Note: Avoid negative lookbehind (?<!/) for Safari < 16.4 compatibility
     voidElements.forEach(tag => {
-        // Match opening tag that isn't already self-closed
-        // Use a more robust pattern that handles attributes with quotes
-        const regex = new RegExp(`<${tag}(\\s[^>]*?)?(?<!/)>`, 'gi');
-        xmlString = xmlString.replace(regex, `<${tag}$1 />`);
+        const regex = new RegExp(`<${tag}(\\s[^>]*)?>`, 'gi');
+        xmlString = xmlString.replace(regex, (match, attrs) => {
+            // Skip if already self-closed (ends with />)
+            if (match.trimEnd().endsWith('/>')) {
+                return match;
+            }
+            // Make it self-closing for XML compatibility
+            return `<${tag}${attrs || ''} />`;
+        });
     });
 
     // Wrap in a root element for XML parsing

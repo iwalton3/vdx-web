@@ -458,9 +458,41 @@ template() {
 <x-select-box options="${this.state.options}">
 ```
 
+## Running Tests
+
+Both test suites require the test server running first:
+
+```bash
+cd app
+source ~/.venv/bin/activate
+python3 test-server.py
+```
+
+### Framework Unit Tests (~160 tests)
+
+Tests the core framework: reactivity, templates, components, router, etc.
+
+```bash
+# From project root (with server running)
+cd componentlib-e2e
+node run-framework-tests.js
+```
+
+Or open http://localhost:9000/tests/ in a browser.
+
+### Component Library E2E Tests (~150 tests)
+
+Tests the component library using Puppeteer.
+
+```bash
+# From project root (with server running)
+cd componentlib-e2e
+node test-runner.js
+```
+
 ## Getting Help
 
 - Check `/app/tests/` for working examples
-- Review `/app/core/` for framework APIs
+- Review `/app/lib/core/` for framework APIs
 - See `/app/components/` for component patterns
 - Read the docs/ folder for detailed information
