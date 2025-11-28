@@ -231,7 +231,7 @@ python3 test-server.py
 | Demo | URL | Description |
 |------|-----|-------------|
 | **E-commerce Shop** | [/apps/shop/](http://localhost:9000/apps/shop/) | Full shopping experience with product catalog, filtering, cart, and checkout flow. Demonstrates routing, state management, and responsive design. |
-| **Password Generator** | [/apps/pwgen/](http://localhost:9000/apps/pwgen/) | Secure passphrase generator with multiple generation modes and entropy calculation. |
+| **iwalton.com** | [/](http://localhost:9000/) | Personal website re-implementation with user management, authentication, password generator, and home automation tools. |
 
 ### Framework Showcases
 
@@ -268,7 +268,6 @@ Tests cover:
 2. **Context-aware escaping** - URLs, attributes, text content each handled correctly
 3. **toString() attack prevention** - Uses `Object.prototype.toString.call()` for objects
 4. **No dangerous fallbacks** - Removed all `dangerouslySetInnerHTML` except in `raw()`
-5. **CSRF token support** - Automatic inclusion in API requests
 
 **Always use the `html` template tag:**
 
