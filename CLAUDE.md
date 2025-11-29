@@ -78,6 +78,10 @@ export default defineComponent('my-component', {
         // Called before component is removed - cleanup subscriptions/timers
     },
 
+    propsChanged(prop, newValue, oldValue) {
+        // Called when a prop changes - see docs/components.md for details
+    },
+
     // Methods
     methods: {
         handleClick(e) {
@@ -605,6 +609,9 @@ Tests the component library using Puppeteer.
 # From project root (with server running)
 cd componentlib-e2e
 node test-runner.js
+
+# Only show output from failing tests (quieter for CI or quick checks)
+node test-runner.js --only-errors
 ```
 
 ## Getting Help
@@ -613,3 +620,4 @@ node test-runner.js
 - Review `/app/lib/core/` for framework APIs
 - See `/app/components/` for component patterns
 - Read the docs/ folder for detailed information
+- VERY IMPORTANT: This framework does not use shadow dom for anything, children are handled via preact virtual dom rendering.

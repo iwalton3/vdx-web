@@ -22,23 +22,11 @@ export default defineComponent('cl-dropdown', {
         };
     },
 
-    mounted() {
-        // Close panel when clicking outside
-        this._clickOutside = (e) => {
-            if (!this.contains(e.target) && this.state.showPanel) {
-                this.state.showPanel = false;
-            }
-        };
-        document.addEventListener('click', this._clickOutside);
-    },
-
-    unmounted() {
-        if (this._clickOutside) {
-            document.removeEventListener('click', this._clickOutside);
-        }
-    },
-
     methods: {
+        closePanel() {
+            this.state.showPanel = false;
+        },
+
         togglePanel() {
             if (!this.props.disabled) {
                 this.state.showPanel = !this.state.showPanel;
@@ -105,7 +93,7 @@ export default defineComponent('cl-dropdown', {
         const hasValue = this.props.value !== null && this.props.value !== undefined;
 
         return html`
-            <div class="cl-dropdown-wrapper">
+            <div class="cl-dropdown-wrapper" on-click-outside="closePanel">
                 ${when(this.props.label, html`
                     <label class="cl-label">${this.props.label}</label>
                 `)}

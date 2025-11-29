@@ -26,20 +26,6 @@ export default defineComponent('cl-colorpicker', {
         if (this.props.inline) {
             this.state.showPicker = true;
         }
-
-        // Close picker when clicking outside
-        this._clickOutside = (e) => {
-            if (!this.contains(e.target) && this.state.showPicker && !this.props.inline) {
-                this.state.showPicker = false;
-            }
-        };
-        document.addEventListener('click', this._clickOutside);
-    },
-
-    unmounted() {
-        if (this._clickOutside) {
-            document.removeEventListener('click', this._clickOutside);
-        }
     },
 
     propsChanged(prop, newValue, oldValue) {
@@ -50,6 +36,12 @@ export default defineComponent('cl-colorpicker', {
     },
 
     methods: {
+        closePanel() {
+            if (!this.props.inline) {
+                this.state.showPicker = false;
+            }
+        },
+
         handleColorChange(event) {
             const color = event.target.value;
             this.state.internalValue = color;
@@ -84,7 +76,7 @@ export default defineComponent('cl-colorpicker', {
         const displayValue = this.getDisplayValue();
 
         return html`
-            <div class="cl-colorpicker-wrapper">
+            <div class="cl-colorpicker-wrapper" on-click-outside="closePanel">
                 ${when(this.props.label, html`
                     <label class="cl-label">${this.props.label}</label>
                 `)}

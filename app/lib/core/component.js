@@ -294,6 +294,11 @@ export function defineComponent(name, options) {
                 }
             }
 
+            // Bind propsChanged hook if defined
+            if (options.propsChanged) {
+                this.propsChanged = options.propsChanged.bind(this);
+            }
+
             // Lifecycle flags
             this._isMounted = false;
             this._isDestroyed = false;
@@ -564,9 +569,14 @@ export function defineComponent(name, options) {
                             if (debugPropSetHook) {
                                 debugPropSetHook(this.tagName, propName, parsedValue, value, this._isMounted);
                             }
+                            const oldValue = this.props[propName];
                             this.props[propName] = parsedValue;
                             // Re-parse and re-render
                             if (this._isMounted) {
+                                // Call propsChanged hook if defined and value actually changed
+                                if (typeof this.propsChanged === 'function' && parsedValue !== oldValue) {
+                                    this.propsChanged(propName, parsedValue, oldValue);
+                                }
                                 this.render();
                             }
                         },

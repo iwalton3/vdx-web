@@ -34,20 +34,6 @@ export default defineComponent('cl-calendar', {
         if (this.props.inline) {
             this.state.showPicker = true;
         }
-
-        // Close picker when clicking outside
-        this._clickOutside = (e) => {
-            if (!this.contains(e.target) && this.state.showPicker && !this.props.inline) {
-                this.state.showPicker = false;
-            }
-        };
-        document.addEventListener('click', this._clickOutside);
-    },
-
-    unmounted() {
-        if (this._clickOutside) {
-            document.removeEventListener('click', this._clickOutside);
-        }
     },
 
     propsChanged(prop, newValue, oldValue) {
@@ -57,6 +43,12 @@ export default defineComponent('cl-calendar', {
     },
 
     methods: {
+        closePicker() {
+            if (!this.props.inline) {
+                this.state.showPicker = false;
+            }
+        },
+
         syncValueToState() {
             if (this.props.value && this.props.value !== '') {
                 const date = new Date(this.props.value);
@@ -347,8 +339,13 @@ export default defineComponent('cl-calendar', {
         },
 
         handleInputBlur(e) {
-            // Format the date properly on blur if valid
-            if (this.state.selectedDate && !this.state.inputError) {
+            // Validate incomplete input on blur
+            const value = this.state.inputValue;
+            if (value && !this.state.selectedDate) {
+                // Input has partial value but no valid date selected
+                this.state.inputError = 'Please enter a complete date';
+            } else if (this.state.selectedDate && !this.state.inputError) {
+                // Format the date properly on blur if valid
                 this.state.inputValue = this.formatDisplayDate(new Date(this.state.selectedDate));
             }
         },
@@ -405,23 +402,26 @@ export default defineComponent('cl-calendar', {
         const hasError = !!this.state.inputError;
 
         return html`
-            <div class="cl-calendar-wrapper">
+            <div class="cl-calendar-wrapper" on-click-outside="closePicker">
                 ${when(this.props.label, html`
                     <label class="cl-label">${this.props.label}</label>
                 `)}
                 ${when(!this.props.inline, html`
                     <div class="calendar-input-wrapper">
                         <cl-input-mask
-                            class="calendar-mask-input ${hasError ? 'error' : ''}"
+                            class="calendar-mask-input"
                             value="${this.state.inputValue}"
                             mask="${this.getDateMask()}"
                             placeholder="${this.props.placeholder || this.props.dateFormat}"
                             disabled="${this.props.disabled}"
+                            hideError="${true}"
+                            error="${this.state.inputError}"
                             on-input="handleMaskInput"
-                            on-keydown="handleInputKeydown">
+                            on-keydown="handleInputKeydown"
+                            on-focusout="handleInputBlur">
                         </cl-input-mask>
                         <button
-                            class="calendar-toggle"
+                            class="calendar-toggle ${hasError ? 'error' : ''}"
                             type="button"
                             disabled="${this.props.disabled}"
                             on-click="togglePicker">
@@ -587,6 +587,10 @@ export default defineComponent('cl-calendar', {
         .calendar-toggle:disabled {
             cursor: not-allowed;
             opacity: 0.6;
+        }
+
+        .calendar-toggle.error {
+            border-color: var(--error-color, #dc3545);
         }
 
         .calendar-icon {

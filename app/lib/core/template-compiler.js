@@ -450,9 +450,17 @@ function nodeToTree(node) {
             if (name.startsWith('on-')) {
                 // Parse event name and optional modifier (e.g., "on-submit-prevent")
                 const fullEventName = name.substring(3);
-                const parts = fullEventName.split('-');
-                const eventName = parts[0];
-                const modifier = parts.length > 1 ? parts[parts.length - 1] : null;
+
+                // Handle special compound event names (like click-outside)
+                let eventName, modifier;
+                if (fullEventName === 'click-outside') {
+                    eventName = 'clickoutside';
+                    modifier = null;
+                } else {
+                    const parts = fullEventName.split('-');
+                    eventName = parts[0];
+                    modifier = parts.length > 1 ? parts[parts.length - 1] : null;
+                }
 
                 const slotMatch = value.match(/^__SLOT_(\d+)__$/);
 
@@ -748,14 +756,12 @@ export function applyValues(compiled, values, component = null) {
                 if (attrDef.context === 'url') {
                     value = sanitizeUrl(value) || '';
                 } else if (attrDef.context === 'custom-element-attr') {
-                    // For custom elements, check if it's an object/array/function
-                    if ((typeof value === 'object' || typeof value === 'function') && value !== null) {
-                        // Store for ref callback (includes functions, objects, arrays)
-                        customElementProps[name] = value;
-                        continue;
-                    } else {
-                        value = String(value);
-                    }
+                    // For custom elements, store ALL props in customElementProps
+                    // so they go through the ref callback and trigger propsChanged
+                    // IMPORTANT: Use continue to avoid also setting as attribute,
+                    // which would cause infinite render loops
+                    customElementProps[name] = value;
+                    continue;
                 } else if (attrDef.context === 'x-model-value') {
                     // This path is for when x-model value comes from a slot, not directly from component state
                     // For custom elements, preserve arrays/objects
@@ -904,6 +910,44 @@ export function applyValues(compiled, values, component = null) {
 
         // Convert events to Preact event handlers
         for (const [eventName, eventDef] of Object.entries(compiled.events)) {
+            // Special handling for click-outside event
+            if (eventName === 'clickoutside' || eventName === 'click-outside') {
+                const clickOutsideHandler = resolveHandler(eventDef);
+                if (clickOutsideHandler && typeof clickOutsideHandler === 'function') {
+                    // Store existing ref if any
+                    const existingRef = props.ref;
+                    // Track the last element for cleanup
+                    let lastEl = null;
+
+                    props.ref = (el) => {
+                        // Call existing ref if present
+                        if (existingRef) existingRef(el);
+
+                        // Clean up previous listener if element changed
+                        if (lastEl && lastEl._clickOutsideHandler) {
+                            document.removeEventListener('click', lastEl._clickOutsideHandler);
+                            delete lastEl._clickOutsideHandler;
+                        }
+
+                        if (el) {
+                            // Set up click-outside listener
+                            const documentHandler = (e) => {
+                                if (!el.contains(e.target)) {
+                                    clickOutsideHandler(e);
+                                }
+                            };
+                            // Store handler for cleanup
+                            el._clickOutsideHandler = documentHandler;
+                            document.addEventListener('click', documentHandler);
+                            lastEl = el;
+                        } else {
+                            lastEl = null;
+                        }
+                    };
+                }
+                continue;
+            }
+
             const propName = 'on' + eventName.charAt(0).toUpperCase() + eventName.slice(1);
             let handler = resolveHandler(eventDef);
 
@@ -997,9 +1041,23 @@ export function applyValues(compiled, values, component = null) {
                         const isFrameworkComponent = '_isMounted' in el && el.props;
 
                         if (isFrameworkComponent) {
-                            // Batch all prop updates directly on props object
+                            // Only track changes if propsChanged is defined
+                            const hasPropsChanged = typeof el.propsChanged === 'function';
+                            const changedProps = hasPropsChanged ? [] : null;
                             for (const [name, value] of Object.entries(customElementProps)) {
+                                if (hasPropsChanged) {
+                                    const oldValue = el.props[name];
+                                    if (value !== oldValue) {
+                                        changedProps.push({ name, value, oldValue });
+                                    }
+                                }
                                 el.props[name] = value;
+                            }
+                            // Call propsChanged for each changed prop
+                            if (hasPropsChanged && el._isMounted && changedProps.length > 0) {
+                                for (const { name, value, oldValue } of changedProps) {
+                                    el.propsChanged(name, value, oldValue);
+                                }
                             }
                             // Trigger ONE re-render after all props are set
                             if (el._isMounted && typeof el.render === 'function') {

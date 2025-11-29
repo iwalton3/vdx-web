@@ -1,13 +1,14 @@
 /**
- * Custom Framework Bundle
- * Generated: 2025-11-29T00:40:31.377Z
+ * VDX-Web Framework Bundle
+ * https://github.com/iwalton3/vdx-web
+ * Generated: 2025-11-29T08:44:15.214Z
  *
  * Includes Preact (https://preactjs.com/)
  * Copyright (c) 2015-present Jason Miller
  * Licensed under MIT
  *
- * Self-contained reactive framework with Web Components support.
- * No dependencies, no build step required.
+ * Zero-dependency reactive web framework with Web Components support.
+ * No build step required - runs directly in the browser.
  */
 
 // ============= constants.js =============
@@ -2268,9 +2269,16 @@ function nodeToTree(node) {
             if (name.startsWith('on-')) {
 
                 const fullEventName = name.substring(3);
-                const parts = fullEventName.split('-');
-                const eventName = parts[0];
-                const modifier = parts.length > 1 ? parts[parts.length - 1] : null;
+
+                let eventName, modifier;
+                if (fullEventName === 'click-outside') {
+                    eventName = 'clickoutside';
+                    modifier = null;
+                } else {
+                    const parts = fullEventName.split('-');
+                    eventName = parts[0];
+                    modifier = parts.length > 1 ? parts[parts.length - 1] : null;
+                }
 
                 const slotMatch = value.match(/^__SLOT_(\d+)__$/);
 
@@ -2530,13 +2538,8 @@ function applyValues(compiled, values, component = null) {
                     value = sanitizeUrl(value) || '';
                 } else if (attrDef.context === 'custom-element-attr') {
 
-                    if ((typeof value === 'object' || typeof value === 'function') && value !== null) {
-
-                        customElementProps[name] = value;
-                        continue;
-                    } else {
-                        value = String(value);
-                    }
+                    customElementProps[name] = value;
+                    continue;
                 } else if (attrDef.context === 'x-model-value') {
 
                     if (isCustomElement && (typeof value === 'object' || typeof value === 'function') && value !== null) {
@@ -2677,6 +2680,43 @@ function applyValues(compiled, values, component = null) {
         };
 
         for (const [eventName, eventDef] of Object.entries(compiled.events)) {
+
+            if (eventName === 'clickoutside' || eventName === 'click-outside') {
+                const clickOutsideHandler = resolveHandler(eventDef);
+                if (clickOutsideHandler && typeof clickOutsideHandler === 'function') {
+
+                    const existingRef = props.ref;
+
+                    let lastEl = null;
+
+                    props.ref = (el) => {
+
+                        if (existingRef) existingRef(el);
+
+                        if (lastEl && lastEl._clickOutsideHandler) {
+                            document.removeEventListener('click', lastEl._clickOutsideHandler);
+                            delete lastEl._clickOutsideHandler;
+                        }
+
+                        if (el) {
+
+                            const documentHandler = (e) => {
+                                if (!el.contains(e.target)) {
+                                    clickOutsideHandler(e);
+                                }
+                            };
+
+                            el._clickOutsideHandler = documentHandler;
+                            document.addEventListener('click', documentHandler);
+                            lastEl = el;
+                        } else {
+                            lastEl = null;
+                        }
+                    };
+                }
+                continue;
+            }
+
             const propName = 'on' + eventName.charAt(0).toUpperCase() + eventName.slice(1);
             let handler = resolveHandler(eventDef);
 
@@ -2758,8 +2798,22 @@ function applyValues(compiled, values, component = null) {
 
                         if (isFrameworkComponent) {
 
+                            const hasPropsChanged = typeof el.propsChanged === 'function';
+                            const changedProps = hasPropsChanged ? [] : null;
                             for (const [name, value] of Object.entries(customElementProps)) {
+                                if (hasPropsChanged) {
+                                    const oldValue = el.props[name];
+                                    if (value !== oldValue) {
+                                        changedProps.push({ name, value, oldValue });
+                                    }
+                                }
                                 el.props[name] = value;
+                            }
+
+                            if (hasPropsChanged && el._isMounted && changedProps.length > 0) {
+                                for (const { name, value, oldValue } of changedProps) {
+                                    el.propsChanged(name, value, oldValue);
+                                }
                             }
 
                             if (el._isMounted && typeof el.render === 'function') {
@@ -3015,6 +3069,11 @@ function defineComponent(name, options) {
                 }
             }
 
+            if (options.propsChanged) {
+                console.log('[DEBUG] Binding propsChanged for', name);
+                this.propsChanged = options.propsChanged.bind(this);
+            }
+
             this._isMounted = false;
             this._isDestroyed = false;
 
@@ -3236,9 +3295,14 @@ function defineComponent(name, options) {
                             if (debugPropSetHook) {
                                 debugPropSetHook(this.tagName, propName, parsedValue, value, this._isMounted);
                             }
+                            const oldValue = this.props[propName];
                             this.props[propName] = parsedValue;
 
                             if (this._isMounted) {
+
+                                if (typeof this.propsChanged === 'function' && parsedValue !== oldValue) {
+                                    this.propsChanged(propName, parsedValue, oldValue);
+                                }
                                 this.render();
                             }
                         },

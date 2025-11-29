@@ -2,11 +2,19 @@
 
 /**
  * Component Library E2E Test Runner
+ *
+ * Usage:
+ *   node test-runner.js              # Run all tests with full output
+ *   node test-runner.js --only-errors # Only show output from failing tests
  */
 
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+
+// Parse command line args
+const args = process.argv.slice(2);
+const onlyErrors = args.includes('--only-errors');
 
 // Find all test files
 const testDir = __dirname;
@@ -17,7 +25,11 @@ const testFiles = fs.readdirSync(testDir)
 console.log('='.repeat(70));
 console.log('Component Library E2E Test Suite');
 console.log('='.repeat(70));
-console.log(`Found ${testFiles.length} test files\n`);
+console.log(`Found ${testFiles.length} test files`);
+if (onlyErrors) {
+    console.log('Mode: --only-errors (suppressing output from passing tests)');
+}
+console.log();
 
 let totalTests = 0;
 let passedTests = 0;
@@ -25,21 +37,43 @@ let failedTests = 0;
 
 async function runTest(testFile) {
     return new Promise((resolve) => {
-        console.log(`\n📦 Running: ${testFile}`);
-        console.log('-'.repeat(70));
+        if (!onlyErrors) {
+            console.log(`\n📦 Running: ${testFile}`);
+            console.log('-'.repeat(70));
+        }
 
+        const stdioOption = onlyErrors ? 'pipe' : 'inherit';
         const child = spawn('node', [path.join(testDir, testFile)], {
-            stdio: 'inherit',
+            stdio: stdioOption,
             env: { ...process.env, FORCE_COLOR: '1' }
         });
 
+        let output = '';
+        if (onlyErrors) {
+            child.stdout.on('data', (data) => {
+                output += data.toString();
+            });
+            child.stderr.on('data', (data) => {
+                output += data.toString();
+            });
+        }
+
         child.on('close', (code) => {
             if (code === 0) {
-                console.log(`✅ ${testFile} passed\n`);
-                resolve({ passed: true, file: testFile });
+                if (!onlyErrors) {
+                    console.log(`✅ ${testFile} passed\n`);
+                } else {
+                    process.stdout.write('.');
+                }
+                resolve({ passed: true, file: testFile, output });
             } else {
+                if (onlyErrors) {
+                    console.log(`\n\n📦 ${testFile}`);
+                    console.log('-'.repeat(70));
+                    console.log(output);
+                }
                 console.log(`❌ ${testFile} failed with code ${code}\n`);
-                resolve({ passed: false, file: testFile });
+                resolve({ passed: false, file: testFile, output });
             }
         });
     });
@@ -58,6 +92,10 @@ async function runAllTests() {
             failedTests++;
         }
         totalTests++;
+    }
+
+    if (onlyErrors) {
+        console.log('\n');
     }
 
     console.log('='.repeat(70));

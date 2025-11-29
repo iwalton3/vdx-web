@@ -23,23 +23,11 @@ export default defineComponent('cl-multiselect', {
         };
     },
 
-    mounted() {
-        // Close panel when clicking outside
-        this._clickOutside = (e) => {
-            if (!this.contains(e.target) && this.state.showPanel) {
-                this.state.showPanel = false;
-            }
-        };
-        document.addEventListener('click', this._clickOutside);
-    },
-
-    unmounted() {
-        if (this._clickOutside) {
-            document.removeEventListener('click', this._clickOutside);
-        }
-    },
-
     methods: {
+        closePanel() {
+            this.state.showPanel = false;
+        },
+
         togglePanel() {
             if (!this.props.disabled) {
                 this.state.showPanel = !this.state.showPanel;
@@ -120,7 +108,7 @@ export default defineComponent('cl-multiselect', {
         const hasSelection = selectedOptions.length > 0;
 
         return html`
-            <div class="cl-multiselect-wrapper">
+            <div class="cl-multiselect-wrapper" on-click-outside="closePanel">
                 ${when(this.props.label, html`
                     <label class="cl-label">${this.props.label}</label>
                 `)}

@@ -653,6 +653,38 @@ unmounted() {
 }
 ```
 
+### propsChanged(prop, newValue, oldValue)
+
+Called when a prop changes from a parent component. Useful for:
+- Responding to external prop changes
+- Syncing internal state with props
+- Re-initializing based on new prop values
+
+**Parameters:**
+- `prop` - The name of the prop that changed
+- `newValue` - The new value of the prop
+- `oldValue` - The previous value of the prop
+
+```javascript
+propsChanged(prop, newValue, oldValue) {
+    if (prop === 'value' && newValue !== oldValue) {
+        // Update internal state based on new prop value
+        this.parseValue(newValue);
+        this.syncInputElement();
+    }
+    if (prop === 'options') {
+        // Re-initialize when options change
+        this.rebuildOptions(newValue);
+    }
+}
+```
+
+**Important notes:**
+- Called BEFORE the component re-renders with the new props
+- Not called on initial mount - use `mounted()` for initial setup
+- Not called if the prop value is the same as before (strict equality)
+- Multiple prop changes in a single update will result in multiple calls
+
 ### afterRender()
 
 Called after each render. **Use sparingly** - Preact handles most DOM sync automatically.

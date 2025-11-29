@@ -21,7 +21,8 @@ export default defineComponent('cl-input-mask', {
         label: '',
         helptext: '',
         autoClear: false,   // Clear incomplete values on blur
-        unmask: false       // If true, emits raw value without mask characters
+        unmask: false,      // If true, emits raw value without mask characters
+        hideError: false    // If true, don't show internal validation errors (for parent-controlled validation)
     },
 
     data() {
@@ -42,13 +43,36 @@ export default defineComponent('cl-input-mask', {
     propsChanged(prop, newValue, oldValue) {
         if (prop === 'value' && newValue !== oldValue) {
             this.setValueFromProp(newValue);
+            // Sync the DOM input value after buffer update
+            this.syncInputValue();
+            // Clear internal error if receiving a complete value from parent
+            // (e.g., calendar selection after incomplete manual entry)
+            const filledCount = this.state.buffer.filter(c => c).length;
+            const totalCount = this.state.buffer.length;
+            if (filledCount === totalCount || filledCount === 0) {
+                this.state.internalError = '';
+            }
         }
-        if (prop === 'mask') {
+        if (prop === 'mask' && newValue !== oldValue) {
             this.initBuffer();
+            // Re-parse current value with new mask
+            if (this.props.value) {
+                this.setValueFromProp(this.props.value);
+            }
         }
     },
 
     methods: {
+        syncInputValue() {
+            // Use setTimeout to ensure DOM is updated after render
+            setTimeout(() => {
+                const input = this.querySelector('input');
+                if (input) {
+                    input.value = this.getDisplayValue();
+                }
+            }, 0);
+        },
+
         // Mask character definitions
         getMaskDef(char) {
             const defs = {
@@ -317,7 +341,11 @@ export default defineComponent('cl-input-mask', {
 
         handleBlur(e) {
             this.state.focused = false;
-            this.validateInput();
+
+            // Skip internal validation if hideError is true (parent handles validation)
+            if (!this.props.hideError) {
+                this.validateInput();
+            }
 
             // Clear incomplete value if autoClear is enabled
             if (this.props.autoClear) {
@@ -380,7 +408,8 @@ export default defineComponent('cl-input-mask', {
     },
 
     template() {
-        const error = this.props.error || this.state.internalError;
+        // When hideError is true, only use parent-provided error (not internal)
+        const error = this.props.hideError ? this.props.error : (this.props.error || this.state.internalError);
         const hasError = !!error;
         const displayValue = this.getDisplayValue();
 
@@ -406,7 +435,7 @@ export default defineComponent('cl-input-mask', {
                 ${when(this.props.helptext && !hasError, html`
                     <small class="help-text">${this.props.helptext}</small>
                 `)}
-                ${when(hasError, html`
+                ${when(hasError && !this.props.hideError, html`
                     <small class="error-text">${error}</small>
                 `)}
             </div>

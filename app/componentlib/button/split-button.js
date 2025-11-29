@@ -17,23 +17,11 @@ export default defineComponent('cl-split-button', {
         };
     },
 
-    mounted() {
-        // Close menu when clicking outside
-        this._clickOutside = (e) => {
-            if (!this.contains(e.target) && this.state.showMenu) {
-                this.state.showMenu = false;
-            }
-        };
-        document.addEventListener('click', this._clickOutside);
-    },
-
-    unmounted() {
-        if (this._clickOutside) {
-            document.removeEventListener('click', this._clickOutside);
-        }
-    },
-
     methods: {
+        closeMenu() {
+            this.state.showMenu = false;
+        },
+
         handleClick() {
             if (!this.props.disabled) {
                 this.emitEvent('click');
@@ -61,7 +49,7 @@ export default defineComponent('cl-split-button', {
 
     template() {
         return html`
-            <div class="cl-split-button">
+            <div class="cl-split-button" on-click-outside="closeMenu">
                 <button
                     class="main-button ${this.props.severity}"
                     disabled="${this.props.disabled}"
