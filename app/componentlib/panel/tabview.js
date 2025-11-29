@@ -16,7 +16,8 @@ export default defineComponent('cl-tabview', {
     },
 
     mounted() {
-        this.state.activeTab = this.props.activeindex;
+        // Convert to number since props from HTML attributes are strings
+        this.state.activeTab = parseInt(this.props.activeindex, 10) || 0;
     },
 
     methods: {

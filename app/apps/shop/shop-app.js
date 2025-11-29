@@ -3,7 +3,7 @@
  * Showcases the VDX Web framework with routing, state management, and UI components
  */
 import { defineComponent, html, when, each } from '../../lib/framework.js';
-import { Router, defineRouterOutlet, defineRouterLink } from '../../lib/router.js';
+import { enableRouting } from '../../lib/router.js';
 import cartStore from './cart-store.js';
 
 // Import components
@@ -18,12 +18,9 @@ import './pages/product-detail.js';
 import './pages/cart-page.js';
 import './pages/checkout-page.js';
 
-// Define router outlet element
-defineRouterOutlet();
-defineRouterLink(null); // Define without router for now, hash links work
-
 // Setup router
-const router = new Router({
+const outlet = document.querySelector('router-outlet');
+const router = enableRouting(outlet, {
     '/shop/': {
         component: 'shop-home-page'
     },
@@ -42,9 +39,6 @@ const router = new Router({
     '/shop/checkout/': {
         component: 'shop-checkout-page'
     }
-}, {
-    mode: 'hash',
-    base: ''
 });
 
 export default defineComponent('shop-app', {

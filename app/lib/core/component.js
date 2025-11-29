@@ -6,12 +6,13 @@
 import { reactive, createEffect, trackAllDependencies } from './reactivity.js';
 import { render as preactRender } from '../vendor/preact/index.js';
 import { applyValues } from './template-compiler.js';
-import { html } from './template.js';
 
 // Debug hooks - can be set by debug-enable.js
 let debugRenderCycleHook = null;
 let debugPropSetHook = null;
 let debugVNodeHook = null;
+
+export const componentDefinitions = new Map();
 
 export function setDebugComponentHooks(hooks) {
     debugRenderCycleHook = hooks.renderCycle;
@@ -260,6 +261,12 @@ function scopeSelector(selector, tagName) {
  * Define a custom component
  */
 export function defineComponent(name, options) {
+    // Security: Reserved property names that should not be overwritten
+    const reservedNames = new Set([
+        'constructor', '__proto__', 'prototype', 'toString',
+        'valueOf', 'hasOwnProperty', 'isPrototypeOf'
+    ]);
+
     class Component extends HTMLElement {
         constructor() {
             super();
@@ -274,6 +281,19 @@ export function defineComponent(name, options) {
                 children: [],
                 slots: {}
             };
+
+            // Apply any props that were set via prototype setters before constructor ran
+            // (This happens when Preact sets props on an already-constructed element)
+            if (this._pendingProps) {
+                for (const [propName, value] of Object.entries(this._pendingProps)) {
+                    this.props[propName] = value;
+                    if (typeof value === 'string') {
+                        // improves usability/accessibility
+                        this.setAttribute(propName, value);
+                    }
+                }
+                delete this._pendingProps;
+            }
 
             // Initialize stores (reactive copies of external store state)
             if (options.stores) {
@@ -302,6 +322,7 @@ export function defineComponent(name, options) {
             // Lifecycle flags
             this._isMounted = false;
             this._isDestroyed = false;
+            this._suppressAttributeChange = false;
 
             // Cleanup functions
             this._cleanups = [];
@@ -340,29 +361,8 @@ export function defineComponent(name, options) {
         connectedCallback() {
             if (this._isDestroyed) return;
 
-            // Setup property setters for better DX
-            this._setupPropertySetters();
-
-            // Parse attributes as props
+            // Parse attributes as props (prototype setters handle property access)
             this._parseAttributes();
-
-            // Apply any pending props from Preact ref callbacks that fired before mount
-            if (this._pendingProps) {
-                for (const [name, value] of Object.entries(this._pendingProps)) {
-                    // Set directly on props (not via setter) to avoid premature render
-                    this.props[name] = value;
-                }
-                delete this._pendingProps;
-            }
-
-            // Clear light DOM children before rendering
-            // Framework components render children via props.children in their template,
-            // but Preact may have added children as light DOM nodes. We need to clear these
-            // to prevent duplication. Plain custom elements (like router-link) are not
-            // framework components and won't reach this code.
-            while (this.firstChild) {
-                this.removeChild(this.firstChild);
-            }
 
             // Mark as mounted BEFORE initial render to prevent double-render
             this._isMounted = true;
@@ -392,20 +392,8 @@ export function defineComponent(name, options) {
                     }
                 }
 
-                // Defer initial render slightly to allow Preact's ref callback to set props
-                // This is needed for nested custom elements created by Preact where props
-                // are passed via ref callback after connectedCallback fires
-                if (!this._hasRendered) {
-                    this._hasRendered = true;
-                    queueMicrotask(() => {
-                        if (this._isMounted && !this._isDestroyed) {
-                            this.render();
-                        }
-                    });
-                } else {
-                    // Subsequent renders happen immediately
-                    this.render();
-                }
+                // Render immediately - props are already set via prototype setters
+                this.render();
             });
 
             // Store disposal function for cleanup
@@ -447,19 +435,13 @@ export function defineComponent(name, options) {
 
         attributeChangedCallback(name, oldValue, newValue) {
             // Only react to changes after initial mount
-            if (!this._isMounted || oldValue === newValue) {
+            if (!this._isMounted || oldValue === newValue || this._suppressAttributeChange) {
                 return;
             }
 
             // Update props
             if (options.props && name in options.props) {
-                // Try to parse JSON for complex types
-                try {
-                    this.props[name] = JSON.parse(newValue);
-                } catch {
-                    // If not JSON, use as string
-                    this.props[name] = newValue;
-                }
+                this.props[name] = newValue;
                 // Trigger re-render
                 this.render();
             }
@@ -470,132 +452,15 @@ export function defineComponent(name, options) {
             return options.props ? Object.keys(options.props) : [];
         }
 
-        _setupPropertySetters() {
-            // Security: Block reserved property names to prevent DOM clobbering
-            const reservedNames = new Set([
-                'constructor', '__proto__', 'prototype', 'toString',
-                'valueOf', 'hasOwnProperty', 'isPrototypeOf'
-            ]);
-
-            // Always create a setter for 'children' prop (always an array)
-            if (!reservedNames.has('children')) {
-                const existingChildren = this.hasOwnProperty('children') ? this.children : undefined;
-
-                Object.defineProperty(this, 'children', {
-                    get() {
-                        return this.props.children;
-                    },
-                    set(value) {
-                        if (debugPropSetHook) {
-                            debugPropSetHook(this.tagName, 'children', value, value, this._isMounted);
-                        }
-                        this.props.children = value;
-                        // Re-render when children change
-                        if (this._isMounted) {
-                            this.render();
-                        }
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-
-                // Restore the pre-existing value if there was one
-                if (existingChildren !== undefined) {
-                    this.props.children = existingChildren;
-                }
-            }
-
-            // Always create a setter for 'slots' prop (object with named slot children)
-            if (!reservedNames.has('slots')) {
-                const existingSlots = this.hasOwnProperty('slots') ? this.slots : undefined;
-
-                Object.defineProperty(this, 'slots', {
-                    get() {
-                        return this.props.slots;
-                    },
-                    set(value) {
-                        if (debugPropSetHook) {
-                            debugPropSetHook(this.tagName, 'slots', value, value, this._isMounted);
-                        }
-                        this.props.slots = value;
-                        // Re-render when slots change
-                        if (this._isMounted) {
-                            this.render();
-                        }
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-
-                // Restore the pre-existing value if there was one
-                if (existingSlots !== undefined) {
-                    this.props.slots = existingSlots;
-                }
-            }
-
-            // Create property setters that automatically update props and trigger re-render
-            if (options.props) {
-                for (const propName of Object.keys(options.props)) {
-                    if (reservedNames.has(propName) || propName === 'children' || propName === 'slots') {
-                        if (reservedNames.has(propName)) {
-                            console.warn(`[Security] Skipping reserved prop name: ${propName}`);
-                        }
-                        continue;
-                    }
-
-                    // Check if property was already set (before connectedCallback)
-                    // Store it so we can restore after defining the property setter
-                    const existingValue = this.hasOwnProperty(propName) ? this[propName] : undefined;
-
-                    const privateProp = `_${propName}`;
-
-                    Object.defineProperty(this, propName, {
-                        get() {
-                            return this.props[propName];
-                        },
-                        set(value) {
-                            // Parse string values to match expected types
-                            let parsedValue = value;
-                            if (typeof value === 'string') {
-                                // Try JSON parse for booleans, numbers, objects
-                                try {
-                                    parsedValue = JSON.parse(value);
-                                } catch {
-                                    // Keep as string if not valid JSON
-                                    parsedValue = value;
-                                }
-                            }
-
-                            if (debugPropSetHook) {
-                                debugPropSetHook(this.tagName, propName, parsedValue, value, this._isMounted);
-                            }
-                            const oldValue = this.props[propName];
-                            this.props[propName] = parsedValue;
-                            // Re-parse and re-render
-                            if (this._isMounted) {
-                                // Call propsChanged hook if defined and value actually changed
-                                if (typeof this.propsChanged === 'function' && parsedValue !== oldValue) {
-                                    this.propsChanged(propName, parsedValue, oldValue);
-                                }
-                                this.render();
-                            }
-                        },
-                        enumerable: true,
-                        configurable: true
-                    });
-
-                    // Restore the pre-existing value if there was one
-                    if (existingValue !== undefined) {
-                        this.props[propName] = existingValue;
-                    }
-                }
-            }
-        }
-
         _parseAttributes() {
             // Copy attribute values and direct properties to props
             if (options.props) {
                 for (const propName of Object.keys(options.props)) {
+                    if (propName === 'style') {
+                        // no-op: style is handled separately as _vdxStyle
+                        continue;
+                    }
+
                     // Check if property was set directly on element (before connectedCallback)
                     // This happens when VDOM sets el[propName] = value before adding to DOM
                     if (propName in this && this[propName] !== undefined && this[propName] !== options.props[propName]) {
@@ -608,13 +473,7 @@ export function defineComponent(name, options) {
                     // Check for attribute
                     const attrValue = this.getAttribute(propName);
                     if (attrValue !== null) {
-                        // Try to parse JSON for complex types
-                        try {
-                            this.props[propName] = JSON.parse(attrValue);
-                        } catch {
-                            // If not JSON, use as string
-                            this.props[propName] = attrValue;
-                        }
+                        this.props[propName] = attrValue;
                     } else if (!(propName in this.props)) {
                         // Use default from props definition if not already set
                         this.props[propName] = options.props[propName];
@@ -718,9 +577,196 @@ export function defineComponent(name, options) {
         }
     }
 
+    // Define property accessors on prototype BEFORE registration
+    // This ensures `name in dom` returns true when Preact checks, allowing
+    // direct property setting instead of falling back to setAttribute()
+
+    // Helper to schedule a batched render using microtask
+    // This prevents multiple render calls when Preact updates several props in sequence
+    const scheduleRender = (component) => {
+        if (component._renderScheduled) return;
+        component._renderScheduled = true;
+        queueMicrotask(() => {
+            component._renderScheduled = false;
+            if (component._isMounted && !component._isDestroyed) {
+                component.render();
+            }
+        });
+    };
+
+    // Helper to create a prop setter that handles pre-constructor calls
+    const createPropSetter = (propName) => ({
+        get() {
+            // If props exists, return from props; otherwise return undefined
+            return this.props ? this.props[propName] : undefined;
+        },
+        set(value) {
+            // Parse string values ONLY for objects/arrays (not primitives)
+            // This preserves string types for custom elements - "4" stays "4", not 4
+            if (debugPropSetHook) {
+                debugPropSetHook(this.tagName || name, propName, value, value, this._isMounted);
+            }
+
+            // If props doesn't exist yet (setter called before constructor),
+            // store in _pendingProps for later application
+            if (!this.props) {
+                if (!this._pendingProps) this._pendingProps = {};
+                this._pendingProps[propName] = value;
+                return;
+            }
+
+            const oldValue = this.props[propName];
+            this.props[propName] = value;
+
+            // improves usability/accessibility
+            this._suppressAttributeChange = true;
+            if (typeof value === 'string') {
+                this.setAttribute(propName, value);
+            } else if (this.hasAttribute(propName)) {
+                // remove non-string attributes
+                this.removeAttribute(propName);
+            }
+            this._suppressAttributeChange = false;
+
+            // Only trigger updates if mounted
+            if (this._isMounted) {
+                if (typeof this.propsChanged === 'function' && value !== oldValue) {
+                    this.propsChanged(propName, value, oldValue);
+                }
+                // Use batched render to prevent multiple render cycles during prop updates
+                scheduleRender(this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+
+    // Define 'children' accessor
+    Object.defineProperty(Component.prototype, 'children', {
+        get() {
+            return this.props ? this.props.children : undefined;
+        },
+        set(value) {
+            if (debugPropSetHook) {
+                debugPropSetHook(this.tagName || name, 'children', value, value, this._isMounted);
+            }
+            if (!this.props) {
+                if (!this._pendingProps) this._pendingProps = {};
+                this._pendingProps.children = value;
+                return;
+            }
+            this.props.children = value;
+            if (this._isMounted) scheduleRender(this);
+        },
+        enumerable: true,
+        configurable: true
+    });
+
+    // Define 'slots' accessor
+    Object.defineProperty(Component.prototype, 'slots', {
+        get() {
+            return this.props ? this.props.slots : undefined;
+        },
+        set(value) {
+            if (debugPropSetHook) {
+                debugPropSetHook(this.tagName || name, 'slots', value, value, this._isMounted);
+            }
+            if (!this.props) {
+                if (!this._pendingProps) this._pendingProps = {};
+                this._pendingProps.slots = value;
+                return;
+            }
+            this.props.slots = value;
+            if (this._isMounted) scheduleRender(this);
+        },
+        enumerable: true,
+        configurable: true
+    });
+
+    // Define '_vdxChildren' accessor - avoids conflicts with native DOM 'children' property
+    // and Preact's special handling of props.children. Maps to props.children internally.
+    Object.defineProperty(Component.prototype, '_vdxChildren', {
+        get() {
+            return this.props ? this.props.children : undefined;
+        },
+        set(value) {
+            if (debugPropSetHook) {
+                debugPropSetHook(this.tagName || name, '_vdxChildren', value, value, this._isMounted);
+            }
+            if (!this.props) {
+                if (!this._pendingProps) this._pendingProps = {};
+                this._pendingProps.children = value;
+                return;
+            }
+            this.props.children = value;
+            if (this._isMounted) scheduleRender(this);
+        },
+        enumerable: true,
+        configurable: true
+    });
+
+    // Define '_vdxSlots' accessor - avoids conflicts with Preact prop handling.
+    // Maps to props.slots internally.
+    Object.defineProperty(Component.prototype, '_vdxSlots', {
+        get() {
+            return this.props ? this.props.slots : undefined;
+        },
+        set(value) {
+            if (debugPropSetHook) {
+                debugPropSetHook(this.tagName || name, '_vdxSlots', value, value, this._isMounted);
+            }
+            if (!this.props) {
+                if (!this._pendingProps) this._pendingProps = {};
+                this._pendingProps.slots = value;
+                return;
+            }
+            this.props.slots = value;
+            if (this._isMounted) scheduleRender(this);
+        },
+        enumerable: true,
+        configurable: true
+    });
+
+    // Define accessors for all declared props
+    if (options.props) {
+        for (const propName of Object.keys(options.props)) {
+            if (reservedNames.has(propName) || propName === 'children' || propName === 'slots') {
+                if (reservedNames.has(propName)) {
+                    console.warn(`[Security] Skipping reserved prop name: ${propName}`);
+                }
+                continue;
+            }
+            if (propName === 'style') {
+                // needs workaround due to style being a special property on HTMLElement
+                Object.defineProperty(Component.prototype, '_vdxStyle', {
+                    get() {
+                        return this.props ? this.props.style : undefined;
+                    },
+                    set(value) {
+                        if (debugPropSetHook) {
+                            debugPropSetHook(this.tagName || name, '_vdxStyle', value, value, this._isMounted);
+                        }
+                        if (!this.props) {
+                            if (!this._pendingProps) this._pendingProps = {};
+                            this._pendingProps.style = value;
+                            return;
+                        }
+                        this.props.style = value;
+                        if (this._isMounted) scheduleRender(this);
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                continue;
+            }
+            Object.defineProperty(Component.prototype, propName, createPropSetter(propName));
+        }
+    }
+
     // Register the custom element
     if (!customElements.get(name)) {
         customElements.define(name, Component);
+        componentDefinitions.set(name, Component);
     }
 
     return Component;

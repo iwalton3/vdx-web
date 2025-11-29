@@ -302,7 +302,7 @@ export default defineComponent('shop-cart-page', {
         }
 
         .item-quantity {
-            width: 100px;
+            width: 160px;
         }
 
         .remove-btn {

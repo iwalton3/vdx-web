@@ -8,10 +8,6 @@ export function getRouter() {
     return _router;
 }
 
-export function setRouter(router) {
-    _router = router;
-}
-
 function parseQuery(queryString) {
     if (!queryString) return {};
 
@@ -456,7 +452,31 @@ export class Router {
     }
 }
 
-export function defineRouterOutlet() {
+function init() {
+    defineComponent('router-link', {
+        props: {
+            to: '/'
+        },
+
+        methods: {
+            handleClick(e) {
+                
+                if (_router && _router.useHTML5) {
+                    e.preventDefault();
+                    _router.navigate(this.props.to);
+                }
+            }
+        },
+
+        template() {
+            const href = _router ? _router.url(this.props.to) : `#${this.props.to}`;
+
+            return html`
+                <a href="${href}" on-click="handleClick">${this.props.children}</a>
+            `;
+        }
+    });
+
     if (customElements.get('router-outlet')) {
         return;
     }
@@ -470,32 +490,12 @@ export function defineRouterOutlet() {
     customElements.define('router-outlet', RouterOutlet);
 }
 
-export function defineRouterLink(router) {
-    if (customElements.get('router-link')) {
-        return;
+init();
+
+export function enableRouting(outlet, routes, options = {}) {
+    if (!_router) {
+        _router = new Router(routes, options);
     }
-
-    defineComponent('router-link', {
-        props: {
-            to: '/'
-        },
-
-        methods: {
-            handleClick(e) {
-                
-                if (router && router.useHTML5) {
-                    e.preventDefault();
-                    router.navigate(this.props.to);
-                }
-            }
-        },
-
-        template() {
-            const href = router ? router.url(this.props.to) : `#${this.props.to}`;
-
-            return html`
-                <a href="${href}" on-click="handleClick">${this.props.children}</a>
-            `;
-        }
-    });
+    _router.setOutlet(outlet);
+    return _router;
 }

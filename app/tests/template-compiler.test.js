@@ -4,18 +4,18 @@
 
 import { describe, assert } from './test-runner.js';
 import { compileTemplate, applyValues, clearTemplateCache, getTemplateCacheSize } from '../lib/core/template-compiler.js';
-import { html } from '../lib/framework.js';
+import { defineComponent, html } from '../lib/framework.js';
 import { render as preactRender } from '../lib/vendor/preact/index.js';
 
 // Define a simple test custom element
-if (!customElements.get('x-component')) {
-    class TestComponent extends HTMLElement {
-        constructor() {
-            super();
-        }
+defineComponent('x-component', {
+    props: {
+        data: {}
+    },
+    template() {
+        return html`<div>Data Component</div>`;
     }
-    customElements.define('x-component', TestComponent);
-}
+});
 
 // Helper to render template to container
 function renderTemplate(template, container) {
@@ -265,10 +265,22 @@ describe('Template Value Application', function(it) {
         preactRender(applied, container);
 
         const el = container.querySelector('x-component');
-        // Preact uses ref callback to set object props on custom elements
-        // Wait a tick for ref to fire
-        await new Promise(resolve => setTimeout(resolve, 10));
         assert.equal(el.data, data, 'Should pass object to custom element');
+        assert.ok(!el.getAttribute('data'), 'Should not set attribute for object prop');
+    });
+
+    it('handles props setting for custom elements', async () => {
+        const container = document.createElement('div');
+        const data = "Test!";
+        const strings = ['<x-component data="', '"></x-component>'];
+        const compiled = compileTemplate(strings);
+        const applied = applyValues(compiled, [data]);
+
+        preactRender(applied, container);
+
+        const el = container.querySelector('x-component');
+        assert.equal(el.data, "Test!", 'Should pass string to custom element');
+        assert.equal(el.getAttribute('data'), "Test!", 'Should set attribute for string prop');
     });
 
     it('applies multiple values', () => {

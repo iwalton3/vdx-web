@@ -429,6 +429,12 @@ ${when(this.state.isLoggedIn,
     html`<p>Please log in</p>`
 )}
 
+// ✅ CORRECT
+${when(this.state.isLoggedIn,
+    () => html`<p>Welcome!</p>`,
+    () => html`<p>Please log in</p>`
+)}
+
 // ❌ WRONG
 ${this.state.isLoggedIn ? html`<p>Welcome!</p>` : html`<p>Log in</p>`}
 ```

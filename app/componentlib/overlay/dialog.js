@@ -34,6 +34,7 @@ export default defineComponent('cl-dialog', {
         // children is always an array, slots has named slots
         const footerSlot = this.props.slots.footer || [];
         const hasFooter = this.props.footer || footerSlot.length > 0;
+        console.log('Rendering dialog, style=', this.props);
 
         return html`
             ${when(this.props.visible, html`

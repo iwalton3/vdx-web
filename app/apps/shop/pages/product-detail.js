@@ -127,7 +127,7 @@ export default defineComponent('shop-product-detail', {
             <div class="product-detail-page">
                 ${when(this.state.loading, html`
                     <div class="loading">Loading product...</div>
-                `, html`
+                `, () => html`
                     ${when(!product, html`
                         <div class="not-found">
                             <h2>Product Not Found</h2>

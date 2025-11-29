@@ -251,7 +251,6 @@ userPrefs.state.theme = 'dark';
 **Note:** `localStore()` creates a reactive store that automatically:
 - Loads initial state from localStorage
 - Saves changes to localStorage on every update
-- Parses JSON automatically
 - Handles errors gracefully
 
 ## Computed Properties

@@ -169,6 +169,12 @@ ${when(this.state.isLoggedIn,
     html`<p>Please log in</p>`
 )}
 
+// Can also accept function to avoid executing when a condition is invalid
+${when(this.state.isLoggedIn,
+    () => html`<p>Welcome!</p>`,
+    () => html`<p>Please log in</p>`
+)}
+
 // each() - List rendering
 ${each(this.state.items, item => html`
     <li>${item.name}</li>
@@ -385,9 +391,10 @@ addItem(item) {
 ### 8. Router
 
 ```javascript
-import { Router } from './lib/router.js';
+import { enableRouting } from './lib/router.js';
 
-const router = new Router({
+const outlet = document.getElementsByTagName('router-outlet')[0];
+const router = new enableRouting(outlet, {
     '/': {
         component: 'home-page',
         load: () => import('./home.js')  // Optional lazy loading

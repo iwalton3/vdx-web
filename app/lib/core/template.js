@@ -147,7 +147,11 @@ export function raw(htmlString) {
  * @param {*} elseValue - Value to return if condition is false (default: null)
  */
 export function when(condition, thenValue, elseValue = null) {
-    const result = condition ? thenValue : elseValue;
+    let result = condition ? thenValue : elseValue;
+
+    if (typeof result === 'function') {
+        result = result();
+    }
 
     // Preact handles null/false natively - just return it
     if (!result) {

@@ -259,7 +259,6 @@ template() {
 The framework includes security protections for props:
 - Reserved property names (constructor, __proto__, etc.) are blocked
 - URL attributes are sanitized automatically
-- JSON parsing failures fall back to strings safely
 
 ## Passing Props to Child Components
 

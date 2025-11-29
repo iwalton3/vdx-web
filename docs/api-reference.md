@@ -142,14 +142,19 @@ Conditional rendering helper.
 
 **Parameters:**
 - `condition` (boolean) - Condition to evaluate
-- `thenTemplate` (template) - Template to render if true
-- `elseTemplate` (template) - Template to render if false (optional)
+- `thenTemplate` (template/function) - Template or function returning template to render if true
+- `elseTemplate` (template/function) - Template or function returning template to render if false (optional)
 
 **Example:**
 ```javascript
 ${when(this.state.isLoggedIn,
     html`<p>Welcome!</p>`,
     html`<p>Please log in</p>`
+)}
+
+${when(this.state.isLoggedIn,
+    () => html`<p>Welcome!</p>`,
+    () => html`<p>Please log in</p>`
 )}
 ```
 
@@ -436,9 +441,9 @@ prefs.state.theme = 'dark'; // Automatically saves to localStorage
 
 ## Router API
 
-### Router(routes, options)
+### enableRouting(outlet, routes, options)
 
-Creates a router instance.
+Enables routing.
 
 **Parameters:**
 - `routes` (object) - Route configuration
@@ -446,9 +451,10 @@ Creates a router instance.
 
 **Example:**
 ```javascript
-import { Router } from './lib/router.js';
+import { enableRouting } from './lib/router.js';
 
-const router = new Router({
+const outlet = document.getElementsByTagName('router-outlet')[0];
+const router = enableRouting(outlet, {
     '/': {
         component: 'home-page',
         load: () => import('./home.js')  // Lazy loading
@@ -460,6 +466,10 @@ const router = new Router({
     }
 });
 ```
+
+### getRouter()
+
+Returns current router set by enableRouting().
 
 ### router.navigate(path, query)
 

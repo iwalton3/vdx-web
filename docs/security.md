@@ -193,25 +193,6 @@ The `html` template tag provides automatic context-aware escaping. Always use it
 <button onclick="handleClick()">Click Me</button>
 ```
 
-## CSRF Protection
-
-The framework includes CSRF token support. Add to your HTML:
-
-```html
-<meta name="csrf-token" content="YOUR_TOKEN_HERE">
-```
-
-All `fetchJSON()` calls automatically include this token in the request headers.
-
-**Example:**
-```javascript
-// CSRF token automatically included
-const response = await fetchJSON('/api/update', {
-    method: 'POST',
-    body: JSON.stringify({ data: 'value' })
-});
-```
-
 ## Input Validation
 
 **Always validate user input** before API calls:

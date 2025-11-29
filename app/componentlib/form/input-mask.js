@@ -43,8 +43,6 @@ export default defineComponent('cl-input-mask', {
     propsChanged(prop, newValue, oldValue) {
         if (prop === 'value' && newValue !== oldValue) {
             this.setValueFromProp(newValue);
-            // Sync the DOM input value after buffer update
-            this.syncInputValue();
             // Clear internal error if receiving a complete value from parent
             // (e.g., calendar selection after incomplete manual entry)
             const filledCount = this.state.buffer.filter(c => c).length;
@@ -63,15 +61,6 @@ export default defineComponent('cl-input-mask', {
     },
 
     methods: {
-        syncInputValue() {
-            // Use setTimeout to ensure DOM is updated after render
-            setTimeout(() => {
-                const input = this.querySelector('input');
-                if (input) {
-                    input.value = this.getDisplayValue();
-                }
-            }, 0);
-        },
 
         // Mask character definitions
         getMaskDef(char) {
@@ -105,10 +94,13 @@ export default defineComponent('cl-input-mask', {
         },
 
         setValueFromProp(value) {
-            if (!value) {
+            if (!value && value !== 0) {
                 this.initBuffer();
                 return;
             }
+
+            // Ensure value is a string (x-model may convert numeric strings to numbers)
+            value = String(value);
 
             // Extract only the raw characters from the value
             const mask = this.props.mask || '';
@@ -315,10 +307,8 @@ export default defineComponent('cl-input-mask', {
         },
 
         updateInputAndCursor(input, cursorPos) {
-            const displayValue = this.getDisplayValue();
-            input.value = displayValue;
-
-            // Set cursor position after a microtask to ensure DOM is updated
+            // Don't set input.value directly - let Preact handle it via the template
+            // Just set cursor position after the render completes
             setTimeout(() => {
                 input.setSelectionRange(cursorPos, cursorPos);
             }, 0);
@@ -327,12 +317,10 @@ export default defineComponent('cl-input-mask', {
         handleFocus(e) {
             this.state.focused = true;
 
-            // Position cursor at first empty slot
+            // Position cursor at first empty slot after render
             setTimeout(() => {
                 const input = e.target;
-                const displayValue = this.getDisplayValue();
-                input.value = displayValue;
-
+                // Don't set input.value - let Preact handle it via the template
                 const nextEmpty = this.getNextEmptyBufferIdx();
                 const cursorPos = this.bufferIdxToDisplayPos(nextEmpty);
                 input.setSelectionRange(cursorPos, cursorPos);

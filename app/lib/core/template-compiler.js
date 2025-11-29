@@ -18,6 +18,7 @@
 
 import { sanitizeUrl, isHtml, isRaw } from './template.js';
 import { h, Fragment } from '../vendor/preact/index.js';
+import { componentDefinitions } from './component.js';
 
 /**
  * Get a nested value from an object using a dot-separated path
@@ -378,7 +379,7 @@ function nodeToTree(node) {
 
             // x-model two-way binding (convert to value/checked + onInput/onChange)
             if (name === 'x-model') {
-                const isCustomElement = tag.includes('-');
+                const isCustomElement = componentDefinitions.has(tag);
 
                 if (isCustomElement) {
                     // Custom elements: use 'value' prop and 'change' event
@@ -695,8 +696,7 @@ export function applyValues(compiled, values, component = null) {
 
     if (compiled.type === 'element') {
         const props = {};
-        const customElementProps = {};
-        const isCustomElement = compiled.tag.includes('-');
+        const isCustomElement = componentDefinitions.has(compiled.tag);
 
         // Boolean attributes that should be converted to actual booleans
         const booleanAttrs = new Set([
@@ -724,8 +724,8 @@ export function applyValues(compiled, values, component = null) {
                     }
                     // For custom elements with arrays/objects, store in customElementProps
                     else if (attrDef.context === 'x-model-value' && isCustomElement && (typeof value === 'object' || typeof value === 'function') && value !== null) {
-                        customElementProps[name] = value;
-                        continue;  // Skip normal attribute handling
+                        props[name] = value;
+                        continue;
                     }
                 } else {
                     value = (attrDef.context === 'x-model-checked' || attrDef.context === 'x-model-radio') ? false : '';
@@ -756,18 +756,16 @@ export function applyValues(compiled, values, component = null) {
                 if (attrDef.context === 'url') {
                     value = sanitizeUrl(value) || '';
                 } else if (attrDef.context === 'custom-element-attr') {
-                    // For custom elements, store ALL props in customElementProps
-                    // so they go through the ref callback and trigger propsChanged
-                    // IMPORTANT: Use continue to avoid also setting as attribute,
-                    // which would cause infinite render loops
-                    customElementProps[name] = value;
+                    // For custom elements, pass props directly through vnode props
+                    // For framework components with prototype setters, Preact's setProperty
+                    // will use dom[name] = value (triggering propsChanged)
+                    props[name] = value;
                     continue;
                 } else if (attrDef.context === 'x-model-value') {
                     // This path is for when x-model value comes from a slot, not directly from component state
-                    // For custom elements, preserve arrays/objects
+                    // For custom elements, preserve arrays/objects - pass directly through props
                     if (isCustomElement && (typeof value === 'object' || typeof value === 'function') && value !== null) {
-                        // Store arrays/objects for ref callback
-                        customElementProps[name] = value;
+                        props[name] = value;
                         continue;
                     }
                     // For native elements or primitive values, convert to string
@@ -811,6 +809,10 @@ export function applyValues(compiled, values, component = null) {
                 propName = 'className';
             } else if (name === 'for') {
                 propName = 'htmlFor';
+            } else if (name === 'style' && isCustomElement) {
+                // For custom elements, pass styles directly through vnode props
+                props._vdxStyle = value;
+                continue;
             }
 
             // Convert boolean attributes
@@ -845,7 +847,7 @@ export function applyValues(compiled, values, component = null) {
 
                         // For custom elements, value is in e.detail.value
                         if (eventDef.customElement) {
-                            value = e.detail.value !== undefined ? e.detail.value : e.detail;
+                            value = (e.detail && e.detail.value !== undefined) ? e.detail.value : e.detail;
                         } else {
                             // For native elements, extract value from target
                             const target = e.target;
@@ -994,9 +996,12 @@ export function applyValues(compiled, values, component = null) {
             })
             .filter(child => child !== undefined && child !== false);
 
-        // For custom elements, pass children and slots as props
-        // this.props.children is always an array (default slot children)
-        // this.props.slots is an object with named slot children
+        // For custom elements, group children by slot and prepare for ref callback
+        // Preact consumes props.children internally - it doesn't set it on DOM elements
+        // So we MUST use a ref callback to set children and slots on custom elements
+        let childrenToSet = [];
+        let slotsToSet = {};
+
         if (isCustomElement && children.length > 0) {
             // Group children by slot name
             const defaultChildren = [];
@@ -1015,71 +1020,18 @@ export function applyValues(compiled, values, component = null) {
                 }
             }
 
-            // children is always an array of default slot children
-            customElementProps.children = defaultChildren;
-
-            // slots is an object with named slot children
+            // Store for ref callback
+            childrenToSet = defaultChildren;
             if (Object.keys(namedSlots).length > 0) {
-                customElementProps.slots = namedSlots;
+                slotsToSet = namedSlots;
             }
         }
 
-        // If custom element has props (including children), use ref to set them
-        if (isCustomElement && Object.keys(customElementProps).length > 0) {
-            props.ref = (el) => {
-                if (el) {
-                    // For framework components that haven't mounted yet, store as pending
-                    if ('_isMounted' in el && !el._isMounted) {
-                        if (!el._pendingProps) {
-                            el._pendingProps = {};
-                        }
-                        Object.assign(el._pendingProps, customElementProps);
-                    } else {
-                        // For plain custom elements or mounted components, set directly
-                        // IMPORTANT: Set all props BEFORE triggering re-render to avoid
-                        // rendering with partially-set props
-                        const isFrameworkComponent = '_isMounted' in el && el.props;
-
-                        if (isFrameworkComponent) {
-                            // Only track changes if propsChanged is defined
-                            const hasPropsChanged = typeof el.propsChanged === 'function';
-                            const changedProps = hasPropsChanged ? [] : null;
-                            for (const [name, value] of Object.entries(customElementProps)) {
-                                if (hasPropsChanged) {
-                                    const oldValue = el.props[name];
-                                    if (value !== oldValue) {
-                                        changedProps.push({ name, value, oldValue });
-                                    }
-                                }
-                                el.props[name] = value;
-                            }
-                            // Call propsChanged for each changed prop
-                            if (hasPropsChanged && el._isMounted && changedProps.length > 0) {
-                                for (const { name, value, oldValue } of changedProps) {
-                                    el.propsChanged(name, value, oldValue);
-                                }
-                            }
-                            // Trigger ONE re-render after all props are set
-                            if (el._isMounted && typeof el.render === 'function') {
-                                el.render();
-                            }
-                        } else {
-                            // Plain custom element - set properties directly
-                            for (const [name, value] of Object.entries(customElementProps)) {
-                                if (name !== 'children') {
-                                    el[name] = value;
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-        }
-
-        // Return Preact element vnode
-        // ALWAYS pass children to h() so plain custom elements (like router-link) get them as DOM children
-        // Framework components will ALSO get children via props.children (set in ref callback above)
-        return h(compiled.tag, props, ...children);
+        return isCustomElement ? h(compiled.tag, {
+            ...props,
+            _vdxChildren: childrenToSet,
+            _vdxSlots: slotsToSet
+        }) : h(compiled.tag, props, ...children);
     }
 
     return null;

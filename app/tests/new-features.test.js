@@ -551,14 +551,14 @@ describe('Auto-Bound Methods', function(it) {
 describe('Function Passing to Components', function(it) {
     it('passes functions to custom elements via props', async () => {
         // Define a custom element that accepts a function prop
-        if (!customElements.get('test-func-receiver')) {
-            class TestFuncReceiver extends HTMLElement {
-                constructor() {
-                    super();
-                }
+        defineComponent('test-func-receiver', {
+            props: {
+                callback: () => {}
+            },
+            template() {
+                return html`<div>Data Component</div>`;
             }
-            customElements.define('test-func-receiver', TestFuncReceiver);
-        }
+        });
 
         let functionCalled = false;
         const testFunction = (value) => {

@@ -26,15 +26,6 @@ export function getRouter() {
 }
 
 /**
- * Set the singleton router instance
- * @param {Router} router - The router instance to use as singleton
- * @returns {void}
- */
-export function setRouter(router) {
-    _router = router;
-}
-
-/**
  * Parse query string into object
  * @private
  * @param {string} queryString - Query string to parse
@@ -625,25 +616,32 @@ export class Router {
     }
 }
 
-/**
- * Define the <router-outlet> custom element
- *
- * This creates a placeholder element where routed components are rendered.
- * Call this once before creating the router.
- *
- * @returns {void}
- *
- * @example
- * import { defineRouterOutlet, Router } from './lib/router.js';
- *
- * defineRouterOutlet();
- * const router = new Router({ ... });
- * router.setOutlet(document.querySelector('router-outlet'));
- *
- * // In HTML:
- * // <router-outlet></router-outlet>
- */
-export function defineRouterOutlet() {
+function init() {
+    defineComponent('router-link', {
+        props: {
+            to: '/'
+        },
+
+        methods: {
+            handleClick(e) {
+                // Intercept clicks for HTML5 routing
+                if (_router && _router.useHTML5) {
+                    e.preventDefault();
+                    _router.navigate(this.props.to);
+                }
+            }
+        },
+
+        template() {
+            const href = _router ? _router.url(this.props.to) : `#${this.props.to}`;
+
+            return html`
+                <a href="${href}" on-click="handleClick">${this.props.children}</a>
+            `;
+        }
+    });
+
+
     if (customElements.get('router-outlet')) {
         return;
     }
@@ -657,51 +655,19 @@ export function defineRouterOutlet() {
     customElements.define('router-outlet', RouterOutlet);
 }
 
+init();
+
 /**
- * Define the <router-link> custom element for declarative navigation
- *
- * Creates clickable links that use the router for navigation.
- * Automatically intercepts clicks in HTML5 mode.
- *
- * @param {Router} router - Router instance to use for navigation
- * @returns {void}
- *
- * @example
- * import { defineRouterLink, Router } from './lib/router.js';
- *
- * const router = new Router({ ... });
- * defineRouterLink(router);
- *
- * // In templates:
- * // <router-link to="/about">About</router-link>
- * // <router-link to="/users/123" class="nav-link">User Profile</router-link>
+ * Enable routing for a specific outlet element
+ * @param {RouterOutlet} outlet router outlet element
+ * @param {Object<string, RouteConfig>} routes object defining routes
+ * @param {Object} options additional options (currently unused)
+ * @returns {Router} The singleton router instance
  */
-export function defineRouterLink(router) {
-    if (customElements.get('router-link')) {
-        return;
+export function enableRouting(outlet, routes, options = {}) {
+    if (!_router) {
+        _router = new Router(routes, options);
     }
-
-    defineComponent('router-link', {
-        props: {
-            to: '/'
-        },
-
-        methods: {
-            handleClick(e) {
-                // Intercept clicks for HTML5 routing
-                if (router && router.useHTML5) {
-                    e.preventDefault();
-                    router.navigate(this.props.to);
-                }
-            }
-        },
-
-        template() {
-            const href = router ? router.url(this.props.to) : `#${this.props.to}`;
-
-            return html`
-                <a href="${href}" on-click="handleClick">${this.props.children}</a>
-            `;
-        }
-    });
+    _router.setOutlet(outlet);
+    return _router;
 }

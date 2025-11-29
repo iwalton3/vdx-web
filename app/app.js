@@ -2,7 +2,7 @@
  * Main Application Entry Point
  */
 
-import { Router, defineRouterOutlet, defineRouterLink, setRouter } from './lib/router.js';
+import { enableRouting } from './lib/router.js';
 import login from './auth/auth.js';
 
 // Import core components (needed immediately)
@@ -11,11 +11,9 @@ import './components/notification-list.js';
 
 // Note: All other components are lazy-loaded by the pages that use them
 
-// Define router outlet
-defineRouterOutlet();
-
 // Setup router with lazy loading
-const router = new Router({
+const outlet = document.querySelector('router-outlet');
+const router = enableRouting(outlet, {
     '/': {
         component: 'home-page',
         load: () => import('./home.js')
@@ -105,16 +103,3 @@ router.beforeEach(async ({ path, query, route }) => {
 
     return true; // Allow navigation
 });
-
-// Set the outlet element
-const outlet = document.querySelector('router-outlet');
-router.setOutlet(outlet);
-
-// Define router link component
-defineRouterLink(router);
-
-// Set as singleton for imports
-setRouter(router);
-
-// For debugging
-window.router = router;
