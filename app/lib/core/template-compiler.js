@@ -950,43 +950,34 @@ export function applyValues(compiled, values, component = null) {
             })
             .filter(child => child !== undefined && child !== false);
 
-        // For custom elements, pass children as a prop so components can access this.props.children
+        // For custom elements, pass children and slots as props
+        // this.props.children is always an array (default slot children)
+        // this.props.slots is an object with named slot children
         if (isCustomElement && children.length > 0) {
             // Group children by slot name
             const defaultChildren = [];
-            const namedChildren = {};
+            const namedSlots = {};
 
             for (const child of children) {
                 // Check if child has a slot attribute
                 if (child && typeof child === 'object' && child.props && child.props.slot) {
                     const slotName = child.props.slot;
-                    if (!namedChildren[slotName]) {
-                        namedChildren[slotName] = [];
+                    if (!namedSlots[slotName]) {
+                        namedSlots[slotName] = [];
                     }
-                    namedChildren[slotName].push(child);
+                    namedSlots[slotName].push(child);
                 } else {
                     defaultChildren.push(child);
                 }
             }
 
-            // Build children prop
-            let childrenProp;
-            if (Object.keys(namedChildren).length > 0) {
-                // Has named slots - create object with default and named children
-                childrenProp = defaultChildren.length > 0 ? defaultChildren : [];
-                // Attach named children as properties
-                for (const [name, namedChildArray] of Object.entries(namedChildren)) {
-                    if (!Array.isArray(childrenProp)) {
-                        childrenProp = { default: childrenProp };
-                    }
-                    childrenProp[name] = namedChildArray;
-                }
-            } else {
-                // Only default children
-                childrenProp = defaultChildren;
-            }
+            // children is always an array of default slot children
+            customElementProps.children = defaultChildren;
 
-            customElementProps.children = childrenProp;
+            // slots is an object with named slot children
+            if (Object.keys(namedSlots).length > 0) {
+                customElementProps.slots = namedSlots;
+            }
         }
 
         // If custom element has props (including children), use ref to set them

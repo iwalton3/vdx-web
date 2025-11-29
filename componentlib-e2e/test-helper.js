@@ -103,21 +103,34 @@ class TestHelper {
 
     async selectComponent(name) {
         // First expand all groups to make sure the component is visible
+        // Check current expansion state and only click to expand if needed
         await this.page.evaluate(() => {
-            // Click all group headers with children to expand them
             const groupHeaders = document.querySelectorAll('.nav-item.has-children');
             groupHeaders.forEach(header => {
                 const arrow = header.querySelector('.nav-arrow');
-                if (arrow && !arrow.classList.contains('expanded')) {
+                // Only click if not expanded (arrow exists and doesn't have 'expanded' class)
+                if (!arrow || !arrow.classList.contains('expanded')) {
                     header.click();
                 }
             });
         });
-        await this.page.waitForTimeout(200);
+        await this.page.waitForTimeout(300);
 
         // Now try to find and click the component
         await this.page.evaluate((componentName) => {
-            // Try cl-shell nav structure - look in both top-level and sub-items
+            // Try cl-shell nav structure - prefer sub-items (actual components) over categories
+            // First try to find in sub-items (these are the actual components)
+            const subItems = Array.from(document.querySelectorAll('.nav-item.sub'));
+            const subItem = subItems.find(el => {
+                const label = el.querySelector('.nav-label');
+                return label && label.textContent.trim() === componentName;
+            });
+            if (subItem) {
+                subItem.click();
+                return;
+            }
+
+            // Fallback to all nav items (for components that might not be in sub-items)
             const navItems = Array.from(document.querySelectorAll('.nav-item'));
             const navItem = navItems.find(el => {
                 const label = el.querySelector('.nav-label');

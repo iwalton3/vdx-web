@@ -41,15 +41,15 @@ defineComponent('test-conditional-wrapper', {
 
 defineComponent('test-named-slots', {
     template() {
-        const defaultChildren = Array.isArray(this.props.children) ? this.props.children : (this.props.children?.default || []);
-        const headerChildren = this.props.children?.header || [];
-        const footerChildren = this.props.children?.footer || [];
+        // children is always an array, slots has named slots
+        const headerSlot = this.props.slots.header || [];
+        const footerSlot = this.props.slots.footer || [];
 
         return html`
             <div class="named-slots">
-                <div class="slot-header">${headerChildren}</div>
-                <div class="slot-content">${defaultChildren}</div>
-                <div class="slot-footer">${footerChildren}</div>
+                <div class="slot-header">${headerSlot}</div>
+                <div class="slot-content">${this.props.children}</div>
+                <div class="slot-footer">${footerSlot}</div>
             </div>
         `;
     }
@@ -96,16 +96,17 @@ defineComponent('test-tab-panel', {
     },
 
     template() {
-        const tab1Children = this.props.children?.tab1 || [];
-        const tab2Children = this.props.children?.tab2 || [];
+        // children is always an array, slots has named slots
+        const tab1Slot = this.props.slots.tab1 || [];
+        const tab2Slot = this.props.slots.tab2 || [];
 
         return html`
             <div class="tab-panel">
                 <div class="tab1 ${this.props.activeTab === 'tab1' ? 'active' : 'hidden'}">
-                    ${tab1Children}
+                    ${tab1Slot}
                 </div>
                 <div class="tab2 ${this.props.activeTab === 'tab2' ? 'active' : 'hidden'}">
-                    ${tab2Children}
+                    ${tab2Slot}
                 </div>
             </div>
         `;

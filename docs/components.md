@@ -371,9 +371,9 @@ defineComponent('my-wrapper', {
 </my-wrapper>
 ```
 
-### Named Children (Named Slots)
+### Named Slots
 
-Use the `slot="name"` attribute to pass children to specific named slots:
+Use the `slot="name"` attribute to pass children to specific named slots. Named slots are accessed via `this.props.slots`:
 
 ```javascript
 // Usage
@@ -389,19 +389,17 @@ Use the `slot="name"` attribute to pass children to specific named slots:
 // Component definition
 defineComponent('my-dialog', {
     template() {
-        // Extract named children safely
-        const defaultChildren = Array.isArray(this.props.children)
-            ? this.props.children
-            : (this.props.children?.default || []);
-        const headerChildren = this.props.children?.header || [];
-        const footerChildren = this.props.children?.footer || [];
+        // children is always an array of default slot children
+        // slots is an object with named slot children
+        const headerSlot = this.props.slots.header || [];
+        const footerSlot = this.props.slots.footer || [];
 
         return html`
             <div class="dialog">
-                <div class="header">${headerChildren}</div>
-                <div class="body">${defaultChildren}</div>
-                ${when(footerChildren.length > 0, html`
-                    <div class="footer">${footerChildren}</div>
+                <div class="header">${headerSlot}</div>
+                <div class="body">${this.props.children}</div>
+                ${when(footerSlot.length > 0, html`
+                    <div class="footer">${footerSlot}</div>
                 `)}
             </div>
         `;
@@ -409,23 +407,24 @@ defineComponent('my-dialog', {
 });
 ```
 
-### Children API Reference
+### Children and Slots API Reference
 
-**`this.props.children`** is always available, even if no children are provided (defaults to empty array `[]`).
+**`this.props.children`** - Default slot children (always an array)
 
-**Type:** `Array` or `Object`
+Always available, even if no children are provided (defaults to empty array `[]`).
 
-- **Array form:** When only default children are provided
-  ```javascript
-  this.props.children // [vnode1, vnode2, ...]
-  ```
+```javascript
+this.props.children // [vnode1, vnode2, ...] - always an array
+```
 
-- **Object form:** When named children (slots) are provided
-  ```javascript
-  this.props.children.default // Default children array
-  this.props.children.header  // Named slot "header" children array
-  this.props.children.footer  // Named slot "footer" children array
-  ```
+**`this.props.slots`** - Named slot children (always an object)
+
+Always available, even if no named slots are provided (defaults to empty object `{}`).
+
+```javascript
+this.props.slots.header  // Named slot "header" children array (or undefined)
+this.props.slots.footer  // Named slot "footer" children array (or undefined)
+```
 
 ### Conditional Rendering and State Preservation
 
@@ -438,10 +437,10 @@ To preserve state, use CSS hiding instead:
 template() {
     return html`
         <div class="tab1 ${this.state.activeTab === 'tab1' ? '' : 'hidden'}">
-            ${this.props.children.tab1}
+            ${this.props.slots.tab1}
         </div>
         <div class="tab2 ${this.state.activeTab === 'tab2' ? '' : 'hidden'}">
-            ${this.props.children.tab2}
+            ${this.props.slots.tab2}
         </div>
     `;
 },
@@ -453,7 +452,7 @@ styles: `
 template() {
     return html`
         ${when(this.state.activeTab === 'tab1', html`
-            <div>${this.props.children.tab1}</div>
+            <div>${this.props.slots.tab1}</div>
         `)}
     `;
 }

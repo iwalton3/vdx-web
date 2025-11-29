@@ -267,9 +267,12 @@ export function defineComponent(name, options) {
             // Initialize reactive state
             this.state = reactive(options.data ? options.data.call(this) : {});
 
-            // Store props (always include children, even if empty)
+            // Store props (always include children and slots, even if empty)
+            // children is always an array of default slot children
+            // slots is an object with named slot children
             this.props = {
-                children: []
+                children: [],
+                slots: {}
             };
 
             // Initialize stores (reactive copies of external store state)
@@ -469,7 +472,7 @@ export function defineComponent(name, options) {
                 'valueOf', 'hasOwnProperty', 'isPrototypeOf'
             ]);
 
-            // Always create a setter for 'children' prop
+            // Always create a setter for 'children' prop (always an array)
             if (!reservedNames.has('children')) {
                 const existingChildren = this.hasOwnProperty('children') ? this.children : undefined;
 
@@ -497,10 +500,38 @@ export function defineComponent(name, options) {
                 }
             }
 
+            // Always create a setter for 'slots' prop (object with named slot children)
+            if (!reservedNames.has('slots')) {
+                const existingSlots = this.hasOwnProperty('slots') ? this.slots : undefined;
+
+                Object.defineProperty(this, 'slots', {
+                    get() {
+                        return this.props.slots;
+                    },
+                    set(value) {
+                        if (debugPropSetHook) {
+                            debugPropSetHook(this.tagName, 'slots', value, value, this._isMounted);
+                        }
+                        this.props.slots = value;
+                        // Re-render when slots change
+                        if (this._isMounted) {
+                            this.render();
+                        }
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+
+                // Restore the pre-existing value if there was one
+                if (existingSlots !== undefined) {
+                    this.props.slots = existingSlots;
+                }
+            }
+
             // Create property setters that automatically update props and trigger re-render
             if (options.props) {
                 for (const propName of Object.keys(options.props)) {
-                    if (reservedNames.has(propName) || propName === 'children') {
+                    if (reservedNames.has(propName) || propName === 'children' || propName === 'slots') {
                         if (reservedNames.has(propName)) {
                             console.warn(`[Security] Skipping reserved prop name: ${propName}`);
                         }

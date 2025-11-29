@@ -104,7 +104,7 @@ export default defineComponent('cl-shell', {
                         </div>
                     </div>
                     <div class="topbar-right">
-                        ${this.props.children?.topbar || ''}
+                        ${this.props.slots.topbar || ''}
                     </div>
                 </header>
 
@@ -148,13 +148,13 @@ export default defineComponent('cl-shell', {
                             `)}
                         </nav>
                         <div class="sidebar-footer">
-                            ${this.props.children?.sidebarFooter || ''}
+                            ${this.props.slots.sidebarFooter || ''}
                         </div>
                     </aside>
 
                     <!-- Main Content -->
                     <main class="main-content">
-                        ${Array.isArray(this.props.children) ? this.props.children : (this.props.children?.default || '')}
+                        ${this.props.children}
                     </main>
                 </div>
             </div>

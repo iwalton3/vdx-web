@@ -68,9 +68,9 @@ export default defineComponent('cl-splitter', {
     template() {
         const isHorizontal = this.props.layout === 'horizontal';
 
-        // Extract named children for panels
-        const panel1Children = this.props.children?.['panel-1'] || [];
-        const panel2Children = this.props.children?.['panel-2'] || [];
+        // Extract named slots for panels
+        const panel1Children = this.props.slots['panel-1'] || [];
+        const panel2Children = this.props.slots['panel-2'] || [];
 
         return html`
             <div ref="container" class="splitter-container ${isHorizontal ? 'horizontal' : 'vertical'}">

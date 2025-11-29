@@ -212,9 +212,9 @@ export default defineComponent('cl-stepper', {
         const isHorizontal = this.props.orientation === 'horizontal';
         const isLastStep = this.state.currentStep === steps.length - 1;
 
-        // Get children for current step
+        // Get children for current step from slots
         const stepSlotName = `step-${this.state.currentStep}`;
-        const stepContent = this.props.children?.[stepSlotName] || this.props.children?.default || [];
+        const stepContent = this.props.slots[stepSlotName] || this.props.children;
 
         return html`
             <div class="cl-stepper ${isHorizontal ? 'horizontal' : 'vertical'}">

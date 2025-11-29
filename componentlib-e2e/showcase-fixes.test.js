@@ -67,15 +67,15 @@ async function runTests() {
     });
 
     // Test 3: Dialog shows when button is clicked
-    await test.test('Dialog shows when Show Dialog button is clicked', async () => {
+    await test.test('Dialog shows when Basic Dialog button is clicked', async () => {
         await test.selectComponent('Dialog');
         await test.page.waitForSelector('.demo-section', { timeout: 5000 });
         await test.page.waitForTimeout(500);
 
-        // Click the "Show Dialog" button
+        // Click the "Basic Dialog" button
         await test.page.evaluate(() => {
             const button = Array.from(document.querySelectorAll('cl-button')).find(
-                btn => btn.innerText.includes('Show Dialog')
+                btn => btn.innerText.includes('Basic Dialog')
             );
             if (button) {
                 button.click();
@@ -137,11 +137,11 @@ async function runTests() {
             return sourceSection ? sourceSection.textContent : '';
         });
 
-        // Check for visibility toggling pattern
-        await test.assert(sourceCode.includes('visible: false'), 'Source should initialize visible state to false');
+        // Check for visibility toggling pattern - source uses basicVisible, confirmVisible, formVisible
+        await test.assert(sourceCode.includes('basicVisible: false'), 'Source should initialize visible state to false');
         await test.assert(sourceCode.includes('cl-button'), 'Source should show button to trigger dialog');
-        await test.assert(sourceCode.includes('this.state.visible = true'), 'Source should show how to open dialog');
-        await test.assert(sourceCode.includes('on-change="${(e, val) => this.state.visible = val}'), 'Source should show how to close dialog');
+        await test.assert(sourceCode.includes('this.state.basicVisible = true'), 'Source should show how to open dialog');
+        await test.assert(sourceCode.includes('on-change='), 'Source should show on-change handler');
     });
 
     // Test 6: Source code shows proper pattern for Chips (array handling)

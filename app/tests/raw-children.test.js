@@ -139,15 +139,13 @@ describe('raw() HTML in Children', function(it) {
     it('renders raw HTML with named slots', async () => {
         defineComponent('test-raw-slots-wrapper', {
             template() {
-                const defaultChildren = Array.isArray(this.props.children)
-                    ? this.props.children
-                    : (this.props.children?.default || []);
-                const footerChildren = this.props.children?.footer || [];
+                // children is always an array, slots has named slots
+                const footerSlot = this.props.slots.footer || [];
 
                 return html`
                     <div class="card">
-                        <div class="card-body">${defaultChildren}</div>
-                        <div class="card-footer">${footerChildren}</div>
+                        <div class="card-body">${this.props.children}</div>
+                        <div class="card-footer">${footerSlot}</div>
                     </div>
                 `;
             }

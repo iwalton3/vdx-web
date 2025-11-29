@@ -11,10 +11,9 @@ export default defineComponent('cl-card', {
     },
 
     template() {
-        // Extract default and named children
-        const defaultChildren = Array.isArray(this.props.children) ? this.props.children : (this.props.children?.default || []);
-        const footerChildren = this.props.children?.footer || [];
-        const hasFooter = this.props.footer || footerChildren.length > 0;
+        // children is always an array, slots has named slots
+        const footerSlot = this.props.slots.footer || [];
+        const hasFooter = this.props.footer || footerSlot.length > 0;
 
         return html`
             <div class="cl-card">
@@ -29,12 +28,12 @@ export default defineComponent('cl-card', {
                     </div>
                 `)}
                 <div class="card-body">
-                    ${defaultChildren}
+                    ${this.props.children}
                 </div>
                 ${when(hasFooter, html`
                     <div class="card-footer">
                         ${when(this.props.footer, raw(this.props.footer))}
-                        ${footerChildren}
+                        ${footerSlot}
                     </div>
                 `)}
             </div>

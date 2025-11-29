@@ -268,22 +268,20 @@ defineComponent('wrapper', {
 </wrapper>
 ```
 
-**Named children (named slots):**
+**Named slots:**
 
 ```javascript
-// ✅ Named children using slot attribute
+// ✅ Named slots using slot attribute
 defineComponent('dialog', {
     template() {
-        const defaultChildren = Array.isArray(this.props.children)
-            ? this.props.children
-            : (this.props.children?.default || []);
-        const footerChildren = this.props.children?.footer || [];
+        // children is always an array, slots has named slots
+        const footerSlot = this.props.slots.footer || [];
 
         return html`
             <div class="dialog">
-                <div class="content">${defaultChildren}</div>
-                ${when(footerChildren.length > 0, html`
-                    <div class="footer">${footerChildren}</div>
+                <div class="content">${this.props.children}</div>
+                ${when(footerSlot.length > 0, html`
+                    <div class="footer">${footerSlot}</div>
                 `)}
             </div>
         `;
@@ -299,6 +297,10 @@ defineComponent('dialog', {
 </dialog>
 ```
 
+**API:**
+- `this.props.children` - Always an array of default slot children
+- `this.props.slots` - Object with named slot children (e.g., `this.props.slots.footer`)
+
 **⚠️ State Preservation:** When conditionally rendering children with `when()`, child components will **unmount and lose state**. To preserve state, use CSS hiding instead:
 
 ```javascript
@@ -306,7 +308,7 @@ defineComponent('dialog', {
 template() {
     return html`
         <div class="tab1 ${this.state.activeTab === 'tab1' ? '' : 'hidden'}">
-            ${this.props.children.tab1}
+            ${this.props.slots.tab1}
         </div>
     `;
 },
@@ -316,7 +318,7 @@ styles: `
 
 // ❌ LOSES STATE - Unmounts component
 ${when(this.state.activeTab === 'tab1', html`
-    <div>${this.props.children.tab1}</div>
+    <div>${this.props.slots.tab1}</div>
 `)}
 ```
 

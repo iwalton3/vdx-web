@@ -108,8 +108,8 @@ export default defineComponent('cl-checkbox', {
             content: "";
             position: absolute;
             display: none;
-            left: 5px;
-            top: 2px;
+            left: 4px;
+            top: 1px;
             width: 4px;
             height: 8px;
             border: solid white;

@@ -31,10 +31,9 @@ export default defineComponent('cl-dialog', {
     },
 
     template() {
-        // Extract default and named children
-        const defaultChildren = Array.isArray(this.props.children) ? this.props.children : (this.props.children?.default || []);
-        const footerChildren = this.props.children?.footer || [];
-        const hasFooter = this.props.footer || footerChildren.length > 0;
+        // children is always an array, slots has named slots
+        const footerSlot = this.props.slots.footer || [];
+        const hasFooter = this.props.footer || footerSlot.length > 0;
 
         return html`
             ${when(this.props.visible, html`
@@ -49,11 +48,11 @@ export default defineComponent('cl-dialog', {
                             </div>
                         `)}
                         <div class="dialog-content">
-                            ${defaultChildren}
+                            ${this.props.children}
                         </div>
                         ${when(hasFooter, html`
                             <div class="dialog-footer">
-                                ${footerChildren}
+                                ${footerSlot}
                             </div>
                         `)}
                     </div>

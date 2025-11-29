@@ -1,6 +1,6 @@
 /**
  * Custom Framework Bundle
- * Generated: 2025-11-28T20:04:25.755Z
+ * Generated: 2025-11-28T22:55:35.449Z
  *
  * Includes Preact (https://preactjs.com/)
  * Copyright (c) 2015-present Jason Miller
@@ -2721,38 +2721,26 @@ function applyValues(compiled, values, component = null) {
         if (isCustomElement && children.length > 0) {
 
             const defaultChildren = [];
-            const namedChildren = {};
+            const namedSlots = {};
 
             for (const child of children) {
 
                 if (child && typeof child === 'object' && child.props && child.props.slot) {
                     const slotName = child.props.slot;
-                    if (!namedChildren[slotName]) {
-                        namedChildren[slotName] = [];
+                    if (!namedSlots[slotName]) {
+                        namedSlots[slotName] = [];
                     }
-                    namedChildren[slotName].push(child);
+                    namedSlots[slotName].push(child);
                 } else {
                     defaultChildren.push(child);
                 }
             }
 
-            let childrenProp;
-            if (Object.keys(namedChildren).length > 0) {
+            customElementProps.children = defaultChildren;
 
-                childrenProp = defaultChildren.length > 0 ? defaultChildren : [];
-
-                for (const [name, namedChildArray] of Object.entries(namedChildren)) {
-                    if (!Array.isArray(childrenProp)) {
-                        childrenProp = { default: childrenProp };
-                    }
-                    childrenProp[name] = namedChildArray;
-                }
-            } else {
-
-                childrenProp = defaultChildren;
+            if (Object.keys(namedSlots).length > 0) {
+                customElementProps.slots = namedSlots;
             }
-
-            customElementProps.children = childrenProp;
         }
 
         if (isCustomElement && Object.keys(customElementProps).length > 0) {
@@ -3007,7 +2995,8 @@ function defineComponent(name, options) {
             this.state = reactive(options.data ? options.data.call(this) : {});
 
             this.props = {
-                children: []
+                children: [],
+                slots: {}
             };
 
             if (options.stores) {
@@ -3188,9 +3177,35 @@ function defineComponent(name, options) {
                 }
             }
 
+            if (!reservedNames.has('slots')) {
+                const existingSlots = this.hasOwnProperty('slots') ? this.slots : undefined;
+
+                Object.defineProperty(this, 'slots', {
+                    get() {
+                        return this.props.slots;
+                    },
+                    set(value) {
+                        if (debugPropSetHook) {
+                            debugPropSetHook(this.tagName, 'slots', value, value, this._isMounted);
+                        }
+                        this.props.slots = value;
+
+                        if (this._isMounted) {
+                            this.render();
+                        }
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+
+                if (existingSlots !== undefined) {
+                    this.props.slots = existingSlots;
+                }
+            }
+
             if (options.props) {
                 for (const propName of Object.keys(options.props)) {
-                    if (reservedNames.has(propName) || propName === 'children') {
+                    if (reservedNames.has(propName) || propName === 'children' || propName === 'slots') {
                         if (reservedNames.has(propName)) {
                             console.warn(`[Security] Skipping reserved prop name: ${propName}`);
                         }
