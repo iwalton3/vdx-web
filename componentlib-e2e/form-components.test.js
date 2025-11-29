@@ -166,7 +166,7 @@ async function runTests() {
         await test.selectComponent('Calendar');
         await test.page.waitForSelector('.nav-btn', { timeout: 3000 });
         await test.assertExists('.nav-btn'); // Previous/Next buttons
-        await test.assertExists('.month-year'); // Month/Year display
+        await test.assertExists('.month-year-btn'); // Month/Year selector buttons
     });
 
     await test.teardown();

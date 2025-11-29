@@ -83,17 +83,33 @@ async function runTests() {
         await test.selectComponent('Calendar');
         await test.page.waitForSelector('example-calendar cl-calendar');
 
-        // Open calendar and click a date
-        await test.page.click('example-calendar .calendar-input');
-        await test.page.waitForTimeout(300);
-        await test.page.click('.calendar-grid .day:not(.empty)');
-        await test.page.waitForTimeout(300);
+        // Open calendar using the toggle button
+        await test.page.click('example-calendar cl-calendar .calendar-toggle');
+        await test.page.waitForTimeout(500);
 
-        // Verify selection is maintained
+        // Click a date that's not empty
+        const dayClicked = await test.page.evaluate(() => {
+            const day = document.querySelector('.calendar-grid .day:not(.empty):not(.disabled)');
+            if (day) {
+                day.click();
+                return true;
+            }
+            return false;
+        });
+
+        await test.page.waitForTimeout(500);
+
+        // Verify selection is maintained - check the masked input has a value
         const hasSelectedDate = await test.page.evaluate(() => {
-            const calendar = document.querySelector('example-calendar cl-calendar');
-            const input = calendar.querySelector('.calendar-input span:not(.icon)');
-            return input && input.textContent !== 'Select date';
+            // Look for the input inside the calendar's input-mask component
+            const calendars = document.querySelectorAll('example-calendar cl-calendar');
+            for (const calendar of calendars) {
+                const input = calendar.querySelector('cl-input-mask input');
+                if (input && input.value && input.value.length > 0 && !input.value.includes('_')) {
+                    return true;
+                }
+            }
+            return false;
         });
 
         await test.assert(hasSelectedDate, 'Calendar should maintain selected date');

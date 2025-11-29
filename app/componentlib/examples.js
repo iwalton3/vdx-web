@@ -141,12 +141,20 @@ export const componentExamples = {
         id: 'calendar',
         name: 'Calendar',
         category: 'form',
-        description: 'Date picker component',
+        description: 'Date picker with masked input, month/year picker, and inline mode',
         demo: `<example-calendar></example-calendar>`,
         source: `<cl-calendar
     label="Date"
     value="\${selectedDate}"
+    dateFormat="MM/DD/YYYY"
     on-change="\${handleChange}">
+</cl-calendar>
+
+<!-- With inline display -->
+<cl-calendar
+    label="Inline Calendar"
+    inline="true"
+    x-model="date">
 </cl-calendar>`
     },
 
@@ -940,5 +948,122 @@ toast.show({
         \`;
     }
 });`
+    },
+
+    // NEW COMPONENTS
+
+    inputMask: {
+        id: 'inputMask',
+        name: 'InputMask',
+        category: 'form',
+        description: 'Masked input for phone, SSN, and formatted data',
+        demo: `<example-input-mask></example-input-mask>`,
+        source: `<cl-input-mask
+    label="Phone Number"
+    mask="(999) 999-9999"
+    placeholder="(555) 123-4567"
+    x-model="phone">
+</cl-input-mask>
+
+<cl-input-mask
+    label="SSN"
+    mask="999-99-9999"
+    placeholder="123-45-6789"
+    x-model="ssn">
+</cl-input-mask>`
+    },
+
+    inputPassword: {
+        id: 'inputPassword',
+        name: 'InputPassword',
+        category: 'form',
+        description: 'Password input with visibility toggle and strength meter',
+        demo: `<example-input-password></example-input-password>`,
+        source: `<cl-input-password
+    label="Password"
+    placeholder="Enter password..."
+    showStrength="true"
+    x-model="password">
+</cl-input-password>`
+    },
+
+    toggle: {
+        id: 'toggle',
+        name: 'Toggle',
+        category: 'form',
+        description: 'Modern toggle/switch component',
+        demo: `<example-toggle></example-toggle>`,
+        source: `<cl-toggle
+    label="Enable notifications"
+    x-model="enabled">
+</cl-toggle>
+
+<cl-toggle
+    label="Dark mode"
+    size="large"
+    checkedLabel="ON"
+    uncheckedLabel="OFF">
+</cl-toggle>`
+    },
+
+    inputSearch: {
+        id: 'inputSearch',
+        name: 'InputSearch',
+        category: 'form',
+        description: 'Search input with clear button and suggestions',
+        demo: `<example-input-search></example-input-search>`,
+        source: `<cl-input-search
+    label="Search"
+    placeholder="Search..."
+    suggestions="\${suggestions}"
+    x-model="query"
+    on-search="\${handleSearch}">
+</cl-input-search>`
+    },
+
+    virtualList: {
+        id: 'virtualList',
+        name: 'VirtualList',
+        category: 'data',
+        description: 'Efficiently render large lists with virtualization',
+        demo: `<example-virtual-list></example-virtual-list>`,
+        source: `<cl-virtual-list
+    items="\${items}"
+    itemHeight="60"
+    height="400px"
+    selectable="true"
+    on-select="\${handleSelect}">
+</cl-virtual-list>`
+    },
+
+    badge: {
+        id: 'badge',
+        name: 'Badge',
+        category: 'misc',
+        description: 'Badge/pill for labels, counts, and status indicators',
+        demo: `<example-badge></example-badge>`,
+        source: `<cl-badge value="New" severity="primary"></cl-badge>
+<cl-badge value="99+" severity="danger" rounded="true"></cl-badge>
+<cl-badge dot="true" severity="success"></cl-badge>
+<cl-badge value="Tag" severity="info" removable="true"></cl-badge>`
+    },
+
+    alert: {
+        id: 'alert',
+        name: 'Alert',
+        category: 'misc',
+        description: 'Alert/banner for messages and notifications',
+        demo: `<example-alert></example-alert>`,
+        source: `<cl-alert severity="info" title="Information">
+    This is an informational message.
+</cl-alert>
+
+<cl-alert severity="success" closable="true">
+    Your changes have been saved!
+</cl-alert>
+
+<cl-alert severity="warning" outline="true">
+    Please review your input.
+</cl-alert>`
     }
 };

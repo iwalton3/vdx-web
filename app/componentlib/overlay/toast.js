@@ -126,7 +126,7 @@ export default defineComponent('cl-toast', {
             align-items: flex-start;
             gap: 12px;
             padding: 16px;
-            background: white;
+            background: var(--card-bg, white);
             border-radius: 6px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             min-width: 300px;

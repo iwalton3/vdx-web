@@ -11,6 +11,10 @@ import './form/checkbox.js';
 import './form/radio-button.js';
 import './form/slider.js';
 import './form/calendar.js';
+import './form/input-mask.js';
+import './form/input-password.js';
+import './form/toggle.js';
+import './form/input-search.js';
 
 import './selection/dropdown.js';
 import './selection/multiselect.js';
@@ -21,6 +25,7 @@ import './data/datatable.js';
 import './data/paginator.js';
 import './data/tree.js';
 import './data/orderable-list.js';
+import './data/virtual-list.js';
 
 import './panel/accordion.js';
 import './panel/tabview.js';
@@ -43,6 +48,8 @@ import './misc/progressbar.js';
 import './misc/fileupload.js';
 import './misc/colorpicker.js';
 import './misc/spinner.js';
+import './misc/badge.js';
+import './misc/alert.js';
 
 // InputText Example
 defineComponent('example-input-text', {
@@ -161,7 +168,7 @@ defineComponent('example-checkbox', {
                     disabled="true">
                 </cl-checkbox>
 
-                <div style="padding: 12px; background: #f8f9fa; border-radius: 4px;">
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
                     Terms: ${this.state.terms ? 'Accepted' : 'Not accepted'}
                 </div>
             </div>
@@ -203,7 +210,7 @@ defineComponent('example-radio-button', {
                     on-change="${(e, val) => this.state.size = val}">
                 </cl-radio-button>
 
-                <div style="padding: 12px; background: #f8f9fa; border-radius: 4px; margin-top: 8px;">
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px; margin-top: 8px;">
                     Selected: ${this.state.size}
                 </div>
             </div>
@@ -255,7 +262,7 @@ defineComponent('example-calendar', {
                     x-model="inline">
                 </cl-calendar>
 
-                <div style="padding: 12px; background: #f8f9fa; border-radius: 4px;">
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
                     Selected: ${this.state.date || 'None'}
                 </div>
             </div>
@@ -323,7 +330,7 @@ defineComponent('example-multiselect', {
                     x-model="selected">
                 </cl-multiselect>
 
-                <div style="padding: 12px; background: #f8f9fa; border-radius: 4px;">
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
                     Selected: ${this.state.selected.join(', ') || 'None'}
                 </div>
             </div>
@@ -350,7 +357,7 @@ defineComponent('example-autocomplete', {
                     x-model="value">
                 </cl-autocomplete>
 
-                <div style="padding: 12px; background: #f8f9fa; border-radius: 4px; margin-top: 16px;">
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px; margin-top: 16px;">
                     Value: ${this.state.value || 'None'}
                 </div>
             </div>
@@ -372,7 +379,7 @@ defineComponent('example-chips', {
                     x-model="tags">
                 </cl-chips>
 
-                <div style="padding: 12px; background: #f8f9fa; border-radius: 4px; margin-top: 16px;">
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px; margin-top: 16px;">
                     Tags: ${(this.state.tags || []).join(', ')}
                 </div>
             </div>
@@ -410,7 +417,7 @@ defineComponent('example-datatable', {
                     on-change="${(e, val) => this.state.selected = val}">
                 </cl-datatable>
 
-                <div style="padding: 12px; background: #f8f9fa; border-radius: 4px; margin-top: 16px;">
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px; margin-top: 16px;">
                     Selected: ${this.state.selected ? this.state.selected.name : 'None'}
                 </div>
             </div>
@@ -578,8 +585,8 @@ defineComponent('example-card', {
                     <p><strong>$99.99</strong></p>
                     <p>High quality product with great features.</p>
                     <div slot="footer" style="display: flex; gap: 8px;">
-                        <button style="padding: 8px 16px; cursor: pointer;">Buy</button>
-                        <button style="padding: 8px 16px; cursor: pointer;">Details</button>
+                        <cl-button label="Buy" severity="primary"></cl-button>
+                        <cl-button label="Details" severity="secondary" outlined="true"></cl-button>
                     </div>
                 </cl-card>
             </div>
@@ -1009,10 +1016,10 @@ defineComponent('example-shell', {
                         <button style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer;">👤</button>
                     </div>
 
-                    <div style="background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                        <h2 style="margin: 0 0 16px 0; color: #333;">Welcome to ${this.state.activeItem}</h2>
-                        <p style="color: #666;">This is the main content area. Try resizing your browser to see the responsive hamburger menu!</p>
-                        <p style="color: #666;">Current page: <strong>${this.state.activeItem}</strong></p>
+                    <div style="background: var(--card-bg, white); padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <h2 style="margin: 0 0 16px 0; color: var(--text-color, #333);">Welcome to ${this.state.activeItem}</h2>
+                        <p style="color: var(--text-muted, #666);">This is the main content area. Try resizing your browser to see the responsive hamburger menu!</p>
+                        <p style="color: var(--text-muted, #666);">Current page: <strong>${this.state.activeItem}</strong></p>
                     </div>
                 </cl-shell>
             </div>
@@ -1137,7 +1144,7 @@ defineComponent('example-complete-form', {
             display: block;
             font-weight: 500;
             margin-bottom: 8px;
-            color: #333;
+            color: var(--text-color, #333);
         }
 
         .radio-group {
@@ -1233,7 +1240,7 @@ defineComponent('example-stepper', {
 
                     <div slot="step-2" style="padding: 20px;">
                         <h3 style="margin-top: 0;">Review Your Information</h3>
-                        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
+                        <div style="background: var(--table-header-bg, #f8f9fa); padding: 16px; border-radius: 8px;">
                             <p><strong>Email:</strong> ${this.state.form.email || '(not set)'}</p>
                             <p><strong>Name:</strong> ${this.state.form.name || '(not set)'}</p>
                             <p><strong>Bio:</strong> ${this.state.form.bio || '(not set)'}</p>
@@ -1251,7 +1258,7 @@ defineComponent('example-spinner', {
         return html`
             <div style="display: flex; flex-direction: column; gap: 32px;">
                 <div>
-                    <h4 style="margin: 0 0 16px 0; color: #666;">Variants</h4>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Variants</h4>
                     <div style="display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap;">
                         <cl-spinner variant="border" label="Border"></cl-spinner>
                         <cl-spinner variant="dots" label="Dots"></cl-spinner>
@@ -1261,7 +1268,7 @@ defineComponent('example-spinner', {
                 </div>
 
                 <div>
-                    <h4 style="margin: 0 0 16px 0; color: #666;">Sizes</h4>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Sizes</h4>
                     <div style="display: flex; gap: 48px; align-items: flex-end; flex-wrap: wrap;">
                         <cl-spinner size="small" label="Small"></cl-spinner>
                         <cl-spinner size="medium" label="Medium"></cl-spinner>
@@ -1271,7 +1278,7 @@ defineComponent('example-spinner', {
                 </div>
 
                 <div>
-                    <h4 style="margin: 0 0 16px 0; color: #666;">Colors</h4>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Colors</h4>
                     <div style="display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap;">
                         <cl-spinner color="#007bff" label="Primary"></cl-spinner>
                         <cl-spinner color="#28a745" label="Success"></cl-spinner>
@@ -1281,12 +1288,373 @@ defineComponent('example-spinner', {
                 </div>
 
                 <div>
-                    <h4 style="margin: 0 0 16px 0; color: #666;">Label Position</h4>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Label Position</h4>
                     <div style="display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap;">
                         <cl-spinner label="Bottom (default)" labelposition="bottom"></cl-spinner>
                         <cl-spinner label="Right side" labelposition="right"></cl-spinner>
                     </div>
                 </div>
+            </div>
+        `;
+    }
+});
+
+// InputMask Example
+defineComponent('example-input-mask', {
+    data() {
+        return {
+            phone: '',
+            ssn: '',
+            creditCard: '',
+            date: ''
+        };
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
+                <cl-input-mask
+                    label="Phone Number"
+                    mask="(999) 999-9999"
+                    placeholder="(555) 123-4567"
+                    x-model="phone">
+                </cl-input-mask>
+
+                <cl-input-mask
+                    label="Social Security Number"
+                    mask="999-99-9999"
+                    placeholder="123-45-6789"
+                    x-model="ssn">
+                </cl-input-mask>
+
+                <cl-input-mask
+                    label="Credit Card"
+                    mask="9999 9999 9999 9999"
+                    placeholder="1234 5678 9012 3456"
+                    x-model="creditCard">
+                </cl-input-mask>
+
+                <cl-input-mask
+                    label="Date (MM/DD/YYYY)"
+                    mask="99/99/9999"
+                    placeholder="01/15/2024"
+                    x-model="date">
+                </cl-input-mask>
+
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    <strong>Values:</strong><br>
+                    Phone: ${this.state.phone || '(empty)'}<br>
+                    SSN: ${this.state.ssn || '(empty)'}<br>
+                    Card: ${this.state.creditCard || '(empty)'}<br>
+                    Date: ${this.state.date || '(empty)'}
+                </div>
+            </div>
+        `;
+    }
+});
+
+// InputPassword Example
+defineComponent('example-input-password', {
+    data() {
+        return {
+            password: '',
+            confirmPassword: ''
+        };
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
+                <cl-input-password
+                    label="Password"
+                    placeholder="Enter password..."
+                    showStrength="true"
+                    helptext="Use a strong password with mixed characters"
+                    x-model="password">
+                </cl-input-password>
+
+                <cl-input-password
+                    label="Confirm Password"
+                    placeholder="Confirm password..."
+                    x-model="confirmPassword">
+                </cl-input-password>
+
+                <cl-input-password
+                    label="Simple Password (no toggle)"
+                    placeholder="Enter password..."
+                    showToggle="false">
+                </cl-input-password>
+            </div>
+        `;
+    }
+});
+
+// Toggle Example
+defineComponent('example-toggle', {
+    data() {
+        return {
+            notifications: true,
+            darkMode: false,
+            autoSave: true
+        };
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Basic Toggle</h4>
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <cl-toggle
+                            label="Enable notifications"
+                            x-model="notifications">
+                        </cl-toggle>
+
+                        <cl-toggle
+                            label="Dark mode"
+                            x-model="darkMode">
+                        </cl-toggle>
+
+                        <cl-toggle
+                            label="Auto-save"
+                            x-model="autoSave">
+                        </cl-toggle>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Sizes</h4>
+                    <div style="display: flex; gap: 32px; align-items: center; flex-wrap: wrap;">
+                        <cl-toggle label="Small" size="small" checked="true"></cl-toggle>
+                        <cl-toggle label="Medium" size="medium" checked="true"></cl-toggle>
+                        <cl-toggle label="Large" size="large" checked="true"></cl-toggle>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">With Labels</h4>
+                    <div style="display: flex; gap: 32px; align-items: center; flex-wrap: wrap;">
+                        <cl-toggle checkedLabel="ON" uncheckedLabel="OFF" checked="true"></cl-toggle>
+                        <cl-toggle label="Label on left" labelPosition="left"></cl-toggle>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">States</h4>
+                    <div style="display: flex; gap: 32px; align-items: center; flex-wrap: wrap;">
+                        <cl-toggle label="Disabled (off)" disabled="true"></cl-toggle>
+                        <cl-toggle label="Disabled (on)" disabled="true" checked="true"></cl-toggle>
+                    </div>
+                </div>
+
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    Notifications: ${this.state.notifications ? 'On' : 'Off'} |
+                    Dark Mode: ${this.state.darkMode ? 'On' : 'Off'} |
+                    Auto-save: ${this.state.autoSave ? 'On' : 'Off'}
+                </div>
+            </div>
+        `;
+    }
+});
+
+// InputSearch Example
+defineComponent('example-input-search', {
+    data() {
+        return {
+            query: '',
+            suggestions: ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry', 'Fig', 'Grape', 'Honeydew']
+        };
+    },
+    methods: {
+        handleSearch(e) {
+            console.log('Search:', e.detail.value);
+        },
+        handleSelect(e) {
+            console.log('Selected:', e.detail.suggestion);
+        }
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 24px; max-width: 500px;">
+                <cl-input-search
+                    label="Basic Search"
+                    placeholder="Search..."
+                    x-model="query"
+                    on-search="handleSearch">
+                </cl-input-search>
+
+                <cl-input-search
+                    label="With Suggestions"
+                    placeholder="Search fruits..."
+                    suggestions="${this.state.suggestions}"
+                    on-select="handleSelect">
+                </cl-input-search>
+
+                <cl-input-search
+                    label="Loading State"
+                    placeholder="Searching..."
+                    loading="true">
+                </cl-input-search>
+
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    Search query: ${this.state.query || '(empty)'}
+                </div>
+            </div>
+        `;
+    }
+});
+
+// VirtualList Example
+defineComponent('example-virtual-list', {
+    data() {
+        return {
+            items: [],
+            selectedItem: null
+        };
+    },
+    mounted() {
+        // Generate 10000 items
+        this.state.items = Array.from({ length: 10000 }, (_, i) => ({
+            id: i + 1,
+            title: `Item ${i + 1}`,
+            subtitle: `Description for item ${i + 1}`
+        }));
+    },
+    methods: {
+        handleSelect(e) {
+            this.state.selectedItem = e.detail.item;
+        }
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <p style="color: var(--text-muted, #666); margin: 0;">
+                    Displaying <strong>10,000 items</strong> with virtualization.
+                    Only visible items are rendered for optimal performance.
+                </p>
+
+                <cl-virtual-list
+                    items="${this.state.items}"
+                    itemHeight="60"
+                    height="400px"
+                    selectable="true"
+                    on-select="handleSelect">
+                </cl-virtual-list>
+
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    Selected: ${this.state.selectedItem ? this.state.selectedItem.title : 'None'}
+                </div>
+            </div>
+        `;
+    }
+});
+
+// Badge Example
+defineComponent('example-badge', {
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Severities</h4>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <cl-badge value="Primary" severity="primary"></cl-badge>
+                        <cl-badge value="Secondary" severity="secondary"></cl-badge>
+                        <cl-badge value="Success" severity="success"></cl-badge>
+                        <cl-badge value="Danger" severity="danger"></cl-badge>
+                        <cl-badge value="Warning" severity="warning"></cl-badge>
+                        <cl-badge value="Info" severity="info"></cl-badge>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Sizes</h4>
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <cl-badge value="Small" size="small"></cl-badge>
+                        <cl-badge value="Medium" size="medium"></cl-badge>
+                        <cl-badge value="Large" size="large"></cl-badge>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Pill Style</h4>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <cl-badge value="New" severity="primary" rounded="true"></cl-badge>
+                        <cl-badge value="99+" severity="danger" rounded="true"></cl-badge>
+                        <cl-badge value="Active" severity="success" rounded="true"></cl-badge>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">With Icons</h4>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <cl-badge value="Messages" icon="📧" severity="primary"></cl-badge>
+                        <cl-badge value="Alerts" icon="⚠️" severity="warning"></cl-badge>
+                        <cl-badge value="Complete" icon="✓" severity="success"></cl-badge>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Dot Indicators</h4>
+                    <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
+                        <span>Online <cl-badge dot="true" severity="success"></cl-badge></span>
+                        <span>Away <cl-badge dot="true" severity="warning"></cl-badge></span>
+                        <span>Busy <cl-badge dot="true" severity="danger"></cl-badge></span>
+                        <span>Offline <cl-badge dot="true" severity="secondary"></cl-badge></span>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Removable</h4>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <cl-badge value="Tag 1" severity="primary" removable="true"></cl-badge>
+                        <cl-badge value="Tag 2" severity="success" removable="true"></cl-badge>
+                        <cl-badge value="Tag 3" severity="info" removable="true"></cl-badge>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+});
+
+// Alert Example
+defineComponent('example-alert', {
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 16px; max-width: 600px;">
+                <cl-alert severity="info" title="Information">
+                    This is an informational message. It provides helpful context.
+                </cl-alert>
+
+                <cl-alert severity="success" title="Success">
+                    Your changes have been saved successfully!
+                </cl-alert>
+
+                <cl-alert severity="warning" title="Warning">
+                    Please review your input before submitting.
+                </cl-alert>
+
+                <cl-alert severity="error" title="Error">
+                    Something went wrong. Please try again later.
+                </cl-alert>
+
+                <h4 style="margin: 24px 0 8px 0; color: var(--text-muted, #666);">Closable Alerts</h4>
+
+                <cl-alert severity="info" closable="true">
+                    This alert can be dismissed by clicking the X button.
+                </cl-alert>
+
+                <h4 style="margin: 24px 0 8px 0; color: var(--text-muted, #666);">Outline Style</h4>
+
+                <cl-alert severity="info" outline="true">
+                    Outlined info alert for a lighter appearance.
+                </cl-alert>
+
+                <cl-alert severity="success" outline="true">
+                    Outlined success alert.
+                </cl-alert>
+
+                <h4 style="margin: 24px 0 8px 0; color: var(--text-muted, #666);">Without Title</h4>
+
+                <cl-alert severity="info">
+                    A simple alert without a title, just the message content.
+                </cl-alert>
             </div>
         `;
     }

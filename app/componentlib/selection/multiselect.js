@@ -23,6 +23,22 @@ export default defineComponent('cl-multiselect', {
         };
     },
 
+    mounted() {
+        // Close panel when clicking outside
+        this._clickOutside = (e) => {
+            if (!this.contains(e.target) && this.state.showPanel) {
+                this.state.showPanel = false;
+            }
+        };
+        document.addEventListener('click', this._clickOutside);
+    },
+
+    unmounted() {
+        if (this._clickOutside) {
+            document.removeEventListener('click', this._clickOutside);
+        }
+    },
+
     methods: {
         togglePanel() {
             if (!this.props.disabled) {
@@ -252,7 +268,7 @@ export default defineComponent('cl-multiselect', {
             left: 0;
             right: 0;
             margin-top: 4px;
-            background: white;
+            background: var(--card-bg, white);
             border: 1px solid var(--input-border, #ced4da);
             border-radius: 4px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -274,6 +290,8 @@ export default defineComponent('cl-multiselect', {
             border-radius: 4px;
             font-family: inherit;
             font-size: 14px;
+            background: var(--input-bg, #fff);
+            color: var(--text-color, #333);
         }
 
         .filter-input:focus {

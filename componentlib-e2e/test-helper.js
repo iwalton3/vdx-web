@@ -218,6 +218,35 @@ class TestHelper {
         await this.page.waitForSelector(selector, { timeout });
     }
 
+    // Helper to find elements inside shadow DOM
+    async queryShadow(hostSelector, innerSelector) {
+        return await this.page.evaluate((host, inner) => {
+            const hostEl = document.querySelector(host);
+            if (!hostEl || !hostEl.shadowRoot) return null;
+            const innerEl = hostEl.shadowRoot.querySelector(inner);
+            return innerEl ? true : null;
+        }, hostSelector, innerSelector);
+    }
+
+    // Assert element exists inside shadow DOM
+    async assertShadowExists(hostSelector, innerSelector, message) {
+        const found = await this.queryShadow(hostSelector, innerSelector);
+        if (!found) {
+            throw new Error(message || `Element ${innerSelector} not found inside ${hostSelector}`);
+        }
+    }
+
+    // Click element inside shadow DOM
+    async clickShadow(hostSelector, innerSelector) {
+        await this.page.evaluate((host, inner) => {
+            const hostEl = document.querySelector(host);
+            if (hostEl && hostEl.shadowRoot) {
+                const innerEl = hostEl.shadowRoot.querySelector(inner);
+                if (innerEl) innerEl.click();
+            }
+        }, hostSelector, innerSelector);
+    }
+
     async screenshot(name) {
         await this.page.screenshot({
             path: `/tmp/componentlib-${name}.png`,

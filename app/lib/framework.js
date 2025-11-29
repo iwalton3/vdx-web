@@ -1,5 +1,6 @@
 /**
- * Framework Library - Barrel Export
+ * VDX-Web Framework - Barrel Export
+ * https://github.com/iwalton3/vdx-web
  *
  * Zero-dependency reactive web framework with:
  * - Web Components based architecture

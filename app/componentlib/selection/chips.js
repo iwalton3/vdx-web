@@ -215,6 +215,7 @@ export default defineComponent('cl-chips', {
             font-family: inherit;
             font-size: 14px;
             min-width: 120px;
+            color: var(--text-color, #333);
         }
 
         .chip-input:disabled {

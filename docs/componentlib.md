@@ -5,6 +5,7 @@ Professional UI components built with the framework. All components follow frame
 ## Table of Contents
 
 - [Getting Started](#getting-started)
+- [Theming & Dark Mode](#theming--dark-mode)
 - [Form Components](#form-components)
 - [Selection Components](#selection-components)
 - [Data Components](#data-components)
@@ -36,6 +37,142 @@ import './componentlib/overlay/dialog.js';
 ```
 
 All components use the `cl-` prefix (Component Library).
+
+## Theming & Dark Mode
+
+The component library uses CSS custom properties (variables) for theming. All components automatically support light and dark themes.
+
+### Enabling Dark Mode
+
+Toggle dark mode by adding the `dark` class to the body:
+
+```javascript
+// Toggle dark mode
+document.body.classList.toggle('dark');
+```
+
+### CSS Variables
+
+Define theme variables in your CSS. Here are the available variables:
+
+```css
+:root {
+    /* Primary colors */
+    --primary-color: #007bff;
+    --primary-hover: #0056b3;
+
+    /* Text colors */
+    --text-color: #333;
+    --text-secondary: #666;
+    --text-tertiary: #999;
+    --text-muted: #6c757d;
+
+    /* Input styling */
+    --input-bg: #fff;
+    --input-border: #ced4da;
+    --input-text: #333;
+
+    /* Background colors */
+    --hover-bg: #f8f9fa;
+    --selected-bg: #e7f3ff;
+    --table-header-bg: #f8f9fa;
+    --disabled-bg: #e9ecef;
+    --border-color: #eee;
+    --card-bg: white;
+
+    /* Shell layout */
+    --shell-bg: #f5f5f5;
+    --sidebar-bg: white;
+    --topbar-bg: #1976d2;
+    --topbar-text: white;
+
+    /* Status colors */
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
+
+    /* Alert backgrounds */
+    --info-bg: #e7f3ff;
+    --info-text: #0066cc;
+    --success-bg: #d4edda;
+    --success-text: #155724;
+    --success-border: #c3e6cb;
+    --error-bg: #ffe7e7;
+    --error-text: #dc3545;
+    --warning-bg: #fff3cd;
+    --warning-text: #856404;
+
+    /* Button colors (for input-number, etc) */
+    --button-bg: #f8f9fa;
+    --button-hover-bg: #e9ecef;
+    --button-active-bg: #dee2e6;
+}
+
+/* Dark theme */
+body.dark {
+    --primary-color: #0d6efd;
+    --primary-hover: #0a58ca;
+
+    --text-color: #ccc;
+    --text-secondary: #aaa;
+    --text-tertiary: #777;
+    --text-muted: #888;
+
+    --input-bg: #2d2d2d;
+    --input-border: #444;
+    --input-text: #ccc;
+
+    --hover-bg: #383838;
+    --selected-bg: #1e3a5f;
+    --table-header-bg: #2d2d2d;
+    --disabled-bg: #333;
+    --border-color: #444;
+    --card-bg: #252525;
+
+    --shell-bg: #1a1a1a;
+    --sidebar-bg: #252525;
+    --topbar-bg: #1a365d;
+    --topbar-text: #e0e0e0;
+
+    --success-color: #28a745;
+    --error-color: #f88;
+    --warning-color: #d4b846;
+    --info-color: #6db3f2;
+
+    --info-bg: #1a3a5c;
+    --info-text: #6db3f2;
+    --success-bg: #1a3d1a;
+    --success-text: #6dd36d;
+    --success-border: #2d5a2d;
+    --error-bg: #4a2020;
+    --error-text: #f88;
+    --warning-bg: #4a3d10;
+    --warning-text: #d4b846;
+
+    --button-bg: #383838;
+    --button-hover-bg: #444;
+    --button-active-bg: #505050;
+}
+```
+
+### Creating Custom Themes
+
+You can create custom themes by overriding the CSS variables:
+
+```css
+/* Custom blue theme */
+body.theme-ocean {
+    --primary-color: #0077b6;
+    --primary-hover: #023e8a;
+    --card-bg: #e8f4fc;
+    --table-header-bg: #caf0f8;
+}
+```
+
+### Component Showcase
+
+The component library showcase at `/componentlib/` includes a dark mode toggle button for testing themes. The toggle button is in the top bar.
 
 ## Form Components
 

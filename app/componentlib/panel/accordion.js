@@ -114,7 +114,7 @@ export default defineComponent('cl-accordion', {
         }
 
         .accordion-tab.active .accordion-header {
-            background: white;
+            background: var(--card-bg, white);
             border-bottom: 1px solid var(--input-border, #dee2e6);
         }
 
@@ -131,7 +131,7 @@ export default defineComponent('cl-accordion', {
 
         .accordion-content {
             padding: 16px;
-            background: white;
+            background: var(--card-bg, white);
             font-size: 14px;
             color: var(--text-color, #333);
             line-height: 1.6;

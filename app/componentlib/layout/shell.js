@@ -182,7 +182,7 @@ export default defineComponent('cl-shell', {
             justify-content: space-between;
             height: 56px;
             padding: 0 16px;
-            background: var(--topbar-bg, #1976d2);
+            background: var(--topbar-bg, var(--primary-color, #1976d2));
             color: var(--topbar-text, white);
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             z-index: 1001;
@@ -273,8 +273,8 @@ export default defineComponent('cl-shell', {
             display: flex;
             flex-direction: column;
             width: var(--sidebar-width);
-            background: var(--sidebar-bg, white);
-            border-right: 1px solid var(--border-color, #e0e0e0);
+            background: var(--sidebar-bg, var(--card-bg, white));
+            border-right: 1px solid var(--border-color, var(--input-border, #e0e0e0));
             overflow: hidden;
             transition: transform 0.3s ease;
         }
@@ -305,7 +305,7 @@ export default defineComponent('cl-shell', {
 
         .sidebar-footer {
             padding: 12px 16px;
-            border-top: 1px solid var(--border-color, #e0e0e0);
+            border-top: 1px solid var(--border-color, var(--input-border, #e0e0e0));
         }
 
         .sidebar-footer:empty {

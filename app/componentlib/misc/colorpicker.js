@@ -26,6 +26,20 @@ export default defineComponent('cl-colorpicker', {
         if (this.props.inline) {
             this.state.showPicker = true;
         }
+
+        // Close picker when clicking outside
+        this._clickOutside = (e) => {
+            if (!this.contains(e.target) && this.state.showPicker && !this.props.inline) {
+                this.state.showPicker = false;
+            }
+        };
+        document.addEventListener('click', this._clickOutside);
+    },
+
+    unmounted() {
+        if (this._clickOutside) {
+            document.removeEventListener('click', this._clickOutside);
+        }
     },
 
     propsChanged(prop, newValue, oldValue) {
@@ -158,7 +172,7 @@ export default defineComponent('cl-colorpicker', {
             top: 100%;
             left: 0;
             margin-top: 4px;
-            background: white;
+            background: var(--card-bg, white);
             border: 1px solid var(--input-border, #ced4da);
             border-radius: 4px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);

@@ -113,7 +113,7 @@ export default defineComponent('cl-splitter', {
 
         .splitter-panel {
             overflow: auto;
-            background: white;
+            background: var(--card-bg, white);
         }
 
         .splitter-gutter {

@@ -87,7 +87,7 @@ export default defineComponent('cl-dialog', {
         }
 
         .cl-dialog {
-            background: white;
+            background: var(--card-bg, white);
             border-radius: 6px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
             max-width: 90vw;

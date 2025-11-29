@@ -410,15 +410,16 @@ function buildImportMap(module, modules) {
  */
 function generateBundle(modules, sortedFiles) {
     let bundle = `/**
- * Custom Framework Bundle
+ * VDX-Web Framework Bundle
+ * https://github.com/iwalton3/vdx-web
  * Generated: ${new Date().toISOString()}
  *
  * Includes Preact (https://preactjs.com/)
  * Copyright (c) 2015-present Jason Miller
  * Licensed under MIT
  *
- * Self-contained reactive framework with Web Components support.
- * No dependencies, no build step required.
+ * Zero-dependency reactive web framework with Web Components support.
+ * No build step required - runs directly in the browser.
  */
 
 `;

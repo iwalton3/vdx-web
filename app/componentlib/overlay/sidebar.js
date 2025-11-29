@@ -72,7 +72,7 @@ export default defineComponent('cl-sidebar', {
 
         .cl-sidebar {
             position: fixed;
-            background: white;
+            background: var(--card-bg, white);
             box-shadow: 0 0 20px rgba(0,0,0,0.2);
             display: flex;
             flex-direction: column;

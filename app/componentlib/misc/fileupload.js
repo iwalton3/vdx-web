@@ -130,7 +130,7 @@ export default defineComponent('cl-fileupload', {
             border: 1px solid var(--input-border, #dee2e6);
             border-radius: 4px;
             padding: 16px;
-            background: white;
+            background: var(--card-bg, white);
         }
 
         .upload-header {

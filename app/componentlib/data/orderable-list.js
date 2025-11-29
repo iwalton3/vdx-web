@@ -146,7 +146,7 @@ export default defineComponent('cl-orderable-list', {
             border: 1px solid var(--input-border, #dee2e6);
             border-radius: 4px;
             overflow: hidden;
-            background: white;
+            background: var(--card-bg, white);
         }
 
         .list-header {
@@ -170,7 +170,7 @@ export default defineComponent('cl-orderable-list', {
             border-bottom: 1px solid var(--input-border, #dee2e6);
             cursor: move;
             transition: all 0.2s;
-            background: white;
+            background: var(--card-bg, white);
         }
 
         .list-item:last-child {
@@ -212,7 +212,7 @@ export default defineComponent('cl-orderable-list', {
             height: 28px;
             padding: 0;
             border: 1px solid var(--input-border, #dee2e6);
-            background: white;
+            background: var(--card-bg, white);
             color: var(--text-color, #333);
             cursor: pointer;
             border-radius: 4px;

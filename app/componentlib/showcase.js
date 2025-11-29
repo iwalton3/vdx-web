@@ -17,6 +17,7 @@ export default defineComponent('component-showcase', {
             selectedComponent: null,
             selectedTab: 'demo',
             searchQuery: '',
+            darkMode: false,
             categories: [
                 { name: 'Form', key: 'form', icon: '📝' },
                 { name: 'Selection', key: 'selection', icon: '☑️' },
@@ -147,6 +148,11 @@ export default defineComponent('component-showcase', {
                 }
                 e.preventDefault();
             }
+        },
+
+        toggleDarkMode() {
+            this.state.darkMode = !this.state.darkMode;
+            document.body.classList.toggle('dark', this.state.darkMode);
         }
     },
 
@@ -162,13 +168,17 @@ export default defineComponent('component-showcase', {
                 activeItem="${current ? current.id : null}"
                 on-change="handleMenuChange">
 
-                <div slot="topbar" class="topbar-search">
+                <div slot="topbar" class="topbar-controls">
                     <input
                         type="text"
+                        class="search-input"
                         placeholder="Search components..."
                         value="${this.state.searchQuery}"
                         on-input="handleSearch"
                         on-keydown="handleSearchKeydown">
+                    <button class="dark-mode-btn" on-click="toggleDarkMode" title="Toggle dark mode">
+                        ${this.state.darkMode ? '☀️' : '🌙'}
+                    </button>
                 </div>
 
                 <div class="showcase-content">
@@ -223,7 +233,13 @@ export default defineComponent('component-showcase', {
             height: 100vh;
         }
 
-        .topbar-search input {
+        .topbar-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .topbar-controls .search-input {
             padding: 6px 12px;
             border: none;
             border-radius: 4px;
@@ -233,12 +249,26 @@ export default defineComponent('component-showcase', {
             width: 200px;
         }
 
-        .topbar-search input::placeholder {
+        .topbar-controls .search-input::placeholder {
             color: rgba(255,255,255,0.7);
         }
 
-        .topbar-search input:focus {
+        .topbar-controls .search-input:focus {
             outline: none;
+            background: rgba(255,255,255,0.3);
+        }
+
+        .dark-mode-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+
+        .dark-mode-btn:hover {
             background: rgba(255,255,255,0.3);
         }
 
@@ -251,7 +281,7 @@ export default defineComponent('component-showcase', {
         }
 
         .component-header {
-            background: white;
+            background: var(--card-bg, white);
             padding: 24px;
             border-radius: 8px;
             margin-bottom: 24px;
@@ -261,13 +291,13 @@ export default defineComponent('component-showcase', {
         .component-header h2 {
             margin: 0 0 8px 0;
             font-size: 28px;
-            color: #333;
+            color: var(--text-color, #333);
         }
 
         .component-header p {
             margin: 0;
             font-size: 15px;
-            color: #6c757d;
+            color: var(--text-muted, #6c757d);
         }
 
         .tabs {
@@ -278,28 +308,28 @@ export default defineComponent('component-showcase', {
 
         .tab {
             padding: 12px 24px;
-            background: white;
+            background: var(--card-bg, white);
             border-radius: 6px 6px 0 0;
             font-size: 14px;
             font-weight: 500;
-            color: #6c757d;
+            color: var(--text-muted, #6c757d);
             cursor: pointer;
             transition: all 0.2s;
         }
 
         .tab:hover {
-            color: #333;
-            background: #f8f9fa;
+            color: var(--text-color, #333);
+            background: var(--hover-bg, #f8f9fa);
         }
 
         .tab.active {
-            color: #1976d2;
-            background: white;
-            box-shadow: 0 -2px 0 #1976d2 inset;
+            color: var(--primary-color, #1976d2);
+            background: var(--card-bg, white);
+            box-shadow: 0 -2px 0 var(--primary-color, #1976d2) inset;
         }
 
         .tab-content {
-            background: white;
+            background: var(--card-bg, white);
             border-radius: 0 8px 8px 8px;
             padding: 32px;
             min-height: 400px;
@@ -315,8 +345,8 @@ export default defineComponent('component-showcase', {
         .source-section pre {
             margin: 0;
             padding: 20px;
-            background: #f8f9fa;
-            border: 1px solid #e0e0e0;
+            background: var(--table-header-bg, #f8f9fa);
+            border: 1px solid var(--input-border, #e0e0e0);
             border-radius: 4px;
             overflow-x: auto;
         }
@@ -325,7 +355,7 @@ export default defineComponent('component-showcase', {
             font-family: 'Monaco', 'Courier New', monospace;
             font-size: 13px;
             line-height: 1.6;
-            color: #333;
+            color: var(--text-color, #333);
         }
 
         .empty-state {
@@ -335,7 +365,7 @@ export default defineComponent('component-showcase', {
             justify-content: center;
             height: 400px;
             text-align: center;
-            color: #6c757d;
+            color: var(--text-muted, #6c757d);
         }
 
         .empty-state h2 {

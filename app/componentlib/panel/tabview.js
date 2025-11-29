@@ -86,12 +86,12 @@ export default defineComponent('cl-tabview', {
         .tab-header.active {
             color: var(--primary-color, #007bff);
             border-bottom-color: var(--primary-color, #007bff);
-            background: white;
+            background: var(--card-bg, white);
         }
 
         .tab-content {
             padding: 20px;
-            background: white;
+            background: var(--card-bg, white);
             font-size: 14px;
             color: var(--text-color, #333);
             line-height: 1.6;

@@ -146,7 +146,7 @@ export default defineComponent('cl-paginator', {
             height: 36px;
             padding: 0 8px;
             border: 1px solid var(--input-border, #dee2e6);
-            background: white;
+            background: var(--card-bg, white);
             color: var(--text-color, #333);
             font-size: 14px;
             cursor: pointer;

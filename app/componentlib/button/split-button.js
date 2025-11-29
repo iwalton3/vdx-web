@@ -17,6 +17,22 @@ export default defineComponent('cl-split-button', {
         };
     },
 
+    mounted() {
+        // Close menu when clicking outside
+        this._clickOutside = (e) => {
+            if (!this.contains(e.target) && this.state.showMenu) {
+                this.state.showMenu = false;
+            }
+        };
+        document.addEventListener('click', this._clickOutside);
+    },
+
+    unmounted() {
+        if (this._clickOutside) {
+            document.removeEventListener('click', this._clickOutside);
+        }
+    },
+
     methods: {
         handleClick() {
             if (!this.props.disabled) {
@@ -145,7 +161,7 @@ export default defineComponent('cl-split-button', {
             top: 100%;
             right: 0;
             margin-top: 4px;
-            background: white;
+            background: var(--card-bg, white);
             border: 1px solid var(--input-border, #dee2e6);
             border-radius: 4px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);

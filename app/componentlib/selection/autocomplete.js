@@ -164,7 +164,7 @@ export default defineComponent('cl-autocomplete', {
             left: 0;
             right: 0;
             margin-top: 4px;
-            background: white;
+            background: var(--card-bg, white);
             border: 1px solid var(--input-border, #ced4da);
             border-radius: 4px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);

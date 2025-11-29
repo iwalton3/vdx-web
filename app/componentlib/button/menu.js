@@ -95,7 +95,7 @@ export default defineComponent('cl-menu', {
         .cl-menu {
             border: 1px solid var(--input-border, #dee2e6);
             border-radius: 4px;
-            background: white;
+            background: var(--card-bg, white);
             overflow: hidden;
         }
 
