@@ -14,6 +14,56 @@ let debugVNodeHook = null;
 
 export const componentDefinitions = new Map();
 
+// ============================================================================
+// Coordinated Root Rendering System
+// ============================================================================
+// This system ensures that all VDX components render from a single root,
+// preventing the cascading re-render issues that occur when each component
+// manages its own Preact VDOM tree independently.
+
+/** Flag to indicate if we're in the middle of a coordinated tree render */
+let isRenderingTree = false;
+
+/**
+ * Perform a SYNCHRONOUS coordinated tree render starting from root
+ * This must be synchronous to stay within the reactive effect context
+ * and prevent the effect from re-triggering during render.
+ */
+function performTreeRender(root) {
+    // Prevent re-entry - if we're already rendering, skip
+    if (isRenderingTree) {
+        return;
+    }
+
+    isRenderingTree = true;
+
+    try {
+        // Render the tree depth-first
+        renderComponentTree(root);
+    } finally {
+        isRenderingTree = false;
+    }
+}
+
+/**
+ * Recursively render component tree depth-first
+ */
+function renderComponentTree(component) {
+    if (!component._isMounted || component._isDestroyed) {
+        return;
+    }
+
+    // Render this component
+    component._doRender();
+
+    // Render child VDX components (they were updated by our render via Preact props)
+    if (component._vdxChildComponents) {
+        for (const child of component._vdxChildComponents) {
+            renderComponentTree(child);
+        }
+    }
+}
+
 export function setDebugComponentHooks(hooks) {
     debugRenderCycleHook = hooks.renderCycle;
     debugPropSetHook = hooks.propSet;
@@ -324,6 +374,12 @@ export function defineComponent(name, options) {
             this._isDestroyed = false;
             this._suppressAttributeChange = false;
 
+            // VDX component hierarchy tracking for coordinated rendering
+            this._isVdxComponent = true;
+            this._vdxParent = null;
+            this._vdxChildComponents = null;  // Set<Component>, created lazily - tracks child VDX components
+            this._isVdxRoot = false;   // Will be set in connectedCallback
+
             // Cleanup functions
             this._cleanups = [];
         }
@@ -367,6 +423,24 @@ export function defineComponent(name, options) {
             // Mark as mounted BEFORE initial render to prevent double-render
             this._isMounted = true;
 
+            // Track VDX component hierarchy
+            // Find nearest VDX parent by walking up DOM tree
+            let parent = this.parentElement;
+            while (parent) {
+                if (parent._isVdxComponent) {
+                    this._vdxParent = parent;
+                    // Register with parent
+                    if (!(parent._vdxChildComponents instanceof Set)) {
+                        parent._vdxChildComponents = new Set();
+                    }
+                    parent._vdxChildComponents.add(this);
+                    break;
+                }
+                parent = parent.parentElement;
+            }
+            // If no VDX parent found, this is a root component
+            this._isVdxRoot = !this._vdxParent;
+
             // Setup store subscriptions (auto-sync external stores)
             if (options.stores) {
                 for (const [storeName, store] of Object.entries(options.stores)) {
@@ -381,6 +455,7 @@ export function defineComponent(name, options) {
             }
 
             // Setup reactivity - re-render on state changes
+            // Uses coordinated root rendering to prevent cascading re-renders
             const { dispose: disposeRenderEffect } = createEffect(() => {
                 // Track all state dependencies efficiently
                 trackAllDependencies(this.state);
@@ -392,8 +467,11 @@ export function defineComponent(name, options) {
                     }
                 }
 
-                // Render immediately - props are already set via prototype setters
-                this.render();
+                // Perform synchronous coordinated tree render from root
+                // Must be synchronous to stay within effect context
+                if (this._isMounted && !this._isDestroyed) {
+                    performTreeRender(this._getVdxRoot());
+                }
             });
 
             // Store disposal function for cleanup
@@ -416,6 +494,13 @@ export function defineComponent(name, options) {
             // Set flags FIRST to prevent any new operations
             this._isDestroyed = true;
             this._isMounted = false;
+
+            // Clean up VDX component hierarchy
+            if (this._vdxParent && this._vdxParent._vdxChildComponents) {
+                this._vdxParent._vdxChildComponents.delete(this);
+            }
+            this._vdxParent = null;
+            // Note: child components are cleaned up by their own disconnectedCallback
 
             // Dispose reactive effects IMMEDIATELY to stop state updates from triggering renders
             // This must happen before calling unmounted() hook
@@ -445,9 +530,21 @@ export function defineComponent(name, options) {
             // Update props
             if (options.props && name in options.props) {
                 this.props[name] = newValue;
-                // Trigger re-render
-                this.render();
+                // Trigger coordinated re-render from root
+                performTreeRender(this._getVdxRoot());
             }
+        }
+
+        /**
+         * Get the root VDX component in this component's hierarchy
+         * Root is the topmost VDX component (has no VDX parent)
+         */
+        _getVdxRoot() {
+            let current = this;
+            while (current._vdxParent) {
+                current = current._vdxParent;
+            }
+            return current;
         }
 
         static get observedAttributes() {
@@ -485,7 +582,12 @@ export function defineComponent(name, options) {
             }
         }
 
-        render() {
+        /**
+         * Internal render implementation - called by the coordinated rendering system
+         * This is the actual Preact render call. External code should NOT call this directly.
+         * Instead, use scheduleRootRender() to trigger a coordinated tree render.
+         */
+        _doRender() {
             // Guard: Don't render if component is destroyed or not mounted
             if (this._isDestroyed || !this._isMounted) {
                 return;
@@ -574,6 +676,16 @@ export function defineComponent(name, options) {
             }
         }
 
+        /**
+         * Public render method - performs a coordinated render from root
+         * This ensures all components render in the correct order
+         */
+        render() {
+            if (this._isMounted && !this._isDestroyed) {
+                performTreeRender(this._getVdxRoot());
+            }
+        }
+
         // Helper method to access methods from component
         $method(name) {
             return options.methods?.[name]?.bind(this);
@@ -584,17 +696,12 @@ export function defineComponent(name, options) {
     // This ensures `name in dom` returns true when Preact checks, allowing
     // direct property setting instead of falling back to setAttribute()
 
-    // Helper to schedule a batched render using microtask
-    // This prevents multiple render calls when Preact updates several props in sequence
+    // Helper to trigger a coordinated tree render from root
+    // This ensures all renders go through the tree coordination to prevent cascading issues
     const scheduleRender = (component) => {
-        if (component._renderScheduled) return;
-        component._renderScheduled = true;
-        queueMicrotask(() => {
-            component._renderScheduled = false;
-            if (component._isMounted && !component._isDestroyed) {
-                component.render();
-            }
-        });
+        if (component._isMounted && !component._isDestroyed) {
+            performTreeRender(component._getVdxRoot());
+        }
     };
 
     // Helper to create a prop setter that handles pre-constructor calls

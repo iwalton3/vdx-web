@@ -1,7 +1,7 @@
 /**
  * VDX-Web Framework Bundle
  * https://github.com/iwalton3/vdx-web
- * Generated: 2025-11-30T05:52:27.023Z
+ * Generated: 2025-11-30T06:30:25.076Z
  *
  * Includes Preact (https://preactjs.com/)
  * Copyright (c) 2015-present Jason Miller
@@ -2000,6 +2000,38 @@ let debugVNodeHook = null;
 
 const componentDefinitions = new Map();
 
+let isRenderingTree = false;
+
+function performTreeRender(root) {
+
+    if (isRenderingTree) {
+        return;
+    }
+
+    isRenderingTree = true;
+
+    try {
+
+        renderComponentTree(root);
+    } finally {
+        isRenderingTree = false;
+    }
+}
+
+function renderComponentTree(component) {
+    if (!component._isMounted || component._isDestroyed) {
+        return;
+    }
+
+    component._doRender();
+
+    if (component._vdxChildComponents) {
+        for (const child of component._vdxChildComponents) {
+            renderComponentTree(child);
+        }
+    }
+}
+
 function setDebugComponentHooks(hooks) {
     debugRenderCycleHook = hooks.renderCycle;
     debugPropSetHook = hooks.propSet;
@@ -2235,6 +2267,11 @@ function defineComponent(name, options) {
             this._isDestroyed = false;
             this._suppressAttributeChange = false;
 
+            this._isVdxComponent = true;
+            this._vdxParent = null;
+            this._vdxChildComponents = null;  
+            this._isVdxRoot = false;   
+
             this._cleanups = [];
         }
 
@@ -2258,6 +2295,22 @@ function defineComponent(name, options) {
 
             this._isMounted = true;
 
+            let parent = this.parentElement;
+            while (parent) {
+                if (parent._isVdxComponent) {
+                    this._vdxParent = parent;
+
+                    if (!(parent._vdxChildComponents instanceof Set)) {
+                        parent._vdxChildComponents = new Set();
+                    }
+                    parent._vdxChildComponents.add(this);
+                    break;
+                }
+                parent = parent.parentElement;
+            }
+
+            this._isVdxRoot = !this._vdxParent;
+
             if (options.stores) {
                 for (const [storeName, store] of Object.entries(options.stores)) {
                     const unsubscribe = store.subscribe(state => {
@@ -2280,7 +2333,9 @@ function defineComponent(name, options) {
                     }
                 }
 
-                this.render();
+                if (this._isMounted && !this._isDestroyed) {
+                    performTreeRender(this._getVdxRoot());
+                }
             });
 
             this._cleanups.push(disposeRenderEffect);
@@ -2300,6 +2355,11 @@ function defineComponent(name, options) {
 
             this._isDestroyed = true;
             this._isMounted = false;
+
+            if (this._vdxParent && this._vdxParent._vdxChildComponents) {
+                this._vdxParent._vdxChildComponents.delete(this);
+            }
+            this._vdxParent = null;
 
             if (this._cleanups && this._cleanups.length > 0) {
                 this._cleanups.forEach(fn => fn());
@@ -2324,8 +2384,16 @@ function defineComponent(name, options) {
             if (options.props && name in options.props) {
                 this.props[name] = newValue;
 
-                this.render();
+                performTreeRender(this._getVdxRoot());
             }
+        }
+
+        _getVdxRoot() {
+            let current = this;
+            while (current._vdxParent) {
+                current = current._vdxParent;
+            }
+            return current;
         }
 
         static get observedAttributes() {
@@ -2360,7 +2428,7 @@ function defineComponent(name, options) {
             }
         }
 
-        render() {
+        _doRender() {
 
             if (this._isDestroyed || !this._isMounted) {
                 return;
@@ -2441,20 +2509,21 @@ function defineComponent(name, options) {
             }
         }
 
+        render() {
+            if (this._isMounted && !this._isDestroyed) {
+                performTreeRender(this._getVdxRoot());
+            }
+        }
+
         $method(name) {
             return options.methods?.[name]?.bind(this);
         }
     }
 
     const scheduleRender = (component) => {
-        if (component._renderScheduled) return;
-        component._renderScheduled = true;
-        queueMicrotask(() => {
-            component._renderScheduled = false;
-            if (component._isMounted && !component._isDestroyed) {
-                component.render();
-            }
-        });
+        if (component._isMounted && !component._isDestroyed) {
+            performTreeRender(component._getVdxRoot());
+        }
     };
 
     const createPropSetter = (propName) => ({
