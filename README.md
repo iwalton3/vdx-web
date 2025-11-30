@@ -25,6 +25,18 @@ This is **not another JavaScript framework**. This is a statement about sustaina
 - **Computed properties** - Memoized values with dependency tracking
 - **Virtual scrolling** - Efficiently render massive lists
 
+### Static Site Integration
+
+Components work like native HTML elements, making them perfect for enhancing static sites:
+
+- **Vanilla JS event listeners** - Use `addEventListener()` on components like any HTML element
+- **DOM attribute propagation** - `setAttribute()` changes automatically flow into components
+- **Rich data via refs** - Pass arrays/objects directly: `element.setData({ items: [...] })`
+- **Transparent coordination** - Usage of components on multiple different parts of a static page is allowed and automatically managed.
+- **No framework lock-in** - Components integrate with jQuery, vanilla JS, or any other code
+
+See the [Static Integration Demo](/bundle-demo/static-integration-demo.html) for live examples.
+
 ## Quick Start
 
 ```bash
@@ -262,6 +274,7 @@ python3 test-server.py
 | **Component Library** | [/componentlib/](https://iwalton.com/componentlib/) | Interactive showcase of all vdx-ui components (buttons, forms, dialogs, data tables, etc.) with live examples. |
 | **Playground** | [/playground.html](https://iwalton.com/playground.html) | Core framework features: reactive state, x-model binding, each/when helpers, computed properties, virtual scrolling. |
 | **Bundle Demo** | [/bundle-demo/](https://iwalton.com/bundle-demo/) | Examples using pre-bundled framework versions for embedding scenarios. |
+| **Static Integration** | [/bundle-demo/static-integration-demo.html](https://iwalton.com/bundle-demo/static-integration-demo.html) | Embedding reactive components in static HTML with vanilla JS interop. |
 | **Framework Tests** | [/tests/](https://iwalton.com/tests/) | Comprehensive tests. |
 
 ## Running Tests

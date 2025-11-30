@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Static Site Integration Demo - VDX Framework</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Georgia, 'Times New Roman', serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #faf9f7;
+            color: #333;
+            line-height: 1.7;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            border-bottom: 3px solid #2a9d8f;
+            padding-bottom: 0.5rem;
+            margin-bottom: 2rem;
+        }
+
+        h2 {
+            color: #264653;
+            margin-top: 3rem;
+            font-size: 1.6rem;
+        }
+
+        h3 {
+            color: #2a9d8f;
+            margin-top: 2rem;
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+        }
+
+        .article-meta {
+            color: #666;
+            font-style: italic;
+            margin-bottom: 2rem;
+        }
+
+        blockquote {
+            border-left: 4px solid #2a9d8f;
+            margin: 2rem 0;
+            padding: 1rem 1.5rem;
+            background: #f0f7f6;
+            font-style: italic;
+        }
+
+        code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Fira Code', Consolas, monospace;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: #264653;
+            color: #fff;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        pre code {
+            background: none;
+            color: inherit;
+        }
+
+        /* Demo sections */
+        .demo-section {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .demo-section h4 {
+            margin-top: 0;
+            color: #e76f51;
+            font-family: system-ui, sans-serif;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Control panel for external manipulation */
+        .control-panel {
+            background: #264653;
+            color: #fff;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-family: system-ui, sans-serif;
+        }
+
+        .control-panel h4 {
+            margin-top: 0;
+            color: #e9c46a;
+            font-size: 0.9rem;
+        }
+
+        .control-panel button {
+            background: #2a9d8f;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .control-panel button:hover {
+            background: #21867a;
+        }
+
+        .control-panel input {
+            padding: 8px;
+            border-radius: 4px;
+            border: none;
+            margin-right: 8px;
+            width: 150px;
+        }
+
+        /* Event log */
+        .event-log {
+            background: #1a1a2e;
+            color: #4ade80;
+            font-family: 'Fira Code', Consolas, monospace;
+            font-size: 0.8rem;
+            padding: 1rem;
+            border-radius: 4px;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .event-log-entry {
+            margin: 4px 0;
+        }
+
+        .event-log-time {
+            color: #94a3b8;
+        }
+
+        /* Data display table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-family: system-ui, sans-serif;
+            font-size: 0.9rem;
+        }
+
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+        }
+
+        /* Footer */
+        .article-footer {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid #ddd;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<article>
+    <h1>Understanding Metric vs Imperial Systems</h1>
+    <p class="article-meta">Published December 2024 | Educational Content</p>
+
+    <p>
+        The metric system, officially known as the International System of Units (SI),
+        is used by the vast majority of countries worldwide. Meanwhile, the United States,
+        Liberia, and Myanmar continue to use the imperial system for everyday measurements.
+    </p>
+
+    <h2>Volume: Gallons and Liters</h2>
+
+    <p>
+        One of the most common conversions travelers and international traders deal with is
+        between gallons and liters. A US gallon equals approximately 3.785 liters. Try the
+        converter below to see how these units relate:
+    </p>
+
+    <div class="demo-section">
+        <h4>Interactive Component: Unit Converter</h4>
+        <unit-converter from-unit="gallons" to-unit="liters" initial-value="1"></unit-converter>
+    </div>
+
+    <p>
+        This difference can be particularly significant when comparing fuel efficiency.
+        European cars advertise consumption in liters per 100 kilometers, while American
+        vehicles use miles per gallon.
+    </p>
+
+    <h2>Temperature: Fahrenheit and Celsius</h2>
+
+    <p>
+        Temperature conversion is another common need. The formula is:
+        <code>C = (F - 32) x 5/9</code>. Water freezes at 32°F (0°C) and boils at
+        212°F (100°C).
+    </p>
+
+    <div class="demo-section">
+        <h4>Interactive Component: Temperature Converter</h4>
+        <temp-converter initial-fahrenheit="68"></temp-converter>
+    </div>
+
+    <blockquote>
+        "The metric system is the tool of the devil! My car gets 40 rods to the hogshead
+        and that's the way I likes it!" — Grandpa Simpson
+    </blockquote>
+
+    <h2>Dynamic Integration with External JavaScript</h2>
+
+    <p>
+        One of the unique features of this framework is how seamlessly components integrate
+        with existing JavaScript code. You can manipulate component attributes using standard
+        DOM APIs, attach vanilla event listeners, and pass complex data structures.
+    </p>
+
+    <h3>1. DOM Attribute Manipulation</h3>
+
+    <p>
+        When you update a component's attributes using <code>setAttribute()</code>,
+        the changes automatically propagate into the component and trigger re-renders:
+    </p>
+
+    <div class="demo-section">
+        <h4>Attribute-Reactive Component</h4>
+        <greeting-card name="World" color="blue"></greeting-card>
+
+        <div class="control-panel">
+            <h4>External Controls (Vanilla JS)</h4>
+            <button onclick="setGreetingName('Alice')">Set Name: Alice</button>
+            <button onclick="setGreetingName('Bob')">Set Name: Bob</button>
+            <button onclick="setGreetingColor('red')">Color: Red</button>
+            <button onclick="setGreetingColor('green')">Color: Green</button>
+            <button onclick="setGreetingColor('purple')">Color: Purple</button>
+        </div>
+    </div>
+
+    <h3>2. Vanilla JS Event Handlers</h3>
+
+    <p>
+        Components emit standard DOM events that you can listen to with
+        <code>addEventListener()</code>. This allows components to communicate
+        with legacy code or other frameworks:
+    </p>
+
+    <div class="demo-section">
+        <h4>Event-Emitting Counter</h4>
+        <event-counter id="myCounter"></event-counter>
+
+        <div class="control-panel">
+            <h4>External Event Listeners</h4>
+            <div class="event-log" id="eventLog">
+                <div class="event-log-entry"><span class="event-log-time">[Ready]</span> Listening for events...</div>
+            </div>
+        </div>
+    </div>
+
+    <h3>3. Passing Rich Data via Component References</h3>
+
+    <p>
+        Web Components traditionally only support string attributes, making it difficult
+        to pass arrays and objects. With VDX, you can grab a reference to any component
+        and set rich properties directly:
+    </p>
+
+    <div class="demo-section">
+        <h4>Data-Driven Component</h4>
+        <country-list id="countryList"></country-list>
+
+        <div class="control-panel">
+            <h4>Inject Data via JavaScript</h4>
+            <button onclick="loadEuropeanCountries()">Load European Countries</button>
+            <button onclick="loadAsianCountries()">Load Asian Countries</button>
+            <button onclick="loadAmericasCountries()">Load Americas</button>
+            <button onclick="addRandomCountry()">Add Random Country</button>
+        </div>
+    </div>
+
+    <h3>4. Two-Way External Binding</h3>
+
+    <p>
+        You can also read component state and react to changes. This shopping cart
+        demonstrates bidirectional communication between the component and external code:
+    </p>
+
+    <div class="demo-section">
+        <h4>Shopping Cart with External Sync</h4>
+        <shopping-cart id="shoppingCart"></shopping-cart>
+
+        <div class="control-panel">
+            <h4>External Cart Manipulation</h4>
+            <button onclick="addToCartExternal('Coffee', 4.99)">Add Coffee ($4.99)</button>
+            <button onclick="addToCartExternal('Croissant', 3.50)">Add Croissant ($3.50)</button>
+            <button onclick="addToCartExternal('Newspaper', 2.00)">Add Newspaper ($2.00)</button>
+            <button onclick="clearCartExternal()">Clear Cart</button>
+            <button onclick="readCartTotal()">Read Total (Alert)</button>
+        </div>
+
+        <div style="margin-top: 1rem;">
+            <strong>External Total Display:</strong>
+            <span id="externalTotal" style="color: #2a9d8f; font-size: 1.2rem;">$0.00</span>
+        </div>
+    </div>
+
+    <h2>Summary</h2>
+
+    <p>
+        These examples demonstrate how VDX components behave like native HTML elements
+        while providing React-like reactivity. Key integration points:
+    </p>
+
+    <table class="data-table">
+        <tr>
+            <th>Feature</th>
+            <th>How to Use</th>
+        </tr>
+        <tr>
+            <td>Update attributes</td>
+            <td><code>element.setAttribute('name', 'value')</code></td>
+        </tr>
+        <tr>
+            <td>Listen to events</td>
+            <td><code>element.addEventListener('custom-event', handler)</code></td>
+        </tr>
+        <tr>
+            <td>Pass rich data</td>
+            <td><code>element.setData({ items: [...], config: {...} })</code></td>
+        </tr>
+        <tr>
+            <td>Read component state</td>
+            <td><code>element.getState()</code> or <code>element.state</code></td>
+        </tr>
+    </table>
+
+    <footer class="article-footer">
+        <p>
+            This demo uses the VDX framework bundle. No build step required.
+            <a href="index.html">Back to demos</a>
+        </p>
+    </footer>
+</article>
+
+<!-- Framework and component definitions -->
+<script type="module">
+    import { defineComponent, html, when, each } from '../dist/framework.js';
+
+    // =========================================================================
+    // COMPONENT 1: Unit Converter (Gallons/Liters)
+    // =========================================================================
+    defineComponent('unit-converter', {
+        props: {
+            fromUnit: 'gallons',
+            toUnit: 'liters',
+            initialValue: 1
+        },
+
+        data() {
+            return {
+                inputValue: 1,
+                reversed: false
+            };
+        },
+
+        mounted() {
+            this.state.inputValue = parseFloat(this.props.initialValue) || 1;
+        },
+
+        methods: {
+            convert(value, from, to) {
+                // Conversion factors to liters
+                const toLiters = {
+                    'gallons': 3.78541,
+                    'liters': 1,
+                    'quarts': 0.946353,
+                    'pints': 0.473176
+                };
+                const liters = value * toLiters[from];
+                return liters / toLiters[to];
+            },
+
+            getResult() {
+                const from = this.state.reversed ? this.props.toUnit : this.props.fromUnit;
+                const to = this.state.reversed ? this.props.fromUnit : this.props.toUnit;
+                return this.convert(this.state.inputValue, from, to).toFixed(4);
+            },
+
+            swap() {
+                this.state.reversed = !this.state.reversed;
+            }
+        },
+
+        template() {
+            const fromLabel = this.state.reversed ? this.props.toUnit : this.props.fromUnit;
+            const toLabel = this.state.reversed ? this.props.fromUnit : this.props.toUnit;
+
+            return html`
+                <div class="converter">
+                    <div class="converter-row">
+                        <input type="number"
+                               x-model="inputValue"
+                               step="0.1"
+                               min="0"
+                               class="converter-input">
+                        <span class="converter-unit">${fromLabel}</span>
+                        <button on-click="swap" class="swap-btn" title="Swap units">⇄</button>
+                        <span class="converter-equals">=</span>
+                        <span class="converter-result">${this.getResult()}</span>
+                        <span class="converter-unit">${toLabel}</span>
+                    </div>
+                </div>
+            `;
+        },
+
+        styles: /*css*/`
+            .converter {
+                font-family: system-ui, sans-serif;
+            }
+            .converter-row {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .converter-input {
+                width: 100px;
+                padding: 10px;
+                font-size: 1.1rem;
+                border: 2px solid #ddd;
+                border-radius: 6px;
+                text-align: right;
+            }
+            .converter-input:focus {
+                outline: none;
+                border-color: #2a9d8f;
+            }
+            .converter-unit {
+                color: #666;
+                min-width: 60px;
+            }
+            .swap-btn {
+                background: #264653;
+                color: white;
+                border: none;
+                padding: 10px 16px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 1.2rem;
+            }
+            .swap-btn:hover {
+                background: #1d3a47;
+            }
+            .converter-equals {
+                font-size: 1.5rem;
+                color: #999;
+            }
+            .converter-result {
+                font-size: 1.3rem;
+                font-weight: bold;
+                color: #2a9d8f;
+                min-width: 100px;
+            }
+        `
+    });
+
+    // =========================================================================
+    // COMPONENT 2: Temperature Converter
+    // =========================================================================
+    defineComponent('temp-converter', {
+        props: {
+            initialFahrenheit: 68
+        },
+
+        data() {
+            return {
+                fahrenheit: 68
+            };
+        },
+
+        mounted() {
+            this.state.fahrenheit = parseFloat(this.props.initialFahrenheit) || 68;
+        },
+
+        methods: {
+            toCelsius() {
+                return ((this.state.fahrenheit - 32) * 5 / 9).toFixed(1);
+            },
+
+            getFeeling() {
+                const f = this.state.fahrenheit;
+                if (f < 32) return { emoji: '🥶', text: 'Freezing!' };
+                if (f < 50) return { emoji: '🧥', text: 'Cold' };
+                if (f < 68) return { emoji: '😊', text: 'Cool' };
+                if (f < 80) return { emoji: '😎', text: 'Comfortable' };
+                if (f < 90) return { emoji: '🥵', text: 'Warm' };
+                return { emoji: '🔥', text: 'Hot!' };
+            }
+        },
+
+        template() {
+            const feeling = this.getFeeling();
+            return html`
+                <div class="temp-converter">
+                    <div class="temp-display">
+                        <div class="temp-emoji">${feeling.emoji}</div>
+                        <div class="temp-values">
+                            <div class="temp-f">${this.state.fahrenheit}°F</div>
+                            <div class="temp-c">${this.toCelsius()}°C</div>
+                        </div>
+                        <div class="temp-feeling">${feeling.text}</div>
+                    </div>
+                    <input type="range"
+                           x-model="fahrenheit"
+                           min="-20"
+                           max="120"
+                           class="temp-slider">
+                    <div class="temp-labels">
+                        <span>-20°F</span>
+                        <span>120°F</span>
+                    </div>
+                </div>
+            `;
+        },
+
+        styles: /*css*/`
+            .temp-converter {
+                font-family: system-ui, sans-serif;
+                text-align: center;
+            }
+            .temp-display {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 20px;
+                margin-bottom: 1rem;
+            }
+            .temp-emoji {
+                font-size: 3rem;
+            }
+            .temp-values {
+                text-align: left;
+            }
+            .temp-f {
+                font-size: 2rem;
+                font-weight: bold;
+                color: #e76f51;
+            }
+            .temp-c {
+                font-size: 1.5rem;
+                color: #2a9d8f;
+            }
+            .temp-feeling {
+                font-size: 1.2rem;
+                color: #666;
+                min-width: 100px;
+            }
+            .temp-slider {
+                width: 100%;
+                height: 8px;
+                -webkit-appearance: none;
+                background: linear-gradient(to right, #3b82f6, #22c55e, #eab308, #ef4444);
+                border-radius: 4px;
+                outline: none;
+            }
+            .temp-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                width: 24px;
+                height: 24px;
+                background: white;
+                border: 3px solid #264653;
+                border-radius: 50%;
+                cursor: pointer;
+            }
+            .temp-labels {
+                display: flex;
+                justify-content: space-between;
+                color: #999;
+                font-size: 0.8rem;
+                margin-top: 0.5rem;
+            }
+        `
+    });
+
+    // =========================================================================
+    // COMPONENT 3: Greeting Card (Attribute reactive)
+    // =========================================================================
+    defineComponent('greeting-card', {
+        props: {
+            name: 'World',
+            color: 'blue'
+        },
+
+        data() {
+            return {
+                animating: false
+            };
+        },
+
+        propsChanged(prop, newValue, oldValue) {
+            // Trigger animation when props change
+            this.state.animating = true;
+            setTimeout(() => {
+                this.state.animating = false;
+            }, 300);
+        },
+
+        methods: {
+            getColorStyle() {
+                const colors = {
+                    blue: '#3b82f6',
+                    red: '#ef4444',
+                    green: '#22c55e',
+                    purple: '#8b5cf6'
+                };
+                return colors[this.props.color] || colors.blue;
+            }
+        },
+
+        template() {
+            const bgColor = this.getColorStyle();
+            return html`
+                <div class="greeting ${this.state.animating ? 'animate' : ''}"
+                     style="background: ${bgColor}">
+                    <div class="greeting-wave">👋</div>
+                    <div class="greeting-text">Hello, ${this.props.name}!</div>
+                    <div class="greeting-meta">Color: ${this.props.color}</div>
+                </div>
+            `;
+        },
+
+        styles: /*css*/`
+            .greeting {
+                padding: 24px;
+                border-radius: 12px;
+                color: white;
+                text-align: center;
+                font-family: system-ui, sans-serif;
+                transition: all 0.3s ease;
+            }
+            .greeting.animate {
+                transform: scale(1.02);
+            }
+            .greeting-wave {
+                font-size: 3rem;
+                margin-bottom: 0.5rem;
+            }
+            .greeting-text {
+                font-size: 1.5rem;
+                font-weight: bold;
+            }
+            .greeting-meta {
+                margin-top: 0.5rem;
+                opacity: 0.8;
+                font-size: 0.9rem;
+            }
+        `
+    });
+
+    // =========================================================================
+    // COMPONENT 4: Event Counter (Emits custom events)
+    // =========================================================================
+    defineComponent('event-counter', {
+        data() {
+            return {
+                count: 0
+            };
+        },
+
+        methods: {
+            increment() {
+                this.state.count++;
+                this.emitEvent('count-changed', { count: this.state.count, action: 'increment' });
+            },
+
+            decrement() {
+                this.state.count--;
+                this.emitEvent('count-changed', { count: this.state.count, action: 'decrement' });
+            },
+
+            reset() {
+                const oldCount = this.state.count;
+                this.state.count = 0;
+                this.emitEvent('count-reset', { previousCount: oldCount });
+            },
+
+            emitEvent(name, detail) {
+                this.dispatchEvent(new CustomEvent(name, {
+                    bubbles: true,
+                    detail
+                }));
+            }
+        },
+
+        template() {
+            return html`
+                <div class="counter">
+                    <div class="counter-display">${this.state.count}</div>
+                    <div class="counter-buttons">
+                        <button on-click="decrement" class="btn-dec">-</button>
+                        <button on-click="reset" class="btn-reset">Reset</button>
+                        <button on-click="increment" class="btn-inc">+</button>
+                    </div>
+                </div>
+            `;
+        },
+
+        styles: /*css*/`
+            .counter {
+                font-family: system-ui, sans-serif;
+                text-align: center;
+            }
+            .counter-display {
+                font-size: 4rem;
+                font-weight: bold;
+                color: #264653;
+                margin-bottom: 1rem;
+            }
+            .counter-buttons {
+                display: flex;
+                gap: 12px;
+                justify-content: center;
+            }
+            .counter-buttons button {
+                padding: 12px 24px;
+                font-size: 1.2rem;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: transform 0.1s;
+            }
+            .counter-buttons button:active {
+                transform: scale(0.95);
+            }
+            .btn-dec {
+                background: #ef4444;
+                color: white;
+            }
+            .btn-inc {
+                background: #22c55e;
+                color: white;
+            }
+            .btn-reset {
+                background: #94a3b8;
+                color: white;
+            }
+        `
+    });
+
+    // =========================================================================
+    // COMPONENT 5: Country List (Rich data via setData)
+    // =========================================================================
+    defineComponent('country-list', {
+        data() {
+            return {
+                countries: [],
+                title: 'Countries'
+            };
+        },
+
+        // Expose setData method for external JavaScript
+        mounted() {
+            this.setData = (data) => {
+                if (data.countries) this.state.countries = data.countries;
+                if (data.title) this.state.title = data.title;
+            };
+
+            this.addCountry = (country) => {
+                this.state.countries = [...this.state.countries, country];
+            };
+        },
+
+        template() {
+            return html`
+                <div class="country-list">
+                    <h3 class="country-title">${this.state.title}</h3>
+                    ${when(this.state.countries.length === 0,
+                        html`<p class="country-empty">No countries loaded. Use the buttons below.</p>`,
+                        html`
+                            <ul class="country-items">
+                                ${each(this.state.countries, country => html`
+                                    <li class="country-item">
+                                        <span class="country-flag">${country.flag}</span>
+                                        <span class="country-name">${country.name}</span>
+                                        <span class="country-capital">${country.capital}</span>
+                                    </li>
+                                `)}
+                            </ul>
+                        `
+                    )}
+                    <div class="country-count">
+                        ${this.state.countries.length} countries loaded
+                    </div>
+                </div>
+            `;
+        },
+
+        styles: /*css*/`
+            .country-list {
+                font-family: system-ui, sans-serif;
+            }
+            .country-title {
+                margin: 0 0 1rem 0;
+                color: #264653;
+            }
+            .country-empty {
+                color: #666;
+                font-style: italic;
+            }
+            .country-items {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+            .country-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px;
+                border-bottom: 1px solid #eee;
+            }
+            .country-item:last-child {
+                border-bottom: none;
+            }
+            .country-flag {
+                font-size: 1.5rem;
+            }
+            .country-name {
+                font-weight: 600;
+                flex: 1;
+            }
+            .country-capital {
+                color: #666;
+                font-size: 0.9rem;
+            }
+            .country-count {
+                margin-top: 1rem;
+                padding-top: 1rem;
+                border-top: 1px solid #eee;
+                color: #999;
+                font-size: 0.85rem;
+            }
+        `
+    });
+
+    // =========================================================================
+    // COMPONENT 6: Shopping Cart (Two-way external binding)
+    // =========================================================================
+    defineComponent('shopping-cart', {
+        data() {
+            return {
+                items: []
+            };
+        },
+
+        mounted() {
+            // Expose methods for external JavaScript
+            this.addItem = (name, price) => {
+                this.state.items = [...this.state.items, {
+                    id: Date.now(),
+                    name,
+                    price
+                }];
+                this.notifyChange();
+            };
+
+            this.clearCart = () => {
+                this.state.items = [];
+                this.notifyChange();
+            };
+
+            this.getTotal = () => {
+                return this.state.items.reduce((sum, item) => sum + item.price, 0);
+            };
+
+            this.getState = () => ({
+                items: [...this.state.items],
+                total: this.getTotal()
+            });
+        },
+
+        methods: {
+            removeItem(id) {
+                this.state.items = this.state.items.filter(item => item.id !== id);
+                this.notifyChange();
+            },
+
+            notifyChange() {
+                this.dispatchEvent(new CustomEvent('cart-updated', {
+                    bubbles: true,
+                    detail: { total: this.getTotal(), itemCount: this.state.items.length }
+                }));
+            },
+
+            formatPrice(price) {
+                return '$' + price.toFixed(2);
+            }
+        },
+
+        template() {
+            const total = this.state.items.reduce((sum, item) => sum + item.price, 0);
+
+            return html`
+                <div class="cart">
+                    <div class="cart-header">
+                        <span class="cart-icon">🛒</span>
+                        <span class="cart-badge">${this.state.items.length}</span>
+                    </div>
+                    ${when(this.state.items.length === 0,
+                        html`<p class="cart-empty">Your cart is empty</p>`,
+                        html`
+                            <ul class="cart-items">
+                                ${each(this.state.items, item => html`
+                                    <li class="cart-item">
+                                        <span class="cart-item-name">${item.name}</span>
+                                        <span class="cart-item-price">${this.formatPrice(item.price)}</span>
+                                        <button class="cart-item-remove"
+                                                on-click="${() => this.removeItem(item.id)}">×</button>
+                                    </li>
+                                `)}
+                            </ul>
+                            <div class="cart-total">
+                                <span>Total:</span>
+                                <span class="cart-total-amount">${this.formatPrice(total)}</span>
+                            </div>
+                        `
+                    )}
+                </div>
+            `;
+        },
+
+        styles: /*css*/`
+            .cart {
+                font-family: system-ui, sans-serif;
+                background: #f8f9fa;
+                border-radius: 8px;
+                padding: 1rem;
+            }
+            .cart-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 1rem;
+            }
+            .cart-icon {
+                font-size: 1.5rem;
+            }
+            .cart-badge {
+                background: #e76f51;
+                color: white;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 0.8rem;
+                font-weight: bold;
+            }
+            .cart-empty {
+                color: #666;
+                font-style: italic;
+                text-align: center;
+                padding: 1rem;
+            }
+            .cart-items {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+            .cart-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 8px 0;
+                border-bottom: 1px solid #eee;
+            }
+            .cart-item-name {
+                flex: 1;
+            }
+            .cart-item-price {
+                color: #2a9d8f;
+                font-weight: 600;
+            }
+            .cart-item-remove {
+                background: #ef4444;
+                color: white;
+                border: none;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 1rem;
+                line-height: 1;
+            }
+            .cart-total {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 1rem;
+                padding-top: 1rem;
+                border-top: 2px solid #264653;
+                font-weight: bold;
+            }
+            .cart-total-amount {
+                color: #2a9d8f;
+                font-size: 1.2rem;
+            }
+        `
+    });
+
+    // Make components globally accessible (optional, for demo purposes)
+    window.components = {
+        greetingCard: () => document.querySelector('greeting-card'),
+        counter: () => document.getElementById('myCounter'),
+        countryList: () => document.getElementById('countryList'),
+        shoppingCart: () => document.getElementById('shoppingCart')
+    };
+</script>
+
+<!-- Vanilla JavaScript that interacts with the components -->
+<script>
+    // =========================================================================
+    // VANILLA JS: Attribute manipulation
+    // =========================================================================
+    function setGreetingName(name) {
+        document.querySelector('greeting-card').setAttribute('name', name);
+    }
+
+    function setGreetingColor(color) {
+        document.querySelector('greeting-card').setAttribute('color', color);
+    }
+
+    // =========================================================================
+    // VANILLA JS: Event listeners
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', () => {
+        const counter = document.getElementById('myCounter');
+        const eventLog = document.getElementById('eventLog');
+
+        function logEvent(message) {
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'event-log-entry';
+            entry.innerHTML = `<span class="event-log-time">[${time}]</span> ${message}`;
+            eventLog.appendChild(entry);
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+
+        // Listen for custom events from the counter component
+        counter.addEventListener('count-changed', (e) => {
+            logEvent(`Count changed: ${e.detail.count} (${e.detail.action})`);
+        });
+
+        counter.addEventListener('count-reset', (e) => {
+            logEvent(`Counter reset! Previous count was ${e.detail.previousCount}`);
+        });
+
+        // Set up shopping cart listener for external total display
+        const cart = document.getElementById('shoppingCart');
+        cart.addEventListener('cart-updated', (e) => {
+            document.getElementById('externalTotal').textContent =
+                '$' + e.detail.total.toFixed(2);
+        });
+    });
+
+    // =========================================================================
+    // VANILLA JS: Rich data injection
+    // =========================================================================
+    function loadEuropeanCountries() {
+        const countryList = document.getElementById('countryList');
+        countryList.setData({
+            title: 'European Countries',
+            countries: [
+                { flag: '🇫🇷', name: 'France', capital: 'Paris' },
+                { flag: '🇩🇪', name: 'Germany', capital: 'Berlin' },
+                { flag: '🇮🇹', name: 'Italy', capital: 'Rome' },
+                { flag: '🇪🇸', name: 'Spain', capital: 'Madrid' },
+                { flag: '🇳🇱', name: 'Netherlands', capital: 'Amsterdam' }
+            ]
+        });
+    }
+
+    function loadAsianCountries() {
+        const countryList = document.getElementById('countryList');
+        countryList.setData({
+            title: 'Asian Countries',
+            countries: [
+                { flag: '🇯🇵', name: 'Japan', capital: 'Tokyo' },
+                { flag: '🇰🇷', name: 'South Korea', capital: 'Seoul' },
+                { flag: '🇹🇭', name: 'Thailand', capital: 'Bangkok' },
+                { flag: '🇻🇳', name: 'Vietnam', capital: 'Hanoi' }
+            ]
+        });
+    }
+
+    function loadAmericasCountries() {
+        const countryList = document.getElementById('countryList');
+        countryList.setData({
+            title: 'Americas',
+            countries: [
+                { flag: '🇺🇸', name: 'United States', capital: 'Washington D.C.' },
+                { flag: '🇨🇦', name: 'Canada', capital: 'Ottawa' },
+                { flag: '🇲🇽', name: 'Mexico', capital: 'Mexico City' },
+                { flag: '🇧🇷', name: 'Brazil', capital: 'Brasília' },
+                { flag: '🇦🇷', name: 'Argentina', capital: 'Buenos Aires' }
+            ]
+        });
+    }
+
+    function addRandomCountry() {
+        const countryList = document.getElementById('countryList');
+        const randomCountries = [
+            { flag: '🇦🇺', name: 'Australia', capital: 'Canberra' },
+            { flag: '🇳🇿', name: 'New Zealand', capital: 'Wellington' },
+            { flag: '🇿🇦', name: 'South Africa', capital: 'Pretoria' },
+            { flag: '🇪🇬', name: 'Egypt', capital: 'Cairo' },
+            { flag: '🇳🇬', name: 'Nigeria', capital: 'Abuja' },
+            { flag: '🇮🇳', name: 'India', capital: 'New Delhi' },
+            { flag: '🇷🇺', name: 'Russia', capital: 'Moscow' },
+            { flag: '🇵🇱', name: 'Poland', capital: 'Warsaw' }
+        ];
+        const country = randomCountries[Math.floor(Math.random() * randomCountries.length)];
+        countryList.addCountry(country);
+    }
+
+    // =========================================================================
+    // VANILLA JS: Shopping cart interaction
+    // =========================================================================
+    function addToCartExternal(name, price) {
+        const cart = document.getElementById('shoppingCart');
+        cart.addItem(name, price);
+    }
+
+    function clearCartExternal() {
+        const cart = document.getElementById('shoppingCart');
+        cart.clearCart();
+    }
+
+    function readCartTotal() {
+        const cart = document.getElementById('shoppingCart');
+        const state = cart.getState();
+        alert(`Cart has ${state.items.length} items\nTotal: $${state.total.toFixed(2)}`);
+    }
+</script>
+
+</body>
+</html>
