@@ -121,7 +121,7 @@ export default defineComponent('webgrep-page', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .webgrep {
             display: flex;
             flex-direction: column;

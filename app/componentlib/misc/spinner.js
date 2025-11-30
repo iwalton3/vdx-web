@@ -45,7 +45,7 @@ export default defineComponent('cl-spinner', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: inline-block;
         }

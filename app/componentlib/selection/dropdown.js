@@ -133,7 +133,7 @@ export default defineComponent('cl-dropdown', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

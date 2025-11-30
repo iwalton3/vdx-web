@@ -410,7 +410,7 @@ export default defineComponent('spwg-page', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .spwg {
             max-width: 700px;
         }

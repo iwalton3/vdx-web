@@ -141,7 +141,7 @@ export default defineComponent('shop-app', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
             height: 100vh;

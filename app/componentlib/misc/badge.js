@@ -51,7 +51,7 @@ export default defineComponent('cl-badge', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: inline-block;
         }

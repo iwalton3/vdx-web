@@ -79,7 +79,7 @@ export default defineComponent('cl-accordion', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

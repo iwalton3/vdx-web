@@ -44,7 +44,7 @@ export default defineComponent('cl-tooltip', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: inline-block;
         }

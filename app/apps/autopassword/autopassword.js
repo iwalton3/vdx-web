@@ -139,7 +139,7 @@ export default defineComponent('autopassword-page', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .autopassword {
             max-width: 600px;
         }

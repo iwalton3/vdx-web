@@ -48,7 +48,7 @@ export default defineComponent('cl-sidebar', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: contents;
         }

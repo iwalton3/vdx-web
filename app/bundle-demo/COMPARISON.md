@@ -288,7 +288,7 @@ defineComponent('settings-modal', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .modal-container {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -413,7 +413,7 @@ document.head.appendChild(style)  // Global CSS!
 
 **Framework:**
 ```javascript
-styles: `
+styles: /*css*/`
     .tooltip { ... }  // Automatically scoped to component
 `
 ```

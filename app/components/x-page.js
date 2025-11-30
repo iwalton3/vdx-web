@@ -9,7 +9,7 @@ export default defineComponent('x-page', {
         return html`${this.props.children}`;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
             margin: 0 auto;

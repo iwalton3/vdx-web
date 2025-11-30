@@ -125,7 +125,7 @@ export default defineComponent('api-demo', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

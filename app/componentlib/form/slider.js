@@ -83,7 +83,7 @@ export default defineComponent('cl-slider', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

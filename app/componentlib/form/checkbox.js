@@ -54,7 +54,7 @@ export default defineComponent('cl-checkbox', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: inline-block;
         }

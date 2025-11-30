@@ -534,7 +534,7 @@ export default defineComponent('cl-calendar', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

@@ -101,7 +101,7 @@ export default defineComponent('list-demo', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

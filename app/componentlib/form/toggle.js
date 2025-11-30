@@ -87,7 +87,7 @@ export default defineComponent('cl-toggle', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: inline-block;
         }

@@ -263,7 +263,7 @@ export default defineComponent('shop-product-detail', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .product-detail-page {
             max-width: 1200px;
             margin: 0 auto;

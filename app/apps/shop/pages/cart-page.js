@@ -177,7 +177,7 @@ export default defineComponent('shop-cart-page', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .cart-page {
             max-width: 1200px;
             margin: 0 auto;

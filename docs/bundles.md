@@ -129,7 +129,7 @@ Utility functions for common tasks:
                 `;
             },
 
-            styles: `
+            styles: /*css*/`
                 div {
                     padding: 20px;
                     border: 1px solid #ccc;

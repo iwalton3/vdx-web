@@ -62,7 +62,7 @@ export default defineComponent('cl-dialog', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: contents;
         }

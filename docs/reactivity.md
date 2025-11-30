@@ -457,7 +457,7 @@ methods: {
 
 **In component styles:**
 ```javascript
-styles: `
+styles: /*css*/`
     :host-context(body.dark) .element {
         background: #333;
         color: #ccc;

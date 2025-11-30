@@ -63,7 +63,7 @@ export default defineComponent('cl-button', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: inline-block;
         }

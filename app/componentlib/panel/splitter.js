@@ -89,7 +89,7 @@ export default defineComponent('cl-splitter', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
             height: 400px;

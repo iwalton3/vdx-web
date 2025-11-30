@@ -91,7 +91,7 @@ export default defineComponent('notification-demo', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

@@ -101,7 +101,7 @@ export default defineComponent('my-component', {
     },
 
     // Scoped styles
-    styles: `
+    styles: /*css*/`
         button {
             background: #007bff;
             color: white;
@@ -322,7 +322,7 @@ template() {
         </div>
     `;
 },
-styles: `
+styles: /*css*/`
     .hidden { display: none; }
 `
 

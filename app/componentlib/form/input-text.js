@@ -124,7 +124,7 @@ export default defineComponent('cl-input-text', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

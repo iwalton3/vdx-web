@@ -161,7 +161,7 @@ export default defineComponent('cl-shell', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
             height: 100vh;

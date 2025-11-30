@@ -101,7 +101,7 @@ export default defineComponent('form-demo', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

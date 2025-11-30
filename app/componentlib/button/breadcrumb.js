@@ -72,7 +72,7 @@ export default defineComponent('cl-breadcrumb', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

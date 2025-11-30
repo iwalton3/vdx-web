@@ -143,7 +143,7 @@ export default defineComponent('cl-chips', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

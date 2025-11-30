@@ -29,7 +29,7 @@ export default defineComponent('x-select-box', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         select {
             font-family: inherit;
             font-size: 14px;

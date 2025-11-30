@@ -77,7 +77,7 @@ export default defineComponent('cl-split-button', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: inline-block;
         }

@@ -165,7 +165,7 @@ export default defineComponent('cl-multiselect', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

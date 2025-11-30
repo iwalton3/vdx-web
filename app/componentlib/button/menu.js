@@ -87,7 +87,7 @@ export default defineComponent('cl-menu', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

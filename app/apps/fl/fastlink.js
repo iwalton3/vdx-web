@@ -164,7 +164,7 @@ export default defineComponent('fastlink-page', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .fastlink {
             max-width: 600px;
         }

@@ -49,7 +49,7 @@ export default defineComponent('cl-tabview', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

@@ -116,7 +116,7 @@ export default defineComponent('cl-paginator', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

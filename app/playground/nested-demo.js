@@ -28,7 +28,7 @@ defineComponent('user-card', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: flex;
             justify-content: space-between;
@@ -119,7 +119,7 @@ export default defineComponent('nested-demo', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

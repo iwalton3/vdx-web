@@ -33,7 +33,7 @@ export default defineComponent('cl-progressbar', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

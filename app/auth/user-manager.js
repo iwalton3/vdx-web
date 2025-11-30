@@ -76,7 +76,7 @@ export default defineComponent('user-manager', {
         }
     },
 
-    styles: `
+    styles: /*css*/`
         table {
             width: 100%;
             border-collapse: collapse;

@@ -34,7 +34,7 @@ export default defineComponent('remote-button', {
         }
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: inline-block;
         }

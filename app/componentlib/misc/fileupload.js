@@ -121,7 +121,7 @@ export default defineComponent('cl-fileupload', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

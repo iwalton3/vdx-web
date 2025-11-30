@@ -29,7 +29,7 @@ export default defineComponent('remote-control', {
         }
     },
 
-    styles: `
+    styles: /*css*/`
         .section {
             margin-bottom: 3px;
             margin-top: 12px;

@@ -227,7 +227,7 @@ export default defineComponent('component-showcase', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
             height: 100vh;

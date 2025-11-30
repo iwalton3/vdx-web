@@ -69,7 +69,7 @@ export default defineComponent('cl-alert', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

@@ -190,7 +190,7 @@ export default defineComponent('computed-demo', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

@@ -430,7 +430,7 @@ export default defineComponent('cl-input-mask', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

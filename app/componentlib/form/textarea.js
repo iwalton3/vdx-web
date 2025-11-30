@@ -72,7 +72,7 @@ export default defineComponent('cl-textarea', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

@@ -75,7 +75,7 @@ export default defineComponent('my-component', {
     },
 
     // Scoped styles (using component tag name prefix)
-    styles: `
+    styles: /*css*/`
         .container {
             padding: 20px;
         }
@@ -443,7 +443,7 @@ template() {
         </div>
     `;
 },
-styles: `
+styles: /*css*/`
     .hidden { display: none; }
 `
 
@@ -730,7 +730,7 @@ defineComponent('my-button', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         /* Scoped to my-button */
         .primary {
             background: #007bff;

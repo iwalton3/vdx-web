@@ -273,7 +273,7 @@ defineComponent('settings-modal', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         /* Component-specific styles can go here */
     `
 });

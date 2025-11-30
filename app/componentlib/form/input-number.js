@@ -84,7 +84,7 @@ export default defineComponent('cl-input-number', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

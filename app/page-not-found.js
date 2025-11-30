@@ -14,7 +14,7 @@ export default defineComponent('page-not-found', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .container {
             text-align: center;
             padding: 60px 20px;

@@ -47,7 +47,7 @@ export default defineComponent('cl-fieldset', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

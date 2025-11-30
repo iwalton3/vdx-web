@@ -89,7 +89,7 @@ export default defineComponent('conditional-demo', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

@@ -112,7 +112,7 @@ export default defineComponent('cl-autocomplete', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

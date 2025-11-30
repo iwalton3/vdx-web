@@ -112,7 +112,7 @@ defineComponent('test-tab-panel', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .hidden {
             display: none;
         }

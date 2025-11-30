@@ -273,7 +273,7 @@ export default defineComponent('cl-stepper', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

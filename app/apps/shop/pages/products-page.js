@@ -373,7 +373,7 @@ export default defineComponent('shop-products-page', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .products-page {
             max-width: 1400px;
             margin: 0 auto;

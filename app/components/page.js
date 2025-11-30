@@ -31,7 +31,7 @@ export default defineComponent('page-wrapper', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
             margin: 0 auto;

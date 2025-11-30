@@ -236,7 +236,7 @@ export default defineComponent('cl-virtual-list', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
             overflow-y: auto;

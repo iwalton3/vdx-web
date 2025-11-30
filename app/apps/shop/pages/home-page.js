@@ -142,7 +142,7 @@ export default defineComponent('shop-home-page', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .home-page {
             max-width: 1400px;
             margin: 0 auto;

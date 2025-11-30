@@ -240,7 +240,7 @@ export default defineComponent('cl-input-search', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

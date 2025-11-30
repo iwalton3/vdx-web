@@ -763,7 +763,7 @@ export default defineComponent('qnote-page', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .qnote {
             display: flex;
             flex-direction: column;

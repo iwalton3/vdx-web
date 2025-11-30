@@ -126,7 +126,7 @@ export default defineComponent('cl-tree', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

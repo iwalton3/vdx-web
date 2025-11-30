@@ -52,7 +52,7 @@ export default defineComponent('counter-demo', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

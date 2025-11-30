@@ -121,7 +121,7 @@ export default defineComponent('virtual-scroll-demo', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

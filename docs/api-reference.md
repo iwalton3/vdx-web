@@ -50,7 +50,7 @@ Define a custom element component.
     afterRender() { },  // Called after each render (use sparingly)
 
     // Scoped styles
-    styles: `...`
+    styles: /*css*/`...`
 }
 ```
 
@@ -85,7 +85,7 @@ export default defineComponent('my-component', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         div {
             padding: 20px;
         }

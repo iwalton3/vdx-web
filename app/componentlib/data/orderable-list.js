@@ -137,7 +137,7 @@ export default defineComponent('cl-orderable-list', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

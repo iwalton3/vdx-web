@@ -88,7 +88,7 @@ export default defineComponent('v1-page', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .v1 {
             max-width: 600px;
         }

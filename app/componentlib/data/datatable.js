@@ -189,7 +189,7 @@ export default defineComponent('cl-datatable', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

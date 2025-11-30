@@ -217,7 +217,7 @@ export default defineComponent('apwg-page', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .apwg {
             max-width: 700px;
         }

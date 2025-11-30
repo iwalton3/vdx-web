@@ -243,7 +243,7 @@ export default defineComponent('cl-input-password', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

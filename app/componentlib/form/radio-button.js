@@ -42,7 +42,7 @@ export default defineComponent('cl-radio-button', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: inline-block;
         }

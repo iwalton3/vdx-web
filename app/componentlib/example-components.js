@@ -1129,7 +1129,7 @@ defineComponent('example-complete-form', {
             </cl-card>
         `;
     },
-    styles: `
+    styles: /*css*/`
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;

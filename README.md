@@ -36,6 +36,28 @@ Then open: **http://localhost:9000/**
 
 That's it! No `npm install`, no build process, no dependencies to install.
 
+## VS Code Setup (Optional)
+
+For CSS and HTML syntax highlighting in components, install [es6-string-html](https://marketplace.visualstudio.com/items?itemName=Tobermory.es6-string-html).
+
+Ctrl+P, then:
+```
+ext install Tobermory.es6-string-html
+```
+
+You need to use a `/*css*/` comment in your styles like this to get highlighting:
+
+```javascript
+styles: /*css*/`
+    :host {
+        display: block;
+    }
+    .button {
+        background: #007bff;
+    }
+`
+```
+
 ## Hello World
 
 ```html

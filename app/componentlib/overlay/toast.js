@@ -75,7 +75,7 @@ export default defineComponent('cl-toast', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: contents;
         }

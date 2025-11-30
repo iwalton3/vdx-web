@@ -134,7 +134,7 @@ export default defineComponent('virtual-list', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
             overflow-y: auto;

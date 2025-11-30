@@ -40,7 +40,7 @@ export default defineComponent('cl-card', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

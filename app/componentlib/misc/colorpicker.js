@@ -112,7 +112,7 @@ export default defineComponent('cl-colorpicker', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         :host {
             display: block;
         }

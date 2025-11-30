@@ -455,7 +455,7 @@ export default defineComponent('shop-checkout-page', {
         `;
     },
 
-    styles: `
+    styles: /*css*/`
         .checkout-page {
             max-width: 1100px;
             margin: 0 auto;
