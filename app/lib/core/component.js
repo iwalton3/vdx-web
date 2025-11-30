@@ -613,7 +613,8 @@ export function defineComponent(name, options) {
             const jsonAttrsToRemove = [];
             for (const attr of this.attributes) {
                 if (attr.name.startsWith('json-')) {
-                    const propName = attr.name.slice(5); // Remove 'json-' prefix
+                    // Extract prop name by removing 'json-' prefix and converting to camelCase
+                    const propName = attr.name.slice(5).replace(/-([a-z])/g, g => g[1].toUpperCase());
                     const scriptId = attr.value;
                     const scriptEl = document.getElementById(scriptId);
 
@@ -625,7 +626,12 @@ export function defineComponent(name, options) {
                             console.warn(`[${this.tagName}] Failed to parse JSON from #${scriptId} for prop "${propName}":`, e.message);
                         }
                     } else if (!scriptEl) {
-                        console.warn(`[${this.tagName}] json-${propName} references missing element #${scriptId}`);
+                        try {
+                            const jsonData = JSON.parse(scriptId);
+                            this.props[propName] = jsonData;
+                        } catch (e) {
+                            console.warn(`[${this.tagName}] Could not find #${scriptId} or parse as JSON for prop "${propName}":`, e.message);
+                        }
                     } else {
                         console.warn(`[${this.tagName}] json-${propName} references #${scriptId} which is not type="application/json"`);
                     }

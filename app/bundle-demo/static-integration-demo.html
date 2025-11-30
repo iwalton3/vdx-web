@@ -309,8 +309,9 @@
 
     <p>
         For static site generators (Hugo, Jekyll, Eleventy, etc.), you can pass complex data
-        to components using <code>json-*</code> attributes that reference <code>&lt;script type="application/json"&gt;</code>
-        elements. This avoids HTML escaping issues and keeps data readable:
+        to components using <code>json-*</code> attributes that either contain JSON or reference
+        <code>&lt;script type="application/json"&gt;</code> elements.
+        The latter avoids HTML escaping issues and keeps data readable:
     </p>
 
     <div class="demo-section">

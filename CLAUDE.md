@@ -579,7 +579,7 @@ template() {
 ### ❌ Don't stringify objects for custom components
 
 ```javascript
-// ❌ WRONG - Framework does it automatically
+// ❌ WRONG - Framework passes by reference
 <x-select-box options="${JSON.stringify(this.state.options)}">
 
 // ✅ CORRECT - Just pass the object
