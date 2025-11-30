@@ -51,7 +51,9 @@ export default defineComponent('cl-calendar', {
 
         syncValueToState() {
             if (this.props.value && this.props.value !== '') {
-                const date = new Date(this.props.value);
+                // date in local timezone from ISO date e.g. 2023-08-15
+                const utcDate = new Date(this.props.value);
+                const date = new Date(utcDate.getTime() + utcDate.getTimezoneOffset() * 60000);
                 if (!isNaN(date.getTime())) {
                     this.state.selectedDate = date.getTime();
                     this.state.viewDate = date.getTime();
@@ -400,7 +402,6 @@ export default defineComponent('cl-calendar', {
         const months = this.getMonths();
         const years = this.getYears();
         const hasError = !!this.state.inputError;
-
         return html`
             <div class="cl-calendar-wrapper" on-click-outside="closePicker">
                 ${when(this.props.label, html`

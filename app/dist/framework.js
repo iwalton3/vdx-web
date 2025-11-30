@@ -1,7 +1,7 @@
 /**
  * VDX-Web Framework Bundle
  * https://github.com/iwalton3/vdx-web
- * Generated: 2025-11-30T02:23:56.978Z
+ * Generated: 2025-11-30T04:35:52.867Z
  *
  * Includes Preact (https://preactjs.com/)
  * Copyright (c) 2015-present Jason Miller
@@ -649,7 +649,7 @@ function diff(
 
 				if (isClassComponent) {
 
-					newVNode._component = c = new newType(newProps, componentContext); 
+					newVNode._component = c = new newType(newProps, componentContext);
 				} else {
 
 					newVNode._component = c = new BaseComponent(
@@ -1737,7 +1737,7 @@ function trackAllDependencies(obj, visited = new Set()) {
         const keys = Object.keys(obj);
         for (const key of keys) {
             try {
-                const value = obj[key];  
+                const value = obj[key];
 
                 if (typeof value === 'object' && value !== null) {
                     trackAllDependencies(value, visited);
@@ -1839,7 +1839,7 @@ function html(strings, ...values) {
         _compiled: compiled,
         _values: values,
         toString() {
-            return '';  
+            return '';
         }
     };
 }
@@ -1931,7 +1931,7 @@ function each(array, mapFn, keyFn = null) {
             if (!r || !r._compiled) return null;
 
             const child = r._compiled;
-            const childValues = r._values;  
+            const childValues = r._values;
 
             if (child.type === 'text' && child.value && /^\s*$/.test(child.value)) {
                 return null;
@@ -3275,6 +3275,8 @@ function parseXMLToTree(xmlString) {
                           'autofocus', 'required', 'autoplay', 'controls', 'loop', 'muted',
                           'default', 'open', 'reversed', 'scoped', 'seamless', 'sortable',
                           'novalidate', 'formnovalidate', 'itemscope'];
+
+    xmlString = xmlString.replace('\n', ' ').replace(/>\s+</g, '><').trim();
 
     xmlString = xmlString.replace(tagPattern, (fullMatch, tagName, attrs) => {
         if (fullMatch.startsWith('</')) return fullMatch;

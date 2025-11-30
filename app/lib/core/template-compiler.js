@@ -794,6 +794,9 @@ function parseXMLToTree(xmlString) {
                           'default', 'open', 'reversed', 'scoped', 'seamless', 'sortable',
                           'novalidate', 'formnovalidate', 'itemscope'];
 
+    // get rid of all whitespace between tags
+    xmlString = xmlString.replace('\n', ' ').replace(/>\s+</g, '><').trim();
+
     xmlString = xmlString.replace(tagPattern, (fullMatch, tagName, attrs) => {
         if (fullMatch.startsWith('</')) return fullMatch;
 
