@@ -284,12 +284,12 @@
         </div>
     </div>
 
-    <h3>3. Passing Rich Data via Component References</h3>
+    <h3>3. Setting Props Directly (Rich Data)</h3>
 
     <p>
-        Web Components traditionally only support string attributes, making it difficult
-        to pass arrays and objects. With VDX, you can grab a reference to any component
-        and set rich properties directly:
+        VDX components expose their props as properties on the DOM element. You can set
+        any prop directly - including arrays, objects, and functions - without needing
+        custom setter methods:
     </p>
 
     <div class="demo-section">
@@ -405,16 +405,16 @@
             <th>How to Use</th>
         </tr>
         <tr>
-            <td>Update attributes</td>
+            <td>Set props directly</td>
+            <td><code>element.propName = value</code> (works with arrays, objects, functions)</td>
+        </tr>
+        <tr>
+            <td>Update string attributes</td>
             <td><code>element.setAttribute('name', 'value')</code></td>
         </tr>
         <tr>
             <td>Listen to events</td>
             <td><code>element.addEventListener('custom-event', handler)</code></td>
-        </tr>
-        <tr>
-            <td>Pass rich data</td>
-            <td><code>element.setData({ items: [...], config: {...} })</code></td>
         </tr>
         <tr>
             <td>Read component state</td>
@@ -880,37 +880,24 @@
     });
 
     // =========================================================================
-    // COMPONENT 5: Country List (Rich data via setData)
+    // COMPONENT 5: Country List (Props set directly from vanilla JS)
     // =========================================================================
     defineComponent('country-list', {
-        data() {
-            return {
-                countries: [],
-                title: 'Countries'
-            };
-        },
-
-        // Expose setData method for external JavaScript
-        mounted() {
-            this.setData = (data) => {
-                if (data.countries) this.state.countries = data.countries;
-                if (data.title) this.state.title = data.title;
-            };
-
-            this.addCountry = (country) => {
-                this.state.countries = [...this.state.countries, country];
-            };
+        // Props can be set directly on the element: element.countries = [...]
+        props: {
+            countries: [],
+            title: 'Countries'
         },
 
         template() {
             return html`
                 <div class="country-list">
-                    <h3 class="country-title">${this.state.title}</h3>
-                    ${when(this.state.countries.length === 0,
+                    <h3 class="country-title">${this.props.title}</h3>
+                    ${when(this.props.countries.length === 0,
                         html`<p class="country-empty">No countries loaded. Use the buttons below.</p>`,
                         html`
                             <ul class="country-items">
-                                ${each(this.state.countries, country => html`
+                                ${each(this.props.countries, country => html`
                                     <li class="country-item">
                                         <span class="country-flag">${country.flag}</span>
                                         <span class="country-name">${country.name}</span>
@@ -921,7 +908,7 @@
                         `
                     )}
                     <div class="country-count">
-                        ${this.state.countries.length} countries loaded
+                        ${this.props.countries.length} countries loaded
                     </div>
                 </div>
             `;
@@ -1274,47 +1261,42 @@
     });
 
     // =========================================================================
-    // VANILLA JS: Rich data injection
+    // VANILLA JS: Setting props directly on components
     // =========================================================================
     function loadEuropeanCountries() {
         const countryList = document.getElementById('countryList');
-        countryList.setData({
-            title: 'European Countries',
-            countries: [
-                { flag: '🇫🇷', name: 'France', capital: 'Paris' },
-                { flag: '🇩🇪', name: 'Germany', capital: 'Berlin' },
-                { flag: '🇮🇹', name: 'Italy', capital: 'Rome' },
-                { flag: '🇪🇸', name: 'Spain', capital: 'Madrid' },
-                { flag: '🇳🇱', name: 'Netherlands', capital: 'Amsterdam' }
-            ]
-        });
+        // Set props directly - no custom methods needed!
+        countryList.title = 'European Countries';
+        countryList.countries = [
+            { flag: '🇫🇷', name: 'France', capital: 'Paris' },
+            { flag: '🇩🇪', name: 'Germany', capital: 'Berlin' },
+            { flag: '🇮🇹', name: 'Italy', capital: 'Rome' },
+            { flag: '🇪🇸', name: 'Spain', capital: 'Madrid' },
+            { flag: '🇳🇱', name: 'Netherlands', capital: 'Amsterdam' }
+        ];
     }
 
     function loadAsianCountries() {
         const countryList = document.getElementById('countryList');
-        countryList.setData({
-            title: 'Asian Countries',
-            countries: [
-                { flag: '🇯🇵', name: 'Japan', capital: 'Tokyo' },
-                { flag: '🇰🇷', name: 'South Korea', capital: 'Seoul' },
-                { flag: '🇹🇭', name: 'Thailand', capital: 'Bangkok' },
-                { flag: '🇻🇳', name: 'Vietnam', capital: 'Hanoi' }
-            ]
-        });
+        countryList.title = 'Asian Countries';
+        countryList.countries = [
+            { flag: '🇯🇵', name: 'Japan', capital: 'Tokyo' },
+            { flag: '🇰🇷', name: 'South Korea', capital: 'Seoul' },
+            { flag: '🇹🇭', name: 'Thailand', capital: 'Bangkok' },
+            { flag: '🇻🇳', name: 'Vietnam', capital: 'Hanoi' }
+        ];
     }
 
     function loadAmericasCountries() {
         const countryList = document.getElementById('countryList');
-        countryList.setData({
-            title: 'Americas',
-            countries: [
-                { flag: '🇺🇸', name: 'United States', capital: 'Washington D.C.' },
-                { flag: '🇨🇦', name: 'Canada', capital: 'Ottawa' },
-                { flag: '🇲🇽', name: 'Mexico', capital: 'Mexico City' },
-                { flag: '🇧🇷', name: 'Brazil', capital: 'Brasília' },
-                { flag: '🇦🇷', name: 'Argentina', capital: 'Buenos Aires' }
-            ]
-        });
+        countryList.title = 'Americas';
+        countryList.countries = [
+            { flag: '🇺🇸', name: 'United States', capital: 'Washington D.C.' },
+            { flag: '🇨🇦', name: 'Canada', capital: 'Ottawa' },
+            { flag: '🇲🇽', name: 'Mexico', capital: 'Mexico City' },
+            { flag: '🇧🇷', name: 'Brazil', capital: 'Brasília' },
+            { flag: '🇦🇷', name: 'Argentina', capital: 'Buenos Aires' }
+        ];
     }
 
     function addRandomCountry() {
@@ -1330,7 +1312,8 @@
             { flag: '🇵🇱', name: 'Poland', capital: 'Warsaw' }
         ];
         const country = randomCountries[Math.floor(Math.random() * randomCountries.length)];
-        countryList.addCountry(country);
+        // Read current countries, add new one, and reassign
+        countryList.countries = [...countryList.countries, country];
     }
 
     // =========================================================================

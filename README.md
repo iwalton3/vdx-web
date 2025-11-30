@@ -31,7 +31,7 @@ Components work like native HTML elements, making them perfect for enhancing sta
 
 - **Vanilla JS event listeners** - Use `addEventListener()` on components like any HTML element
 - **DOM attribute propagation** - `setAttribute()` changes automatically flow into components
-- **Rich data via refs** - Pass arrays/objects directly: `element.setData({ items: [...] })`
+- **Direct prop setting** - Pass arrays/objects/functions directly: `element.items = [...]`
 - **Children props** - Pass HTML content inside component tags, access via `this.props.children`
 - **Nested component hydration** - VDX components in light DOM children hydrate automatically, enabling SSG patterns
 - **Transparent coordination** - Usage of components on multiple different parts of a static page is allowed and automatically managed.

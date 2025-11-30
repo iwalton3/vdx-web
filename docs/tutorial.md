@@ -872,6 +872,116 @@ const router = enableRouting(outlet, {
 });
 ```
 
+### Authentication Integration
+
+To use capability-based route guards (`require: 'admin'`), you need to connect the router to your authentication system. Here's how:
+
+**Step 1: Create an auth store**
+
+```javascript
+// stores/auth.js
+import { createStore } from './lib/framework.js';
+
+const authStore = createStore({
+    user: null,
+    capabilities: [],
+
+    async login(username, password) {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        this.user = data.user;
+        this.capabilities = data.capabilities || [];
+        return data;
+    },
+
+    async logout() {
+        await fetch('/api/logout', { method: 'POST' });
+        this.user = null;
+        this.capabilities = [];
+    },
+
+    hasCapability(cap) {
+        return this.capabilities.includes(cap);
+    }
+});
+
+export default authStore;
+```
+
+**Step 2: Connect the router to auth**
+
+```javascript
+// app.js
+import { enableRouting } from './lib/router.js';
+import authStore from './stores/auth.js';
+
+const outlet = document.querySelector('router-outlet');
+const router = enableRouting(outlet, {
+    '/': { component: 'home-page' },
+    '/profile/': {
+        component: 'profile-page',
+        require: 'user'  // Requires 'user' capability
+    },
+    '/admin/': {
+        component: 'admin-page',
+        require: 'admin'  // Requires 'admin' capability
+    }
+});
+
+// Connect capability checking to your auth store
+router.checkCapability = (required) => {
+    return authStore.state.hasCapability(required);
+};
+
+// Optional: redirect unauthorized users
+router.onUnauthorized = (path, required) => {
+    console.log(`Access denied to ${path} - requires: ${required}`);
+    router.navigate('/login/');
+};
+```
+
+**Step 3: Use in components**
+
+```javascript
+import authStore from './stores/auth.js';
+
+defineComponent('nav-bar', {
+    stores: { auth: authStore },
+
+    template() {
+        return html`
+            <nav>
+                <router-link to="/">Home</router-link>
+                ${when(this.stores.auth.user,
+                    html`
+                        <router-link to="/profile/">Profile</router-link>
+                        ${when(this.stores.auth.hasCapability('admin'),
+                            html`<router-link to="/admin/">Admin</router-link>`
+                        )}
+                        <button on-click="${() => this.stores.auth.logout()}">Logout</button>
+                    `,
+                    html`<router-link to="/login/">Login</router-link>`
+                )}
+            </nav>
+        `;
+    }
+});
+```
+
+**Common capabilities pattern:**
+
+```javascript
+// Backend returns capabilities like:
+{
+    user: { name: 'Alice', email: 'alice@example.com' },
+    capabilities: ['user', 'verified', 'admin']  // or just ['user'] for regular users
+}
+```
+
 ---
 
 ## State Management with Stores
@@ -1034,13 +1144,30 @@ VDX components work seamlessly with static HTML pages, making them perfect for e
 
 ### Manipulating Components with Vanilla JavaScript
 
-**Attribute changes flow into components:**
+**Set props directly on the DOM element:**
 
 ```javascript
-// Update component attributes - triggers re-render
 const converter = document.querySelector('unit-converter');
+
+// Set props directly - triggers re-render automatically
+converter.fromUnit = 'liters';
+converter.toUnit = 'gallons';
+converter.initialValue = 5;
+
+// Works with any prop type - strings, numbers, arrays, objects, functions
+const list = document.getElementById('countryList');
+list.countries = [
+    { flag: '🇫🇷', name: 'France' },
+    { flag: '🇩🇪', name: 'Germany' }
+];
+```
+
+**Or use setAttribute for string values:**
+
+```javascript
+// setAttribute works too (values are parsed as JSON if possible)
 converter.setAttribute('from-unit', 'liters');
-converter.setAttribute('to-unit', 'gallons');
+converter.setAttribute('initial-value', '10');
 ```
 
 ### Event Listeners
@@ -1073,30 +1200,28 @@ defineComponent('event-counter', {
 
 ### Passing Rich Data
 
-For complex data (arrays, objects), expose setter methods:
+Props can hold any JavaScript value - arrays, objects, and functions. Just define them in your component and set them directly:
 
 ```javascript
 defineComponent('country-list', {
-    data() {
-        return {
-            countries: []
-        };
-    },
-
-    mounted() {
-        // Expose setData method for external JavaScript
-        this.setData = (data) => {
-            this.state.countries = data.countries || [];
-        };
+    props: {
+        countries: [],    // Array prop
+        title: 'Countries',
+        onSelect: null    // Function prop
     },
 
     template() {
         return html`
-            <ul>
-                ${each(this.state.countries, country => html`
-                    <li>${country.flag} ${country.name}</li>
-                `)}
-            </ul>
+            <div>
+                <h3>${this.props.title}</h3>
+                <ul>
+                    ${each(this.props.countries, country => html`
+                        <li on-click="${() => this.props.onSelect?.(country)}">
+                            ${country.flag} ${country.name}
+                        </li>
+                    `)}
+                </ul>
+            </div>
         `;
     }
 });
@@ -1106,12 +1231,21 @@ defineComponent('country-list', {
 
 ```javascript
 const list = document.getElementById('countryList');
-list.setData({
-    countries: [
-        { flag: '🇫🇷', name: 'France' },
-        { flag: '🇩🇪', name: 'Germany' }
-    ]
-});
+
+// Set props directly on the element - no custom methods needed!
+list.countries = [
+    { flag: '🇫🇷', name: 'France' },
+    { flag: '🇩🇪', name: 'Germany' }
+];
+list.title = 'European Countries';
+list.onSelect = (country) => console.log('Selected:', country.name);
+```
+
+**Adding items incrementally:**
+
+```javascript
+// Read current value, modify, and reassign
+list.countries = [...list.countries, { flag: '🇮🇹', name: 'Italy' }];
 ```
 
 ### Nested Component Hydration
