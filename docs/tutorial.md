@@ -1255,7 +1255,7 @@ All nested components hydrate automatically - perfect for static site generators
 
 ### JSON Hydration for SSG
 
-For static site generators, you can pass complex data using `json-*` attributes that reference `<script type="application/json">` elements. This avoids HTML attribute escaping issues:
+For static site generators, you can pass complex data using `json-*` attributes that either contain JSON or reference `<script type="application/json">` elements. The latter avoids HTML attribute escaping issues:
 
 ```html
 <!-- Component references JSON data by script ID -->

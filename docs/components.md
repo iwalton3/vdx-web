@@ -177,7 +177,7 @@ template() {
 
 **4. JSON Hydration (for SSG)**
 
-For static site generators, use `json-*` attributes to reference JSON data in script tags:
+For static site generators, use `json-*` attributes either containing JSON or which reference JSON data in script tags:
 
 ```html
 <!-- Component with json-* attribute -->
