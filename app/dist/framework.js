@@ -1,7 +1,7 @@
 /**
  * VDX-Web Framework Bundle
  * https://github.com/iwalton3/vdx-web
- * Generated: 2025-11-30T04:35:52.867Z
+ * Generated: 2025-11-30T04:49:34.789Z
  *
  * Includes Preact (https://preactjs.com/)
  * Copyright (c) 2015-present Jason Miller
@@ -1753,6 +1753,7 @@ function trackAllDependencies(obj, visited = new Set()) {
 
 // ============= template.js =============
 const templateCompiler = {
+    OP: OP,
     compileTemplate: compileTemplate,
     applyValues: applyValues,
     clearTemplateCache: clearTemplateCache,
@@ -1864,7 +1865,13 @@ function when(condition, thenValue, elseValue = null) {
 
         return {
             [HTML_MARKER]: true,
-            _compiled: null,  
+            _compiled: {
+                op: templateCompiler.OP.STATIC,
+                vnode: null,
+                type: 'fragment',
+                wrapped: false,
+                children: []
+            },
             toString() {
                 return '';
             }
@@ -1898,6 +1905,8 @@ function each(array, mapFn, keyFn = null) {
         return {
             [HTML_MARKER]: true,
             _compiled: {
+                op: templateCompiler.OP.STATIC,
+                vnode: null,
                 type: 'fragment',
                 wrapped: false,
                 children: []
@@ -1951,13 +1960,14 @@ function each(array, mapFn, keyFn = null) {
     return {
         [HTML_MARKER]: true,
         _compiled: {
+            op: templateCompiler.OP.FRAGMENT,
             type: 'fragment',
-            wrapped: false,  
-            fromEach: true,   
+            wrapped: false,
+            fromEach: true,
             children: compiledChildren
         },
         toString() {
-            return '';  
+            return '';
         }
     };
 }
@@ -2004,7 +2014,7 @@ function stripCSSComments(css) {
             while (i < len - 1 && !(css[i] === '*' && css[i + 1] === '/')) {
                 i++;
             }
-            i += 2; 
+            i += 2;
 
             result += ' ';
         } else {
@@ -2607,11 +2617,11 @@ function defineComponent(name, options) {
 // ============= template-compiler.js =============
 
 const OP = {
-    STATIC: 0,      
-    SLOT: 1,        
-    TEXT: 2,        
-    ELEMENT: 3,     
-    FRAGMENT: 4,    
+    STATIC: 0,
+    SLOT: 1,
+    TEXT: 2,
+    ELEMENT: 3,
+    FRAGMENT: 4,
 };
 
 const BOOLEAN_ATTRS = new Set([
@@ -2709,7 +2719,7 @@ function buildOpTree(node) {
             vnode: staticVNode,
 
             type: 'fragment',
-            children: [],  
+            children: [],
             isStatic: true
         };
     }
@@ -2892,8 +2902,7 @@ function applyValues(compiled, values, component = null) {
             return applyElement(compiled, values, component);
 
         default:
-
-            return applyValuesLegacy(compiled, values, component);
+            throw new Error(`[applyValues] Unknown op type: ${compiled.op}`);
     }
 }
 
@@ -2930,6 +2939,11 @@ function resolveSlotValue(compiled, values, component) {
     }
 
     if (typeof value === 'object') {
+
+        if (value.type || value.props || value.__) {
+            return value;
+        }
+
         return Object.prototype.toString.call(value);
     }
 
@@ -3070,7 +3084,7 @@ function resolveProp(name, def, values, component, isCustomElement) {
     }
 
     if (def.refName !== undefined) {
-        return def;  
+        return def;
     }
 
     return def.value;
@@ -3206,63 +3220,6 @@ function groupChildrenBySlot(children) {
     }
 
     return { defaultChildren, namedSlots: Object.keys(namedSlots).length > 0 ? namedSlots : {} };
-}
-
-function applyValuesLegacy(compiled, values, component) {
-    if (!compiled) return null;
-
-    if (compiled.type === 'fragment') {
-        const children = (compiled.children || [])
-            .map(child => {
-                const childValues = child._itemValues !== undefined ? child._itemValues : values;
-                return applyValues(child, childValues, component);
-            })
-            .filter(child => child !== undefined && child !== false && child !== null);
-
-        if (children.length === 0) return null;
-
-        const props = compiled.key !== undefined ? { key: compiled.key } : null;
-        return h(Fragment, props, ...children);
-    }
-
-    if (compiled.type === 'text') {
-        if (compiled.slot !== undefined) {
-            return resolveSlotValue({ index: compiled.slot, context: compiled.context }, values, component);
-        }
-        return compiled.value;
-    }
-
-    if (compiled.type === 'element') {
-
-        const converted = {
-            op: OP.ELEMENT,
-            tag: compiled.tag,
-            staticProps: {},
-            dynamicProps: [],
-            events: [],
-            children: compiled.children || [],
-            isCustomElement: componentDefinitions.has(compiled.tag),
-            key: compiled.key
-        };
-
-        for (const [name, attrDef] of Object.entries(compiled.attrs || {})) {
-            if (attrDef.value !== undefined && attrDef.slot === undefined &&
-                attrDef.slots === undefined && attrDef.xModel === undefined &&
-                attrDef.refName === undefined) {
-                converted.staticProps[name] = attrDef.value;
-            } else {
-                converted.dynamicProps.push({ name, def: attrDef });
-            }
-        }
-
-        for (const [eventName, eventDef] of Object.entries(compiled.events || {})) {
-            converted.events.push({ name: eventName, def: eventDef });
-        }
-
-        return applyElement(converted, values, component);
-    }
-
-    return null;
 }
 
 function parseXMLToTree(xmlString) {
@@ -3567,10 +3524,10 @@ function createStore(initial) {
 
 defineComponent('x-await-then', {
     props: {
-        promise: null,      
-        then: null,         
-        pending: null,      
-        catch: null         
+        promise: null,
+        then: null,
+        pending: null,
+        catch: null
     },
 
     data() {

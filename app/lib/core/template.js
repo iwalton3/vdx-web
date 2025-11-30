@@ -158,7 +158,13 @@ export function when(condition, thenValue, elseValue = null) {
         // Return null wrapped in compiled structure
         return {
             [HTML_MARKER]: true,
-            _compiled: null,  // Preact handles null children
+            _compiled: {
+                op: templateCompiler.OP.STATIC,
+                vnode: null,
+                type: 'fragment',
+                wrapped: false,
+                children: []
+            },
             toString() {
                 return '';
             }
@@ -202,6 +208,8 @@ export function each(array, mapFn, keyFn = null) {
         return {
             [HTML_MARKER]: true,
             _compiled: {
+                op: templateCompiler.OP.STATIC,
+                vnode: null,
                 type: 'fragment',
                 wrapped: false,
                 children: []
@@ -264,6 +272,7 @@ export function each(array, mapFn, keyFn = null) {
     return {
         [HTML_MARKER]: true,
         _compiled: {
+            op: templateCompiler.OP.FRAGMENT,
             type: 'fragment',
             wrapped: false,  // Unwrapped fragments spread their children into parent
             fromEach: true,   // Mark as from each() to distinguish from nested html() templates

@@ -14,7 +14,7 @@ import { h, Fragment } from '../vendor/preact/index.js';
 import { componentDefinitions } from './component.js';
 
 // Op codes for the instruction-based system
-const OP = {
+export const OP = {
     STATIC: 0,      // Return pre-built VNode
     SLOT: 1,        // Insert dynamic value from slot
     TEXT: 2,        // Static text
@@ -353,8 +353,7 @@ export function applyValues(compiled, values, component = null) {
             return applyElement(compiled, values, component);
 
         default:
-            // Legacy fallback for old compiled format during transition
-            return applyValuesLegacy(compiled, values, component);
+            throw new Error(`[applyValues] Unknown op type: ${compiled.op}`);
     }
 }
 
@@ -397,8 +396,13 @@ function resolveSlotValue(compiled, values, component) {
         return value.join('');
     }
 
-    // Security: prevent malicious toString()
+    // Check if this is a vnode (Preact VNode structure)
     if (typeof value === 'object') {
+        // Preact vnodes have 'type', 'props', or '__' (internal marker)
+        if (value.type || value.props || value.__) {
+            return value;
+        }
+        // Security: prevent malicious toString()
         return Object.prototype.toString.call(value);
     }
 
@@ -707,72 +711,6 @@ function groupChildrenBySlot(children) {
     }
 
     return { defaultChildren, namedSlots: Object.keys(namedSlots).length > 0 ? namedSlots : {} };
-}
-
-/**
- * Legacy applyValues for backwards compatibility during transition
- * This handles the old tree-based compiled format
- */
-function applyValuesLegacy(compiled, values, component) {
-    if (!compiled) return null;
-
-    // Handle fragments
-    if (compiled.type === 'fragment') {
-        const children = (compiled.children || [])
-            .map(child => {
-                const childValues = child._itemValues !== undefined ? child._itemValues : values;
-                return applyValues(child, childValues, component);
-            })
-            .filter(child => child !== undefined && child !== false && child !== null);
-
-        if (children.length === 0) return null;
-
-        const props = compiled.key !== undefined ? { key: compiled.key } : null;
-        return h(Fragment, props, ...children);
-    }
-
-    // Handle text nodes
-    if (compiled.type === 'text') {
-        if (compiled.slot !== undefined) {
-            return resolveSlotValue({ index: compiled.slot, context: compiled.context }, values, component);
-        }
-        return compiled.value;
-    }
-
-    // Handle elements - delegate to applyElement with legacy conversion
-    if (compiled.type === 'element') {
-        // Convert legacy format to new format on-the-fly
-        const converted = {
-            op: OP.ELEMENT,
-            tag: compiled.tag,
-            staticProps: {},
-            dynamicProps: [],
-            events: [],
-            children: compiled.children || [],
-            isCustomElement: componentDefinitions.has(compiled.tag),
-            key: compiled.key
-        };
-
-        // Convert attrs
-        for (const [name, attrDef] of Object.entries(compiled.attrs || {})) {
-            if (attrDef.value !== undefined && attrDef.slot === undefined &&
-                attrDef.slots === undefined && attrDef.xModel === undefined &&
-                attrDef.refName === undefined) {
-                converted.staticProps[name] = attrDef.value;
-            } else {
-                converted.dynamicProps.push({ name, def: attrDef });
-            }
-        }
-
-        // Convert events
-        for (const [eventName, eventDef] of Object.entries(compiled.events || {})) {
-            converted.events.push({ name: eventName, def: eventDef });
-        }
-
-        return applyElement(converted, values, component);
-    }
-
-    return null;
 }
 
 // ============================================================================
