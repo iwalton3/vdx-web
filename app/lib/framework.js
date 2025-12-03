@@ -254,17 +254,7 @@ export { createStore } from './core/store.js';
  * @param {HTMLElement} container - Container element
  * @returns {void}
  */
-/**
- * Preact's Component base class (for class components)
- * @class Component
- */
-/**
- * Preact's context creation function (for context API)
- * @function createContext
- * @param {any} defaultValue - Default context value
- * @returns {Object} Context object
- */
-export { h, Fragment, render, Component, createContext } from './vendor/preact/index.js';
+export { h, Fragment, render } from './vendor/preact/index.js';
 
 // Auto-register x-await-then component (used by awaitThen() helper)
 import './core/x-await-then.js';
