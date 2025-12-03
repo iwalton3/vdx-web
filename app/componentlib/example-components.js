@@ -38,6 +38,7 @@ import './overlay/dialog.js';
 import './overlay/sidebar.js';
 import './overlay/toast.js';
 import './overlay/tooltip.js';
+import './overlay/action-menu.js';
 
 import './button/button.js';
 import './button/split-button.js';
@@ -772,6 +773,63 @@ defineComponent('example-tooltip', {
                 <cl-tooltip text="Tooltip on left" position="left">
                     <cl-button label="Left"></cl-button>
                 </cl-tooltip>
+            </div>
+        `;
+    }
+});
+
+// Action Menu Example
+defineComponent('example-action-menu', {
+    methods: {
+        handleAction(action) {
+            console.log('Action:', action);
+        }
+    },
+    template() {
+        const fileActions = [
+            { label: 'New File', icon: '📄', action: () => this.handleAction('new') },
+            { label: 'Open', icon: '📂', action: () => this.handleAction('open') },
+            { label: 'Save', icon: '💾', action: () => this.handleAction('save'), shortcut: '⌘S' },
+            { separator: true },
+            { label: 'Export', icon: '📤', action: () => this.handleAction('export') },
+            { label: 'Print', icon: '🖨️', action: () => this.handleAction('print'), disabled: true }
+        ];
+
+        const userActions = [
+            { label: 'Profile', icon: '👤', action: () => this.handleAction('profile') },
+            { label: 'Settings', icon: '⚙️', action: () => this.handleAction('settings') },
+            { separator: true },
+            { label: 'Logout', icon: '🚪', danger: true, action: () => this.handleAction('logout') }
+        ];
+
+        const simpleActions = [
+            { label: 'Edit', action: () => this.handleAction('edit') },
+            { label: 'Duplicate', action: () => this.handleAction('duplicate') },
+            { separator: true },
+            { label: 'Delete', danger: true, action: () => this.handleAction('delete') }
+        ];
+
+        return html`
+            <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+                <div>
+                    <p style="margin-bottom: 8px; font-size: 14px; color: #666;">With icons and shortcuts:</p>
+                    <cl-action-menu label="File" items="${fileActions}"></cl-action-menu>
+                </div>
+
+                <div>
+                    <p style="margin-bottom: 8px; font-size: 14px; color: #666;">User menu:</p>
+                    <cl-action-menu label="Account" icon="👤" items="${userActions}"></cl-action-menu>
+                </div>
+
+                <div>
+                    <p style="margin-bottom: 8px; font-size: 14px; color: #666;">Ellipsis menu:</p>
+                    <cl-action-menu items="${simpleActions}"></cl-action-menu>
+                </div>
+
+                <div>
+                    <p style="margin-bottom: 8px; font-size: 14px; color: #666;">Disabled:</p>
+                    <cl-action-menu label="Actions" items="${simpleActions}" disabled="${true}"></cl-action-menu>
+                </div>
             </div>
         `;
     }

@@ -592,6 +592,33 @@ toast.show({
 });`
     },
 
+    'action-menu': {
+        id: 'action-menu',
+        name: 'Action Menu',
+        category: 'overlay',
+        description: 'Dropdown menu for actions (more options, context menus)',
+        demo: `<example-action-menu></example-action-menu>`,
+        source: `<cl-action-menu
+    label="Actions"
+    items="\${[
+        { label: 'Edit', icon: 'pencil', action: () => edit() },
+        { label: 'Duplicate', icon: 'copy', action: () => duplicate() },
+        { separator: true },
+        { label: 'Delete', icon: 'trash', danger: true, action: () => remove() }
+    ]}">
+</cl-action-menu>
+
+// Items can have:
+// - label: Text to display
+// - icon: Emoji or text icon
+// - action: Function to call on click
+// - shortcut: Keyboard shortcut text
+// - danger: true for destructive actions (red text)
+// - disabled: true to disable the item
+// - active: true to highlight as selected
+// - separator: true for a divider line`
+    },
+
     // BUTTON COMPONENTS
     button: {
         id: 'button',
