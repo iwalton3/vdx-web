@@ -8,6 +8,7 @@ A modern web framework with **ZERO npm dependencies**. Reactive state, component
 
 - **Zero dependencies** - No npm, no node_modules, no supply chain risk
 - **No build step** - ES6 modules run directly in the browser
+- **TypeScript support** - Optional `.d.ts` files for type checking ([docs](docs/typescript.md))
 - **Reactive state** - Vue-style proxy-based reactivity
 - **Two-way binding** - `x-model` with automatic type conversion
 - **Component system** - Web Components with Preact rendering
@@ -136,6 +137,7 @@ The framework automatically uses the correct attribute (`value` or `checked`), s
 | [Component Library](https://iwalton.com/componentlib/) | Interactive showcase of all vdx-ui components |
 | [Playground](https://iwalton.com/playground.html) | Core framework features demo |
 | [Static Integration](https://iwalton.com/bundle-demo/static-integration-demo.html) | Embedding components in static HTML |
+| [Task Manager (TS Demo)](https://iwalton.com/ts-demo/) | Task management demo application written in typescript |
 | [Framework Tests](https://iwalton.com/tests/) | Comprehensive test suite |
 
 ## Documentation
@@ -147,6 +149,7 @@ The framework automatically uses the correct attribute (`value` or `checked`), s
 - **[docs/routing.md](docs/routing.md)** - Router setup, lazy loading
 - **[docs/security.md](docs/security.md)** - XSS protection, input validation, CSP
 - **[docs/bundles.md](docs/bundles.md)** - Using pre-bundled versions
+- **[docs/typescript.md](docs/typescript.md)** - TypeScript support and demo app
 - **[docs/api-reference.md](docs/api-reference.md)** - Complete API reference
 - **[CLAUDE.md](CLAUDE.md)** - Quick reference for AI coding assistants
 
@@ -232,13 +235,17 @@ The innovative part is the **template compilation system** that converts `html``
 app/
 ├── lib/                     # vdx-web: Core framework
 │   ├── framework.js         # Main barrel export
+│   ├── framework.d.ts       # TypeScript definitions
 │   ├── router.js            # Router system
+│   ├── router.d.ts          # TypeScript definitions
 │   ├── utils.js             # Utilities (notify, darkTheme, etc.)
+│   ├── utils.d.ts           # TypeScript definitions
 │   └── core/                # Framework internals (~3000 lines)
 ├── dist/                    # Pre-bundled versions for embedding
 ├── componentlib/            # vdx-ui: Professional UI component library
 ├── components/              # Shared UI components
 ├── tests/                   # Test suite (187 tests)
+├── ts-demo/                 # TypeScript demo application
 └── index.html               # Entry point
 ```
 

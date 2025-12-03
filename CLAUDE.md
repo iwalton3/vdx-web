@@ -23,6 +23,7 @@ Then open: http://localhost:9000/
 
 - **Zero npm dependencies** - Pure vanilla JavaScript, vendored Preact, no npm packages
 - **No build step** - Runs directly in the browser using ES6 modules
+- **TypeScript support** - Optional `.d.ts` files for type checking (see [docs/typescript.md](docs/typescript.md))
 - **Reactive state management** - Vue 3-style proxy-based reactivity
 - **Web Components** - Built on native Custom Elements API
 - **Preact rendering** - Vendored Preact (~4KB) for efficient DOM reconciliation
@@ -36,14 +37,19 @@ Then open: http://localhost:9000/
 app/
 ├── lib/                     # vdx-web: Core framework
 │   ├── framework.js         # Main barrel export (defineComponent, html, reactive, etc.)
+│   ├── framework.d.ts       # TypeScript definitions for framework
 │   ├── router.js            # Router system
+│   ├── router.d.ts          # TypeScript definitions for router
 │   ├── utils.js             # Utilities (notify, darkTheme, localStore, etc.)
+│   ├── utils.d.ts           # TypeScript definitions for utils
+│   ├── componentlib.d.ts    # TypeScript definitions for UI components
 │   └── core/                # Framework internals (~3000 lines)
 ├── dist/                    # Pre-bundled versions for embedding
 ├── componentlib/            # vdx-ui: Professional UI component library (cl-* prefix)
 ├── components/              # Reusable UI components
 ├── apps/                    # Application modules
 ├── tests/                   # Comprehensive unit tests (187 tests)
+├── ts-demo/                 # TypeScript demo application
 └── index.html               # Entry point
 ```
 
@@ -540,6 +546,7 @@ For detailed information, see:
 - **[docs/bundles.md](docs/bundles.md)** - Using pre-bundled framework versions
 - **[docs/componentlib.md](docs/componentlib.md)** - Professional UI component library (cl-* components)
 - **[docs/api-reference.md](docs/api-reference.md)** - Complete API reference
+- **[docs/typescript.md](docs/typescript.md)** - TypeScript support, types, and demo app
 
 For project overview and quickstart, see [README.md](README.md).
 

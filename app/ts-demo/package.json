@@ -1,0 +1,22 @@
+{
+  "name": "vdx-ts-demo",
+  "version": "1.0.0",
+  "description": "VDX TypeScript Demo - Task Manager Application",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "check": "tsc --noEmit",
+    "dev": "python3 dev-server.py"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "vdx",
+    "typescript",
+    "demo",
+    "web-components"
+  ]
+}

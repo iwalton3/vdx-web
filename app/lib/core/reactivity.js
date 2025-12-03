@@ -169,6 +169,9 @@ export function reactive(obj) {
         return obj;
     }
 
+    // Check if object is a Date - needs special handling for method binding
+    const isDate = obj instanceof Date;
+
     const proxy = new Proxy(obj, {
         get(target, key, receiver) {
             // Special marker property
@@ -178,6 +181,12 @@ export function reactive(obj) {
 
             track(target, key);
             const value = Reflect.get(target, key, receiver);
+
+            // Date methods need to be bound to the original Date object
+            // because Date's internal slots check 'this' type
+            if (isDate && typeof value === 'function') {
+                return value.bind(target);
+            }
 
             // For array methods that modify the array, wrap them to trigger updates
             if (Array.isArray(target) && typeof value === 'function') {
