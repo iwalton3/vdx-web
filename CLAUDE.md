@@ -132,7 +132,9 @@ export default defineComponent('my-component', {
 <button onclick="handleClick()">Click</button>
 ```
 
-**Available:** `on-click`, `on-change`, `on-submit`, `on-submit-prevent`, `on-input`, `on-mouseenter`, `on-mouseleave`
+**Common events:** `on-click`, `on-change`, `on-submit`, `on-submit-prevent`, `on-input`, `on-mouseenter`, `on-mouseleave`
+
+**Custom events:** Any event name works: `on-my-event`, `on-status-change`, etc. Modifiers (`prevent`, `stop`) go at the end: `on-custom-event-prevent`
 
 ### 3. Two-Way Data Binding with `x-model`
 

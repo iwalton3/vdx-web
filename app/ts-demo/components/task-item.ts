@@ -77,10 +77,9 @@ export default defineComponent('demo-task-item', {
             e.stopPropagation();
             this.state.showActions = false;
 
-            // Use 'change' event which the framework supports
-            this.dispatchEvent(new CustomEvent('change', {
+            this.dispatchEvent(new CustomEvent('status-change', {
                 bubbles: true,
-                detail: { type: 'status', status }
+                detail: { status }
             }));
         },
 
@@ -88,9 +87,8 @@ export default defineComponent('demo-task-item', {
             e.stopPropagation();
             this.state.showActions = false;
 
-            this.dispatchEvent(new CustomEvent('change', {
-                bubbles: true,
-                detail: { type: 'delete' }
+            this.dispatchEvent(new CustomEvent('task-delete', {
+                bubbles: true
             }));
         }
     },

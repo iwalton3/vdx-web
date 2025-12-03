@@ -568,31 +568,19 @@ defineComponent('user-loader', {
 
 3. **Props Passed via Attributes**: When passing props as HTML attributes, TypeScript can't verify the types. Use JSDoc comments in your HTML for documentation.
 
-4. **Custom Events**: The `on-*` syntax only supports standard events (`on-click`, `on-change`, `on-input`, etc.). Custom event names like `on-my-event` won't work. Use one of these patterns instead:
+4. **Custom Events**: The `on-*` syntax supports custom event names with hyphens. Modifiers (`prevent`, `stop`) are only recognized at the end:
 
-   **Pattern A: Use standard `change` event with action type:**
    ```typescript
-   // Child component
-   handleAction(type: string, data?: any): void {
-     this.dispatchEvent(new CustomEvent('change', {
-       bubbles: true,
-       detail: { type, ...data }
-     }));
-   }
+   // Child component dispatches custom event
+   this.dispatchEvent(new CustomEvent('status-change', {
+     bubbles: true,
+     detail: { status: 'done' }
+   }));
 
-   // Parent listens with on-change
-   <child-component on-change="${(e: CustomEvent) => this.handleChildAction(e)}">
+   // Parent listens with on-status-change
+   <child-component on-status-change="${(e: CustomEvent) => this.handleStatus(e)}">
 
-   handleChildAction(e: CustomEvent): void {
-     if (e.detail.type === 'delete') { /* ... */ }
-     if (e.detail.type === 'status') { /* ... */ }
-   }
-   ```
-
-   **Pattern B: Pass callback functions as props (for simple cases):**
-   ```typescript
-   // Works for renderItem, etc. but NOT for event-like callbacks
-   <virtual-list renderItem="${this.renderItem}">
+   // With modifier: on-status-change-prevent (modifier at end)
    ```
 
 ## Demo Application

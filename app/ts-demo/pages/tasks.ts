@@ -106,14 +106,13 @@ export default defineComponent('demo-tasks', {
             }
         },
 
-        handleTaskAction(taskId: string, e: CustomEvent): void {
-            const detail = e.detail;
-            if (detail.type === 'status') {
-                taskActions.updateTaskStatus(taskId, detail.status);
-            } else if (detail.type === 'delete') {
-                if (confirm('Are you sure you want to delete this task?')) {
-                    taskActions.deleteTask(taskId);
-                }
+        handleStatusChange(taskId: string, e: CustomEvent): void {
+            taskActions.updateTaskStatus(taskId, e.detail.status);
+        },
+
+        handleDeleteTask(taskId: string): void {
+            if (confirm('Are you sure you want to delete this task?')) {
+                taskActions.deleteTask(taskId);
             }
         }
     },
@@ -195,7 +194,8 @@ export default defineComponent('demo-tasks', {
                             <demo-task-item
                                 task="${task}"
                                 on-click="${() => this.handleTaskClick(task)}"
-                                on-change="${(e: CustomEvent) => this.handleTaskAction(task.id, e)}">
+                                on-status-change="${(e: CustomEvent) => this.handleStatusChange(task.id, e)}"
+                                on-task-delete="${() => this.handleDeleteTask(task.id)}">
                             </demo-task-item>
                         `, (task) => task.id)
                     )}

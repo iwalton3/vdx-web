@@ -457,17 +457,27 @@ function applyElement(compiled, values, component) {
         }
     }
 
-    // Apply events
+    // Apply events - collect hyphenated events for single ref handling
+    const customEvents = [];
     for (const { name, def } of compiled.events) {
         const handler = resolveEventHandler(name, def, values, component, isCustomElement);
         if (handler) {
             if (name === 'clickoutside' || name === 'click-outside') {
                 props.ref = createClickOutsideRef(handler, props.ref);
+            } else if (name.includes('-')) {
+                // Collect hyphenated events - they need ref-based handling
+                // because Preact lowercases event names (see preact#2592)
+                customEvents.push({ name, handler });
             } else {
                 const propName = 'on' + name.charAt(0).toUpperCase() + name.slice(1);
                 props[propName] = handler;
             }
         }
+    }
+
+    // Create single ref for all custom hyphenated events
+    if (customEvents.length > 0) {
+        props.ref = createCustomEventsRef(customEvents, props.ref);
     }
 
     // Add key if present
@@ -569,6 +579,46 @@ function createRefCallback(refName, component) {
             } else {
                 delete component.refs[refName];
             }
+        }
+    };
+}
+
+/**
+ * Create a ref callback for multiple custom hyphenated events (e.g., 'status-change', 'item-delete')
+ * These can't use Preact's event prop system because Preact lowercases event names
+ * (onStatusChange -> 'statuschange', not 'status-change')
+ * See: https://github.com/preactjs/preact/issues/2592
+ *
+ * @param {Array<{name: string, handler: Function}>} events - Array of event definitions
+ * @param {Function|null} existingRef - Existing ref to chain with
+ */
+function createCustomEventsRef(events, existingRef) {
+    let lastEl = null;
+
+    return (el) => {
+        if (existingRef) existingRef(el);
+
+        // Remove old listeners
+        if (lastEl) {
+            for (const { name } of events) {
+                const handlerKey = `_customEvent_${name}`;
+                if (lastEl[handlerKey]) {
+                    lastEl.removeEventListener(name, lastEl[handlerKey]);
+                    delete lastEl[handlerKey];
+                }
+            }
+        }
+
+        // Add new listeners
+        if (el) {
+            for (const { name, handler } of events) {
+                const handlerKey = `_customEvent_${name}`;
+                el[handlerKey] = handler;
+                el.addEventListener(name, handler);
+            }
+            lastEl = el;
+        } else {
+            lastEl = null;
         }
     };
 }
@@ -866,13 +916,24 @@ function nodeToTree(node) {
                 const fullEventName = name.substring(3);
                 let eventName, modifier;
 
+                // Known event modifiers
+                const KNOWN_MODIFIERS = ['prevent', 'stop'];
+
                 if (fullEventName === 'click-outside') {
                     eventName = 'clickoutside';
                     modifier = null;
                 } else {
                     const parts = fullEventName.split('-');
-                    eventName = parts[0];
-                    modifier = parts.length > 1 ? parts[parts.length - 1] : null;
+                    const lastPart = parts[parts.length - 1];
+
+                    // Only treat as modifier if it's a known modifier
+                    if (parts.length > 1 && KNOWN_MODIFIERS.includes(lastPart)) {
+                        eventName = parts.slice(0, -1).join('-');
+                        modifier = lastPart;
+                    } else {
+                        eventName = fullEventName;
+                        modifier = null;
+                    }
                 }
 
                 const slotMatch = value.match(/^__SLOT_(\d+)__$/);
