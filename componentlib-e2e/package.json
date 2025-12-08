@@ -12,6 +12,7 @@
     "debug-page": "./debug-page.js"
   },
   "dependencies": {
-    "puppeteer": "^21.0.0"
+    "puppeteer": "^21.0.0",
+    "@axe-core/puppeteer": "^4.8.0"
   }
 }

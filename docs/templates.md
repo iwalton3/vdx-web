@@ -75,6 +75,66 @@ template() {
 - `on-mouseenter`, `on-mouseleave` - Mouse events
 - `on-input` - Input events
 
+### Event Modifiers
+
+Add modifiers to the end of event names:
+
+- `-prevent` - Calls `e.preventDefault()` automatically
+- `-stop` - Calls `e.stopPropagation()` automatically
+
+```javascript
+// Prevent form submission default behavior
+<form on-submit-prevent="handleSubmit">
+
+// Stop click from bubbling to parent
+<button on-click-stop="handleInnerClick">
+
+// Multiple modifiers work together
+<a on-click-prevent-stop="handleLink">
+```
+
+### Custom Events with Hyphens
+
+Custom events with hyphens in their names (like `status-change` or `item-delete`) are handled via a ref-based mechanism because Preact lowercases event names.
+
+```javascript
+// Child component emits custom event
+defineComponent('status-indicator', {
+    methods: {
+        updateStatus(newStatus) {
+            this.dispatchEvent(new CustomEvent('status-change', {
+                detail: { status: newStatus },
+                bubbles: true
+            }));
+        }
+    },
+    template() {
+        return html`<button on-click="${() => this.updateStatus('active')}">Activate</button>`;
+    }
+});
+
+// Parent listens with on-status-change
+defineComponent('parent-component', {
+    methods: {
+        handleStatusChange(e) {
+            console.log('New status:', e.detail.status);
+        }
+    },
+    template() {
+        return html`
+            <status-indicator on-status-change="handleStatusChange">
+            </status-indicator>
+        `;
+    }
+});
+```
+
+**Modifiers work with custom events too:**
+```javascript
+<my-child on-custom-event-prevent="handleEvent">
+<my-child on-item-delete-stop="handleDelete">
+```
+
 ### ❌ NEVER Do This
 
 ```javascript
@@ -373,14 +433,15 @@ export default defineComponent('my-input', {
 
 **The `emitChange()` helper** handles all the boilerplate for you:
 - Calls `e.stopPropagation()` to prevent native event leakage
-- Updates `this.props.value` with the new value
 - Dispatches a CustomEvent with `detail: { value }` and proper bubbling
+
+**Note:** The helper does NOT update `this.props.value` directly. Props are updated by the parent component when it handles the change event and re-renders with new prop values. This is the correct one-way data flow pattern.
 
 **Manual approach** (if you need custom behavior):
 ```javascript
 handleInput(e) {
-    e.stopPropagation();  // Stop native event
-    this.props.value = e.target.value;  // Update prop
+    e.stopPropagation();  // Stop native event from bubbling
+    // Do NOT set this.props.value - parent will update props via re-render
     this.dispatchEvent(new CustomEvent('change', {
         bubbles: true,
         composed: true,

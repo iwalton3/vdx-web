@@ -42,9 +42,23 @@ export default defineComponent('cl-colorpicker', {
             }
         },
 
-        handleColorChange(event) {
+        handleColorInput(event) {
+            // Handle 'input' event from color picker (fires during selection)
             const color = event.target.value;
             this.state.internalValue = color;
+            // Emit change event with proper format
+            this.emitChange(event, color);
+        },
+
+        handleColorChange(event) {
+            // Handle native 'change' event from color input
+            // Stop it from bubbling to prevent x-model from receiving native event
+            if (event && event.stopPropagation) {
+                event.stopPropagation();
+            }
+            const color = event.target.value;
+            this.state.internalValue = color;
+            // Emit proper CustomEvent
             this.emitChange(event, color);
         },
 
@@ -92,7 +106,8 @@ export default defineComponent('cl-colorpicker', {
                             type="color"
                             value="${this.state.internalValue}"
                             disabled="${this.props.disabled}"
-                            on-input="handleColorChange">
+                            on-input="handleColorInput"
+                            on-change="handleColorChange">
                         <div class="color-display">
                             <div class="selected-color" style="background: ${this.state.internalValue}"></div>
                             <div class="color-info">

@@ -29,7 +29,7 @@ Then open: http://localhost:9000/
 - **Preact rendering** - Vendored Preact (~4KB) for efficient DOM reconciliation
 - **Template compilation** - Compile-once system: `html`` → compile → Preact VNode → render`
 - **Router** - Hash-based and HTML5 routing with capability checks
-- **Stores** - Reactive stores with localStorage persistence
+- **Stores** - Reactive stores with pub/sub pattern (use `localStore()` from utils.js for localStorage persistence)
 
 ## Project Structure
 

@@ -71,6 +71,16 @@ export default defineComponent('cl-chips', {
             }
         },
 
+        handleChange(e) {
+            // Stop the native change event from bubbling up
+            // This prevents x-model from receiving the native event (which lacks detail.value)
+            if (e && e.stopPropagation) {
+                e.stopPropagation();
+            }
+            // Emit proper change event with current chips value
+            this.emitChange(e, this.state.internalValue);
+        },
+
         addChip() {
             const value = this.state.inputValue.trim();
             if (value) {
@@ -137,6 +147,7 @@ export default defineComponent('cl-chips', {
                         disabled="${this.props.disabled}"
                         on-input="handleInput"
                         on-keydown="handleKeyDown"
+                        on-change="handleChange"
                         on-blur="handleBlur">
                 </div>
             </div>

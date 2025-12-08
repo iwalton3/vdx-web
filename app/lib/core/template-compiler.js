@@ -13,6 +13,32 @@ import { sanitizeUrl, isHtml, isRaw, OP } from './template.js';
 import { h, Fragment } from '../vendor/preact/index.js';
 import { componentDefinitions } from './component.js';
 
+/**
+ * Unique slot marker prefix - uses a random component to prevent
+ * any possibility of collision with user content.
+ * Format: ___VDX_{random}_SLOT_{index}___
+ * Using triple underscores and random ID makes collisions extremely unlikely.
+ */
+const SLOT_UNIQUE_ID = Math.random().toString(36).slice(2, 10);
+const SLOT_PREFIX = `___VDX_${SLOT_UNIQUE_ID}_SLOT_`;
+const SLOT_SUFFIX = `___`;
+
+/**
+ * Create a unique slot marker for the given index
+ * @param {number} index - Slot index
+ * @returns {string} Unique slot marker
+ */
+function slotMarker(index) {
+    return `${SLOT_PREFIX}${index}${SLOT_SUFFIX}`;
+}
+
+/**
+ * Regex to match slot markers - updated pattern for unique markers
+ * @type {RegExp}
+ */
+const SLOT_MARKER_REGEX = new RegExp(`___VDX_${SLOT_UNIQUE_ID}_SLOT_(\\d+)___`, 'g');
+const SLOT_MARKER_SINGLE = new RegExp(`^___VDX_${SLOT_UNIQUE_ID}_SLOT_(\\d+)___$`);
+
 // Boolean attributes that should be converted to actual booleans
 const BOOLEAN_ATTRS = new Set([
     'disabled', 'checked', 'selected', 'readonly', 'required',
@@ -21,26 +47,58 @@ const BOOLEAN_ATTRS = new Set([
 ]);
 
 /**
+ * Dangerous property names that could enable prototype pollution attacks.
+ * These must never be set via user-controlled paths (e.g., x-model bindings).
+ */
+const DANGEROUS_KEYS = new Set([
+    '__proto__', 'prototype', 'constructor',
+    '__defineGetter__', '__defineSetter__',
+    '__lookupGetter__', '__lookupSetter__'
+]);
+
+/**
+ * Check if a property path contains dangerous keys that could pollute prototypes
+ * @param {string} path - Dot-separated property path
+ * @returns {boolean} True if path contains dangerous keys
+ */
+function hasDangerousKey(path) {
+    if (!path) return false;
+    const parts = path.includes('.') ? path.split('.') : [path];
+    return parts.some(part => DANGEROUS_KEYS.has(part));
+}
+
+/**
  * Get a nested value from an object using a dot-separated path
  */
 function getNestedValue(obj, path) {
     if (!path || !obj) return undefined;
+    // Block prototype pollution attempts on read as well
+    if (hasDangerousKey(path)) return undefined;
+
     if (!path.includes('.')) return obj[path];
 
     const parts = path.split('.');
     let current = obj;
     for (const part of parts) {
-        if (current === null || current === undefined) return undefined;
+        if (current == null) return undefined;
         current = current[part];
     }
     return current;
 }
 
 /**
- * Set a nested value in an object using a dot-separated path
+ * Set a nested value in an object using a dot-separated path.
+ * Includes prototype pollution protection.
  */
 function setNestedValue(obj, path, value) {
     if (!path || !obj) return;
+
+    // SECURITY: Block prototype pollution attempts
+    if (hasDangerousKey(path)) {
+        console.warn(`[VDX Security] Blocked attempt to set dangerous property path: ${path}`);
+        return;
+    }
+
     if (!path.includes('.')) {
         obj[path] = value;
         return;
@@ -50,7 +108,7 @@ function setNestedValue(obj, path, value) {
     let current = obj;
     for (let i = 0; i < parts.length - 1; i++) {
         const part = parts[i];
-        if (current[part] === undefined || current[part] === null) {
+        if (current[part] == null) {
             current[part] = {};
         }
         current = current[part];
@@ -87,7 +145,7 @@ export function compileTemplate(strings) {
     for (let i = 0; i < strings.length; i++) {
         fullTemplate += strings[i];
         if (i < strings.length - 1) {
-            fullTemplate += `__SLOT_${i}__`;
+            fullTemplate += slotMarker(i);
         }
     }
 
@@ -277,7 +335,7 @@ function buildStaticVNode(node) {
     if (node.type === 'fragment') {
         const children = (node.children || [])
             .map(child => buildStaticVNode(child))
-            .filter(child => child !== null && child !== undefined);
+            .filter(child => child != null);
 
         if (children.length === 0) return null;
         if (children.length === 1) return children[0];
@@ -306,7 +364,7 @@ function buildStaticVNode(node) {
         // Build static children
         const children = (node.children || [])
             .map(child => buildStaticVNode(child))
-            .filter(child => child !== null && child !== undefined);
+            .filter(child => child != null);
 
         return h(node.tag, props, ...children);
     }
@@ -357,8 +415,12 @@ function resolveSlotValue(compiled, values, component) {
     // Handle html() tagged templates
     if (isHtml(value)) {
         if (!('_compiled' in value)) {
-            console.error('[applyValues] html() template missing _compiled');
-            return null;
+            // This indicates a bug - html() should always have _compiled
+            throw new Error(
+                '[VDX] html() template is missing _compiled property. ' +
+                'This usually means an html`` template was created incorrectly. ' +
+                'Ensure you are using the html tagged template literal from the framework.'
+            );
         }
         if (value._compiled === null) return null;
         return applyValues(value._compiled, value._values || [], component);
@@ -370,7 +432,7 @@ function resolveSlotValue(compiled, values, component) {
     }
 
     // Handle null/undefined
-    if (value === null || value === undefined) return null;
+    if (value == null) return null;
 
     // Handle arrays (could be vnodes or primitives)
     if (Array.isArray(value)) {
@@ -414,7 +476,7 @@ function applyFragment(compiled, values, component) {
             const childValues = child._itemValues !== undefined ? child._itemValues : values;
             return applyValues(child, childValues, component);
         })
-        .filter(child => child !== undefined && child !== false && child !== null);
+        .filter(child => child != null && child !== false);
 
     if (children.length === 0) return null;
 
@@ -491,7 +553,7 @@ function applyElement(compiled, values, component) {
             const childValues = child._itemValues !== undefined ? child._itemValues : values;
             return applyValues(child, childValues, component);
         })
-        .filter(child => child !== undefined && child !== false);
+        .filter(child => child != null && child !== false);
 
     // For custom elements, handle children/slots specially
     if (isCustomElement && children.length > 0) {
@@ -536,14 +598,14 @@ function resolveProp(name, def, values, component, isCustomElement) {
             // Multiple slots: interpolate template
             value = def.template;
             for (const slotIndex of def.slots) {
-                const slotMarker = `__SLOT_${slotIndex}__`;
+                const marker = slotMarker(slotIndex);
                 const slotValue = values[slotIndex];
-                value = value.replace(slotMarker, String(slotValue ?? ''));
+                value = value.replace(marker, String(slotValue ?? ''));
             }
         } else {
             value = values[def.slot];
             if (def.template) {
-                value = def.template.replace(`__SLOT_${def.slot}__`, String(value));
+                value = def.template.replace(slotMarker(def.slot), String(value));
             }
         }
 
@@ -554,7 +616,7 @@ function resolveProp(name, def, values, component, isCustomElement) {
             return value;
         }
 
-        if (value !== undefined && value !== null && typeof value !== 'boolean') {
+        if (value != null && typeof value !== 'boolean') {
             return String(value);
         }
         return value;
@@ -624,7 +686,15 @@ function createCustomEventsRef(events, existingRef) {
 }
 
 /**
- * Create a ref callback for click-outside handling
+ * WeakMap to track click-outside handlers for proper cleanup.
+ * Using WeakMap ensures handlers are cleaned up when elements are garbage collected.
+ * @type {WeakMap<Element, Function>}
+ */
+const clickOutsideHandlers = new WeakMap();
+
+/**
+ * Create a ref callback for click-outside handling.
+ * Uses WeakMap for tracking to prevent memory leaks.
  */
 function createClickOutsideRef(handler, existingRef) {
     let lastEl = null;
@@ -632,18 +702,24 @@ function createClickOutsideRef(handler, existingRef) {
     return (el) => {
         if (existingRef) existingRef(el);
 
-        if (lastEl && lastEl._clickOutsideHandler) {
-            document.removeEventListener('click', lastEl._clickOutsideHandler);
-            delete lastEl._clickOutsideHandler;
+        // Clean up previous handler
+        if (lastEl) {
+            const oldHandler = clickOutsideHandlers.get(lastEl);
+            if (oldHandler) {
+                document.removeEventListener('click', oldHandler);
+                clickOutsideHandlers.delete(lastEl);
+            }
         }
 
+        // Set up new handler
         if (el) {
             const documentHandler = (e) => {
-                if (!el.contains(e.target)) {
+                // Check if element is still in DOM before handling
+                if (el.isConnected && !el.contains(e.target)) {
                     handler(e);
                 }
             };
-            el._clickOutsideHandler = documentHandler;
+            clickOutsideHandlers.set(el, documentHandler);
             document.addEventListener('click', documentHandler);
             lastEl = el;
         } else {
@@ -840,7 +916,7 @@ function nodeToTree(node) {
     if (node.nodeType === Node.TEXT_NODE) {
         const text = node.textContent;
 
-        const slotMatch = text.match(/^__SLOT_(\d+)__$/);
+        const slotMatch = text.match(SLOT_MARKER_SINGLE);
         if (slotMatch) {
             return {
                 type: 'text',
@@ -849,18 +925,28 @@ function nodeToTree(node) {
             };
         }
 
-        if (text.includes('__SLOT_')) {
-            const parts = text.split(/(__SLOT_\d+__)/);
-            const children = parts
-                .filter(part => part)
-                .map(part => {
-                    const match = part.match(/^__SLOT_(\d+)__$/);
-                    if (match) {
-                        return { type: 'text', slot: parseInt(match[1], 10), context: 'content' };
-                    }
-                    return { type: 'text', value: part };
-                });
-            return { type: 'fragment', wrapped: false, children };
+        if (text.includes(SLOT_PREFIX)) {
+            const parts = text.split(SLOT_MARKER_REGEX);
+            const children = [];
+            // After split with capturing group, we get alternating text and slot numbers
+            let lastIndex = 0;
+            text.replace(SLOT_MARKER_REGEX, (match, slotNum, offset) => {
+                // Add any text before this match
+                if (offset > lastIndex) {
+                    const textBefore = text.slice(lastIndex, offset);
+                    if (textBefore) children.push({ type: 'text', value: textBefore });
+                }
+                // Add the slot
+                children.push({ type: 'text', slot: parseInt(slotNum, 10), context: 'content' });
+                lastIndex = offset + match.length;
+            });
+            // Add any remaining text after last match
+            if (lastIndex < text.length) {
+                children.push({ type: 'text', value: text.slice(lastIndex) });
+            }
+            if (children.length > 0) {
+                return { type: 'fragment', wrapped: false, children };
+            }
         }
 
         if (text) {
@@ -936,11 +1022,11 @@ function nodeToTree(node) {
                     }
                 }
 
-                const slotMatch = value.match(/^__SLOT_(\d+)__$/);
+                const eventSlotMatch = value.match(SLOT_MARKER_SINGLE);
                 let newHandler;
 
-                if (slotMatch) {
-                    newHandler = { slot: parseInt(slotMatch[1], 10), modifier };
+                if (eventSlotMatch) {
+                    newHandler = { slot: parseInt(eventSlotMatch[1], 10), modifier };
                 } else if (value.match(/__EVENT_/)) {
                     newHandler = { handler: value, modifier };
                 } else {
@@ -956,9 +1042,9 @@ function nodeToTree(node) {
             }
 
             // Regular attributes
-            const slotMatch = value.match(/^__SLOT_(\d+)__$/);
-            if (slotMatch) {
-                const slotIndex = parseInt(slotMatch[1], 10);
+            const attrSlotMatch = value.match(SLOT_MARKER_SINGLE);
+            if (attrSlotMatch) {
+                const slotIndex = parseInt(attrSlotMatch[1], 10);
                 let context = 'attribute';
 
                 if (name === 'href' || name === 'src' || name === 'action') {
@@ -972,10 +1058,13 @@ function nodeToTree(node) {
                 }
 
                 attrs[name] = { slot: slotIndex, context, attrName: name };
-            } else if (value.includes('__SLOT_')) {
-                const matches = value.match(/__SLOT_(\d+)__/g);
-                if (matches && matches.length >= 1) {
-                    const slots = matches.map(m => parseInt(m.match(/\d+/)[0], 10));
+            } else if (value.includes(SLOT_PREFIX)) {
+                // Extract all slot indices from the value
+                const slots = [];
+                value.replace(SLOT_MARKER_REGEX, (match, slotNum) => {
+                    slots.push(parseInt(slotNum, 10));
+                });
+                if (slots.length >= 1) {
                     attrs[name] = { slots, context: 'attribute', attrName: name, template: value };
                 } else {
                     attrs[name] = { value };

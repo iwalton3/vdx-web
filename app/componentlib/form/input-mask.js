@@ -254,7 +254,7 @@ export default defineComponent('cl-input-mask', {
                     // Move cursor back
                     const newPos = this.bufferIdxToDisplayPos(bufferIdx - 1);
                     this.updateInputAndCursor(input, newPos);
-                    this.emitChange();
+                    this.emitInput();
                 }
             } else if (e.key === 'Delete') {
                 e.preventDefault();
@@ -265,7 +265,7 @@ export default defineComponent('cl-input-mask', {
                     this.state.buffer = newBuffer;
 
                     this.updateInputAndCursor(input, cursorPos);
-                    this.emitChange();
+                    this.emitInput();
                 }
             } else if (e.key === 'ArrowLeft') {
                 // Allow default behavior
@@ -300,7 +300,7 @@ export default defineComponent('cl-input-mask', {
                         // Move cursor to next position
                         const nextPos = this.bufferIdxToDisplayPos(insertIdx + 1);
                         this.updateInputAndCursor(input, nextPos);
-                        this.emitChange();
+                        this.emitInput();
                     }
                 }
             }
@@ -340,9 +340,11 @@ export default defineComponent('cl-input-mask', {
                 const filledCount = this.state.buffer.filter(c => c).length;
                 if (filledCount > 0 && filledCount < this.state.buffer.length) {
                     this.initBuffer();
-                    this.emitChange();
                 }
             }
+
+            // Always emit change on blur (emitChange only fires if value is complete)
+            this.emitChange();
         },
 
         validateInput() {
@@ -363,7 +365,10 @@ export default defineComponent('cl-input-mask', {
             return true;
         },
 
-        emitChange() {
+        /**
+         * Emit input event - fires on every keystroke for live updates
+         */
+        emitInput() {
             const value = this.props.unmask ? this.getRawValue() : this.getMaskedValue();
 
             this.dispatchEvent(new CustomEvent('input', {
@@ -371,12 +376,25 @@ export default defineComponent('cl-input-mask', {
                 composed: true,
                 detail: { value }
             }));
+        },
 
-            this.dispatchEvent(new CustomEvent('change', {
-                bubbles: true,
-                composed: true,
-                detail: { value }
-            }));
+        /**
+         * Emit change event - only fires when value is complete
+         */
+        emitChange() {
+            const filledCount = this.state.buffer.filter(c => c).length;
+            const totalCount = this.state.buffer.length;
+
+            // Only emit change for complete values (all filled or all empty)
+            if (filledCount === totalCount || filledCount === 0) {
+                const value = this.props.unmask ? this.getRawValue() : this.getMaskedValue();
+
+                this.dispatchEvent(new CustomEvent('change', {
+                    bubbles: true,
+                    composed: true,
+                    detail: { value }
+                }));
+            }
         },
 
         getPlaceholder() {

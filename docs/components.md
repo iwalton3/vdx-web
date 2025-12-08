@@ -778,6 +778,74 @@ defineComponent('my-button', {
 });
 ```
 
+### :host Selector Transformation
+
+The `:host` selector is transformed to the component's tag name at runtime. This is **not** Shadow DOM - it's a convenience feature for styling the component's root element.
+
+```javascript
+// In your component
+styles: /*css*/`
+    :host {
+        display: block;
+        padding: 20px;
+    }
+    :host(.active) {
+        border: 2px solid blue;
+    }
+`
+
+// Becomes (at runtime)
+// my-component {
+//     display: block;
+//     padding: 20px;
+// }
+// my-component.active {
+//     border: 2px solid blue;
+// }
+```
+
+**Important:** Since this isn't Shadow DOM:
+- Styles can still be overridden by external CSS
+- Use specific class names to avoid conflicts
+- `:host-context()` works for ancestor-based styling (e.g., dark mode)
+
+### Keyframe Animation Scoping
+
+Keyframe animations defined in component styles are automatically namespaced to prevent conflicts between components:
+
+```javascript
+defineComponent('cl-spinner', {
+    styles: /*css*/`
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    `
+});
+```
+
+The framework transforms this to:
+
+```css
+cl-spinner .spinner {
+    animation: cl-spinner--spin 1s linear infinite;
+}
+
+@keyframes cl-spinner--spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+```
+
+**Benefits:**
+- Multiple components can define `@keyframes spin` without conflicts
+- Animation references in `animation` and `animation-name` properties are automatically updated
+- Both `@keyframes` and `@-webkit-keyframes` are handled
+
 ## Best Practices
 
 ### Naming Conventions

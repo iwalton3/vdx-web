@@ -3,7 +3,7 @@
  *
  * Common helpers for:
  * - Async operations (sleep, debounce, throttle)
- * - Computed properties with caching
+ * - Memoization for expensive computations
  * - Notifications and toast messages
  * - Form helpers
  * - Event bus for cross-component communication
@@ -14,21 +14,21 @@
 import type { Store } from './framework.js';
 
 // =============================================================================
-// Computed Properties
+// Memoization
 // =============================================================================
 
 /**
- * Create a computed property with dependency-based caching.
- * Caches the result until dependencies change.
+ * Memoize a function based on its arguments.
+ * Caches the result until arguments change.
  *
- * @param fn - Computation function that takes dependencies as arguments
- * @returns Memoized function that caches results based on dependencies
+ * @param fn - Function to memoize that takes arguments
+ * @returns Memoized function that caches results based on arguments
  *
  * @example
  * data() {
  *   return {
  *     items: [...],
- *     sortedItems: computed((items) =>
+ *     sortedItems: memoize((items) =>
  *       [...items].sort((a, b) => a.name.localeCompare(b.name))
  *     )
  *   };
@@ -39,7 +39,7 @@ import type { Store } from './framework.js';
  *   return html`...`;
  * }
  */
-export function computed<T, Args extends unknown[]>(
+export function memoize<T, Args extends unknown[]>(
   fn: (...args: Args) => T
 ): (...args: Args) => T;
 
@@ -102,27 +102,6 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
   fn: T,
   limit?: number
 ): (...args: Parameters<T>) => void;
-
-// =============================================================================
-// Lifecycle Helpers
-// =============================================================================
-
-/**
- * Lifecycle: onMounted hook.
- * Runs after component is mounted (next tick).
- *
- * @param fn - Function to run on mount
- */
-export function onMounted(fn: () => void): void;
-
-/**
- * Lifecycle: onUnmounted hook.
- * Register cleanup function.
- *
- * @param fn - Cleanup function
- * @returns The cleanup function (pass-through)
- */
-export function onUnmounted<T extends () => void>(fn: T): T;
 
 // =============================================================================
 // Notifications

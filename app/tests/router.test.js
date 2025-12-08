@@ -429,3 +429,160 @@ describe('Router Pattern Compilation', function(it) {
         assert.equal(currentRoute.params.endpoint, 'users', 'Should handle dots in route');
     });
 });
+
+describe('Router Component Name Security', function(it) {
+    it('accepts valid custom element names', () => {
+        // Valid names should be accepted - just test route configuration, not rendering
+        const validNames = [
+            'home-page',
+            'user-profile',
+            'my-app',
+            'x-button',
+            'a-b',
+            'component-123',
+            'my-long-component-name'
+        ];
+
+        for (const name of validNames) {
+            const router = new Router({
+                '/': { component: name }
+            });
+            assert.equal(router.routes[''].component, name, `Should accept "${name}"`);
+            router.destroy();
+        }
+    });
+
+    it('logs error for invalid component names during render', async () => {
+        // Capture console.error before creating router
+        const originalError = console.error;
+        let errorLogged = false;
+        let errorMessage = '';
+        console.error = (...args) => {
+            if (args[0] && args[0].includes && args[0].includes('Invalid component name')) {
+                errorLogged = true;
+                errorMessage = args[0];
+            }
+        };
+
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/invalid/': { component: 'invalid' } // No hyphen
+        });
+
+        try {
+            // Create a mock outlet
+            const outlet = document.createElement('div');
+            router.setOutlet(outlet);
+
+            router.navigate('/invalid/');
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            assert.ok(errorLogged, 'Should log error for component without hyphen');
+        } finally {
+            console.error = originalError;
+            router.destroy();
+        }
+    });
+
+    it('rejects component names without hyphens', async () => {
+        // Capture console.error before creating router
+        const originalError = console.error;
+        let errorLogged = false;
+        console.error = (...args) => {
+            if (args[0] && args[0].includes && args[0].includes('Invalid component name') && args[0].includes('nohyphen')) {
+                errorLogged = true;
+            }
+        };
+
+        const router = new Router({
+            '/': { component: 'nohyphen' }
+        });
+
+        try {
+            const outlet = document.createElement('div');
+            router.setOutlet(outlet);
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+            assert.ok(errorLogged, 'Should reject name without hyphen');
+        } finally {
+            console.error = originalError;
+            router.destroy();
+        }
+    });
+
+    it('rejects component names starting with uppercase', async () => {
+        const originalError = console.error;
+        let errorLogged = false;
+        console.error = (...args) => {
+            if (args[0] && args[0].includes && args[0].includes('Invalid component name') && args[0].includes('Invalid-Component')) {
+                errorLogged = true;
+            }
+        };
+
+        const router = new Router({
+            '/': { component: 'Invalid-Component' }
+        });
+
+        try {
+            const outlet = document.createElement('div');
+            router.setOutlet(outlet);
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+            assert.ok(errorLogged, 'Should reject name starting with uppercase');
+        } finally {
+            console.error = originalError;
+            router.destroy();
+        }
+    });
+
+    it('rejects component names with script injection attempts', async () => {
+        const originalError = console.error;
+        let errorLogged = false;
+        console.error = (...args) => {
+            if (args[0] && args[0].includes && args[0].includes('Invalid component name') && args[0].includes('script')) {
+                errorLogged = true;
+            }
+        };
+
+        const router = new Router({
+            '/': { component: '<script>alert(1)</script>' }
+        });
+
+        try {
+            const outlet = document.createElement('div');
+            router.setOutlet(outlet);
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+            assert.ok(errorLogged, 'Should reject script injection attempt');
+        } finally {
+            console.error = originalError;
+            router.destroy();
+        }
+    });
+
+    it('rejects reserved custom element names', async () => {
+        // Test first reserved name only to avoid test interference
+        const originalError = console.error;
+        let errorLogged = false;
+        console.error = (...args) => {
+            if (args[0] && args[0].includes && args[0].includes('Invalid component name') && args[0].includes('annotation-xml')) {
+                errorLogged = true;
+            }
+        };
+
+        const router = new Router({
+            '/': { component: 'annotation-xml' }
+        });
+
+        try {
+            const outlet = document.createElement('div');
+            router.setOutlet(outlet);
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+            assert.ok(errorLogged, 'Should reject reserved name "annotation-xml"');
+        } finally {
+            console.error = originalError;
+            router.destroy();
+        }
+    });
+});

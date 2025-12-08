@@ -128,6 +128,36 @@ async function runTests() {
         }
     });
 
+    await test.test('ColorPicker persists selected color', async () => {
+        await test.selectComponent('ColorPicker');
+        await test.page.waitForSelector('input[type="color"]', { timeout: 2000 });
+
+        // Set a specific color via JavaScript (direct value set for color inputs)
+        const testColor = '#ff5500';
+        await test.page.evaluate((color) => {
+            const colorInput = document.querySelector('input[type="color"]');
+            if (colorInput) {
+                colorInput.value = color;
+                colorInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }, testColor);
+
+        await test.page.waitForTimeout(200);
+
+        // Click elsewhere to blur
+        await test.page.click('body');
+        await test.page.waitForTimeout(200);
+
+        // Verify color persisted
+        const currentColor = await test.page.evaluate(() => {
+            const colorInput = document.querySelector('input[type="color"]');
+            return colorInput ? colorInput.value : '';
+        });
+
+        await test.assert(currentColor.toLowerCase() === testColor.toLowerCase(),
+            `ColorPicker should persist selected color. Expected "${testColor}", got "${currentColor}"`);
+    });
+
     await test.teardown();
 }
 

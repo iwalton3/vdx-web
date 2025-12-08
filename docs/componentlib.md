@@ -254,6 +254,27 @@ Checkbox input with label.
 </cl-checkbox>
 ```
 
+### cl-toggle
+
+Toggle/switch component with keyboard accessibility.
+
+```javascript
+<cl-toggle
+    label="Enable notifications"
+    size="medium"
+    x-model="notificationsEnabled">
+</cl-toggle>
+```
+
+**Props:**
+- `label` - Toggle label text
+- `labelPosition` - `'left'` or `'right'` (default: `'right'`)
+- `size` - `'small'`, `'medium'`, or `'large'`
+- `checkedLabel` / `uncheckedLabel` - Status text shown on toggle
+- `disabled` - Disable the toggle
+
+**Accessibility:** `role="switch"`, `aria-checked`, keyboard support (Enter/Space to toggle)
+
 ### cl-radio-button
 
 Radio button input.
@@ -291,6 +312,12 @@ Date picker component.
 
 ## Selection Components
 
+All selection components include comprehensive accessibility support:
+- ARIA attributes (`role`, `aria-expanded`, `aria-selected`, `aria-activedescendant`)
+- Full keyboard navigation (Arrow keys, Enter, Escape, Home, End)
+- Proper label associations
+- Screen reader announcements
+
 ### cl-dropdown
 
 Single select dropdown with optional filtering.
@@ -326,6 +353,8 @@ template() {
 - `filter` - Enable search filtering
 - `placeholder` - Placeholder text
 
+**Keyboard:** ArrowDown opens, Arrow keys navigate, Enter selects, Escape closes
+
 ### cl-multiselect
 
 Multi-select dropdown with chips display.
@@ -339,6 +368,8 @@ Multi-select dropdown with chips display.
 </cl-multiselect>
 ```
 
+**Keyboard:** ArrowDown opens, Arrow keys navigate, Enter/Space toggles selection, Escape closes
+
 ### cl-autocomplete
 
 Text input with autocomplete suggestions.
@@ -350,6 +381,8 @@ Text input with autocomplete suggestions.
     x-model="searchQuery">
 </cl-autocomplete>
 ```
+
+**Keyboard:** Arrow keys navigate suggestions, Enter selects, Escape closes
 
 ### cl-chips
 

@@ -1451,7 +1451,14 @@ defineComponent('example-toggle', {
         return {
             notifications: true,
             darkMode: false,
-            autoSave: true
+            autoSave: true,
+            // Size demos
+            sizeSmall: true,
+            sizeMedium: true,
+            sizeLarge: true,
+            // With labels demos
+            onOff: true,
+            leftLabel: false
         };
     },
     template() {
@@ -1480,17 +1487,17 @@ defineComponent('example-toggle', {
                 <div>
                     <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Sizes</h4>
                     <div style="display: flex; gap: 32px; align-items: center; flex-wrap: wrap;">
-                        <cl-toggle label="Small" size="small" checked="true"></cl-toggle>
-                        <cl-toggle label="Medium" size="medium" checked="true"></cl-toggle>
-                        <cl-toggle label="Large" size="large" checked="true"></cl-toggle>
+                        <cl-toggle label="Small" size="small" x-model="sizeSmall"></cl-toggle>
+                        <cl-toggle label="Medium" size="medium" x-model="sizeMedium"></cl-toggle>
+                        <cl-toggle label="Large" size="large" x-model="sizeLarge"></cl-toggle>
                     </div>
                 </div>
 
                 <div>
                     <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">With Labels</h4>
                     <div style="display: flex; gap: 32px; align-items: center; flex-wrap: wrap;">
-                        <cl-toggle checkedLabel="ON" uncheckedLabel="OFF" checked="true"></cl-toggle>
-                        <cl-toggle label="Label on left" labelPosition="left"></cl-toggle>
+                        <cl-toggle checkedLabel="ON" uncheckedLabel="OFF" x-model="onOff"></cl-toggle>
+                        <cl-toggle label="Label on left" labelPosition="left" x-model="leftLabel"></cl-toggle>
                     </div>
                 </div>
 

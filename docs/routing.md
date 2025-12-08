@@ -6,6 +6,7 @@ Complete guide to client-side routing with the framework.
 
 - [Basic Setup](#basic-setup)
 - [Defining Routes](#defining-routes)
+- [Nested Routes](#nested-routes)
 - [Route Parameters](#route-parameters)
 - [Query Parameters](#query-parameters)
 - [Reactive Navigation](#reactive-navigation)
@@ -13,6 +14,7 @@ Complete guide to client-side routing with the framework.
 - [Navigation](#navigation)
 - [HTML5 Routing](#html5-routing)
 - [Route Guards](#route-guards)
+- [Router Cleanup](#router-cleanup)
 
 ## Basic Setup
 
@@ -62,6 +64,48 @@ const router = enableRouting(outlet, {
     }
 });
 ```
+
+## Nested Routes
+
+Routes can be nested to create hierarchical URL structures. The framework automatically flattens nested routes:
+
+```javascript
+const router = enableRouting(outlet, {
+    '/': { component: 'home-page' },
+
+    // Nested admin routes
+    '/admin/': {
+        component: 'admin-layout',
+        routes: {
+            '/': { component: 'admin-dashboard' },  // /admin/
+            '/users/': { component: 'admin-users' },  // /admin/users/
+            '/users/:id/': { component: 'admin-user-edit' },  // /admin/users/123/
+            '/settings/': { component: 'admin-settings' }  // /admin/settings/
+        }
+    },
+
+    // Nested product routes
+    '/products/': {
+        routes: {
+            '/': { component: 'product-list' },  // /products/
+            '/:category/': { component: 'product-category' },  // /products/electronics/
+            '/:category/:sku/': { component: 'product-detail' }  // /products/electronics/abc123/
+        }
+    }
+});
+```
+
+**How nesting works:**
+1. The `routes` property contains child routes
+2. Child paths are prefixed with the parent path
+3. Parent routes can have their own `component` (for layout wrappers)
+4. Routes are flattened internally: `/admin/users/` becomes a single route entry
+
+**Use cases:**
+- Admin sections with shared layouts
+- Multi-level product categories
+- User account areas with multiple pages
+- Any hierarchical URL structure
 
 ## Route Parameters
 
@@ -482,6 +526,52 @@ const router = enableRouting(outlet, {
     debug: true  // Logs route changes
 });
 ```
+
+## Router Cleanup
+
+When your application needs to dispose of the router (e.g., in tests, SPAs with multiple routers, or micro-frontends), use the `destroy()` method:
+
+```javascript
+// Create router
+const router = enableRouting(outlet, routes);
+
+// Later, when cleaning up:
+router.destroy();
+```
+
+**What `destroy()` does:**
+- Removes `popstate` event listeners (browser back/forward buttons)
+- Removes `hashchange` event listeners (hash routing mode)
+- Clears internal state
+- Prevents memory leaks from lingering event handlers
+
+**When to call `destroy()`:**
+- In test teardown/cleanup
+- When unmounting a micro-frontend
+- Before creating a new router instance
+- When switching between different router configurations
+
+```javascript
+// Example: Test cleanup
+afterEach(() => {
+    if (router) {
+        router.destroy();
+        router = null;
+    }
+});
+
+// Example: Hot module replacement
+if (module.hot) {
+    module.hot.dispose(() => {
+        router.destroy();
+    });
+}
+```
+
+**Important:** Failing to call `destroy()` when re-creating routers can cause:
+- Memory leaks from accumulated event listeners
+- Multiple route handlers firing for single navigation
+- Unexpected behavior from stale router instances
 
 ## See Also
 

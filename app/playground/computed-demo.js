@@ -3,7 +3,7 @@
  */
 import { defineComponent } from '../lib/framework.js';
 import { html, each, when } from '../lib/framework.js';
-import { computed } from '../lib/utils.js';
+import { memoize } from '../lib/utils.js';
 
 export default defineComponent('computed-demo', {
     data() {
@@ -28,9 +28,9 @@ export default defineComponent('computed-demo', {
             minRating: 1,
             searchQuery: '',
 
-            // Computed properties with caching
-            // These only recompute when their dependencies change
-            sortedItems: computed((items, sortBy) => {
+            // Memoized properties with caching
+            // These only recompute when their arguments change
+            sortedItems: memoize((items, sortBy) => {
                 console.log('[Computed] Sorting items by', sortBy);
                 const sorted = [...items];
 
@@ -47,7 +47,7 @@ export default defineComponent('computed-demo', {
                 return sorted;
             }),
 
-            filteredItems: computed((items, category, inStock, minRating, searchQuery) => {
+            filteredItems: memoize((items, category, inStock, minRating, searchQuery) => {
                 console.log('[Computed] Filtering items');
                 return items.filter(item => {
                     if (category !== 'all' && item.category !== category) return false;

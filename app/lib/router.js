@@ -57,12 +57,63 @@ function stringifyQuery(params) {
     const pairs = [];
 
     for (const [key, value] of Object.entries(params)) {
-        if (value !== null && value !== undefined) {
+        if (value != null) {
             pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
         }
     }
 
     return pairs.join('&');
+}
+
+/**
+ * Validate a component name for security.
+ * Custom element names must:
+ * - Contain at least one hyphen
+ * - Start with a lowercase letter
+ * - Not contain uppercase letters
+ * - Match the PotentialCustomElementName production from the HTML spec
+ * @private
+ * @param {string} name - Component name to validate
+ * @returns {boolean} True if valid custom element name
+ */
+function isValidCustomElementName(name) {
+    if (!name || typeof name !== 'string') {
+        return false;
+    }
+
+    // Must contain a hyphen (required for custom elements)
+    if (!name.includes('-')) {
+        return false;
+    }
+
+    // Must start with lowercase letter
+    if (!/^[a-z]/.test(name)) {
+        return false;
+    }
+
+    // Must only contain valid characters (lowercase, digits, hyphens)
+    // Per HTML spec: PCENChar (restricted for security)
+    if (!/^[a-z][a-z0-9-]*$/.test(name)) {
+        return false;
+    }
+
+    // Reserved names that browsers won't allow
+    const reserved = [
+        'annotation-xml',
+        'color-profile',
+        'font-face',
+        'font-face-src',
+        'font-face-uri',
+        'font-face-format',
+        'font-face-name',
+        'missing-glyph'
+    ];
+
+    if (reserved.includes(name)) {
+        return false;
+    }
+
+    return true;
 }
 
 /**
@@ -562,7 +613,21 @@ export class Router {
 
         if (!component) {
             // Fallback if no component is found (should not happen with proper 404 route)
-            this.outletElement.innerHTML = '<page-not-found></page-not-found>';
+            // SECURITY: Use createElement instead of innerHTML to prevent potential injection
+            this.outletElement.textContent = ''; // Clear safely
+            const notFoundElement = document.createElement('page-not-found');
+            this.outletElement.appendChild(notFoundElement);
+            this._currentComponent = null;
+            this._currentElement = null;
+            return;
+        }
+
+        // SECURITY: Validate component name before createElement
+        if (!isValidCustomElementName(component)) {
+            console.error(`[Router] Invalid component name: "${component}". Component names must be lowercase, contain a hyphen, and start with a letter.`);
+            this.outletElement.textContent = ''; // Clear safely
+            const errorElement = document.createElement('page-not-found');
+            this.outletElement.appendChild(errorElement);
             this._currentComponent = null;
             this._currentElement = null;
             return;

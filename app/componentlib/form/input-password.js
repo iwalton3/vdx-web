@@ -76,6 +76,16 @@ export default defineComponent('cl-input-password', {
             this.validateInput(e.target.value);
         },
 
+        handleChange(e) {
+            // Stop the native change event from bubbling up
+            // This prevents x-model from receiving the native event (which lacks detail.value)
+            if (e && e.stopPropagation) {
+                e.stopPropagation();
+            }
+            // Emit a proper change event with the current value
+            this.emitChange(e, this.state.internalValue);
+        },
+
         toggleVisibility() {
             this.state.passwordVisible = !this.state.passwordVisible;
         },
@@ -198,8 +208,9 @@ export default defineComponent('cl-input-password', {
                         placeholder="${this.props.placeholder}"
                         disabled="${this.props.disabled}"
                         on-input="handleInput"
+                        on-change="handleChange"
                         on-blur="handleBlur">
-                    ${when(this.props.showToggle, html`
+                    ${when(this.props.showToggle !== false && this.props.showToggle !== 'false', html`
                         <button
                             type="button"
                             class="toggle-btn"

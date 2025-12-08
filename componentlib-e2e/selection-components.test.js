@@ -196,6 +196,52 @@ async function runTests() {
         await test.assertGreaterThan(result.newCount, result.initialCount, 'Should add new chip');
     });
 
+    await test.test('Chips preserves existing tags when adding new ones', async () => {
+        await test.selectComponent('Chips');
+        await test.page.waitForSelector('.chip', { timeout: 2000 });
+
+        // Get initial chips
+        const initialChips = await test.page.evaluate(() => {
+            return Array.from(document.querySelectorAll('.chip')).map(c => {
+                // Get text content without the remove button
+                const clone = c.cloneNode(true);
+                const removeBtn = clone.querySelector('.chip-remove');
+                if (removeBtn) removeBtn.remove();
+                return clone.textContent.trim();
+            });
+        });
+
+        // Verify we have initial chips (should have javascript, react, vue)
+        await test.assertGreaterThan(initialChips.length, 0, 'Should have initial chips');
+
+        // Type and add a new chip
+        const input = await test.page.$('.chip-input');
+        await input.type('angular');
+
+        // Press Enter to add the chip
+        await test.page.keyboard.press('Enter');
+        await test.page.waitForTimeout(300);
+
+        // Get all chips now
+        const newChips = await test.page.evaluate(() => {
+            return Array.from(document.querySelectorAll('.chip')).map(c => {
+                const clone = c.cloneNode(true);
+                const removeBtn = clone.querySelector('.chip-remove');
+                if (removeBtn) removeBtn.remove();
+                return clone.textContent.trim();
+            });
+        });
+
+        // Check that all original chips are still present
+        const allOriginalPresent = initialChips.every(chip => newChips.includes(chip));
+        await test.assert(allOriginalPresent,
+            `All original chips should be preserved. Original: [${initialChips.join(', ')}], New: [${newChips.join(', ')}]`);
+
+        // Check that new chip was added
+        await test.assert(newChips.includes('angular'),
+            `New chip "angular" should be added. Chips: [${newChips.join(', ')}]`);
+    });
+
     await test.teardown();
 }
 

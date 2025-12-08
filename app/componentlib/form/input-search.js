@@ -71,6 +71,9 @@ export default defineComponent('cl-input-search', {
                 detail: { value }
             }));
 
+            // Emit change event for x-model compatibility
+            this.emitChange(e, value);
+
             // Debounce search event
             if (this._debounceTimer) {
                 clearTimeout(this._debounceTimer);

@@ -306,17 +306,33 @@ export default defineComponent('cl-calendar', {
         },
 
         handleMaskInput(e) {
-            // Get value from custom event detail
+            // Stop the input event from bubbling to prevent x-model interference
+            if (e && e.stopPropagation) {
+                e.stopPropagation();
+            }
+
+            // Get value from custom event detail - only update display, don't sync to parent
             const value = e.detail ? e.detail.value : (e.target.value || '');
             this.state.inputValue = value;
 
-            if (!value || value.includes('_')) {
-                // Incomplete mask - don't validate yet
-                if (!value) {
-                    this.state.selectedDate = null;
-                    this.state.inputError = '';
-                    this.emitChange(null, '');
-                }
+            // Clear error while typing
+            this.state.inputError = '';
+        },
+
+        handleMaskChange(e) {
+            // Stop the change event from bubbling to prevent x-model interference
+            if (e && e.stopPropagation) {
+                e.stopPropagation();
+            }
+
+            // InputMask only emits change when value is complete (or empty)
+            const value = e.detail ? e.detail.value : '';
+
+            if (!value) {
+                // Empty - clear selection
+                this.state.selectedDate = null;
+                this.state.inputError = '';
+                this.emitChange(null, '');
                 return;
             }
 
@@ -328,33 +344,18 @@ export default defineComponent('cl-calendar', {
                     this.state.selectedDate = date.getTime();
                     this.state.viewDate = date.getTime();
                     this.state.inputError = '';
+                    this.state.inputValue = this.formatDisplayDate(date);
                     this.emitChange(null, this.toISODate(date));
                 }
             } else {
-                this.state.inputError = 'Invalid date';
-            }
-        },
-
-        handleInputChange(e) {
-            // Legacy handler kept for compatibility
-            this.handleMaskInput(e);
-        },
-
-        handleInputBlur(e) {
-            // Validate incomplete input on blur
-            const value = this.state.inputValue;
-            if (value && !this.state.selectedDate) {
-                // Input has partial value but no valid date selected
-                this.state.inputError = 'Please enter a complete date';
-            } else if (this.state.selectedDate && !this.state.inputError) {
-                // Format the date properly on blur if valid
-                this.state.inputValue = this.formatDisplayDate(new Date(this.state.selectedDate));
+                this.state.inputError = 'Invalid date format';
             }
         },
 
         handleInputKeydown(e) {
             if (e.key === 'Enter') {
-                this.handleInputBlur(e);
+                // Trigger validation by blurring the input
+                e.target.blur();
                 this.state.showPicker = false;
             } else if (e.key === 'Escape') {
                 this.state.showPicker = false;
@@ -418,8 +419,8 @@ export default defineComponent('cl-calendar', {
                             hideError="${true}"
                             error="${this.state.inputError}"
                             on-input="handleMaskInput"
-                            on-keydown="handleInputKeydown"
-                            on-focusout="handleInputBlur">
+                            on-change="handleMaskChange"
+                            on-keydown="handleInputKeydown">
                         </cl-input-mask>
                         <button
                             class="calendar-toggle ${hasError ? 'error' : ''}"

@@ -80,18 +80,29 @@ async function runTest(testFile) {
 }
 
 async function runAllTests() {
-    const results = [];
+    let results;
 
-    for (const testFile of testFiles) {
-        const result = await runTest(testFile);
-        results.push(result);
+    if (onlyErrors) {
+        // Run tests in parallel for faster execution
+        console.log('Running tests in parallel...\n');
+        results = await Promise.all(testFiles.map(testFile => runTest(testFile)));
+    } else {
+        // Run tests sequentially for readable output
+        results = [];
+        for (const testFile of testFiles) {
+            const result = await runTest(testFile);
+            results.push(result);
+        }
+    }
 
+    // Count results
+    for (const result of results) {
+        totalTests++;
         if (result.passed) {
             passedTests++;
         } else {
             failedTests++;
         }
-        totalTests++;
     }
 
     if (onlyErrors) {

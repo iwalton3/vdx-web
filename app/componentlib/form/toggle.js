@@ -1,11 +1,16 @@
 /**
  * Toggle - Modern toggle/switch component
+ *
+ * Supports both `checked` and `value` props for x-model compatibility:
+ * - Use `checked` for manual boolean binding
+ * - Use `value` with x-model for automatic two-way binding
  */
 import { defineComponent, html, when } from '../../lib/framework.js';
 
 export default defineComponent('cl-toggle', {
     props: {
         checked: false,
+        value: null,             // Used for x-model compatibility - null means "not set by x-model"
         disabled: false,
         label: '',
         labelPosition: 'right',  // 'left' or 'right'
@@ -21,28 +26,38 @@ export default defineComponent('cl-toggle', {
     },
 
     mounted() {
-        this.state.internalChecked = this.props.checked === true || this.props.checked === 'true';
+        this.state.internalChecked = this._getCheckedState();
     },
 
     propsChanged(prop, newValue, oldValue) {
-        if (prop === 'checked') {
-            this.state.internalChecked = newValue === true || newValue === 'true';
+        if (prop === 'checked' || prop === 'value') {
+            this.state.internalChecked = this._getCheckedState();
         }
     },
 
     methods: {
+        _getCheckedState() {
+            // x-model sets 'value' prop, manual usage sets 'checked' prop
+            // If value is a boolean, use it; otherwise use checked
+            if (typeof this.props.value === 'boolean') {
+                return this.props.value;
+            }
+            return this.props.checked === true || this.props.checked === 'true';
+        },
+
         toggle() {
             if (this.props.disabled) return;
 
             this.state.internalChecked = !this.state.internalChecked;
 
+            // x-model for custom elements listens to 'change' and expects detail.value
             this.dispatchEvent(new CustomEvent('change', {
                 bubbles: true,
                 composed: true,
-                detail: { checked: this.state.internalChecked }
+                detail: { value: this.state.internalChecked, checked: this.state.internalChecked }
             }));
 
-            // For x-model support
+            // Also emit 'input' for additional compatibility
             this.dispatchEvent(new CustomEvent('input', {
                 bubbles: true,
                 composed: true,

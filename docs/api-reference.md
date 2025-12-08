@@ -188,15 +188,80 @@ Renders trusted HTML without escaping.
 ${raw(this.state.trustedHtmlFromBackend)}
 ```
 
+### awaitThen(promiseOrValue, thenFn, pendingContent, catchFn)
+
+Renders async content with loading and error states. Handles both Promises and immediate values.
+
+**Parameters:**
+- `promiseOrValue` - Promise to await, OR an immediate value (non-promise)
+- `thenFn` (function) - Render function when resolved: `(data) => html\`...\``
+- `pendingContent` - Content to show while loading
+- `catchFn` (function, optional) - Render function for errors: `(error) => html\`...\``
+
+**Returns:** html template containing async rendering component
+
+**Example with Promise:**
+```javascript
+data() {
+    return { userPromise: null };
+},
+
+mounted() {
+    this.state.userPromise = fetchUser(123);
+},
+
+template() {
+    return html`
+        ${awaitThen(
+            this.state.userPromise,
+            user => html`<div>${user.name}</div>`,
+            html`<loading-spinner></loading-spinner>`,
+            error => html`<div class="error">${error.message}</div>`
+        )}
+    `;
+}
+```
+
+**Important: Immediate values are handled as already-resolved:**
+```javascript
+// Non-promise values skip the loading state entirely
+${awaitThen(
+    { name: 'Alice' },  // Not a promise - treated as immediate
+    user => html`<div>${user.name}</div>`,
+    html`<loading-spinner></loading-spinner>`  // Never shown
+)}
+
+// null/undefined are also treated as immediate values
+${awaitThen(
+    this.state.optionalData,  // May be null
+    data => html`<div>${data?.name || 'No data'}</div>`,
+    html`<loading-spinner></loading-spinner>`
+)}
+```
+
+This behavior allows `awaitThen` to handle both async and sync data sources uniformly.
+
 ### pruneTemplateCache()
 
-Clears the template compilation cache. Rarely needed.
+Clears the template compilation cache. The framework caches compiled templates for performance (up to 500 entries). This function clears that cache.
+
+**When to use:**
+- Memory-constrained environments where cache grows too large
+- Dynamic template generation (rare)
+- Testing scenarios where you need clean state
+
+**Parameters:** None
+
+**Returns:** `void`
 
 ```javascript
 import { pruneTemplateCache } from './lib/framework.js';
 
+// Clear the template cache
 pruneTemplateCache();
 ```
+
+**Note:** In most applications, you never need to call this. The cache automatically limits itself to 500 entries and provides significant performance benefits for repeated renders.
 
 ## Reactivity API
 
@@ -244,34 +309,32 @@ cleanup();
 
 ### computed(fn)
 
-Creates a memoized computed value.
+Creates a reactive computed value that automatically tracks dependencies.
 
 **Parameters:**
-- `fn` (function) - Function that computes value based on dependencies
+- `fn` (function) - Function that computes value by accessing reactive state
 
-**Returns:** Computed function
+**Returns:** Object with `get()` method to retrieve current value and `dispose()` to stop tracking
 
 **Example:**
 ```javascript
-import { computed } from './lib/utils.js';
+import { computed, reactive } from './lib/framework.js';
 
-data() {
-    return {
-        items: [...],
-        filteredItems: computed((items, query) => {
-            return items.filter(item => item.name.includes(query));
-        })
-    };
-},
+const state = reactive({ a: 1, b: 2 });
 
-template() {
-    const filtered = this.state.filteredItems(
-        this.state.items,
-        this.state.query
-    );
-    // ...
-}
+// Create a computed value - dependencies are auto-tracked
+const sum = computed(() => state.a + state.b);
+
+console.log(sum.get()); // 3
+
+state.a = 5;
+console.log(sum.get()); // 7 (automatically recomputed)
+
+// Clean up when done
+sum.dispose();
 ```
+
+**Note:** For argument-based memoization (caching based on function arguments), use `memoize()` from `utils.js` instead.
 
 ### watch(fn, callback)
 

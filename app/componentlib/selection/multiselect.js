@@ -1,7 +1,18 @@
 /**
  * MultiSelect - Multi-select dropdown with chips
+ *
+ * Accessibility features:
+ * - role="listbox" with aria-multiselectable on options container
+ * - role="option" with aria-selected on each option
+ * - aria-expanded on trigger
+ * - aria-activedescendant for focus tracking
+ * - Keyboard navigation: Arrow keys, Enter, Space, Escape, Home, End
+ * - aria-label on chip remove buttons
  */
 import { defineComponent, html, when, each } from '../../lib/framework.js';
+
+// Counter for unique IDs
+let multiselectIdCounter = 0;
 
 export default defineComponent('cl-multiselect', {
     props: {
@@ -19,22 +30,138 @@ export default defineComponent('cl-multiselect', {
     data() {
         return {
             showPanel: false,
-            filterValue: ''
+            filterValue: '',
+            activeIndex: -1,
+            multiselectId: `cl-multiselect-${++multiselectIdCounter}`
         };
+    },
+
+    mounted() {
+        // Global keydown for escape
+        this._handleGlobalKeyDown = (e) => {
+            if (e.key === 'Escape' && this.state.showPanel) {
+                this.closePanel();
+                this._focusTrigger();
+            }
+        };
+        document.addEventListener('keydown', this._handleGlobalKeyDown);
+    },
+
+    unmounted() {
+        if (this._handleGlobalKeyDown) {
+            document.removeEventListener('keydown', this._handleGlobalKeyDown);
+        }
     },
 
     methods: {
         closePanel() {
             this.state.showPanel = false;
+            this.state.activeIndex = -1;
+            this.state.filterValue = '';
         },
 
         togglePanel() {
             if (!this.props.disabled) {
-                this.state.showPanel = !this.state.showPanel;
                 if (this.state.showPanel) {
-                    this.state.filterValue = '';
+                    this.closePanel();
+                } else {
+                    this.openPanel();
                 }
             }
+        },
+
+        openPanel() {
+            this.state.showPanel = true;
+            this.state.filterValue = '';
+            this.state.activeIndex = 0;
+
+            // Focus filter input if present
+            requestAnimationFrame(() => {
+                if (this.props.filter) {
+                    const filterInput = this.querySelector('.filter-input');
+                    if (filterInput) filterInput.focus();
+                }
+            });
+        },
+
+        _focusTrigger() {
+            const trigger = this.querySelector('.multiselect-trigger');
+            if (trigger) trigger.focus();
+        },
+
+        getOptionId(index) {
+            return `${this.state.multiselectId}-option-${index}`;
+        },
+
+        handleKeyDown(e) {
+            const options = this.getFilteredOptions();
+
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    if (!this.state.showPanel) {
+                        this.openPanel();
+                    } else {
+                        this.state.activeIndex = Math.min(this.state.activeIndex + 1, options.length - 1);
+                        this._scrollActiveIntoView();
+                    }
+                    break;
+
+                case 'ArrowUp':
+                    e.preventDefault();
+                    if (this.state.showPanel) {
+                        this.state.activeIndex = Math.max(this.state.activeIndex - 1, 0);
+                        this._scrollActiveIntoView();
+                    }
+                    break;
+
+                case 'Home':
+                    if (this.state.showPanel) {
+                        e.preventDefault();
+                        this.state.activeIndex = 0;
+                        this._scrollActiveIntoView();
+                    }
+                    break;
+
+                case 'End':
+                    if (this.state.showPanel) {
+                        e.preventDefault();
+                        this.state.activeIndex = options.length - 1;
+                        this._scrollActiveIntoView();
+                    }
+                    break;
+
+                case 'Enter':
+                case ' ':
+                    if (this.state.showPanel && this.state.activeIndex >= 0) {
+                        e.preventDefault();
+                        const option = options[this.state.activeIndex];
+                        if (option) this.toggleOption(option);
+                    } else if (!this.state.showPanel && e.key === ' ') {
+                        e.preventDefault();
+                        this.openPanel();
+                    }
+                    break;
+
+                case 'Tab':
+                    if (this.state.showPanel) {
+                        this.closePanel();
+                    }
+                    break;
+            }
+        },
+
+        _scrollActiveIntoView() {
+            requestAnimationFrame(() => {
+                const activeOption = this.querySelector('.option.active');
+                if (activeOption) {
+                    activeOption.scrollIntoView({ block: 'nearest' });
+                }
+            });
+        },
+
+        handleOptionMouseEnter(index) {
+            this.state.activeIndex = index;
         },
 
         toggleOption(option) {
@@ -106,14 +233,27 @@ export default defineComponent('cl-multiselect', {
         const filteredOptions = this.getFilteredOptions();
         const selectedOptions = this.getSelectedOptions();
         const hasSelection = selectedOptions.length > 0;
+        const listboxId = `${this.state.multiselectId}-listbox`;
+        const labelId = `${this.state.multiselectId}-label`;
+        const activeDescendant = this.state.activeIndex >= 0 ? this.getOptionId(this.state.activeIndex) : undefined;
 
         return html`
             <div class="cl-multiselect-wrapper" on-click-outside="closePanel">
                 ${when(this.props.label, html`
-                    <label class="cl-label">${this.props.label}</label>
+                    <label class="cl-label" id="${labelId}">${this.props.label}</label>
                 `)}
                 <div class="multiselect-container">
-                    <div class="multiselect-trigger ${this.props.disabled ? 'disabled' : ''}" on-click="togglePanel">
+                    <div class="multiselect-trigger ${this.props.disabled ? 'disabled' : ''}"
+                         role="combobox"
+                         aria-haspopup="listbox"
+                         aria-expanded="${this.state.showPanel ? 'true' : 'false'}"
+                         aria-controls="${listboxId}"
+                         aria-activedescendant="${activeDescendant}"
+                         aria-labelledby="${this.props.label ? labelId : undefined}"
+                         aria-disabled="${this.props.disabled ? 'true' : undefined}"
+                         tabindex="${this.props.disabled ? -1 : 0}"
+                         on-click="togglePanel"
+                         on-keydown="handleKeyDown">
                         <div class="selected-items">
                             ${when(!hasSelection, html`
                                 <span class="placeholder">${this.props.placeholder}</span>
@@ -121,14 +261,17 @@ export default defineComponent('cl-multiselect', {
                             ${each(selectedOptions, option => html`
                                 <span class="chip">
                                     ${this.getOptionLabel(option)}
-                                    <span class="chip-remove" on-click="${(e) => {
-                                        e.stopPropagation();
-                                        this.removeValue(this.getOptionValue(option));
-                                    }}">×</span>
+                                    <button type="button"
+                                            class="chip-remove"
+                                            aria-label="Remove ${this.getOptionLabel(option)}"
+                                            on-click="${(e) => {
+                                                e.stopPropagation();
+                                                this.removeValue(this.getOptionValue(option));
+                                            }}">×</button>
                                 </span>
                             `)}
                         </div>
-                        <span class="dropdown-icon">${this.state.showPanel ? '▲' : '▼'}</span>
+                        <span class="dropdown-icon" aria-hidden="true">${this.state.showPanel ? '▲' : '▼'}</span>
                     </div>
                     ${when(this.state.showPanel, html`
                         <div class="multiselect-panel">
@@ -139,20 +282,34 @@ export default defineComponent('cl-multiselect', {
                                         class="filter-input"
                                         placeholder="Search..."
                                         value="${this.state.filterValue}"
-                                        on-input="handleFilterInput">
+                                        on-input="handleFilterInput"
+                                        on-keydown="handleKeyDown"
+                                        aria-label="Filter options">
                                 </div>
                             `)}
-                            <div class="options-list">
+                            <div class="options-list"
+                                 role="listbox"
+                                 id="${listboxId}"
+                                 aria-multiselectable="true"
+                                 aria-labelledby="${this.props.label ? labelId : undefined}">
                                 ${when(filteredOptions.length === 0, html`
-                                    <div class="no-results">No results found</div>
+                                    <div class="no-results" role="status">No results found</div>
                                 `)}
-                                ${each(filteredOptions, option => {
+                                ${each(filteredOptions, (option, index) => {
                                     const isSelected = this.isSelected(option);
                                     return html`
                                         <div
-                                            class="option ${isSelected ? 'selected' : ''}"
-                                            on-click="${() => this.toggleOption(option)}">
-                                            <input type="checkbox" checked="${isSelected}" readonly>
+                                            class="option ${isSelected ? 'selected' : ''} ${this.state.activeIndex === index ? 'active' : ''}"
+                                            role="option"
+                                            id="${this.getOptionId(index)}"
+                                            aria-selected="${isSelected ? 'true' : 'false'}"
+                                            on-click="${() => this.toggleOption(option)}"
+                                            on-mouseenter="${() => this.handleOptionMouseEnter(index)}">
+                                            <input type="checkbox"
+                                                   checked="${isSelected}"
+                                                   readonly
+                                                   tabindex="-1"
+                                                   aria-hidden="true">
                                             <span>${this.getOptionLabel(option)}</span>
                                         </div>
                                     `;
@@ -234,10 +391,17 @@ export default defineComponent('cl-multiselect', {
         }
 
         .chip-remove {
+            background: none;
+            border: none;
+            padding: 0;
+            color: inherit;
             cursor: pointer;
             font-size: 16px;
             line-height: 1;
             font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .chip-remove:hover {
@@ -302,12 +466,19 @@ export default defineComponent('cl-multiselect', {
             font-size: 14px;
         }
 
-        .option:hover {
+        .option:hover,
+        .option.active {
             background: var(--hover-bg, #f8f9fa);
         }
 
         .option input[type="checkbox"] {
             pointer-events: none;
+        }
+
+        .multiselect-trigger:focus {
+            outline: none;
+            border-color: var(--primary-color, #007bff);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
         }
 
         .no-results {

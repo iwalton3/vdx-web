@@ -1,7 +1,16 @@
 /**
  * Slider - Range slider input
+ *
+ * Accessibility features:
+ * - Proper label association via id/for attributes
+ * - aria-valuenow, aria-valuemin, aria-valuemax on range input
+ * - aria-label fallback when no visible label provided
+ * - Native keyboard support via range input (Arrow keys, Home, End)
  */
 import { defineComponent, html, when } from '../../lib/framework.js';
+
+// Counter for unique IDs
+let sliderIdCounter = 0;
 
 export default defineComponent('cl-slider', {
     props: {
@@ -11,12 +20,14 @@ export default defineComponent('cl-slider', {
         step: 1,
         disabled: false,
         label: '',
-        showvalue: true
+        showvalue: true,
+        arialabel: '' // Fallback for when no visible label
     },
 
     data() {
         return {
-            internalValue: 0 // Will be synced in mounted()
+            internalValue: 0, // Will be synced in mounted()
+            sliderId: `cl-slider-${++sliderIdCounter}`
         };
     },
 
@@ -56,25 +67,37 @@ export default defineComponent('cl-slider', {
 
     template() {
         const percentage = ((this.state.internalValue - this.props.min) / (this.props.max - this.props.min)) * 100;
+        const inputId = `${this.state.sliderId}-input`;
+        const labelId = `${this.state.sliderId}-label`;
+
+        // Determine aria-label: use explicit arialabel prop, or nothing if visible label exists
+        const ariaLabel = !this.props.label && this.props.arialabel ? this.props.arialabel : undefined;
+        const ariaLabelledby = this.props.label ? labelId : undefined;
 
         return html`
             <div class="cl-slider-wrapper">
                 ${when(this.props.label, html`
                     <div class="slider-header">
-                        <label class="cl-label">${this.props.label}</label>
+                        <label class="cl-label" id="${labelId}" for="${inputId}">${this.props.label}</label>
                         ${when(this.props.showvalue, html`
-                            <span class="value-display">${this.state.internalValue}</span>
+                            <span class="value-display" aria-hidden="true">${this.state.internalValue}</span>
                         `)}
                     </div>
                 `)}
                 <div class="slider-container">
                     <input
                         type="range"
+                        id="${inputId}"
                         min="${this.props.min}"
                         max="${this.props.max}"
                         step="${this.props.step}"
                         value="${this.state.internalValue}"
                         disabled="${this.props.disabled}"
+                        aria-valuenow="${this.state.internalValue}"
+                        aria-valuemin="${this.props.min}"
+                        aria-valuemax="${this.props.max}"
+                        aria-label="${ariaLabel}"
+                        aria-labelledby="${ariaLabelledby}"
                         on-input="handleInput"
                         on-change="handleChange"
                         style="--percentage: ${percentage}%">

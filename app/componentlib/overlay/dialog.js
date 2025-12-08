@@ -1,7 +1,23 @@
 /**
  * Dialog - Modal dialog component
+ *
+ * Accessibility features:
+ * - role="dialog" for screen readers
+ * - aria-modal for modal dialogs
+ * - aria-labelledby for dialog title
+ * - Escape key to close
+ * - Close button has aria-label
+ * - Focus trap when modal (Tab cycles within dialog)
+ * - Auto-focus first focusable element on open
+ * - Returns focus to trigger element on close
  */
 import { defineComponent, html, when } from '../../lib/framework.js';
+
+// Counter for generating unique IDs for dialog titles
+let dialogIdCounter = 0;
+
+// Selector for focusable elements
+const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 export default defineComponent('cl-dialog', {
     props: {
@@ -12,6 +28,56 @@ export default defineComponent('cl-dialog', {
         closable: true,
         dismissablemask: true,
         style: ''
+    },
+
+    data() {
+        return {
+            dialogId: `cl-dialog-${++dialogIdCounter}`
+        };
+    },
+
+    mounted() {
+        // Add global escape key listener
+        this._handleKeyDown = (e) => {
+            if (e.key === 'Escape' && this.props.visible && this.props.closable) {
+                this.close();
+            }
+        };
+        document.addEventListener('keydown', this._handleKeyDown);
+    },
+
+    unmounted() {
+        // Clean up escape key listener
+        if (this._handleKeyDown) {
+            document.removeEventListener('keydown', this._handleKeyDown);
+        }
+        // Restore body scroll if we were preventing it
+        document.body.style.overflow = '';
+    },
+
+    propsChanged(prop, newValue, oldValue) {
+        if (prop === 'visible') {
+            if (newValue && !oldValue) {
+                // Dialog opening - store the element that had focus
+                this._previousFocus = document.activeElement;
+
+                // Prevent body scroll when modal
+                if (this.props.modal) {
+                    document.body.style.overflow = 'hidden';
+                }
+
+                // Focus first focusable element after render
+                requestAnimationFrame(() => {
+                    this._focusFirstElement();
+                });
+            } else if (!newValue && oldValue) {
+                // Dialog closing - restore focus
+                document.body.style.overflow = '';
+                if (this._previousFocus && typeof this._previousFocus.focus === 'function') {
+                    this._previousFocus.focus();
+                }
+            }
+        }
     },
 
     methods: {
@@ -27,6 +93,51 @@ export default defineComponent('cl-dialog', {
 
         handleDialogClick(e) {
             e.stopPropagation();
+        },
+
+        /**
+         * Focus the first focusable element in the dialog
+         */
+        _focusFirstElement() {
+            const dialog = this.querySelector('.cl-dialog');
+            if (!dialog) return;
+
+            const focusable = dialog.querySelectorAll(FOCUSABLE_SELECTOR);
+            if (focusable.length > 0) {
+                focusable[0].focus();
+            }
+        },
+
+        /**
+         * Handle Tab key for focus trapping
+         */
+        handleFocusTrap(e) {
+            if (e.key !== 'Tab' || !this.props.modal) return;
+
+            const dialog = this.querySelector('.cl-dialog');
+            if (!dialog) return;
+
+            const focusable = Array.from(dialog.querySelectorAll(FOCUSABLE_SELECTOR))
+                .filter(el => el.offsetParent !== null); // Filter out hidden elements
+
+            if (focusable.length === 0) return;
+
+            const firstFocusable = focusable[0];
+            const lastFocusable = focusable[focusable.length - 1];
+
+            if (e.shiftKey) {
+                // Shift+Tab: if on first element, go to last
+                if (document.activeElement === firstFocusable) {
+                    e.preventDefault();
+                    lastFocusable.focus();
+                }
+            } else {
+                // Tab: if on last element, go to first
+                if (document.activeElement === lastFocusable) {
+                    e.preventDefault();
+                    firstFocusable.focus();
+                }
+            }
         }
     },
 
@@ -34,17 +145,31 @@ export default defineComponent('cl-dialog', {
         // children is always an array, slots has named slots
         const footerSlot = this.props.slots.footer || [];
         const hasFooter = this.props.footer || footerSlot.length > 0;
-        console.log('Rendering dialog, style=', this.props);
+        const titleId = `${this.state.dialogId}-title`;
+
+        // Determine aria-labelledby based on whether we have a header
+        const ariaLabelledby = this.props.header ? titleId : undefined;
 
         return html`
             ${when(this.props.visible, html`
-                <div class="cl-dialog-mask ${this.props.modal ? 'modal' : ''}" on-click="handleMaskClick">
-                    <div class="cl-dialog" style="${this.props.style}" on-click="handleDialogClick">
+                <div class="cl-dialog-mask ${this.props.modal ? 'modal' : ''}"
+                     on-click="handleMaskClick"
+                     aria-hidden="true">
+                    <div class="cl-dialog"
+                         style="${this.props.style}"
+                         role="dialog"
+                         aria-modal="${this.props.modal ? 'true' : undefined}"
+                         aria-labelledby="${ariaLabelledby}"
+                         on-click="handleDialogClick"
+                         on-keydown="handleFocusTrap">
                         ${when(this.props.header || this.props.closable, html`
                             <div class="dialog-header">
-                                <span class="dialog-title">${this.props.header}</span>
+                                <span class="dialog-title" id="${titleId}">${this.props.header}</span>
                                 ${when(this.props.closable, html`
-                                    <button class="close-btn" on-click="close">×</button>
+                                    <button class="close-btn"
+                                            on-click="close"
+                                            aria-label="Close dialog"
+                                            type="button">×</button>
                                 `)}
                             </div>
                         `)}
@@ -156,6 +281,12 @@ export default defineComponent('cl-dialog', {
             border-top: 1px solid var(--input-border, #dee2e6);
             display: flex;
             justify-content: flex-end;
+            gap: 8px;
+        }
+
+        /* Handle slot wrapper divs */
+        .dialog-footer > div {
+            display: flex;
             gap: 8px;
         }
     `

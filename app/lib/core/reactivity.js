@@ -49,6 +49,11 @@ export function createEffect(fn) {
         effectStack.push(effect);
         try {
             return fn();
+        } catch (e) {
+            // Log error but don't re-throw to prevent one broken effect
+            // from stopping all reactive tracking
+            console.error('[Effect Error] An error occurred in a reactive effect:', e);
+            // Return undefined on error - effect tracking continues
         } finally {
             effectStack.pop();
             activeEffect = effectStack[effectStack.length - 1];
@@ -395,7 +400,7 @@ export function memo(fn, deps) {
  */
 export function trackAllDependencies(obj, visited = new Set()) {
     // Handle null/undefined
-    if (obj === null || obj === undefined) return;
+    if (obj == null) return;
 
     // Handle primitives
     if (typeof obj !== 'object') return;

@@ -1,7 +1,16 @@
 /**
  * InputText - Text input with validation
+ *
+ * Accessibility features:
+ * - Proper label association via id/for attributes
+ * - aria-describedby for help text and error messages
+ * - aria-invalid for error state
+ * - aria-required for required fields
  */
 import { defineComponent, html, when } from '../../lib/framework.js';
+
+// Counter for unique IDs
+let inputTextIdCounter = 0;
 
 export default defineComponent('cl-input-text', {
     props: {
@@ -20,7 +29,8 @@ export default defineComponent('cl-input-text', {
     data() {
         return {
             internalError: '',
-            internalValue: '' // Will be synced in mounted()
+            internalValue: '', // Will be synced in mounted()
+            inputId: `cl-input-text-${++inputTextIdCounter}`
         };
     },
 
@@ -65,6 +75,17 @@ export default defineComponent('cl-input-text', {
             this.validateInput(e.target.value);
         },
 
+        handleChange(e) {
+            // Stop the native change event from bubbling up
+            // This prevents x-model from receiving the native event (which lacks detail.value)
+            // Instead, we emit our own CustomEvent with the proper format
+            if (e && e.stopPropagation) {
+                e.stopPropagation();
+            }
+            // Emit a proper change event with the current value
+            this.emitChange(e, this.state.internalValue);
+        },
+
         validateInput(value) {
             if (this.props.required && !value) {
                 this.state.internalError = 'This field is required';
@@ -97,28 +118,42 @@ export default defineComponent('cl-input-text', {
     template() {
         const error = this.props.error || this.state.internalError;
         const hasError = !!error;
+        const inputId = this.state.inputId;
+        const helpTextId = `${inputId}-help`;
+        const errorId = `${inputId}-error`;
+
+        // Build aria-describedby from available elements
+        const describedByParts = [];
+        if (this.props.helptext && !hasError) describedByParts.push(helpTextId);
+        if (hasError) describedByParts.push(errorId);
+        const ariaDescribedby = describedByParts.length > 0 ? describedByParts.join(' ') : undefined;
 
         return html`
             <div class="cl-input-wrapper">
                 ${when(this.props.label, html`
-                    <label class="cl-label">
+                    <label class="cl-label" for="${inputId}">
                         ${this.props.label}
-                        ${when(this.props.required, html`<span class="required">*</span>`)}
+                        ${when(this.props.required, html`<span class="required" aria-hidden="true">*</span>`)}
                     </label>
                 `)}
                 <input
                     type="text"
+                    id="${inputId}"
                     class="${hasError ? 'error' : ''}"
                     value="${this.state.internalValue}"
                     placeholder="${this.props.placeholder}"
                     disabled="${this.props.disabled}"
+                    aria-required="${this.props.required ? 'true' : undefined}"
+                    aria-invalid="${hasError ? 'true' : undefined}"
+                    aria-describedby="${ariaDescribedby}"
                     on-input="handleInput"
+                    on-change="handleChange"
                     on-blur="handleBlur">
                 ${when(this.props.helptext && !hasError, html`
-                    <small class="help-text">${this.props.helptext}</small>
+                    <small class="help-text" id="${helpTextId}">${this.props.helptext}</small>
                 `)}
                 ${when(hasError, html`
-                    <small class="error-text">${error}</small>
+                    <small class="error-text" id="${errorId}" role="alert">${error}</small>
                 `)}
             </div>
         `;

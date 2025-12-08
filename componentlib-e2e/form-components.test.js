@@ -41,6 +41,30 @@ async function runTests() {
         await test.assert(canFocus, 'Input should be focusable and interactive');
     });
 
+    await test.test('InputText persists value after blur', async () => {
+        await test.selectComponent('InputText');
+        await test.page.waitForSelector('cl-input-text input[type="text"]', { timeout: 2000 });
+
+        const testValue = 'Test persistence value';
+
+        // Clear and type into the first input
+        const input = await test.page.$('cl-input-text input[type="text"]');
+        await input.click({ clickCount: 3 }); // Select all
+        await input.type(testValue);
+
+        // Blur by clicking elsewhere
+        await test.page.click('body');
+        await test.page.waitForTimeout(200);
+
+        // Verify value persisted
+        const value = await test.page.evaluate(() => {
+            const input = document.querySelector('cl-input-text input[type="text"]');
+            return input ? input.value : '';
+        });
+
+        await test.assert(value === testValue, `Value should persist after blur. Expected "${testValue}", got "${value}"`);
+    });
+
     // InputNumber Tests
     await test.test('InputNumber component renders', async () => {
         await test.selectComponent('InputNumber');
@@ -63,6 +87,54 @@ async function runTests() {
         await test.page.waitForTimeout(100);
         // Button should remain visible after click
         await test.assertExists('.btn-increment');
+    });
+
+    await test.test('InputNumber persists typed value after blur', async () => {
+        await test.selectComponent('InputNumber');
+        await test.page.waitForSelector('cl-input-number input[type="number"]', { timeout: 2000 });
+
+        // Get the input element and type a number
+        const input = await test.page.$('cl-input-number input[type="number"]');
+        await input.click({ clickCount: 3 }); // Select all
+        await input.type('42');
+
+        // Blur by clicking elsewhere
+        await test.page.click('body');
+        await test.page.waitForTimeout(200);
+
+        // Verify value persisted
+        const value = await test.page.evaluate(() => {
+            const input = document.querySelector('cl-input-number input[type="number"]');
+            return input ? input.value : '';
+        });
+
+        await test.assert(value === '42', `InputNumber should persist typed value. Expected "42", got "${value}"`);
+    });
+
+    await test.test('InputNumber increment from zero works correctly', async () => {
+        await test.selectComponent('InputNumber');
+        await test.page.waitForSelector('cl-input-number input[type="number"]', { timeout: 2000 });
+
+        // Get initial value
+        const initialValue = await test.page.evaluate(() => {
+            const input = document.querySelector('cl-input-number input[type="number"]');
+            return input ? parseInt(input.value) || 0 : 0;
+        });
+
+        // Click increment button
+        await test.page.click('.btn-increment');
+        await test.page.waitForTimeout(100);
+
+        // Verify value incremented by 1
+        const newValue = await test.page.evaluate(() => {
+            const input = document.querySelector('cl-input-number input[type="number"]');
+            return input ? parseInt(input.value) || 0 : 0;
+        });
+
+        await test.assert(
+            newValue === initialValue + 1,
+            `InputNumber should increment by 1. Expected ${initialValue + 1}, got ${newValue}`
+        );
     });
 
     // TextArea Tests

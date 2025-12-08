@@ -3,7 +3,7 @@
  *
  * Common helpers for:
  * - Async operations (sleep, debounce, throttle)
- * - Computed properties with caching
+ * - Memoization for expensive computations
  * - Notifications and toast messages
  * - Form helpers
  * - Event bus for cross-component communication
@@ -14,29 +14,29 @@
 import { createStore } from './framework.js';
 
 /**
- * Create a computed property with dependency-based caching
+ * Memoize a function based on its arguments.
  *
- * Caches the result until dependencies change. Useful for expensive operations
+ * Caches the result until arguments change. Useful for expensive operations
  * like sorting, filtering large arrays, or complex calculations.
  *
- * @param {Function} fn - Computation function that takes dependencies as arguments
- * @returns {Function} Memoized function that caches results based on dependencies
+ * @param {Function} fn - Function to memoize that takes arguments
+ * @returns {Function} Memoized function that caches results based on arguments
  *
  * @example
  * data() {
  *   return {
  *     items: [...],
- *     sortedItems: computed((items) => [...items].sort((a, b) => a.name.localeCompare(b.name)))
+ *     sortedItems: memoize((items) => [...items].sort((a, b) => a.name.localeCompare(b.name)))
  *   };
  * }
  *
  * template() {
- *   // Only recomputes when items array changes
+ *   // Only recomputes when items array reference changes
  *   const sorted = this.state.sortedItems(this.state.items);
  *   return html`...`;
  * }
  */
-export function computed(fn) {
+export function memoize(fn) {
     let cache = null;
     let deps = [];
     let hasCache = false;
@@ -125,28 +125,6 @@ function shallowEqual(a, b) {
  */
 export function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/**
- * Lifecycle: onMounted hook
- * Runs after component is mounted (next tick)
- * @param {Function} fn - Function to run on mount
- * @returns {void}
- */
-export function onMounted(fn) {
-    queueMicrotask(fn);
-}
-
-/**
- * Lifecycle: onUnmounted hook
- * Register cleanup function
- * @param {Function} fn - Cleanup function
- * @returns {Function} The cleanup function (pass-through)
- */
-export function onUnmounted(fn) {
-    // This would be called by the component system
-    // For now, components handle their own cleanup
-    return fn;
 }
 
 /**

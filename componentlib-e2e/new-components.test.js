@@ -88,6 +88,30 @@ async function runTests() {
         await test.assertExists('.strength-bar');
     });
 
+    await test.test('InputPassword persists value after blur', async () => {
+        await test.selectComponent('InputPassword');
+        await test.page.waitForSelector('cl-input-password input', { timeout: 2000 });
+
+        const testValue = 'TestPassword123';
+
+        // Clear and type into the input
+        const input = await test.page.$('cl-input-password input');
+        await input.click({ clickCount: 3 }); // Select all
+        await input.type(testValue);
+
+        // Blur by clicking elsewhere
+        await test.page.click('body');
+        await test.page.waitForTimeout(200);
+
+        // Verify value persisted
+        const value = await test.page.evaluate(() => {
+            const input = document.querySelector('cl-input-password input');
+            return input ? input.value : '';
+        });
+
+        await test.assert(value === testValue, `InputPassword should persist value after blur. Expected "${testValue}", got "${value}"`);
+    });
+
     // ============ Toggle Tests ============
     await test.test('Toggle component renders', async () => {
         await test.selectComponent('Toggle');
@@ -136,6 +160,54 @@ async function runTests() {
         await test.assert(sizes.includes('small'), 'Should have small size');
         await test.assert(sizes.includes('medium'), 'Should have medium size');
         await test.assert(sizes.includes('large'), 'Should have large size');
+    });
+
+    await test.test('Toggle can cycle on -> off -> on', async () => {
+        await test.selectComponent('Toggle');
+        await test.page.waitForSelector('cl-toggle .toggle-track', { timeout: 2000 });
+
+        // Find a toggle that starts checked (on)
+        const initiallyChecked = await test.page.evaluate(() => {
+            const toggles = document.querySelectorAll('cl-toggle .toggle-track');
+            for (let t of toggles) {
+                if (t.classList.contains('checked')) return true;
+            }
+            return false;
+        });
+
+        await test.assert(initiallyChecked, 'Should have at least one checked toggle initially');
+
+        // Get first checked toggle
+        const checkedToggle = await test.page.$('cl-toggle .toggle-track.checked');
+        const wrapper = await test.page.$('cl-toggle:has(.toggle-track.checked) .cl-toggle-wrapper');
+
+        if (!wrapper) {
+            throw new Error('Could not find wrapper for checked toggle');
+        }
+
+        // Click to turn OFF
+        await wrapper.click();
+        await test.page.waitForTimeout(200);
+
+        // Verify it's off (no longer checked)
+        const isOffNow = await test.page.evaluate(el => {
+            const track = el.querySelector('.toggle-track');
+            return track && !track.classList.contains('checked');
+        }, await wrapper.evaluateHandle(el => el.parentElement));
+
+        await test.assert(isOffNow, 'Toggle should be OFF after first click');
+
+        // Click to turn back ON
+        await wrapper.click();
+        await test.page.waitForTimeout(200);
+
+        // Verify it's back on (checked again)
+        const isOnAgain = await test.page.evaluate(el => {
+            const track = el.querySelector('.toggle-track');
+            return track && track.classList.contains('checked');
+        }, await wrapper.evaluateHandle(el => el.parentElement));
+
+        await test.assert(isOnAgain, 'Toggle should be ON again after second click - cycling must work');
     });
 
     // ============ InputSearch Tests ============

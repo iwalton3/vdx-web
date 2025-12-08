@@ -1,7 +1,16 @@
 /**
  * TextArea - Multi-line text input with auto-resize option
+ *
+ * Accessibility features:
+ * - Proper label association via id/for attributes
+ * - aria-describedby for error messages
+ * - aria-invalid for error state
+ * - aria-required for required fields
  */
 import { defineComponent, html, when } from '../../lib/framework.js';
+
+// Counter for unique IDs
+let textareaIdCounter = 0;
 
 export default defineComponent('cl-textarea', {
     props: {
@@ -17,6 +26,12 @@ export default defineComponent('cl-textarea', {
         showcount: false
     },
 
+    data() {
+        return {
+            textareaId: `cl-textarea-${++textareaIdCounter}`
+        };
+    },
+
     methods: {
         handleInput(e) {
             const value = e.target.value;
@@ -26,6 +41,16 @@ export default defineComponent('cl-textarea', {
             }
 
             this.emitChange(e, value);
+        },
+
+        handleChange(e) {
+            // Stop the native change event from bubbling up
+            // This prevents x-model from receiving the native event (which lacks detail.value)
+            if (e && e.stopPropagation) {
+                e.stopPropagation();
+            }
+            // Emit a proper change event with the current value
+            this.emitChange(e, e.target.value);
         },
 
         resizeTextarea(textarea) {
@@ -43,30 +68,38 @@ export default defineComponent('cl-textarea', {
     template() {
         const charCount = this.props.value.length;
         const showCounter = this.props.showcount || this.props.maxlength > 0;
+        const textareaId = this.state.textareaId;
+        const errorId = `${textareaId}-error`;
+        const hasError = !!this.props.error;
 
         return html`
             <div class="cl-input-wrapper">
                 ${when(this.props.label, html`
-                    <label class="cl-label">
+                    <label class="cl-label" for="${textareaId}">
                         ${this.props.label}
-                        ${when(this.props.required, html`<span class="required">*</span>`)}
+                        ${when(this.props.required, html`<span class="required" aria-hidden="true">*</span>`)}
                     </label>
                 `)}
                 <textarea
                     ref="textarea"
+                    id="${textareaId}"
                     class="${this.props.error ? 'error' : ''}"
                     rows="${this.props.rows}"
                     placeholder="${this.props.placeholder}"
                     disabled="${this.props.disabled}"
                     maxlength="${this.props.maxlength || ''}"
-                    on-input="handleInput">${this.props.value}</textarea>
+                    aria-required="${this.props.required ? 'true' : undefined}"
+                    aria-invalid="${hasError ? 'true' : undefined}"
+                    aria-describedby="${hasError ? errorId : undefined}"
+                    on-input="handleInput"
+                    on-change="handleChange">${this.props.value}</textarea>
                 ${when(showCounter, html`
-                    <small class="char-count">
+                    <small class="char-count" aria-live="polite">
                         ${charCount}${this.props.maxlength ? ` / ${this.props.maxlength}` : ''}
                     </small>
                 `)}
                 ${when(this.props.error, html`
-                    <small class="error-text">${this.props.error}</small>
+                    <small class="error-text" id="${errorId}" role="alert">${this.props.error}</small>
                 `)}
             </div>
         `;

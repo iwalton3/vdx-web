@@ -332,32 +332,6 @@ export interface EffectResult {
 export function createEffect(fn: () => void): EffectResult;
 
 /**
- * Computed value result
- */
-export interface ComputedResult<T> {
-  /** Get the current computed value (recomputes if dependencies changed) */
-  get(): T;
-  /** Cleanup function to stop tracking */
-  dispose(): void;
-}
-
-/**
- * Create a computed value with automatic dependency tracking.
- * The getter is lazily evaluated and cached until dependencies change.
- *
- * @param getter - Function that computes the value
- * @returns Object with get function and dispose cleanup
- *
- * @example
- * const state = reactive({ a: 1, b: 2 });
- * const sum = computed(() => state.a + state.b);
- * console.log(sum.get()); // 3
- * state.a = 5;
- * console.log(sum.get()); // 7
- */
-export function computed<T>(getter: () => T): ComputedResult<T>;
-
-/**
  * Track all reactive dependencies deeply in an object.
  * Useful for ensuring all nested properties trigger re-renders.
  *
@@ -398,12 +372,44 @@ export function watch<T>(
 ): () => void;
 
 /**
- * Memoize a function result based on dependencies.
- * @deprecated Use `debounce` or `throttle` from './utils.js' instead
+ * Computed value result
+ */
+export interface ComputedResult<T> {
+  /** Get the current computed value (recomputes if dependencies changed) */
+  get(): T;
+  /** Cleanup function to stop tracking */
+  dispose(): void;
+}
+
+/**
+ * Create a computed value with automatic reactive dependency tracking.
+ * The getter is lazily evaluated and cached until reactive dependencies change.
+ *
+ * @param getter - Function that computes the value (dependencies are auto-tracked)
+ * @returns Object with get() and dispose() methods
+ *
+ * @example
+ * const state = reactive({ a: 1, b: 2 });
+ * const sum = computed(() => state.a + state.b);
+ * console.log(sum.get()); // 3
+ * state.a = 5;
+ * console.log(sum.get()); // 7 (automatically recomputed)
+ * sum.dispose(); // Clean up when done
+ */
+export function computed<T>(getter: () => T): ComputedResult<T>;
+
+/**
+ * Memoize a function result based on an explicit dependency array.
+ * Re-runs the function only when dependencies change.
  *
  * @param fn - Function to memoize
- * @param deps - Dependency array
+ * @param deps - Dependency array (when any value changes, function re-runs)
  * @returns Memoized function
+ *
+ * @example
+ * const expensiveRender = memo(() => {
+ *   return html`<div>${this.state.items.length} items</div>`;
+ * }, [this.state.items]);
  */
 export function memo<T extends (...args: any[]) => any>(
   fn: T,

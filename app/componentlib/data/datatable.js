@@ -1,7 +1,20 @@
 /**
  * DataTable - Advanced data table with sorting, filtering, and selection
+ *
+ * Accessibility features:
+ * - Semantic table structure (table, thead, tbody, th, td)
+ * - scope="col" on column headers
+ * - aria-sort for sortable columns (ascending, descending, none)
+ * - aria-selected for selectable rows
+ * - role="grid" when selection is enabled (interactive table)
+ * - role="columnheader" on th elements
+ * - aria-label on checkboxes for row selection
+ * - Keyboard navigation for selection (Enter/Space on rows)
  */
 import { defineComponent, html, when, each } from '../../lib/framework.js';
+
+// Counter for unique IDs
+let datatableIdCounter = 0;
 
 export default defineComponent('cl-datatable', {
     props: {
@@ -13,13 +26,15 @@ export default defineComponent('cl-datatable', {
         sortorder: 1, // 1 for asc, -1 for desc
         paginator: false,
         rows: 10,
-        currentpage: 0
+        currentpage: 0,
+        arialabel: '' // Optional aria-label for the table
     },
 
     data() {
         return {
             sortBy: '',
-            sortDirection: 1
+            sortDirection: 1,
+            datatableId: `cl-datatable-${++datatableIdCounter}`
         };
     },
 
@@ -129,6 +144,38 @@ export default defineComponent('cl-datatable', {
 
         emitEvent(name, detail) {
             this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+        },
+
+        /**
+         * Get aria-sort value for a column
+         */
+        getAriaSort(column) {
+            if (!column.sortable) return undefined;
+            if (this.state.sortBy !== column.field) return 'none';
+            return this.state.sortDirection === 1 ? 'ascending' : 'descending';
+        },
+
+        /**
+         * Handle keyboard navigation for row selection
+         */
+        handleRowKeyDown(e, row, index) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.handleRowClick(row, index);
+            }
+        },
+
+        /**
+         * Get a label for a row for screen readers
+         */
+        getRowLabel(row, index) {
+            // Try to get a meaningful label from the first column
+            const columns = this.props.columns || [];
+            if (columns.length > 0) {
+                const firstValue = this.getCellValue(row, columns[0]);
+                return `Row ${index + 1}: ${firstValue}`;
+            }
+            return `Row ${index + 1}`;
         }
     },
 
@@ -136,24 +183,32 @@ export default defineComponent('cl-datatable', {
         const data = this.getPaginatedData();
         const columns = this.props.columns || [];
         const hasSelection = this.props.selectionmode !== 'none';
+        // Use role="grid" for interactive tables with selection
+        const tableRole = hasSelection ? 'grid' : undefined;
 
         return html`
             <div class="cl-datatable">
                 <div class="datatable-wrapper">
-                    <table>
+                    <table role="${tableRole}"
+                           aria-label="${this.props.arialabel || undefined}">
                         <thead>
                             <tr>
                                 ${when(hasSelection && this.props.selectionmode === 'multiple', html`
-                                    <th class="selection-col"></th>
+                                    <th class="selection-col" scope="col">
+                                        <span class="visually-hidden">Selection</span>
+                                    </th>
                                 `)}
                                 ${each(columns, column => html`
                                     <th
+                                        scope="col"
+                                        role="columnheader"
                                         class="${column.sortable ? 'sortable' : ''}"
+                                        aria-sort="${this.getAriaSort(column)}"
                                         on-click="${() => this.handleSort(column)}">
                                         <div class="header-content">
                                             <span>${column.header}</span>
                                             ${when(column.sortable, html`
-                                                <span class="sort-icon">${this.getSortIcon(column)}</span>
+                                                <span class="sort-icon" aria-hidden="true">${this.getSortIcon(column)}</span>
                                             `)}
                                         </div>
                                     </th>
@@ -171,10 +226,17 @@ export default defineComponent('cl-datatable', {
                             ${each(data, (row, index) => html`
                                 <tr
                                     class="${this.isRowSelected(row) ? 'selected' : ''} ${hasSelection ? 'selectable' : ''}"
-                                    on-click="${() => this.handleRowClick(row, index)}">
+                                    tabindex="${hasSelection ? '0' : undefined}"
+                                    aria-selected="${hasSelection ? (this.isRowSelected(row) ? 'true' : 'false') : undefined}"
+                                    on-click="${() => this.handleRowClick(row, index)}"
+                                    on-keydown="${(e) => this.handleRowKeyDown(e, row, index)}">
                                     ${when(hasSelection && this.props.selectionmode === 'multiple', html`
                                         <td class="selection-col">
-                                            <input type="checkbox" checked="${this.isRowSelected(row)}" readonly>
+                                            <input type="checkbox"
+                                                   checked="${this.isRowSelected(row)}"
+                                                   readonly
+                                                   tabindex="-1"
+                                                   aria-label="${this.getRowLabel(row, index)}">
                                         </td>
                                     `)}
                                     ${each(columns, column => html`
@@ -281,6 +343,25 @@ export default defineComponent('cl-datatable', {
             text-align: center;
             padding: 40px 20px;
             color: var(--text-muted, #6c757d);
+        }
+
+        /* Visually hidden but accessible to screen readers */
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* Focus styles for keyboard navigation */
+        tbody tr:focus {
+            outline: 2px solid var(--primary-color, #007bff);
+            outline-offset: -2px;
         }
     `
 });

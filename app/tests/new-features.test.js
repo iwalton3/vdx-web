@@ -10,7 +10,7 @@
 import { describe, assert } from './test-runner.js';
 import { defineComponent } from '../lib/framework.js';
 import { html } from '../lib/framework.js';
-import { computed } from '../lib/utils.js';
+import { memoize } from '../lib/utils.js';
 import { compileTemplate, applyValues } from '../lib/core/template-compiler.js';
 import { render as preactRender } from '../lib/vendor/preact/index.js';
 import { createStore } from '../lib/core/store.js';
@@ -338,11 +338,11 @@ describe('x-model + Event Handler Chaining', function(it) {
     });
 });
 
-describe('Computed Properties', function(it) {
-    it('caches computed values', () => {
+describe('Memoization', function(it) {
+    it('caches memoized values', () => {
         let computeCount = 0;
 
-        const expensiveCompute = computed((items) => {
+        const expensiveCompute = memoize((items) => {
             computeCount++;
             return items.filter(x => x > 5);
         });
@@ -369,7 +369,7 @@ describe('Computed Properties', function(it) {
     it('handles multiple dependencies', () => {
         let computeCount = 0;
 
-        const multiDepCompute = computed((items, minValue) => {
+        const multiDepCompute = memoize((items, minValue) => {
             computeCount++;
             return items.filter(x => x >= minValue);
         });
@@ -401,7 +401,7 @@ describe('Computed Properties', function(it) {
     it('works with objects as dependencies', () => {
         let computeCount = 0;
 
-        const objCompute = computed((obj) => {
+        const objCompute = memoize((obj) => {
             computeCount++;
             return obj.value * 2;
         });
@@ -428,13 +428,13 @@ describe('Computed Properties', function(it) {
     it('integrates with components', (done) => {
         let filterComputeCount = 0;
 
-        const TestComponent = defineComponent('test-computed-component', {
+        const TestComponent = defineComponent('test-memoize-component', {
             data() {
                 return {
                     items: [1, 2, 3, 4, 5, 6],
                     minValue: 3,
 
-                    filteredItems: computed((items, minValue) => {
+                    filteredItems: memoize((items, minValue) => {
                         filterComputeCount++;
                         return items.filter(x => x >= minValue);
                     })
@@ -448,7 +448,7 @@ describe('Computed Properties', function(it) {
             }
         });
 
-        const el = document.createElement('test-computed-component');
+        const el = document.createElement('test-memoize-component');
         document.body.appendChild(el);
 
         setTimeout(() => {

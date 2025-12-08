@@ -13,32 +13,47 @@ Complete guide to running and writing tests for the framework.
 
 ## Running Tests
 
-### Browser (Recommended)
+The framework has two test suites:
+1. **Framework Unit Tests** (~190 tests) - Core framework functionality
+2. **Component Library E2E Tests** (~175 tests) - UI component testing with Puppeteer
 
-1. Start the development server:
-   ```bash
-   cd app
-   python3 test-server.py
-   ```
+Both require the test server running first:
 
-2. Open in browser:
-   ```
-   http://localhost:9000/tests/
-   ```
+```bash
+cd app
+python3 test-server.py
+```
+
+### Framework Unit Tests (Browser)
+
+Open in browser: http://localhost:9000/tests/
 
 Tests will run automatically and display results in a clean UI.
 
-### Command Line (Headless)
-
-You can also run tests headless using any headless browser:
+### Framework Unit Tests (Headless)
 
 ```bash
-# Using Chromium/Chrome headless
-chromium --headless --dump-dom http://localhost:9000/tests/
-
-# Using Firefox headless
-firefox --headless http://localhost:9000/tests/
+cd componentlib-e2e
+node run-framework-tests.js
 ```
+
+### Component Library E2E Tests
+
+```bash
+cd componentlib-e2e
+node test-runner.js
+
+# Only show output from failing tests (quieter for CI)
+node test-runner.js --only-errors
+```
+
+E2E tests include:
+- Form components (input, textarea, checkbox, toggle, slider, etc.)
+- Selection components (dropdown, multiselect, autocomplete)
+- Data components (datatable, tree, paginator)
+- Panel components (accordion, tabview, fieldset)
+- Overlay components (dialog, sidebar, toast)
+- **Accessibility tests** (axe-core WCAG compliance, ARIA attributes, keyboard navigation)
 
 ## Test Coverage
 

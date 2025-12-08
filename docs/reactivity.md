@@ -8,6 +8,9 @@ Complete guide to the reactivity system, stores, and computed properties.
 - [Critical Gotchas](#critical-gotchas)
 - [Stores](#stores)
 - [Computed Properties](#computed-properties)
+- [Memo](#memo)
+- [Memoize (Argument-Based)](#memoize-argument-based)
+- [Watch](#watch)
 - [Dark Theme](#dark-theme)
 - [Notifications](#notifications)
 
@@ -255,21 +258,97 @@ userPrefs.state.theme = 'dark';
 
 ## Computed Properties
 
-Memoized computed properties with automatic dependency tracking using the `computed()` helper:
+The framework provides `computed()` for creating reactive computed values that automatically track dependencies:
 
 ```javascript
-import { computed } from './lib/utils.js';
+import { computed, reactive } from './lib/framework.js';
+
+const state = reactive({ a: 1, b: 2 });
+
+// Create a computed value - dependencies are auto-tracked
+const sum = computed(() => state.a + state.b);
+
+console.log(sum.get()); // 3
+
+state.a = 5;
+console.log(sum.get()); // 7 (automatically recomputed)
+
+// Clean up when done
+sum.dispose();
+```
+
+**Key features:**
+- **Automatic dependency tracking** - No need to list dependencies manually
+- **Lazy evaluation** - Only recomputes when `get()` is called and dependencies have changed
+- **Cleanup** - Call `dispose()` when no longer needed to stop tracking
+
+### Using computed() in Components
+
+```javascript
+import { defineComponent, html, computed, reactive } from './lib/framework.js';
+
+defineComponent('counter-sum', {
+    mounted() {
+        // Create a computed value
+        this._sum = computed(() => this.state.a + this.state.b);
+    },
+
+    unmounted() {
+        // Clean up the computed value
+        if (this._sum) this._sum.dispose();
+    },
+
+    data() {
+        return { a: 1, b: 2 };
+    },
+
+    template() {
+        return html`
+            <div>
+                <input type="number" x-model="a">
+                <input type="number" x-model="b">
+                <p>Sum: ${this._sum?.get() ?? 0}</p>
+            </div>
+        `;
+    }
+});
+```
+
+## Memo
+
+The `memo()` function memoizes a function result based on an explicit dependency array:
+
+```javascript
+import { memo } from './lib/framework.js';
+
+// Memoize based on explicit dependencies
+const expensiveRender = memo(() => {
+    console.log('Computing...');
+    return someExpensiveOperation();
+}, [dep1, dep2]);
+
+expensiveRender(); // Logs "Computing..."
+expensiveRender(); // No log - uses cached result
+```
+
+**Use case:** When you need explicit control over what triggers recomputation.
+
+## Memoize (Argument-Based)
+
+For memoization based on function arguments (not reactive dependencies), use `memoize()` from utils:
+
+```javascript
+import { memoize } from './lib/utils.js';
 
 defineComponent('product-list', {
     data() {
         return {
             items: [...], // 1000 items
             searchQuery: '',
-            sortBy: 'name',
 
-            // Computed property - only recalculates when dependencies change
-            filteredItems: computed((items, query) => {
-                console.log('[Computed] Filtering...');  // Only logs when needed!
+            // Memoize based on arguments passed at call time
+            filteredItems: memoize((items, query) => {
+                console.log('[Memoize] Filtering...');  // Only logs when args change!
                 return items.filter(item =>
                     item.name.toLowerCase().includes(query.toLowerCase())
                 );
@@ -278,7 +357,7 @@ defineComponent('product-list', {
     },
 
     template() {
-        // Call computed with current dependencies
+        // Pass current values as arguments - cached if same as last call
         const filtered = this.state.filteredItems(
             this.state.items,
             this.state.searchQuery
@@ -299,8 +378,8 @@ defineComponent('product-list', {
 
 **How it works:**
 - First call: Executes function and caches result
-- Subsequent calls: Returns cached result if dependencies haven't changed
-- Dependency change: Executes function again and updates cache
+- Subsequent calls: Returns cached result if arguments haven't changed
+- Argument change: Executes function again and updates cache
 
 **Perfect for:**
 - Expensive filtering operations
@@ -310,13 +389,15 @@ defineComponent('product-list', {
 
 **Example with sorting:**
 ```javascript
+import { memoize } from './lib/utils.js';
+
 data() {
     return {
         items: [...],  // 1000 items
         sortBy: 'name',
         sortDirection: 'asc',
 
-        sortedItems: computed((items, sortBy, direction) => {
+        sortedItems: memoize((items, sortBy, direction) => {
             const sorted = [...items].sort((a, b) => {
                 if (a[sortBy] < b[sortBy]) return direction === 'asc' ? -1 : 1;
                 if (a[sortBy] > b[sortBy]) return direction === 'asc' ? 1 : -1;
@@ -350,6 +431,14 @@ template() {
     `;
 }
 ```
+
+### Choosing Between computed(), memo(), and memoize()
+
+| Function | Import | Tracks | Best For |
+|----------|--------|--------|----------|
+| `computed()` | framework.js | Reactive dependencies automatically | Values derived from reactive state |
+| `memo()` | framework.js | Explicit dependency array | When you control what triggers recompute |
+| `memoize()` | utils.js | Arguments passed at call time | Caching expensive pure functions |
 
 ## Watch
 

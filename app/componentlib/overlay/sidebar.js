@@ -1,7 +1,23 @@
 /**
  * Sidebar - Slide-out sidebar panel
+ *
+ * Accessibility features:
+ * - role="complementary" (or "dialog" when modal)
+ * - aria-labelledby pointing to header
+ * - aria-modal for modal sidebars
+ * - Escape key to close
+ * - Focus trap when modal
+ * - Auto-focus first focusable element on open
+ * - Returns focus to trigger element on close
+ * - aria-label on close button
  */
 import { defineComponent, html, when } from '../../lib/framework.js';
+
+// Counter for unique IDs
+let sidebarIdCounter = 0;
+
+// Selector for focusable elements
+const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 export default defineComponent('cl-sidebar', {
     props: {
@@ -10,6 +26,55 @@ export default defineComponent('cl-sidebar', {
         modal: true,
         dismissable: true,
         header: ''
+    },
+
+    data() {
+        return {
+            sidebarId: `cl-sidebar-${++sidebarIdCounter}`
+        };
+    },
+
+    mounted() {
+        // Global keydown for escape
+        this._handleKeyDown = (e) => {
+            if (e.key === 'Escape' && this.props.visible && this.props.dismissable) {
+                this.close();
+            }
+        };
+        document.addEventListener('keydown', this._handleKeyDown);
+    },
+
+    unmounted() {
+        if (this._handleKeyDown) {
+            document.removeEventListener('keydown', this._handleKeyDown);
+        }
+        // Restore body scroll
+        document.body.style.overflow = '';
+    },
+
+    propsChanged(prop, newValue, oldValue) {
+        if (prop === 'visible') {
+            if (newValue && !oldValue) {
+                // Sidebar opening - store the element that had focus
+                this._previousFocus = document.activeElement;
+
+                // Prevent body scroll when modal
+                if (this.props.modal) {
+                    document.body.style.overflow = 'hidden';
+                }
+
+                // Focus first focusable element after render
+                requestAnimationFrame(() => {
+                    this._focusFirstElement();
+                });
+            } else if (!newValue && oldValue) {
+                // Sidebar closing - restore focus
+                document.body.style.overflow = '';
+                if (this._previousFocus && typeof this._previousFocus.focus === 'function') {
+                    this._previousFocus.focus();
+                }
+            }
+        }
     },
 
     methods: {
@@ -25,18 +90,76 @@ export default defineComponent('cl-sidebar', {
 
         handleSidebarClick(e) {
             e.stopPropagation();
+        },
+
+        /**
+         * Focus the first focusable element in the sidebar
+         */
+        _focusFirstElement() {
+            const sidebar = this.querySelector('.cl-sidebar');
+            if (!sidebar) return;
+
+            const focusable = sidebar.querySelectorAll(FOCUSABLE_SELECTOR);
+            if (focusable.length > 0) {
+                focusable[0].focus();
+            }
+        },
+
+        /**
+         * Handle Tab key for focus trapping
+         */
+        handleFocusTrap(e) {
+            if (e.key !== 'Tab' || !this.props.modal) return;
+
+            const sidebar = this.querySelector('.cl-sidebar');
+            if (!sidebar) return;
+
+            const focusable = Array.from(sidebar.querySelectorAll(FOCUSABLE_SELECTOR))
+                .filter(el => el.offsetParent !== null);
+
+            if (focusable.length === 0) return;
+
+            const firstFocusable = focusable[0];
+            const lastFocusable = focusable[focusable.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === firstFocusable) {
+                    e.preventDefault();
+                    lastFocusable.focus();
+                }
+            } else {
+                if (document.activeElement === lastFocusable) {
+                    e.preventDefault();
+                    firstFocusable.focus();
+                }
+            }
         }
     },
 
     template() {
+        const titleId = `${this.state.sidebarId}-title`;
+        const ariaLabelledby = this.props.header ? titleId : undefined;
+        // Use "dialog" role when modal, "complementary" otherwise
+        const role = this.props.modal ? 'dialog' : 'complementary';
+
         return html`
             ${when(this.props.visible, html`
-                <div class="cl-sidebar-mask ${this.props.modal ? 'modal' : ''}" on-click="handleMaskClick">
-                    <div class="cl-sidebar ${this.props.position}" on-click="handleSidebarClick">
+                <div class="cl-sidebar-mask ${this.props.modal ? 'modal' : ''}"
+                     on-click="handleMaskClick"
+                     aria-hidden="true">
+                    <div class="cl-sidebar ${this.props.position}"
+                         role="${role}"
+                         aria-modal="${this.props.modal ? 'true' : undefined}"
+                         aria-labelledby="${ariaLabelledby}"
+                         on-click="handleSidebarClick"
+                         on-keydown="handleFocusTrap">
                         ${when(this.props.header, html`
                             <div class="sidebar-header">
-                                <span class="sidebar-title">${this.props.header}</span>
-                                <button class="close-btn" on-click="close">×</button>
+                                <span class="sidebar-title" id="${titleId}">${this.props.header}</span>
+                                <button class="close-btn"
+                                        on-click="close"
+                                        aria-label="Close sidebar"
+                                        type="button">×</button>
                             </div>
                         `)}
                         <div class="sidebar-content">

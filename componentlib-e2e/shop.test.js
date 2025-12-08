@@ -396,6 +396,117 @@ async function runTests() {
         }
     });
 
+    await test.test('Checkout payment form shows text inputs', async () => {
+        // Navigate to checkout
+        await test.navigate('/shop/checkout/');
+        await test.page.waitForTimeout(500);
+
+        // Fill shipping and advance to payment step
+        await test.page.evaluate(() => {
+            const checkout = document.querySelector('shop-checkout-page');
+            if (checkout && checkout.state) {
+                checkout.state.shipping = {
+                    firstName: 'John',
+                    lastName: 'Doe',
+                    email: 'john@example.com',
+                    phone: '555-1234',
+                    address: '123 Main St',
+                    city: 'New York',
+                    state: 'NY',
+                    zip: '10001',
+                    country: 'US'
+                };
+                checkout.state.step = 2; // Jump to payment step
+            }
+        });
+        await test.page.waitForTimeout(500);
+
+        // Check that cl-input-text components have visible input elements
+        const inputCount = await test.page.evaluate(() => {
+            const inputTexts = document.querySelectorAll('cl-input-text');
+            let count = 0;
+            inputTexts.forEach(it => {
+                const input = it.querySelector('input[type="text"]');
+                if (input) count++;
+            });
+            return count;
+        });
+
+        await test.assertGreaterThan(inputCount, 0,
+            `Payment form should have visible input fields. Found ${inputCount} inputs.`);
+    });
+
+    await test.test('Checkout payment inputs accept text input', async () => {
+        // Navigate to checkout and go to payment step
+        await test.navigate('/shop/checkout/');
+        await test.page.waitForTimeout(500);
+
+        await test.page.evaluate(() => {
+            const checkout = document.querySelector('shop-checkout-page');
+            if (checkout && checkout.state) {
+                checkout.state.shipping = {
+                    firstName: 'John', lastName: 'Doe', email: 'john@example.com',
+                    phone: '555-1234', address: '123 Main St', city: 'New York',
+                    state: 'NY', zip: '10001', country: 'US'
+                };
+                checkout.state.step = 2;
+            }
+        });
+        await test.page.waitForTimeout(500);
+
+        // Try to type in the first input (Card Number)
+        const cardInput = await test.page.$('cl-input-text input[type="text"]');
+        await test.assert(cardInput !== null, 'Should have card number input');
+
+        if (cardInput) {
+            await cardInput.type('4111111111111111');
+            await test.page.waitForTimeout(100);
+
+            const value = await test.page.evaluate(el => el.value, cardInput);
+            await test.assert(value.length > 0,
+                `Payment input should accept typed value. Got: "${value}"`);
+        }
+    });
+
+    await test.test('Checkout payment inputs persist value after blur', async () => {
+        // Navigate to checkout and go to payment step
+        await test.navigate('/shop/checkout/');
+        await test.page.waitForTimeout(500);
+
+        await test.page.evaluate(() => {
+            const checkout = document.querySelector('shop-checkout-page');
+            if (checkout && checkout.state) {
+                checkout.state.shipping = {
+                    firstName: 'John', lastName: 'Doe', email: 'john@example.com',
+                    phone: '555-1234', address: '123 Main St', city: 'New York',
+                    state: 'NY', zip: '10001', country: 'US'
+                };
+                checkout.state.step = 2;
+            }
+        });
+        await test.page.waitForTimeout(500);
+
+        const testName = 'John Smith';
+
+        // Type in the "Name on Card" input (second input)
+        const inputs = await test.page.$$('cl-input-text input[type="text"]');
+        await test.assertGreaterThan(inputs.length, 1, 'Should have multiple payment inputs');
+
+        if (inputs.length > 1) {
+            const nameInput = inputs[1]; // Name on Card
+            await nameInput.click({ clickCount: 3 });
+            await nameInput.type(testName);
+
+            // Blur
+            await test.page.click('body');
+            await test.page.waitForTimeout(200);
+
+            const value = await test.page.evaluate(el => el.value, nameInput);
+            await test.assert(value === testName,
+                `Payment input should persist value after blur. Expected "${testName}", got "${value}"`);
+        }
+    });
+
     // ============================================
     // NAVIGATION TESTS
     // ============================================

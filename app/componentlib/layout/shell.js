@@ -25,10 +25,20 @@ export default defineComponent('cl-shell', {
         this.checkMobile();
         this._resizeHandler = () => this.checkMobile();
         window.addEventListener('resize', this._resizeHandler);
+
+        // Auto-expand group containing active item on initial load
+        this.expandActiveItemGroup();
     },
 
     unmounted() {
         window.removeEventListener('resize', this._resizeHandler);
+    },
+
+    propsChanged(prop, newValue, oldValue) {
+        // When activeItem changes (e.g., navigation), expand its parent group
+        if (prop === 'activeItem' && newValue !== oldValue) {
+            this.expandActiveItemGroup();
+        }
     },
 
     methods: {
@@ -73,6 +83,31 @@ export default defineComponent('cl-shell', {
         isGroupExpanded(item) {
             const key = item.key || item.label;
             return this.state.expandedGroups[key] || false;
+        },
+
+        expandActiveItemGroup() {
+            const activeItem = this.props.activeItem;
+            if (!activeItem) return;
+
+            // Find which group contains the active item
+            for (const item of this.props.menuItems) {
+                if (item.items && item.items.length > 0) {
+                    // Check if any subitem matches the active item
+                    const hasActiveChild = item.items.some(
+                        subitem => (subitem.key || subitem.label) === activeItem
+                    );
+                    if (hasActiveChild) {
+                        const groupKey = item.key || item.label;
+                        if (!this.state.expandedGroups[groupKey]) {
+                            this.state.expandedGroups = {
+                                ...this.state.expandedGroups,
+                                [groupKey]: true
+                            };
+                        }
+                        break;
+                    }
+                }
+            }
         }
     },
 

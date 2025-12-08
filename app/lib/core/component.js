@@ -415,7 +415,12 @@ export function defineComponent(name, options) {
         }
 
         connectedCallback() {
-            if (this._isDestroyed) return;
+            // Allow reconnection of previously disconnected elements
+            // Web Components can be disconnected and reconnected multiple times
+            if (this._isDestroyed) {
+                // Reset destroyed flag to allow reconnection
+                this._isDestroyed = false;
+            }
 
             // Parse attributes as props (prototype setters handle property access)
             this._parseAttributes();
@@ -623,17 +628,34 @@ export function defineComponent(name, options) {
                             const jsonData = JSON.parse(scriptEl.textContent);
                             this.props[propName] = jsonData;
                         } catch (e) {
-                            console.warn(`[${this.tagName}] Failed to parse JSON from #${scriptId} for prop "${propName}":`, e.message);
+                            console.warn(
+                                `[${this.tagName}] Failed to parse JSON from #${scriptId} for prop "${propName}".\n` +
+                                `  Error: ${e.message}\n` +
+                                `  Tip: Ensure the JSON in <script id="${scriptId}"> is valid. ` +
+                                `Use a JSON validator if needed.`
+                            );
+                            // Prop keeps its default value from props definition
                         }
                     } else if (!scriptEl) {
                         try {
                             const jsonData = JSON.parse(scriptId);
                             this.props[propName] = jsonData;
                         } catch (e) {
-                            console.warn(`[${this.tagName}] Could not find #${scriptId} or parse as JSON for prop "${propName}":`, e.message);
+                            console.warn(
+                                `[${this.tagName}] Could not find element #${scriptId} or parse as inline JSON for prop "${propName}".\n` +
+                                `  Error: ${e.message}\n` +
+                                `  Tip: Either add <script type="application/json" id="${scriptId}">...</script> ` +
+                                `or provide valid inline JSON.`
+                            );
+                            // Prop keeps its default value from props definition
                         }
                     } else {
-                        console.warn(`[${this.tagName}] json-${propName} references #${scriptId} which is not type="application/json"`);
+                        console.warn(
+                            `[${this.tagName}] json-${propName} references #${scriptId} which exists but is not type="application/json".\n` +
+                            `  Current type: "${scriptEl.type || '(none)'}"\n` +
+                            `  Tip: Add type="application/json" to the script tag.`
+                        );
+                        // Prop keeps its default value from props definition
                     }
 
                     jsonAttrsToRemove.push(attr.name);

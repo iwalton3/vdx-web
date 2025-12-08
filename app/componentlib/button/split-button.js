@@ -132,16 +132,31 @@ export default defineComponent('cl-split-button', {
             color: white;
         }
 
+        .secondary:hover:not(:disabled) {
+            background: #5a6268;
+            border-color: #545b62;
+        }
+
         .success {
             background: #28a745;
             border-color: #28a745;
             color: white;
         }
 
+        .success:hover:not(:disabled) {
+            background: #218838;
+            border-color: #1e7e34;
+        }
+
         .danger {
             background: #dc3545;
             border-color: #dc3545;
             color: white;
+        }
+
+        .danger:hover:not(:disabled) {
+            background: #c82333;
+            border-color: #bd2130;
         }
 
         .dropdown-menu {

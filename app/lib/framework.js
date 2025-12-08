@@ -77,13 +77,6 @@ export { defineComponent } from './core/component.js';
  * cleanup(); // Stop tracking
  */
 /**
- * Create a computed value with automatic dependency tracking (deprecated - use computed from utils.js)
- *
- * @deprecated Use `computed` from './utils.js' instead
- * @param {() => any} fn - Computation function
- * @returns {() => any} Computed function
- */
-/**
  * Track all reactive dependencies deeply in an object
  *
  * @param {Object} obj - Object to track
@@ -115,14 +108,38 @@ export { defineComponent } from './core/component.js';
  * );
  */
 /**
- * Memoize a function result based on dependencies (deprecated - use memo from utils.js)
+ * Create a computed value with automatic reactive dependency tracking.
+ * The getter is lazily evaluated and cached until reactive dependencies change.
  *
- * @deprecated Use `debounce` or `throttle` from './utils.js' instead
- * @param {Function} fn - Function to memoize
- * @param {any[]} deps - Dependency array
- * @returns {Function} Memoized function
+ * @param {() => any} getter - Function that computes the value (dependencies are auto-tracked)
+ * @returns {{ get: () => any, dispose: () => void }} Object with get() and dispose() methods
+ *
+ * @example
+ * const state = reactive({ a: 1, b: 2 });
+ * const sum = computed(() => state.a + state.b);
+ * console.log(sum.get()); // 3
+ * state.a = 5;
+ * console.log(sum.get()); // 7 (automatically recomputed)
+ * sum.dispose(); // Clean up when done
  */
-export { reactive, createEffect, computed, trackAllDependencies, isReactive, watch, memo } from './core/reactivity.js';
+/**
+ * Memoize a function result based on an explicit dependency array.
+ * Re-runs the function only when dependencies change.
+ *
+ * @param {Function} fn - Function to memoize
+ * @param {any[]} [deps] - Dependency array (when any value changes, function re-runs)
+ * @returns {Function} Memoized function
+ *
+ * @example
+ * const expensiveRender = memo(() => {
+ *   return html`<div>${this.state.items.length} items</div>`;
+ * }, [this.state.items]);
+ *
+ * template() {
+ *   return this.expensiveRender(); // Only recomputes if items changed
+ * }
+ */
+export { reactive, createEffect, trackAllDependencies, isReactive, watch, computed, memo } from './core/reactivity.js';
 
 /**
  * Tagged template literal for creating XSS-safe HTML templates

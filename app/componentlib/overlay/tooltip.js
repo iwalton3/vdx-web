@@ -1,7 +1,17 @@
 /**
  * Tooltip - Tooltip component
+ *
+ * Accessibility features:
+ * - role="tooltip" on tooltip element
+ * - aria-describedby linking trigger to tooltip
+ * - Shows on focus (not just hover)
+ * - Escape key to dismiss
+ * - Unique IDs for proper ARIA relationships
  */
 import { defineComponent, html, when } from '../../lib/framework.js';
+
+// Counter for unique IDs
+let tooltipIdCounter = 0;
 
 export default defineComponent('cl-tooltip', {
     props: {
@@ -11,8 +21,25 @@ export default defineComponent('cl-tooltip', {
 
     data() {
         return {
-            visible: false
+            visible: false,
+            tooltipId: `cl-tooltip-${++tooltipIdCounter}`
         };
+    },
+
+    mounted() {
+        // Global keydown for escape
+        this._handleGlobalKeyDown = (e) => {
+            if (e.key === 'Escape' && this.state.visible) {
+                this.hide();
+            }
+        };
+        document.addEventListener('keydown', this._handleGlobalKeyDown);
+    },
+
+    unmounted() {
+        if (this._handleGlobalKeyDown) {
+            document.removeEventListener('keydown', this._handleGlobalKeyDown);
+        }
     },
 
     methods: {
@@ -26,16 +53,23 @@ export default defineComponent('cl-tooltip', {
     },
 
     template() {
+        const tooltipContentId = `${this.state.tooltipId}-content`;
+
         return html`
             <div class="cl-tooltip-wrapper">
                 <div
                     class="tooltip-target"
+                    aria-describedby="${this.state.visible && this.props.text ? tooltipContentId : undefined}"
                     on-mouseenter="show"
-                    on-mouseleave="hide">
+                    on-mouseleave="hide"
+                    on-focus="show"
+                    on-blur="hide">
                     ${this.props.children}
                 </div>
                 ${when(this.state.visible && this.props.text, html`
-                    <div class="tooltip-content ${this.props.position}">
+                    <div class="tooltip-content ${this.props.position}"
+                         role="tooltip"
+                         id="${tooltipContentId}">
                         ${this.props.text}
                         <div class="tooltip-arrow"></div>
                     </div>
