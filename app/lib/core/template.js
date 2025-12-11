@@ -50,25 +50,11 @@ function normalizeInput(input) {
     return str;
 }
 
-/**
- * Escape URL for use in attributes (preserves : and / which are safe in URLs)
- * Internal helper - not exported
- */
-function escapeUrl(url) {
-    const normalized = normalizeInput(url);
-    return normalized
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#x27;')
-        .replace(/=/g, '&#x3D;')
-        .replace(/`/g, '&#x60;');
-    // Note: Don't escape : or / in URLs - they're safe and expected in attributes
-}
 
 /**
- * Sanitize URL - blocks dangerous schemes
+ * Sanitize URL - blocks dangerous schemes like javascript:
+ * No HTML escaping needed since URLs go into Preact props, not raw HTML strings.
+ * Preact sets href/src/action as DOM properties, so the browser handles them directly.
  */
 export function sanitizeUrl(url) {
     const normalized = normalizeInput(url);
@@ -90,7 +76,7 @@ export function sanitizeUrl(url) {
 
     if (!schemeMatch) {
         // No scheme = relative URL, which is safe
-        return escapeUrl(normalized);
+        return normalized;
     }
 
     const scheme = schemeMatch[1].toLowerCase();
@@ -103,7 +89,7 @@ export function sanitizeUrl(url) {
         return '';
     }
 
-    return escapeUrl(normalized);
+    return normalized;
 }
 
 /**
