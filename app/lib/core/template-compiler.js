@@ -47,6 +47,143 @@ const BOOLEAN_ATTRS = new Set([
 ]);
 
 /**
+ * HTML named entities to numeric character references.
+ * XML only recognizes 5 predefined entities: &lt; &gt; &amp; &apos; &quot;
+ * All other HTML named entities must be converted to numeric references for XML parsing.
+ */
+const HTML_ENTITIES = {
+    // Most common entities
+    'nbsp': 160,
+    'copy': 169,
+    'reg': 174,
+    'trade': 8482,
+    'mdash': 8212,
+    'ndash': 8211,
+    'lsquo': 8216,
+    'rsquo': 8217,
+    'ldquo': 8220,
+    'rdquo': 8221,
+    'bull': 8226,
+    'hellip': 8230,
+    'euro': 8364,
+    'pound': 163,
+    'yen': 165,
+    'cent': 162,
+    'deg': 176,
+    'plusmn': 177,
+    'times': 215,
+    'divide': 247,
+    'frac12': 189,
+    'frac14': 188,
+    'frac34': 190,
+    'para': 182,
+    'sect': 167,
+    'dagger': 8224,
+    'Dagger': 8225,
+    'laquo': 171,
+    'raquo': 187,
+    'iexcl': 161,
+    'iquest': 191,
+    'acute': 180,
+    'cedil': 184,
+    'macr': 175,
+    'micro': 181,
+    'middot': 183,
+    'ordf': 170,
+    'ordm': 186,
+    'sup1': 185,
+    'sup2': 178,
+    'sup3': 179,
+    'not': 172,
+    'shy': 173,
+    'brvbar': 166,
+    'curren': 164,
+    // Greek letters (common in math/science)
+    'Alpha': 913, 'Beta': 914, 'Gamma': 915, 'Delta': 916,
+    'Epsilon': 917, 'Zeta': 918, 'Eta': 919, 'Theta': 920,
+    'Iota': 921, 'Kappa': 922, 'Lambda': 923, 'Mu': 924,
+    'Nu': 925, 'Xi': 926, 'Omicron': 927, 'Pi': 928,
+    'Rho': 929, 'Sigma': 931, 'Tau': 932, 'Upsilon': 933,
+    'Phi': 934, 'Chi': 935, 'Psi': 936, 'Omega': 937,
+    'alpha': 945, 'beta': 946, 'gamma': 947, 'delta': 948,
+    'epsilon': 949, 'zeta': 950, 'eta': 951, 'theta': 952,
+    'iota': 953, 'kappa': 954, 'lambda': 955, 'mu': 956,
+    'nu': 957, 'xi': 958, 'omicron': 959, 'pi': 960,
+    'rho': 961, 'sigmaf': 962, 'sigma': 963, 'tau': 964,
+    'upsilon': 965, 'phi': 966, 'chi': 967, 'psi': 968, 'omega': 969,
+    // Arrows
+    'larr': 8592, 'uarr': 8593, 'rarr': 8594, 'darr': 8595,
+    'harr': 8596, 'crarr': 8629,
+    'lArr': 8656, 'uArr': 8657, 'rArr': 8658, 'dArr': 8659, 'hArr': 8660,
+    // Math symbols
+    'forall': 8704, 'part': 8706, 'exist': 8707, 'empty': 8709,
+    'nabla': 8711, 'isin': 8712, 'notin': 8713, 'ni': 8715,
+    'prod': 8719, 'sum': 8721, 'minus': 8722, 'lowast': 8727,
+    'radic': 8730, 'prop': 8733, 'infin': 8734, 'ang': 8736,
+    'and': 8743, 'or': 8744, 'cap': 8745, 'cup': 8746,
+    'int': 8747, 'there4': 8756, 'sim': 8764, 'cong': 8773,
+    'asymp': 8776, 'ne': 8800, 'equiv': 8801, 'le': 8804,
+    'ge': 8805, 'sub': 8834, 'sup': 8835, 'nsub': 8836,
+    'sube': 8838, 'supe': 8839, 'oplus': 8853, 'otimes': 8855,
+    'perp': 8869, 'sdot': 8901,
+    // Misc symbols
+    'spades': 9824, 'clubs': 9827, 'hearts': 9829, 'diams': 9830,
+    'loz': 9674, 'lceil': 8968, 'rceil': 8969, 'lfloor': 8970, 'rfloor': 8971,
+    'lang': 9001, 'rang': 9002,
+    // Special whitespace
+    'ensp': 8194, 'emsp': 8195, 'thinsp': 8201, 'zwnj': 8204, 'zwj': 8205, 'lrm': 8206, 'rlm': 8207
+};
+
+/**
+ * XML predefined entities - these are valid in XML and should NOT be converted
+ */
+const XML_PREDEFINED_ENTITIES = new Set(['lt', 'gt', 'amp', 'apos', 'quot']);
+
+/**
+ * Preprocess template string for XML compatibility.
+ * - Converts HTML named entities to numeric references (except XML predefined)
+ * - Escapes bare ampersands that aren't part of valid entity references
+ *
+ * @param {string} template - Template string with slot markers already inserted
+ * @returns {string} Preprocessed template safe for XML parsing
+ */
+function preprocessEntities(template) {
+    // Pattern matches:
+    // 1. Named entity references: &name;
+    // 2. Numeric decimal references: &#digits;
+    // 3. Numeric hex references: &#xhexdigits;
+    // 4. Bare ampersands (anything else starting with &)
+    return template.replace(/&([a-zA-Z][a-zA-Z0-9]*);|&(#\d+);|&(#x[0-9a-fA-F]+);|&/g,
+        (match, namedEntity, numericDec, numericHex) => {
+            // Numeric decimal reference - already valid XML
+            if (numericDec) {
+                return `&${numericDec};`;
+            }
+            // Numeric hex reference - already valid XML
+            if (numericHex) {
+                return `&${numericHex};`;
+            }
+            // Named entity
+            if (namedEntity) {
+                // XML predefined entities - keep as-is
+                if (XML_PREDEFINED_ENTITIES.has(namedEntity)) {
+                    return match;
+                }
+                // HTML named entity - convert to numeric
+                const codePoint = HTML_ENTITIES[namedEntity];
+                if (codePoint) {
+                    return `&#${codePoint};`;
+                }
+                // Unknown entity - escape the ampersand to prevent XML error
+                return `&amp;${namedEntity};`;
+            }
+            // Bare ampersand - escape it
+            return '&amp;';
+        }
+    );
+}
+
+/**
  * Dangerous property names that could enable prototype pollution attacks.
  * These must never be set via user-controlled paths (e.g., x-model bindings).
  */
@@ -148,6 +285,9 @@ export function compileTemplate(strings) {
             fullTemplate += slotMarker(i);
         }
     }
+
+    // Preprocess entities for XML compatibility (bare & and HTML named entities)
+    fullTemplate = preprocessEntities(fullTemplate);
 
     // Parse and build op-based structure
     const parsed = parseXMLToTree(fullTemplate);

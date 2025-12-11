@@ -494,3 +494,163 @@ describe('Template Compiler Performance', function(it) {
         assert.equal(vnode1, vnode2, 'Static VNode should be reused');
     });
 });
+
+describe('Entity Preprocessing', function(it) {
+    it('handles bare ampersands in text', () => {
+        clearTemplateCache();
+        const strings = ['<div>Tom & Jerry</div>'];
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        assert.equal(container.textContent, 'Tom & Jerry', 'Should render bare ampersand correctly');
+    });
+
+    it('handles multiple bare ampersands', () => {
+        clearTemplateCache();
+        const strings = ['<div>A & B & C & D</div>'];
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        assert.equal(container.textContent, 'A & B & C & D', 'Should render multiple ampersands');
+    });
+
+    it('handles &nbsp; entity', () => {
+        clearTemplateCache();
+        const strings = ['<div>Hello\u00A0World</div>']; // Using actual non-breaking space for comparison
+        const stringsWithEntity = ['<div>Hello&nbsp;World</div>'];
+        const compiled = compileTemplate(stringsWithEntity);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        // Non-breaking space is Unicode 160
+        assert.ok(container.textContent.includes('\u00A0'), 'Should render non-breaking space');
+    });
+
+    it('handles &copy; entity', () => {
+        clearTemplateCache();
+        const strings = ['<div>&copy; 2024</div>'];
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        assert.equal(container.textContent, '© 2024', 'Should render copyright symbol');
+    });
+
+    it('preserves XML predefined entities', () => {
+        clearTemplateCache();
+        const strings = ['<div>&lt;tag&gt; &amp; &quot;text&quot;</div>'];
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        assert.equal(container.textContent, '<tag> & "text"', 'Should decode XML entities correctly');
+    });
+
+    it('handles numeric decimal entities', () => {
+        clearTemplateCache();
+        const strings = ['<div>&#169; &#8212;</div>']; // copyright and mdash
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        assert.equal(container.textContent, '© —', 'Should render numeric entities');
+    });
+
+    it('handles numeric hex entities', () => {
+        clearTemplateCache();
+        const strings = ['<div>&#xA9; &#x2014;</div>']; // copyright and mdash in hex
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        assert.equal(container.textContent, '© —', 'Should render hex entities');
+    });
+
+    it('handles entities in attributes', () => {
+        clearTemplateCache();
+        const strings = ['<div title="Tom &amp; Jerry">Content</div>'];
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        assert.equal(container.firstChild.getAttribute('title'), 'Tom & Jerry', 'Should handle entities in attributes');
+    });
+
+    it('handles bare ampersand in attributes', () => {
+        clearTemplateCache();
+        const strings = ['<div title="R&D">Content</div>'];
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        assert.equal(container.firstChild.getAttribute('title'), 'R&D', 'Should escape bare ampersand in attributes');
+    });
+
+    it('handles mixed entities and ampersands', () => {
+        clearTemplateCache();
+        const strings = ['<div>&copy; Tom & Jerry &mdash; 2024</div>'];
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        assert.equal(container.textContent, '© Tom & Jerry — 2024', 'Should handle mixed entities');
+    });
+
+    it('handles unknown entities gracefully', () => {
+        clearTemplateCache();
+        // Unknown entity should have its ampersand escaped
+        const strings = ['<div>&unknownentity;</div>'];
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        // Unknown entity gets escaped, so it renders as literal text
+        assert.equal(container.textContent, '&unknownentity;', 'Should escape unknown entities');
+    });
+
+    it('handles Greek letter entities', () => {
+        clearTemplateCache();
+        const strings = ['<div>&alpha; &beta; &gamma;</div>'];
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        assert.equal(container.textContent, 'α β γ', 'Should render Greek letters');
+    });
+
+    it('handles arrow entities', () => {
+        clearTemplateCache();
+        const strings = ['<div>&larr; &rarr; &uarr; &darr;</div>'];
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, []);
+        preactRender(vnode, container);
+        assert.equal(container.textContent, '← → ↑ ↓', 'Should render arrow entities');
+    });
+
+    it('handles entities with dynamic slots', () => {
+        clearTemplateCache();
+        const strings = ['<div>&copy; ', ' &mdash; All rights reserved</div>'];
+        const compiled = compileTemplate(strings);
+
+        const container = document.createElement('div');
+        const vnode = applyValues(compiled, ['2024']);
+        preactRender(vnode, container);
+        assert.equal(container.textContent, '© 2024 — All rights reserved', 'Should work with slots');
+    });
+});
