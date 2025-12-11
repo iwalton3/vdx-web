@@ -308,8 +308,8 @@ export default defineComponent('cl-shell', {
             display: flex;
             flex-direction: column;
             width: var(--sidebar-width);
-            background: var(--sidebar-bg, var(--card-bg, white));
-            border-right: 1px solid var(--border-color, var(--input-border, #e0e0e0));
+            background: var(--sidebar-bg, var(--card-bg, #1a1a1a));
+            border-right: 1px solid var(--border-color, var(--surface-300, #404040));
             overflow: hidden;
             transition: transform 0.3s ease;
         }
@@ -340,7 +340,7 @@ export default defineComponent('cl-shell', {
 
         .sidebar-footer {
             padding: 12px 16px;
-            border-top: 1px solid var(--border-color, var(--input-border, #e0e0e0));
+            border-top: 1px solid var(--border-color, var(--surface-300, #404040));
         }
 
         .sidebar-footer:empty {
@@ -356,21 +356,21 @@ export default defineComponent('cl-shell', {
             display: flex;
             align-items: center;
             padding: 10px 16px;
-            color: var(--text-color, #333);
+            color: var(--text-primary, var(--text-color, #333));
             cursor: pointer;
             transition: all 0.2s;
             gap: 12px;
         }
 
         .nav-item:hover {
-            background: var(--hover-bg, #f8f9fa);
+            background: var(--hover-bg, #2d2d2d);
         }
 
         .nav-item.active {
-            background: var(--selected-bg, #e3f2fd);
-            color: var(--primary-color, #1976d2);
+            background: var(--selected-bg, #1e3a5f);
+            color: var(--primary-400, var(--primary-color, #42a5f5));
             font-weight: 500;
-            border-right: 3px solid var(--primary-color, #1976d2);
+            border-right: 3px solid var(--primary-400, var(--primary-color, #42a5f5));
         }
 
         .nav-item.sub {
@@ -416,6 +416,7 @@ export default defineComponent('cl-shell', {
             flex: 1;
             overflow-y: auto;
             padding: 24px;
+            padding-bottom: 32px;
         }
 
         /* Responsive */
@@ -430,6 +431,7 @@ export default defineComponent('cl-shell', {
 
             .main-content {
                 padding: 16px;
+                padding-bottom: 24px;
             }
         }
     `
