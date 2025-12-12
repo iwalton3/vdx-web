@@ -258,7 +258,7 @@ export default defineComponent('cl-dialog', {
         .dialog-title {
             font-size: 18px;
             font-weight: 600;
-            color: var(--text-color, #333);
+            color: var(--text-primary, var(--text-color, #333));
         }
 
         .close-btn {

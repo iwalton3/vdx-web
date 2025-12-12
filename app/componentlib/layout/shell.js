@@ -308,8 +308,8 @@ export default defineComponent('cl-shell', {
             display: flex;
             flex-direction: column;
             width: var(--sidebar-width);
-            background: var(--sidebar-bg, var(--card-bg, #1a1a1a));
-            border-right: 1px solid var(--border-color, var(--surface-300, #404040));
+            background: var(--sidebar-bg, var(--card-bg, white));
+            border-right: 1px solid var(--border-color, var(--input-border, #e0e0e0));
             overflow: hidden;
             transition: transform 0.3s ease;
         }
@@ -340,7 +340,7 @@ export default defineComponent('cl-shell', {
 
         .sidebar-footer {
             padding: 12px 16px;
-            border-top: 1px solid var(--border-color, var(--surface-300, #404040));
+            border-top: 1px solid var(--border-color, var(--input-border, #e0e0e0));
         }
 
         .sidebar-footer:empty {
@@ -363,14 +363,14 @@ export default defineComponent('cl-shell', {
         }
 
         .nav-item:hover {
-            background: var(--hover-bg, #2d2d2d);
+            background: var(--hover-bg, #f8f9fa);
         }
 
         .nav-item.active {
-            background: var(--selected-bg, #1e3a5f);
-            color: var(--primary-400, var(--primary-color, #42a5f5));
+            background: var(--selected-bg, #e3f2fd);
+            color: var(--primary-color, #1976d2);
             font-weight: 500;
-            border-right: 3px solid var(--primary-400, var(--primary-color, #42a5f5));
+            border-right: 3px solid var(--primary-color, #1976d2);
         }
 
         .nav-item.sub {
