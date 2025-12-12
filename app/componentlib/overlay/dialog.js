@@ -96,6 +96,18 @@ export default defineComponent('cl-dialog', {
         },
 
         /**
+         * Prevent change events from form elements bubbling up and
+         * triggering the dialog's on-change handler
+         */
+        handleDialogChange(e) {
+            // Only stop propagation for events from form elements inside the dialog
+            // (not our own change event from close())
+            if (e.target !== this) {
+                e.stopPropagation();
+            }
+        },
+
+        /**
          * Focus the first focusable element in the dialog
          */
         _focusFirstElement() {
@@ -161,6 +173,7 @@ export default defineComponent('cl-dialog', {
                          aria-modal="${this.props.modal ? 'true' : undefined}"
                          aria-labelledby="${ariaLabelledby}"
                          on-click="handleDialogClick"
+                         on-change="handleDialogChange"
                          on-keydown="handleFocusTrap">
                         ${when(this.props.header || this.props.closable, html`
                             <div class="dialog-header">
