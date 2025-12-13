@@ -492,6 +492,82 @@ Drag and drop reorderable list.
 </cl-orderable-list>
 ```
 
+### cl-virtual-list
+
+Efficiently renders large lists by only rendering visible items. Supports self-scrolling, parent scrolling, or window scrolling.
+
+```javascript
+data() {
+    return {
+        items: Array.from({ length: 10000 }, (_, i) => ({
+            id: i,
+            title: `Item ${i}`,
+            subtitle: `Description for item ${i}`
+        })),
+        selected: null
+    };
+},
+
+methods: {
+    handleSelect(e) {
+        this.state.selected = e.detail.item;
+    },
+    getItemKey(item) {
+        return item.id;
+    }
+},
+
+template() {
+    return html`
+        <!-- Self-scrolling (default) -->
+        <cl-virtual-list
+            items="${this.state.items}"
+            itemHeight="60"
+            height="400px"
+            keyFn="${this.getItemKey}"
+            selectable="true"
+            on-select="handleSelect">
+        </cl-virtual-list>
+
+        <!-- Parent scrolling - tracks a scrollable parent -->
+        <div style="height: 500px; overflow-y: auto;">
+            <cl-virtual-list
+                items="${this.state.items}"
+                itemHeight="60"
+                scrollContainer="parent"
+                keyFn="${this.getItemKey}">
+            </cl-virtual-list>
+        </div>
+    `;
+}
+```
+
+**Props:**
+- `items` - Array of items to render
+- `itemHeight` - Height of each item in pixels (default: 50)
+- `bufferSize` - Extra items to render above/below viewport (default: 10)
+- `renderItem` - Custom render function `(item, index) => html\`...\``
+- `keyFn` - Function to get unique key for memoization `(item) => item.id`
+- `height` - Container height (only for scrollContainer="self")
+- `scrollContainer` - Scroll mode:
+  - `"self"` (default) - Component has its own scrollbar
+  - `"parent"` - Tracks nearest scrollable parent
+  - `"window"` - Tracks window/document scroll
+  - CSS selector - Tracks a specific element
+- `selectable` - Enable selection (default: false)
+- `selectedIndex` - Currently selected index
+- `emptyMessage` - Message when list is empty
+- `loading` - Show loading spinner
+
+**Events:**
+- `select` - Fired when item is selected: `{ item, index }`
+- `item-click` - Fired when item is clicked: `{ item, index }`
+
+**Methods:**
+- `scrollToIndex(index)` - Scroll to a specific item
+- `scrollToTop()` - Scroll to first item
+- `scrollToBottom()` - Scroll to last item
+
 ## Panel Components
 
 ### cl-accordion

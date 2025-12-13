@@ -1,7 +1,7 @@
 /**
  * Pre-registered example components for demos
  */
-import { defineComponent, html, when, each, raw } from '../lib/framework.js';
+import { defineComponent, html, when, each, raw, untracked } from '../lib/framework.js';
 
 // Import all component library components
 import './form/input-text.js';
@@ -1570,8 +1570,9 @@ defineComponent('example-input-search', {
 defineComponent('example-virtual-list', {
     data() {
         return {
-            items: [],
-            selectedItem: null
+            items: untracked([]),  // Don't track 10000 items!
+            selectedItem: null,
+            scrollMode: 'self'  // 'self' | 'parent' | 'window'
         };
     },
     mounted() {
@@ -1585,6 +1586,13 @@ defineComponent('example-virtual-list', {
     methods: {
         handleSelect(e) {
             this.state.selectedItem = e.detail.item;
+        },
+        setScrollMode(mode) {
+            this.state.scrollMode = mode;
+        },
+        // Custom key function for memoization
+        getItemKey(item) {
+            return item.id;
         }
     },
     template() {
@@ -1595,17 +1603,53 @@ defineComponent('example-virtual-list', {
                     Only visible items are rendered for optimal performance.
                 </p>
 
-                <cl-virtual-list
-                    items="${this.state.items}"
-                    itemHeight="60"
-                    height="400px"
-                    selectable="true"
-                    on-select="handleSelect">
-                </cl-virtual-list>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <cl-button
+                        label="Self Scroll"
+                        severity="${this.state.scrollMode === 'self' ? 'primary' : 'secondary'}"
+                        on-click="${() => this.setScrollMode('self')}">
+                    </cl-button>
+                    <cl-button
+                        label="Page Scroll"
+                        severity="${this.state.scrollMode === 'window' ? 'primary' : 'secondary'}"
+                        on-click="${() => this.setScrollMode('window')}">
+                    </cl-button>
+                </div>
+
+                ${when(this.state.scrollMode === 'self', html`
+                    <cl-virtual-list
+                        items="${this.state.items}"
+                        itemHeight="60"
+                        height="400px"
+                        scrollContainer="self"
+                        keyFn="${this.getItemKey}"
+                        selectable="true"
+                        on-select="handleSelect">
+                    </cl-virtual-list>
+                `)}
+
+                ${when(this.state.scrollMode === 'window', html`
+                    <cl-virtual-list
+                        items="${this.state.items}"
+                        itemHeight="60"
+                        scrollContainer="window"
+                        keyFn="${this.getItemKey}"
+                        selectable="true"
+                        on-select="handleSelect">
+                    </cl-virtual-list>
+                `)}
 
                 <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
                     Selected: ${this.state.selectedItem ? this.state.selectedItem.title : 'None'}
                 </div>
+
+                <p style="color: var(--text-muted, #666); font-size: 13px; margin: 0;">
+                    <strong>scrollContainer options:</strong><br>
+                    • "self" (default) - Component has its own scrollbar<br>
+                    • "parent" - Tracks nearest scrollable parent<br>
+                    • "window" - Tracks window/document scroll<br>
+                    • CSS selector - Tracks a specific element
+                </p>
             </div>
         `;
     }

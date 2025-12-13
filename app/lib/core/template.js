@@ -10,6 +10,31 @@ import * as templateCompiler from './template-compiler.js';
 const HTML_MARKER = Symbol('html');
 const RAW_MARKER = Symbol('raw');
 
+// Render context - tracks current component during template evaluation
+// This allows helpers like memoEach to access component-scoped caches
+let currentRenderComponent = null;
+
+// Call-site counter for memoEach (like React hook call order)
+let memoEachCallIndex = 0;
+
+/**
+ * Set the current render context (called by component system)
+ * @param {object|null} component - The component being rendered, or null to clear
+ */
+export function setRenderContext(component) {
+    currentRenderComponent = component;
+    // Reset memoEach call index at start of each component render
+    memoEachCallIndex = 0;
+}
+
+/**
+ * Get the current render context
+ * @returns {object|null} The component being rendered, or null
+ */
+export function getRenderContext() {
+    return currentRenderComponent;
+}
+
 // Helper functions to check markers (safe API for other code)
 export const isHtml = (obj) => obj && obj[HTML_MARKER] === true;
 export const isRaw = (obj) => obj && obj[RAW_MARKER] === true;
@@ -277,6 +302,175 @@ export function each(array, mapFn, keyFn = null) {
         }
     };
 }
+
+/**
+ * Create a memoization cache for use with memoEach().
+ * Should be created once per component (e.g., in mounted() or as instance property).
+ *
+ * @returns {Map} Cache map for memoEach
+ *
+ * @example
+ * mounted() {
+ *     this._songCache = createMemoCache();
+ * }
+ */
+export function createMemoCache() {
+    return new Map();
+}
+
+/**
+ * Memoized version of each() - caches rendered templates per item key.
+ * Only re-renders items that have changed (by reference).
+ *
+ * If called within a component's template(), automatically uses component-scoped caching.
+ * Can also pass an explicit cache for manual control.
+ *
+ * @param {Array} array - Array to iterate over
+ * @param {Function} mapFn - Function to map each item to a template
+ * @param {Function} keyFn - Function to extract unique key from each item (REQUIRED for memoization)
+ * @param {Map} [cache] - Optional explicit cache (if omitted, uses automatic component-scoped cache)
+ * @returns {Object} Compiled fragment template
+ *
+ * @example
+ * // Automatic caching (recommended) - cache is managed automatically per component
+ * template() {
+ *     return html`
+ *         ${memoEach(this.state.songs, song => html`
+ *             <div class="song">${song.title}</div>
+ *         `, song => song.uuid)}
+ *     `;
+ * }
+ *
+ * @example
+ * // Explicit cache (for advanced use cases)
+ * mounted() {
+ *     this._songCache = createMemoCache();
+ * }
+ * template() {
+ *     return html`
+ *         ${memoEach(this.state.songs, song => html`...`, song => song.uuid, this._songCache)}
+ *     `;
+ * }
+ */
+export function memoEach(array, mapFn, keyFn, cache) {
+    if (!array || !Array.isArray(array)) {
+        // Increment call index even for empty arrays to maintain call order
+        if (currentRenderComponent) memoEachCallIndex++;
+        return {
+            [HTML_MARKER]: true,
+            _compiled: {
+                op: OP.STATIC,
+                vnode: null,
+                type: 'fragment',
+                wrapped: false,
+                children: []
+            },
+            toString() { return ''; }
+        };
+    }
+
+    if (!keyFn) {
+        // No keyFn - fall back to regular each() (no memoization possible)
+        return each(array, mapFn, null);
+    }
+
+    // Get or create cache
+    let effectiveCache = cache;
+    if (!effectiveCache && currentRenderComponent) {
+        // Automatic caching: store cache on component keyed by call-site index
+        const callIndex = memoEachCallIndex++;
+        if (!currentRenderComponent._memoEachCaches) {
+            currentRenderComponent._memoEachCaches = new Map();
+        }
+        effectiveCache = currentRenderComponent._memoEachCaches.get(callIndex);
+        if (!effectiveCache) {
+            effectiveCache = new Map();
+            currentRenderComponent._memoEachCaches.set(callIndex, effectiveCache);
+        }
+    }
+
+    if (!effectiveCache) {
+        // No cache available (not in component context and no explicit cache)
+        return each(array, mapFn, keyFn);
+    }
+
+    // Track which keys are in current render (for cleanup)
+    const currentKeys = new Set();
+
+    const results = array.map((item, index) => {
+        const key = keyFn(item);
+        currentKeys.add(key);
+
+        // Check cache - hit if same key AND same item reference
+        const cached = effectiveCache.get(key);
+        if (cached && cached.item === item) {
+            // Cache hit - return cached compiled template
+            return cached.result;
+        }
+
+        // Cache miss - render and cache
+        const result = mapFn(item, index);
+
+        // Add key to the compiled result
+        if (result && result._compiled) {
+            const keyedResult = {
+                ...result,
+                _compiled: {
+                    ...result._compiled,
+                    key: key
+                }
+            };
+            effectiveCache.set(key, { item, result: keyedResult });
+            return keyedResult;
+        }
+
+        effectiveCache.set(key, { item, result });
+        return result;
+    });
+
+    // Clean up stale cache entries (items no longer in array)
+    for (const key of effectiveCache.keys()) {
+        if (!currentKeys.has(key)) {
+            effectiveCache.delete(key);
+        }
+    }
+
+    // Extract compiled children (same logic as each())
+    const compiledChildren = results
+        .map((r, itemIndex) => {
+            if (!r || !r._compiled) return null;
+
+            const child = r._compiled;
+            const childValues = r._values;
+
+            if (child.type === 'text' && child.value && /^\s*$/.test(child.value)) {
+                return null;
+            }
+
+            if (child.type === 'fragment' && !child.wrapped && child.children.length === 1 && child.children[0].type === 'element') {
+                const element = child.children[0];
+                const key = keyFn(array[itemIndex]);
+                return {...element, key, _itemValues: childValues};
+            }
+
+            const key = keyFn(array[itemIndex]);
+            return {...child, key, _itemValues: childValues};
+        })
+        .filter(Boolean);
+
+    return {
+        [HTML_MARKER]: true,
+        _compiled: {
+            op: OP.FRAGMENT,
+            type: 'fragment',
+            wrapped: false,
+            fromEach: true,
+            children: compiledChildren
+        },
+        toString() { return ''; }
+    };
+}
+
 /**
  * Async content rendering helper (like Promise.then with loading state)
  * Returns an <x-await-then> component that manages its own loading/resolved/error state.

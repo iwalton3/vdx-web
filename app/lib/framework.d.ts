@@ -525,6 +525,51 @@ export function each<T>(
 ): HtmlTemplate;
 
 /**
+ * Memoization cache for memoEach.
+ */
+export type MemoCache = Map<string | number, { item: unknown; result: HtmlTemplate }>;
+
+/**
+ * Create a memoization cache for use with memoEach().
+ * Usually not needed - memoEach() automatically manages caches inside component templates.
+ *
+ * @returns Cache map for memoEach
+ *
+ * @example
+ * mounted() {
+ *     this._cache = createMemoCache();
+ * }
+ */
+export function createMemoCache(): MemoCache;
+
+/**
+ * Memoized list rendering - caches rendered templates per item key.
+ * Only re-renders items that have changed (by reference).
+ *
+ * When used inside a component template, caching is automatic.
+ * Pass an explicit cache for advanced use cases.
+ *
+ * @param array - Array to iterate over
+ * @param mapFn - Function that returns template for each item
+ * @param keyFn - Required function to extract unique key from item
+ * @param cache - Optional explicit cache (omit for automatic caching)
+ * @returns Compiled fragment template
+ *
+ * @example
+ * // Automatic caching (recommended)
+ * memoEach(songs, song => html`<div>${song.title}</div>`, song => song.uuid)
+ *
+ * // With explicit cache
+ * memoEach(songs, song => html`<div>${song.title}</div>`, song => song.uuid, this._cache)
+ */
+export function memoEach<T>(
+  array: T[] | null | undefined,
+  mapFn: (item: T, index: number) => HtmlTemplate,
+  keyFn: (item: T) => string | number,
+  cache?: MemoCache
+): HtmlTemplate;
+
+/**
  * Async content rendering helper with loading state.
  * Automatically handles promise lifecycle.
  *

@@ -176,7 +176,31 @@ ${each(this.state.items, item => html`
 ${each(this.state.items, (item, index) => html`
     <li>${index + 1}. ${item.name}</li>
 `)}
+
+// With key function (for reorderable lists)
+${each(this.state.items, item => html`
+    <li>${item.name}</li>
+`, item => item.id)}
 ```
+
+### memoEach(array, mapFn, keyFn, [cache])
+
+Memoized list rendering - caches rendered templates per item key.
+
+**Parameters:**
+- `array` (Array) - Array to iterate over
+- `mapFn` (function) - Function that returns template for each item
+- `keyFn` (function) - **Required** - Function to extract unique key from item
+- `cache` (Map, optional) - Explicit cache (omit for automatic component-scoped caching)
+
+**Example:**
+```javascript
+${memoEach(this.state.songs, song => html`
+    <div class="song">${song.title}</div>
+`, song => song.uuid)}
+```
+
+**When to use:** Virtual scroll, large lists (100+ items), expensive item templates.
 
 ### raw(htmlString)
 
@@ -393,6 +417,48 @@ const expensiveComputation = memo(
     [a, b]
 );
 ```
+
+### untracked(value)
+
+Wraps a value to opt out of deep reactivity tracking. Use for large arrays/objects where you only need to track when the whole value is replaced.
+
+**Parameters:**
+- `value` (any) - Initial value to mark as untracked
+
+**Returns:** The value (unchanged)
+
+**Example:**
+```javascript
+import { defineComponent, untracked } from './lib/framework.js';
+
+defineComponent('song-list', {
+    data() {
+        return {
+            // Large array - only track replacement, not individual items
+            songs: untracked([]),
+            // Normal reactive values
+            currentIndex: 0
+        };
+    },
+
+    methods: {
+        loadSongs(newSongs) {
+            // Reassign to trigger update (auto-applies untracked)
+            this.state.songs = newSongs;
+        }
+    }
+});
+```
+
+**When to use:** Arrays with 100+ items, deeply nested objects, API response data.
+
+### createMemoCache()
+
+Creates a memoization cache for use with `memoEach()`.
+
+**Returns:** Map for caching
+
+**Note:** Usually not needed - `memoEach()` automatically manages caches when used inside component templates.
 
 ## Store API
 

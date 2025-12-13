@@ -193,6 +193,12 @@ ${each(this.state.items, item => html`
     <li><input type="text" x-model="items[${item.id}].name"></li>
 `, item => item.id)}
 
+// memoEach() - Memoized list rendering for performance
+// Only re-renders items that changed (by reference)
+${memoEach(this.state.songs, song => html`
+    <div class="song">${song.title}</div>
+`, song => song.uuid)}
+
 // awaitThen() - Async data loading with loading/error states
 ${awaitThen(
     this.state.userPromise,  // Promise stored in state

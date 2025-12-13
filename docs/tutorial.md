@@ -17,7 +17,8 @@ A hands-on guide to building reactive web applications with zero dependencies.
 11. [State Management with Stores](#state-management-with-stores)
 12. [Static Site Integration](#static-site-integration)
 13. [Advanced Patterns](#advanced-patterns)
-14. [Best Practices](#best-practices)
+14. [Performance Optimization](#performance-optimization)
+15. [Best Practices](#best-practices)
 
 ---
 
@@ -1433,6 +1434,158 @@ defineComponent('my-slider', {
 
 ---
 
+## Performance Optimization
+
+VDX provides tools to optimize rendering performance for large datasets and complex UIs.
+
+### Large Arrays with `untracked()`
+
+The reactivity system tracks all properties in state objects. For arrays with hundreds or thousands of items, this becomes expensive. Use `untracked()` to opt out of deep tracking:
+
+```javascript
+import { defineComponent, html, untracked } from './lib/framework.js';
+
+defineComponent('song-library', {
+    data() {
+        return {
+            // Large array - only track when the whole array is replaced
+            songs: untracked([]),
+            // Small values - track normally
+            currentIndex: 0,
+            searchQuery: ''
+        };
+    },
+
+    methods: {
+        loadSongs(newSongs) {
+            // Just assign - untracked is auto-applied for keys marked initially
+            this.state.songs = newSongs;
+        },
+
+        addSong(song) {
+            // Must reassign to trigger update
+            this.state.songs = [...this.state.songs, song];
+        }
+    }
+});
+```
+
+**How it works:**
+1. Mark a key with `untracked()` in `data()`
+2. All future assignments to that key skip deep tracking
+3. Only the array reference is tracked, not individual items
+4. Reassign the array to trigger re-renders
+
+**When to use:**
+- Arrays with 100+ items
+- Deeply nested objects you don't need to track individually
+- API response data where you only care about the whole response changing
+
+### Memoized Lists with `memoEach()`
+
+For large lists or expensive item rendering, use `memoEach()` to cache rendered templates:
+
+```javascript
+import { defineComponent, html, memoEach } from './lib/framework.js';
+
+defineComponent('playlist-view', {
+    data() {
+        return {
+            songs: []
+        };
+    },
+
+    template() {
+        return html`
+            <div class="playlist">
+                ${memoEach(this.state.songs, song => html`
+                    <div class="song-item">
+                        <span class="title">${song.title}</span>
+                        <span class="artist">${song.artist}</span>
+                        <button on-click="${() => this.playSong(song)}">Play</button>
+                    </div>
+                `, song => song.uuid)}
+            </div>
+        `;
+    }
+});
+```
+
+**How it works:**
+- Caches rendered templates per item key
+- Only re-renders items where the item reference changed
+- Cache is automatically scoped to the component
+- Stale cache entries are cleaned up when items leave the array
+
+**The key function is required** - it tells `memoEach()` how to identify each item uniquely.
+
+### Virtual Scroll with cl-virtual-list
+
+For very large lists (1000+ items), use the `cl-virtual-list` component:
+
+```javascript
+import { defineComponent, html, untracked } from './lib/framework.js';
+
+defineComponent('song-list', {
+    data() {
+        return {
+            songs: untracked([])  // Don't track 2000+ items
+        };
+    },
+
+    methods: {
+        handleSelect(e) {
+            console.log('Selected:', e.detail.item);
+        },
+        getItemKey(item) {
+            return item.id;
+        }
+    },
+
+    template() {
+        return html`
+            <!-- Self-scrolling (component has its own scrollbar) -->
+            <cl-virtual-list
+                items="${this.state.songs}"
+                itemHeight="60"
+                height="400px"
+                keyFn="${this.getItemKey}"
+                selectable="true"
+                on-select="handleSelect">
+            </cl-virtual-list>
+
+            <!-- Or track parent scroll for full-page lists -->
+            <cl-virtual-list
+                items="${this.state.songs}"
+                itemHeight="60"
+                scrollContainer="parent"
+                keyFn="${this.getItemKey}">
+            </cl-virtual-list>
+        `;
+    }
+});
+```
+
+**scrollContainer options:**
+- `"self"` (default) - Component has its own scrollbar
+- `"parent"` - Tracks nearest scrollable parent
+- `"window"` - Tracks window/document scroll
+- CSS selector - Tracks a specific element
+
+The `cl-virtual-list` component automatically uses `memoEach()` and `rafThrottle()` for optimal performance. See [componentlib.md](componentlib.md#cl-virtual-list) for full documentation.
+
+### Performance Tips Summary
+
+| Technique | Use When | Benefit |
+|-----------|----------|---------|
+| `untracked()` | Arrays with 100+ items | Avoids expensive dependency tracking |
+| `memoEach()` | Expensive item templates | Caches rendered items |
+| `rafThrottle()` | Scroll/resize handlers | Limits to 60fps max |
+| `cl-virtual-list` | Lists with 500+ items | Only renders visible items |
+| `[...array].sort()` | Sorting in templates | Prevents infinite loops |
+
+---
+
 ## Best Practices
 
 ### 1. Keep Components Focused
@@ -1578,6 +1731,8 @@ VDX provides a modern development experience without the complexity:
 | Event handling | `on-click="methodName"` |
 | Conditionals | `when(condition, then, else)` |
 | Lists | `each(array, item => html\`...\`)` |
+| Memoized lists | `memoEach(array, fn, keyFn)` |
+| Large arrays | `untracked([])` |
 | Props | `props: { name: 'default' }` |
 | Children | `this.props.children` |
 | Lifecycle | `mounted()`, `unmounted()` |

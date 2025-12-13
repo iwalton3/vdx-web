@@ -211,6 +211,41 @@ defineComponent('playlist-view', {
 - Objects where individual property changes should trigger updates
 - Form data where you need two-way binding on nested properties
 
+**Combine with `memoEach()` for optimal performance:**
+
+For large lists, use both `untracked()` (to avoid expensive dependency tracking) and `memoEach()` (to cache rendered items):
+
+```javascript
+import { defineComponent, html, memoEach, untracked } from './lib/framework.js';
+
+defineComponent('song-list', {
+    data() {
+        return {
+            songs: untracked([]),  // Don't track 2000 items
+            visibleStart: 0,
+            visibleEnd: 50
+        };
+    },
+
+    template() {
+        const visible = this.state.songs.slice(
+            this.state.visibleStart,
+            this.state.visibleEnd
+        );
+
+        return html`
+            ${memoEach(visible, song => html`
+                <div class="song">${song.title}</div>
+            `, song => song.uuid)}
+        `;
+    }
+});
+```
+
+This combination:
+- `untracked()` - Prevents expensive tracking of thousands of array items
+- `memoEach()` - Caches rendered templates so unchanged items don't re-render
+
 ## Stores
 
 Reactive stores with pub/sub pattern and optional localStorage persistence.

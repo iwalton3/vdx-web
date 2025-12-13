@@ -1,20 +1,28 @@
 /**
  * VirtualList - Efficiently renders large lists by only rendering visible items
  * Part of the VDX-UI component library
+ *
+ * Supports:
+ * - Self-scrolling (default) - component has its own scrollbar
+ * - Parent scrolling - tracks a parent scrollable container
+ * - Window scrolling - tracks the window/document scroll
  */
-import { defineComponent, html, each, when } from '../../lib/framework.js';
+import { defineComponent, html, memoEach, when } from '../../lib/framework.js';
+import { rafThrottle } from '../../lib/utils.js';
 
 export default defineComponent('cl-virtual-list', {
     props: {
         items: [],
         itemHeight: 50,         // Height of each item in pixels
-        bufferSize: 5,          // Number of extra items to render above/below viewport
+        bufferSize: 10,         // Number of extra items to render above/below viewport
         renderItem: null,       // Function to render each item (receives item, index)
-        height: '400px',        // Container height
+        keyFn: null,            // Function to get unique key for memoization (receives item)
+        height: '400px',        // Container height (only used when scrollContainer="self")
         emptyMessage: 'No items to display',
         loading: false,
         selectable: false,
-        selectedIndex: -1
+        selectedIndex: -1,
+        scrollContainer: 'self' // 'self' | 'parent' | 'window' | CSS selector
     },
 
     data() {
@@ -29,23 +37,26 @@ export default defineComponent('cl-virtual-list', {
 
     mounted() {
         this.state.internalSelectedIndex = this.props.selectedIndex;
-        this.updateDimensions();
 
-        this._scrollListener = this.handleScroll.bind(this);
-        this.addEventListener('scroll', this._scrollListener);
+        // Reflect scrollContainer prop to attribute for CSS styling
+        this._updateScrollContainerAttribute();
 
+        // Set up scroll tracking based on scrollContainer prop
+        this._setupScrollTracking();
+
+        // Set up resize observer
         this._resizeObserver = new ResizeObserver(() => {
-            this.updateDimensions();
+            this._updateDimensions();
         });
         this._resizeObserver.observe(this);
 
-        this.updateVisibleRange();
+        // Initial update
+        this._updateDimensions();
+        this._updateVisibleRange();
     },
 
     unmounted() {
-        if (this._scrollListener) {
-            this.removeEventListener('scroll', this._scrollListener);
-        }
+        this._cleanupScrollTracking();
         if (this._resizeObserver) {
             this._resizeObserver.disconnect();
         }
@@ -53,28 +64,132 @@ export default defineComponent('cl-virtual-list', {
 
     propsChanged(prop, newValue, oldValue) {
         if (prop === 'items') {
-            this.updateVisibleRange();
+            this._updateVisibleRange();
         }
         if (prop === 'selectedIndex') {
             this.state.internalSelectedIndex = newValue;
         }
+        if (prop === 'scrollContainer') {
+            this._updateScrollContainerAttribute();
+            this._cleanupScrollTracking();
+            this._setupScrollTracking();
+        }
     },
 
     methods: {
-        updateDimensions() {
-            const newHeight = this.clientHeight || parseInt(this.props.height) || 400;
-            if (this.state.containerHeight !== newHeight) {
-                this.state.containerHeight = newHeight;
-                this.updateVisibleRange();
+        _updateScrollContainerAttribute() {
+            // Reflect prop to attribute for CSS styling
+            const container = this.props.scrollContainer;
+            this.setAttribute('scroll-container', container);
+
+            // Set height CSS variable for self-scroll mode
+            if (container === 'self') {
+                this.style.setProperty('--virtual-list-height', this.props.height);
             }
         },
 
-        handleScroll(e) {
-            this.state.scrollTop = e.target.scrollTop || this.scrollTop;
-            this.updateVisibleRange();
+        _setupScrollTracking() {
+            const container = this.props.scrollContainer;
+
+            // Create throttled scroll handler
+            this._scrollHandler = rafThrottle(() => this._handleScroll());
+
+            if (container === 'self') {
+                // Self-scrolling mode - listen on this element
+                this.addEventListener('scroll', this._scrollHandler);
+                this._scrollTarget = this;
+            } else if (container === 'window') {
+                // Window scroll mode
+                window.addEventListener('scroll', this._scrollHandler, true);
+                this._scrollTarget = window;
+            } else if (container === 'parent') {
+                // Find nearest scrollable parent
+                this._scrollTarget = this._findScrollableParent();
+                if (this._scrollTarget) {
+                    this._scrollTarget.addEventListener('scroll', this._scrollHandler);
+                } else {
+                    // Fall back to window if no scrollable parent found
+                    window.addEventListener('scroll', this._scrollHandler, true);
+                    this._scrollTarget = window;
+                }
+            } else {
+                // CSS selector
+                this._scrollTarget = document.querySelector(container);
+                if (this._scrollTarget) {
+                    this._scrollTarget.addEventListener('scroll', this._scrollHandler);
+                } else {
+                    console.warn(`cl-virtual-list: scrollContainer "${container}" not found, falling back to self`);
+                    this.addEventListener('scroll', this._scrollHandler);
+                    this._scrollTarget = this;
+                }
+            }
         },
 
-        updateVisibleRange() {
+        _cleanupScrollTracking() {
+            if (this._scrollHandler) {
+                if (this._scrollTarget === window) {
+                    window.removeEventListener('scroll', this._scrollHandler, true);
+                } else if (this._scrollTarget) {
+                    this._scrollTarget.removeEventListener('scroll', this._scrollHandler);
+                }
+                this._scrollHandler = null;
+                this._scrollTarget = null;
+            }
+        },
+
+        _findScrollableParent() {
+            let parent = this.parentElement;
+            while (parent) {
+                const style = getComputedStyle(parent);
+                const overflow = style.overflow + style.overflowY;
+                if (overflow.includes('auto') || overflow.includes('scroll')) {
+                    return parent;
+                }
+                parent = parent.parentElement;
+            }
+            return null;
+        },
+
+        _updateDimensions() {
+            const container = this.props.scrollContainer;
+            let newHeight;
+
+            if (container === 'self') {
+                newHeight = this.clientHeight || parseInt(this.props.height) || 400;
+            } else if (container === 'window' || this._scrollTarget === window) {
+                newHeight = window.innerHeight;
+            } else if (this._scrollTarget) {
+                newHeight = this._scrollTarget.clientHeight;
+            } else {
+                newHeight = window.innerHeight;
+            }
+
+            if (this.state.containerHeight !== newHeight) {
+                this.state.containerHeight = newHeight;
+                this._updateVisibleRange();
+            }
+        },
+
+        _handleScroll() {
+            const container = this.props.scrollContainer;
+
+            if (container === 'self') {
+                this.state.scrollTop = this.scrollTop;
+            } else if (container === 'window' || this._scrollTarget === window) {
+                // For window scroll, calculate position relative to this element
+                const rect = this.getBoundingClientRect();
+                this.state.scrollTop = Math.max(0, -rect.top);
+            } else if (this._scrollTarget) {
+                // For parent scroll, calculate position relative to this element within the parent
+                const parentRect = this._scrollTarget.getBoundingClientRect();
+                const thisRect = this.getBoundingClientRect();
+                this.state.scrollTop = Math.max(0, parentRect.top - thisRect.top);
+            }
+
+            this._updateVisibleRange();
+        },
+
+        _updateVisibleRange() {
             const itemHeight = this.props.itemHeight;
             const bufferSize = this.props.bufferSize;
             const totalItems = this.props.items.length;
@@ -94,17 +209,29 @@ export default defineComponent('cl-virtual-list', {
 
         scrollToIndex(index) {
             const itemHeight = this.props.itemHeight;
-            this.scrollTop = index * itemHeight;
+            const targetScroll = index * itemHeight;
+
+            if (this.props.scrollContainer === 'self') {
+                this.scrollTop = targetScroll;
+            } else if (this._scrollTarget === window) {
+                const rect = this.getBoundingClientRect();
+                const currentScroll = window.scrollY;
+                window.scrollTo({ top: currentScroll + rect.top + targetScroll, behavior: 'smooth' });
+            } else if (this._scrollTarget) {
+                const thisRect = this.getBoundingClientRect();
+                const parentRect = this._scrollTarget.getBoundingClientRect();
+                const offset = thisRect.top - parentRect.top + this._scrollTarget.scrollTop;
+                this._scrollTarget.scrollTop = offset + targetScroll;
+            }
         },
 
         scrollToTop() {
-            this.scrollTop = 0;
+            this.scrollToIndex(0);
         },
 
         scrollToBottom() {
-            const itemHeight = this.props.itemHeight;
             const totalItems = this.props.items.length;
-            this.scrollTop = (totalItems * itemHeight) - this.state.containerHeight;
+            this.scrollToIndex(Math.max(0, totalItems - 1));
         },
 
         handleItemClick(item, index) {
@@ -161,6 +288,11 @@ export default defineComponent('cl-virtual-list', {
                     }));
                 }
             }
+        },
+
+        // Default key function for memoization
+        _defaultKeyFn(item, index) {
+            return item.id ?? item.uuid ?? item.key ?? index;
         }
     },
 
@@ -168,9 +300,18 @@ export default defineComponent('cl-virtual-list', {
         const items = this.props.items || [];
         const itemHeight = this.props.itemHeight;
         const totalHeight = items.length * itemHeight;
+        const isSelfScroll = this.props.scrollContainer === 'self';
 
-        const visibleItems = items.slice(this.state.visibleStart, this.state.visibleEnd);
+        // Safeguard: if dimensions not yet calculated, limit visible items
+        const safeEnd = this.state.containerHeight > 0
+            ? this.state.visibleEnd
+            : Math.min(this.state.visibleEnd, this.props.bufferSize * 2);
+
+        const visibleItems = items.slice(this.state.visibleStart, safeEnd);
         const offsetY = this.state.visibleStart * itemHeight;
+
+        // Use provided keyFn or default
+        const keyFn = this.props.keyFn || this._defaultKeyFn;
 
         if (this.props.loading) {
             return html`
@@ -191,13 +332,13 @@ export default defineComponent('cl-virtual-list', {
 
         return html`
             <div
-                class="virtual-list-container"
+                class="virtual-list-container ${isSelfScroll ? '' : 'parent-scroll'}"
                 tabindex="${this.props.selectable ? '0' : '-1'}"
                 on-keydown="handleKeyDown">
                 <div class="virtual-list-spacer" style="height: ${totalHeight}px;"></div>
 
                 <div class="virtual-list-items" style="transform: translateY(${offsetY}px);">
-                    ${each(visibleItems, (item, idx) => {
+                    ${memoEach(visibleItems, (item, idx) => {
                         const actualIndex = this.state.visibleStart + idx;
                         const isSelected = this.props.selectable && actualIndex === this.state.internalSelectedIndex;
 
@@ -230,7 +371,7 @@ export default defineComponent('cl-virtual-list', {
                                 </div>
                             </div>
                         `;
-                    })}
+                    }, keyFn)}
                 </div>
             </div>
         `;
@@ -239,13 +380,27 @@ export default defineComponent('cl-virtual-list', {
     styles: /*css*/`
         :host {
             display: block;
+            position: relative;
+        }
+
+        /* Self-scroll mode - component has its own scrollbar */
+        :host(:not([scroll-container])),
+        :host([scroll-container="self"]) {
             overflow-y: auto;
             overflow-x: hidden;
-            position: relative;
             height: var(--virtual-list-height, 400px);
             border: 1px solid var(--input-border, #ddd);
             border-radius: 4px;
             background: var(--input-bg, #fff);
+        }
+
+        /* Parent/window scroll mode - no border, height determined by content */
+        :host([scroll-container="parent"]),
+        :host([scroll-container="window"]) {
+            overflow: visible;
+            height: auto;
+            border: none;
+            background: transparent;
         }
 
         .virtual-list-container {
@@ -325,6 +480,7 @@ export default defineComponent('cl-virtual-list', {
             align-items: center;
             justify-content: center;
             height: 100%;
+            min-height: 200px;
             color: var(--text-muted, #666);
         }
 

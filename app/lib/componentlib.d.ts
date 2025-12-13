@@ -747,14 +747,31 @@ export interface ClPaginatorProps {
 
 /**
  * cl-virtual-list - Virtualized scrolling list
+ * Supports self-scrolling, parent scrolling, or window scrolling
  */
 export interface ClVirtualListProps {
   /** List items */
   items?: unknown[];
-  /** Item height in pixels */
+  /** Item height in pixels (default: 50) */
   itemheight?: number;
+  /** Number of extra items to render above/below viewport (default: 10) */
+  buffersize?: number;
   /** Render function for each item */
   renderitem?: (item: unknown, index: number) => HtmlTemplate;
+  /** Function to get unique key for memoization */
+  keyfn?: (item: unknown) => string | number;
+  /** Container height (only for scrollContainer="self") */
+  height?: string;
+  /** Message when list is empty */
+  emptymessage?: string;
+  /** Show loading spinner */
+  loading?: boolean;
+  /** Enable selection */
+  selectable?: boolean;
+  /** Currently selected index */
+  selectedindex?: number;
+  /** Scroll mode: 'self' | 'parent' | 'window' | CSS selector */
+  scrollcontainer?: 'self' | 'parent' | 'window' | string;
 }
 
 /**

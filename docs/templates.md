@@ -552,6 +552,53 @@ ${each(this.state.items.filter(item => item.active), item => html`
 `)}
 ```
 
+### memoEach() - Memoized List Rendering
+
+For large lists or expensive item rendering, use `memoEach()` to cache rendered items:
+
+```javascript
+${memoEach(this.state.songs, song => html`
+    <div class="song-item">
+        <span class="title">${song.title}</span>
+        <span class="artist">${song.artist}</span>
+    </div>
+`, song => song.uuid)}
+```
+
+**How it works:**
+- Caches rendered templates per item key
+- Only re-renders items where the item reference changed
+- Cache is automatically scoped to the component
+- Stale cache entries are cleaned up when items leave the array
+
+**When to use:**
+- Virtual scroll with large lists (100+ items)
+- Expensive item templates (many conditionals, nested components)
+- Lists that update frequently but individual items rarely change
+
+**Signature:**
+```javascript
+memoEach(array, mapFn, keyFn, [cache])
+```
+
+- `array` - Array to iterate over
+- `mapFn` - Function to render each item: `(item, index) => html\`...\``
+- `keyFn` - **Required** - Function to extract unique key: `item => item.id`
+- `cache` - Optional explicit cache (omit to use automatic component-scoped caching)
+
+**Example with virtual scroll:**
+```javascript
+// Render only visible items, memoize to avoid re-rendering unchanged items
+const visibleSongs = this.state.songs.slice(visibleStart, visibleEnd);
+
+${memoEach(visibleSongs, (song, idx) => {
+    const actualIndex = visibleStart + idx;
+    return this.renderSongItem(song, actualIndex);
+}, song => song.uuid)}
+```
+
+**Note:** The `keyFn` is required for memoization. Without it, `memoEach` falls back to regular `each()` behavior.
+
 ### raw() - Unsafe HTML
 
 Only use for trusted, sanitized content:

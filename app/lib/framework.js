@@ -237,7 +237,7 @@ export { reactive, createEffect, trackAllDependencies, isReactive, watch, comput
  *   error => html`<div class="error">${error.message}</div>`
  * )
  */
-export { html, raw, when, each, awaitThen } from './core/template.js';
+export { html, raw, when, each, memoEach, createMemoCache, awaitThen } from './core/template.js';
 
 /**
  * Clear the template compilation cache (rarely needed)

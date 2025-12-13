@@ -6,6 +6,7 @@
 import { reactive, createEffect, trackAllDependencies } from './reactivity.js';
 import { render as preactRender } from '../vendor/preact/index.js';
 import { applyValues, compileTemplate, groupChildrenBySlot } from './template-compiler.js';
+import { setRenderContext } from './template.js';
 
 // Debug hooks - can be set by debug-enable.js
 let debugRenderCycleHook = null;
@@ -186,8 +187,17 @@ function scopeComponentStyles(css, tagName) {
 
     const len = css.length;
 
-    // Replace :host with tag name
-    css = css.replace(/:host/g, tagName);
+    // Replace :host and :host() with tag name
+    // :host → tagName
+    // :host(selector) → tagName + selector (concatenated, no parentheses)
+    css = css.replace(/:host(\([^)]*(?:\([^)]*\)[^)]*)*\))?/g, (match, selector) => {
+        if (selector) {
+            // :host(selector) → tagName + selector (remove outer parens)
+            return tagName + selector.slice(1, -1);
+        }
+        // :host → tagName
+        return tagName;
+    });
 
     while (i < len) {
         // Skip whitespace
@@ -712,7 +722,10 @@ export function defineComponent(name, options) {
             }
 
             // Call template function to get compiled tree
+            // Set render context so template helpers can access the component
+            setRenderContext(this);
             const templateResult = options.template.call(this);
+            setRenderContext(null);
 
             if (debugRenderCycleHook) {
                 debugRenderCycleHook(this, 'after-template', {
