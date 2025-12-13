@@ -394,6 +394,32 @@ addItem(item) {
 }
 ```
 
+⚠️ **Large arrays cause performance issues** - Use `untracked()` for arrays with 100+ items:
+
+```javascript
+import { defineComponent, html, untracked } from './lib/framework.js';
+
+defineComponent('playlist-view', {
+    data() {
+        return {
+            // Large array - only track when the whole array is replaced
+            songs: untracked([]),
+            // Small values - track normally
+            currentIndex: 0
+        };
+    },
+
+    methods: {
+        loadSongs(newSongs) {
+            // Just assign - untracked is auto-applied to keys marked initially
+            this.state.songs = newSongs;
+        }
+    }
+});
+```
+
+Once a key is marked with `untracked()` in `data()`, all future assignments to that key are automatically untracked. This prevents the framework from walking every property of every item in large arrays.
+
 **See [docs/reactivity.md](docs/reactivity.md) for complete reactivity guide.**
 
 ### 8. Router

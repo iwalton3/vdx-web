@@ -6,6 +6,7 @@ Complete guide to the reactivity system, stores, and computed properties.
 
 - [Reactive State](#reactive-state)
 - [Critical Gotchas](#critical-gotchas)
+  - [Large Arrays - untracked()](#-large-arrays-cause-performance-issues)
 - [Stores](#stores)
 - [Computed Properties](#computed-properties)
 - [Memo](#memo)
@@ -158,6 +159,57 @@ getSortedItems() {
     return [...this.state.items].sort((a, b) => a.time - b.time);
 }
 ```
+
+### ⚠️ Large Arrays Cause Performance Issues
+
+The reactivity system tracks dependencies by walking all properties of all objects in state. For arrays with hundreds or thousands of items, this becomes expensive.
+
+**Use `untracked()` to opt out of deep tracking:**
+
+```javascript
+import { defineComponent, html, untracked } from './lib/framework.js';
+
+defineComponent('playlist-view', {
+    data() {
+        return {
+            // Large array - only track when the whole array is replaced
+            songs: untracked([]),
+            // Small values - track normally
+            currentIndex: 0,
+            searchQuery: ''
+        };
+    },
+
+    methods: {
+        loadSongs(newSongs) {
+            // Just assign - auto-applies untracked for keys marked initially
+            this.state.songs = newSongs;
+        },
+
+        addSong(song) {
+            // Reassign to trigger update
+            this.state.songs = [...this.state.songs, song];
+        }
+    }
+});
+```
+
+**How `untracked()` works:**
+
+1. **Initial marking** - Mark a key with `untracked()` in `data()`
+2. **Automatic propagation** - All future assignments to that key are automatically untracked
+3. **Shallow tracking** - Only the array reference is tracked, not individual items
+4. **Reassignment required** - Must reassign the array to trigger re-render
+
+**When to use:**
+- Arrays with 100+ items
+- Objects with deeply nested structures you don't need to track
+- Data from APIs where you only care about the whole response changing
+
+**When NOT to use:**
+- Small arrays (< 100 items)
+- Objects where individual property changes should trigger updates
+- Form data where you need two-way binding on nested properties
 
 ## Stores
 

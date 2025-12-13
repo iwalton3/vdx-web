@@ -139,7 +139,33 @@ export { defineComponent } from './core/component.js';
  *   return this.expensiveRender(); // Only recomputes if items changed
  * }
  */
-export { reactive, createEffect, trackAllDependencies, isReactive, watch, computed, memo } from './core/reactivity.js';
+/**
+ * Mark an object as untracked to prevent deep dependency tracking.
+ * Use for large data structures where you only need to detect reassignment,
+ * not changes to individual properties.
+ *
+ * @template T
+ * @param {T} obj - Object to mark as untracked
+ * @returns {T} The same object with untracked marker
+ *
+ * @example
+ * data() {
+ *   return {
+ *     songs: untracked([]),  // Large array - only track replacement
+ *     currentIndex: 0        // Small value - track normally
+ *   };
+ * }
+ *
+ * // Reassign to trigger update:
+ * this.state.songs = untracked([...this.state.songs, newSong]);
+ */
+/**
+ * Check if an object is marked as untracked
+ *
+ * @param {any} obj - Object to check
+ * @returns {boolean} True if object is untracked
+ */
+export { reactive, createEffect, trackAllDependencies, isReactive, watch, computed, memo, untracked, isUntracked } from './core/reactivity.js';
 
 /**
  * Tagged template literal for creating XSS-safe HTML templates

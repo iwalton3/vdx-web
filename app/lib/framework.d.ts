@@ -353,6 +353,35 @@ export function trackAllDependencies(obj: unknown): void;
 export function isReactive(value: unknown): boolean;
 
 /**
+ * Mark an object as untracked to prevent deep dependency tracking.
+ * Use for large data structures (arrays of hundreds/thousands of items)
+ * where you only care about the array being replaced, not individual item changes.
+ *
+ * @param obj - Object to mark as untracked
+ * @returns The same object with untracked marker
+ *
+ * @example
+ * data() {
+ *   return {
+ *     songs: untracked([]),  // Large array - only track replacement
+ *     currentIndex: 0        // Small value - track normally
+ *   };
+ * }
+ *
+ * // Reassign to trigger update:
+ * this.state.songs = untracked([...this.state.songs, newSong]);
+ */
+export function untracked<T>(obj: T): T;
+
+/**
+ * Check if an object is marked as untracked.
+ *
+ * @param obj - Object to check
+ * @returns True if object is untracked
+ */
+export function isUntracked(obj: unknown): boolean;
+
+/**
  * Watch reactive dependencies and call callback when they change.
  *
  * @param fn - Function that accesses reactive values (return value is watched)

@@ -177,6 +177,15 @@ export function reactive(obj) {
     // Check if object is a Date - needs special handling for method binding
     const isDate = obj instanceof Date;
 
+    // Track which keys were initially untracked - these stay untracked permanently
+    // This allows: queue: untracked([]) to auto-apply untracked to future assignments
+    const untrackedKeys = new Set();
+    for (const key in obj) {
+        if (obj[key] !== null && typeof obj[key] === 'object' && obj[key][UNTRACKED]) {
+            untrackedKeys.add(key);
+        }
+    }
+
     const proxy = new Proxy(obj, {
         get(target, key, receiver) {
             // Special marker property
@@ -218,6 +227,12 @@ export function reactive(obj) {
 
         set(target, key, value, receiver) {
             const oldValue = target[key];
+
+            // Auto-apply untracked to keys that were initially untracked
+            if (untrackedKeys.has(key) && value !== null && typeof value === 'object' && !value[UNTRACKED]) {
+                untracked(value);
+            }
+
             const result = Reflect.set(target, key, value, receiver);
 
             // Trigger if:
@@ -341,6 +356,56 @@ export function isReactive(value) {
     return !!(value && value.__isReactive);
 }
 
+/** Symbol to mark objects as untracked */
+const UNTRACKED = Symbol('untracked');
+
+/**
+ * Marks an object as untracked. When used with reactive state, the object's
+ * internal properties won't be deeply tracked - only reassignment of the
+ * object itself will trigger updates.
+ *
+ * Use this for large data structures (arrays of hundreds/thousands of items)
+ * where you only care about the array being replaced, not individual item changes.
+ *
+ * @param {T} obj - The object to mark as untracked
+ * @returns {T} The same object with untracked marker
+ * @example
+ * data() {
+ *     return {
+ *         // Large list - only track when the whole list is replaced
+ *         songs: untracked([]),
+ *         // Small values - track normally
+ *         currentIndex: 0
+ *     };
+ * }
+ *
+ * // To update, reassign the whole array:
+ * this.state.songs = untracked([...this.state.songs, newSong]);
+ *
+ * // Individual item changes won't trigger re-render (by design):
+ * this.state.songs[0].title = 'New Title'; // No re-render
+ */
+export function untracked(obj) {
+    if (obj !== null && typeof obj === 'object') {
+        Object.defineProperty(obj, UNTRACKED, {
+            value: true,
+            enumerable: false,
+            writable: false,
+            configurable: false
+        });
+    }
+    return obj;
+}
+
+/**
+ * Checks if an object is marked as untracked.
+ * @param {*} obj - The object to check
+ * @returns {boolean} True if untracked
+ */
+export function isUntracked(obj) {
+    return obj !== null && typeof obj === 'object' && obj[UNTRACKED] === true;
+}
+
 /**
  * Memoizes a function and tracks its dependencies.
  * The cached value is only recomputed when dependencies change.
@@ -389,6 +454,11 @@ export function memo(fn, deps) {
  * This recursively accesses all enumerable properties to register dependencies
  * without the overhead of JSON.stringify.
  *
+ * Optimizations:
+ * - Skips objects marked with untracked() - only tracks the reference
+ * - Skips non-reactive nested objects (they can't trigger updates)
+ * - Uses iterative approach for arrays to reduce call stack
+ *
  * @param {Object} obj - The reactive object to track
  * @param {Set} [visited] - Internal set to prevent circular references
  * @example
@@ -398,46 +468,60 @@ export function memo(fn, deps) {
  *     console.log('State changed!');
  * });
  */
-export function trackAllDependencies(obj, visited = new Set()) {
-    // Handle null/undefined
-    if (obj == null) return;
+export function trackAllDependencies(obj, visited) {
+    // Handle null/undefined/primitives
+    if (obj == null || typeof obj !== 'object') return;
 
-    // Handle primitives
-    if (typeof obj !== 'object') return;
+    // Initialize visited set only at top level (avoid allocation on recursion)
+    if (!visited) visited = new Set();
 
     // Prevent circular references
     if (visited.has(obj)) return;
     visited.add(obj);
 
+    // Skip untracked objects - just accessing obj is enough to track the reference
+    // The proxy get trap was already triggered by the caller accessing this property
+    if (obj[UNTRACKED]) return;
+
     // Handle arrays
     if (Array.isArray(obj)) {
         // Access length to track array changes
-        obj.length;
-        // Access each element
-        for (let i = 0; i < obj.length; i++) {
+        const len = obj.length;
+
+        // For large arrays, only track length - not every element
+        // Individual elements should be marked untracked if needed
+        if (len > 100) {
+            // Just track length for large arrays
+            return;
+        }
+
+        // For smaller arrays, track elements
+        for (let i = 0; i < len; i++) {
             const item = obj[i];
-            if (typeof item === 'object' && item !== null) {
-                trackAllDependencies(item, visited);
+            if (item !== null && typeof item === 'object') {
+                // Only recurse into reactive objects
+                if (item.__isReactive) {
+                    trackAllDependencies(item, visited);
+                }
             }
         }
         return;
     }
 
-    // Handle objects
-    try {
-        const keys = Object.keys(obj);
-        for (const key of keys) {
-            try {
-                const value = obj[key];  // Access triggers tracking
-                // Recursively track nested objects
-                if (typeof value === 'object' && value !== null) {
-                    trackAllDependencies(value, visited);
-                }
-            } catch (e) {
-                // Skip properties that throw on access
+    // Handle objects - use for...in which is faster than Object.keys() + iteration
+    for (const key in obj) {
+        // Skip prototype properties and internal markers
+        if (key === '__isReactive' || key === UNTRACKED) continue;
+
+        try {
+            const value = obj[key];  // Access triggers tracking via proxy
+
+            // Only recurse into reactive nested objects
+            if (value !== null && typeof value === 'object' && value.__isReactive) {
+                trackAllDependencies(value, visited);
             }
+        } catch (e) {
+            // Skip properties that throw on access (getters that error, etc.)
         }
-    } catch (e) {
-        // Skip objects that don't support Object.keys
     }
 }
