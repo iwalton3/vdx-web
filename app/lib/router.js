@@ -18,6 +18,25 @@ import { createStore, pruneTemplateCache, html, defineComponent } from './framew
 let _router = null;
 
 /**
+ * Shallow compare two objects for equality
+ * @private
+ * @param {Object} a - First object
+ * @param {Object} b - Second object
+ * @returns {boolean} True if objects have same keys and values
+ */
+function shallowEqual(a, b) {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+    for (const key of keysA) {
+        if (a[key] !== b[key]) return false;
+    }
+    return true;
+}
+
+/**
  * Get the singleton router instance
  * @returns {Router|null} The router instance, or null if not set
  */
@@ -636,10 +655,14 @@ export class Router {
         // Check if we can reuse the existing component (same tag name)
         const existingElement = this.outletElement.firstElementChild;
         if (existingElement && existingElement.tagName.toLowerCase() === component) {
-            // Same component - update props instead of recreating
-            // This triggers reactive updates via property setters
-            existingElement.params = params;
-            existingElement.query = query;
+            // Same component - update props only if changed (shallow compare)
+            // This prevents unnecessary propsChanged calls
+            if (!shallowEqual(existingElement.params, params)) {
+                existingElement.params = params;
+            }
+            if (!shallowEqual(existingElement.query, query)) {
+                existingElement.query = query;
+            }
             this._currentElement = existingElement;
         } else {
             // Different component - create new element
