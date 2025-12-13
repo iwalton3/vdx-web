@@ -446,6 +446,49 @@ export function memo<T extends (...args: any[]) => any>(
 ): T;
 
 // =============================================================================
+// Render Control
+// =============================================================================
+
+/**
+ * Execute a function and immediately flush any pending renders.
+ * Use when you need synchronous DOM updates after state changes,
+ * such as when measuring elements or interacting with focus.
+ *
+ * Similar to React's flushSync() - use sparingly as it bypasses batching.
+ *
+ * @param fn - Function to execute (typically contains state updates)
+ * @returns Return value of the function
+ *
+ * @example
+ * // Focus an input after showing it
+ * flushSync(() => {
+ *   this.state.showInput = true;
+ * });
+ * this.refs.input.focus();
+ *
+ * @example
+ * // Scroll to bottom after adding an item
+ * flushSync(() => {
+ *   this.state.items.push(newItem);
+ * });
+ * this.refs.container.scrollTop = this.refs.container.scrollHeight;
+ */
+export function flushSync<T>(fn: () => T): T;
+
+/**
+ * Flush any pending renders synchronously.
+ * Useful for tests that need to verify DOM state immediately after state changes.
+ * In normal application code, you don't need this - use flushSync() instead.
+ *
+ * @example
+ * // In a test:
+ * component.state.count = 5;
+ * flushRenders();  // Force render to happen now
+ * expect(component.textContent).toBe('5');
+ */
+export function flushRenders(): void;
+
+// =============================================================================
 // Template System
 // =============================================================================
 

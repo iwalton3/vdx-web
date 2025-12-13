@@ -16,19 +16,123 @@ let debugVNodeHook = null;
 export const componentDefinitions = new Map();
 
 // ============================================================================
-// Coordinated Root Rendering System
+// Coordinated Root Rendering System with Automatic Batching
 // ============================================================================
 // This system ensures that all VDX components render from a single root,
 // preventing the cascading re-render issues that occur when each component
 // manages its own Preact VDOM tree independently.
+//
+// BATCHING: Multiple state changes within the same synchronous execution
+// are automatically batched into a single render. For example:
+//
+//   this.state.a = 1;  // Schedules render
+//   this.state.b = 2;  // Same batch
+//   this.state.c = 3;  // Same batch
+//   // Only ONE render happens (via queueMicrotask)
 
 /** Flag to indicate if we're in the middle of a coordinated tree render */
 let isRenderingTree = false;
 
+/** Set of root components pending render (for batching) */
+let pendingRoots = null;
+
 /**
- * Perform a SYNCHRONOUS coordinated tree render starting from root
- * This must be synchronous to stay within the reactive effect context
- * and prevent the effect from re-triggering during render.
+ * Schedule a render for a root component.
+ * Multiple calls within the same microtask are batched into a single render.
+ * If we're already inside a render cycle, the request is ignored since the tree
+ * is already being rendered.
+ * @param {HTMLElement} root - The root VDX component to render
+ */
+function scheduleRootRender(root) {
+    // Don't schedule if we're already rendering - the tree is being updated
+    if (isRenderingTree) {
+        return;
+    }
+
+    if (!pendingRoots) {
+        pendingRoots = new Set();
+        queueMicrotask(flushPendingRenders);
+    }
+    pendingRoots.add(root);
+}
+
+/**
+ * Flush all pending renders. Called via queueMicrotask.
+ * This runs after the current synchronous code completes, batching
+ * all state changes into a single render pass.
+ */
+function flushPendingRenders() {
+    if (!pendingRoots) return;
+
+    const roots = pendingRoots;
+    pendingRoots = null;
+
+    for (const root of roots) {
+        // Only render if component is still mounted
+        if (root._isMounted && !root._isDestroyed) {
+            performTreeRender(root);
+        }
+    }
+}
+
+/**
+ * Flush any pending renders synchronously.
+ * Useful for tests that need to verify DOM state immediately after state changes.
+ * In normal application code, you don't need to call this - renders are batched
+ * automatically via queueMicrotask.
+ *
+ * @example
+ * // In a test:
+ * component.state.count = 5;
+ * flushRenders();  // Force render to happen now
+ * expect(component.textContent).toBe('5');
+ */
+export function flushRenders() {
+    flushPendingRenders();
+}
+
+/**
+ * Execute a function and immediately flush any pending renders.
+ * Use this when you need synchronous DOM updates after state changes,
+ * such as when measuring elements or interacting with focus.
+ *
+ * Similar to React's flushSync() - use sparingly as it bypasses batching.
+ *
+ * @param {Function} fn - Function to execute (typically contains state updates)
+ * @returns {any} Return value of the function
+ *
+ * @example
+ * // Scroll to bottom after adding an item
+ * flushSync(() => {
+ *   this.state.items.push(newItem);
+ * });
+ * this.refs.container.scrollTop = this.refs.container.scrollHeight;
+ *
+ * @example
+ * // Focus an input after showing it
+ * flushSync(() => {
+ *   this.state.showInput = true;
+ * });
+ * this.refs.input.focus();
+ *
+ * @example
+ * // Measure element after state change
+ * flushSync(() => {
+ *   this.state.expanded = true;
+ * });
+ * const height = this.refs.panel.offsetHeight;
+ */
+export function flushSync(fn) {
+    const result = fn();
+    flushPendingRenders();
+    return result;
+}
+
+/**
+ * Perform a SYNCHRONOUS coordinated tree render starting from root.
+ * This is called from flushPendingRenders after batching, or directly
+ * when immediate rendering is needed (e.g., during tests).
+ * @param {HTMLElement} root - The root VDX component to render
  */
 function performTreeRender(root) {
     // Prevent re-entry - if we're already rendering, skip
@@ -508,10 +612,10 @@ export function defineComponent(name, options) {
                     }
                 }
 
-                // Perform synchronous coordinated tree render from root
-                // Must be synchronous to stay within effect context
+                // Schedule a batched render from root
+                // Multiple state changes in the same sync execution are batched
                 if (this._isMounted && !this._isDestroyed) {
-                    performTreeRender(this._getVdxRoot());
+                    scheduleRootRender(this._getVdxRoot());
                 }
             });
 
@@ -571,8 +675,8 @@ export function defineComponent(name, options) {
             // Update props
             if (options.props && name in options.props) {
                 this.props[name] = newValue;
-                // Trigger coordinated re-render from root
-                performTreeRender(this._getVdxRoot());
+                // Schedule batched re-render from root
+                scheduleRootRender(this._getVdxRoot());
             }
         }
 
@@ -776,12 +880,12 @@ export function defineComponent(name, options) {
         }
 
         /**
-         * Public render method - performs a coordinated render from root
+         * Public render method - schedules a batched render from root
          * This ensures all components render in the correct order
          */
         render() {
             if (this._isMounted && !this._isDestroyed) {
-                performTreeRender(this._getVdxRoot());
+                scheduleRootRender(this._getVdxRoot());
             }
         }
 
@@ -795,11 +899,11 @@ export function defineComponent(name, options) {
     // This ensures `name in dom` returns true when Preact checks, allowing
     // direct property setting instead of falling back to setAttribute()
 
-    // Helper to trigger a coordinated tree render from root
-    // This ensures all renders go through the tree coordination to prevent cascading issues
+    // Helper to schedule a batched render from root
+    // This ensures all renders go through the batching system to prevent multiple renders
     const scheduleRender = (component) => {
         if (component._isMounted && !component._isDestroyed) {
-            performTreeRender(component._getVdxRoot());
+            scheduleRootRender(component._getVdxRoot());
         }
     };
 

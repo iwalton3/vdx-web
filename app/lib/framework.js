@@ -48,7 +48,7 @@
  *   }
  * });
  */
-export { defineComponent } from './core/component.js';
+export { defineComponent, flushRenders, flushSync } from './core/component.js';
 
 /**
  * Create a reactive proxy that tracks dependencies and triggers effects on change

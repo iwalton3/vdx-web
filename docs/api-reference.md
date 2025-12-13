@@ -452,6 +452,64 @@ defineComponent('song-list', {
 
 **When to use:** Arrays with 100+ items, deeply nested objects, API response data.
 
+### flushSync(fn)
+
+Execute a function and immediately flush any pending renders. Use when you need synchronous DOM updates after state changes.
+
+**Parameters:**
+- `fn` (function) - Function to execute (typically contains state updates)
+
+**Returns:** Return value of the function
+
+**Example:**
+```javascript
+import { defineComponent, html, flushSync } from './lib/framework.js';
+
+defineComponent('my-form', {
+    data() {
+        return { showInput: false };
+    },
+
+    methods: {
+        showAndFocus() {
+            flushSync(() => {
+                this.state.showInput = true;
+            });
+            // DOM is now updated, safe to focus
+            this.refs.input.focus();
+        },
+
+        addAndScroll() {
+            flushSync(() => {
+                this.state.items.push(newItem);
+            });
+            // Scroll to bottom
+            this.refs.list.scrollTop = this.refs.list.scrollHeight;
+        }
+    }
+});
+```
+
+**When to use:** Focusing elements, scrolling after adding items, measuring elements after state change.
+
+**Note:** Use sparingly - bypasses automatic batching and can hurt performance if overused.
+
+### flushRenders()
+
+Flush any pending renders synchronously. Primarily for testing.
+
+**Example:**
+```javascript
+import { flushRenders } from './lib/framework.js';
+
+// In a test:
+component.state.count = 5;
+flushRenders();  // Force render to happen now
+expect(component.textContent).toBe('5');
+```
+
+**Note:** In normal application code, use `flushSync()` instead.
+
 ### createMemoCache()
 
 Creates a memoization cache for use with `memoEach()`.

@@ -240,6 +240,60 @@ addToSet(item) {
 }
 ```
 
+### Automatic Render Batching
+
+Multiple state changes in the same synchronous function are automatically batched into a single render:
+
+```javascript
+methods: {
+    updateMultiple() {
+        // These three changes result in ONE render, not three
+        this.state.firstName = 'John';
+        this.state.lastName = 'Doe';
+        this.state.fullName = 'John Doe';
+        // Render happens after this function completes
+    }
+}
+```
+
+This batching is automatic and happens via `queueMicrotask`. You don't need to do anything special.
+
+### flushSync() - Immediate DOM Updates
+
+Sometimes you need the DOM to update immediately after a state change (e.g., to focus an element):
+
+```javascript
+import { defineComponent, html, flushSync } from './lib/framework.js';
+
+defineComponent('my-form', {
+    data() {
+        return { showInput: false };
+    },
+
+    methods: {
+        showAndFocus() {
+            // Use flushSync to render immediately
+            flushSync(() => {
+                this.state.showInput = true;
+            });
+            // Now safe to focus - DOM is updated
+            this.refs.input.focus();
+        }
+    },
+
+    template() {
+        return html`
+            <button on-click="showAndFocus">Add Input</button>
+            ${when(this.state.showInput, html`
+                <input ref="input" type="text">
+            `)}
+        `;
+    }
+});
+```
+
+Use `flushSync()` sparingly - it bypasses batching and can hurt performance if overused.
+
 ---
 
 ## Two-Way Data Binding

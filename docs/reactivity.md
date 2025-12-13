@@ -5,6 +5,9 @@ Complete guide to the reactivity system, stores, and computed properties.
 ## Table of Contents
 
 - [Reactive State](#reactive-state)
+  - [Automatic Render Batching](#automatic-render-batching)
+  - [flushSync() - Synchronous Rendering](#flushsync---synchronous-rendering)
+  - [flushRenders() - For Testing](#flushrenders---for-testing)
 - [Critical Gotchas](#critical-gotchas)
   - [Large Arrays - untracked()](#-large-arrays-cause-performance-issues)
 - [Stores](#stores)
@@ -39,6 +42,7 @@ methods: {
 2. **Automatic tracking** - Dependencies tracked during render
 3. **Efficient updates** - Only changed components re-render
 4. **Deep reactivity** - Nested objects are automatically reactive
+5. **Automatic batching** - Multiple state changes in the same function are batched into a single render
 
 ```javascript
 data() {
@@ -59,6 +63,90 @@ methods: {
     }
 }
 ```
+
+### Automatic Render Batching
+
+Multiple state changes within the same synchronous execution are automatically batched into a single render:
+
+```javascript
+methods: {
+    updateMultiple() {
+        // All these changes result in ONE render, not three
+        this.state.a = 1;
+        this.state.b = 2;
+        this.state.c = 3;
+        // Render happens after this function completes (via queueMicrotask)
+    }
+}
+```
+
+This batching happens automatically via `queueMicrotask`, so renders are deferred until the current synchronous code completes. This is similar to React 18's automatic batching.
+
+### flushSync() - Synchronous Rendering
+
+Sometimes you need the DOM to update immediately after a state change, such as when:
+- Focusing an element that was just made visible
+- Scrolling to an element that was just added
+- Measuring an element after state change
+
+Use `flushSync()` for these cases:
+
+```javascript
+import { defineComponent, html, flushSync } from './lib/framework.js';
+
+defineComponent('my-component', {
+    data() {
+        return {
+            showInput: false
+        };
+    },
+
+    methods: {
+        showAndFocus() {
+            // Show the input and immediately render
+            flushSync(() => {
+                this.state.showInput = true;
+            });
+            // DOM is now updated, safe to focus
+            this.refs.input.focus();
+        },
+
+        addItemAndScroll() {
+            flushSync(() => {
+                this.state.items.push(newItem);
+            });
+            // Scroll to bottom after item is rendered
+            this.refs.container.scrollTop = this.refs.container.scrollHeight;
+        }
+    },
+
+    template() {
+        return html`
+            <button on-click="showAndFocus">Show Input</button>
+            ${when(this.state.showInput, html`
+                <input ref="input" type="text">
+            `)}
+        `;
+    }
+});
+```
+
+**Use `flushSync()` sparingly** - it bypasses batching and forces immediate rendering, which can hurt performance if overused.
+
+### flushRenders() - For Testing
+
+In tests, you may need to verify DOM state immediately after state changes. Use `flushRenders()`:
+
+```javascript
+import { flushRenders } from './lib/framework.js';
+
+// In a test:
+component.state.count = 5;
+flushRenders();  // Force pending renders to complete
+expect(component.textContent).toBe('5');
+```
+
+In normal application code, you don't need `flushRenders()` - use `flushSync()` instead when you need synchronous DOM updates.
 
 ## Critical Gotchas
 

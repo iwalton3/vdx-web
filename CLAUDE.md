@@ -426,6 +426,40 @@ defineComponent('playlist-view', {
 
 Once a key is marked with `untracked()` in `data()`, all future assignments to that key are automatically untracked. This prevents the framework from walking every property of every item in large arrays.
 
+#### Automatic Render Batching
+
+Multiple state changes in the same function are **automatically batched** into a single render:
+
+```javascript
+methods: {
+    updateMultiple() {
+        // All these changes result in ONE render, not three
+        this.state.a = 1;
+        this.state.b = 2;
+        this.state.c = 3;
+        // Render happens after this function completes (via queueMicrotask)
+    }
+}
+```
+
+#### flushSync() - When You Need Immediate DOM Updates
+
+Use `flushSync()` when you need to interact with the DOM immediately after state changes (e.g., focus, scroll, measure):
+
+```javascript
+import { defineComponent, html, flushSync } from './lib/framework.js';
+
+methods: {
+    showAndFocus() {
+        flushSync(() => {
+            this.state.showInput = true;
+        });
+        // DOM is now updated, safe to focus
+        this.refs.input.focus();
+    }
+}
+```
+
 **See [docs/reactivity.md](docs/reactivity.md) for complete reactivity guide.**
 
 ### 8. Router
