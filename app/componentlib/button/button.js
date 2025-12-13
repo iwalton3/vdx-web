@@ -74,6 +74,8 @@ export default defineComponent('cl-button', {
             justify-content: center;
             gap: 8px;
             padding: 10px 20px;
+            min-height: 38px;
+            box-sizing: border-box;
             font-family: inherit;
             font-size: 14px;
             font-weight: 500;
@@ -240,6 +242,7 @@ export default defineComponent('cl-button', {
             border-right-color: transparent;
             border-radius: 50%;
             animation: spin 0.6s linear infinite;
+            flex-shrink: 0;
         }
 
         @keyframes spin {

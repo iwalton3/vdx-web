@@ -175,6 +175,32 @@ export function throttle(fn, limit = 300) {
 }
 
 /**
+ * RAF Throttle - throttles function using requestAnimationFrame
+ * @param {Function} fn - Function to throttle
+ * @returns {Function} Throttled function that runs at most once per animation frame (~16ms at 60fps)
+ *
+ * @example
+ * const handleScroll = rafThrottle(() => {
+ *   updateVisibleItems();
+ * });
+ *
+ * // Only calls updateVisibleItems once per frame, ideal for scroll handlers
+ * window.addEventListener('scroll', handleScroll);
+ */
+export function rafThrottle(fn) {
+    let rafPending = false;
+    return function(...args) {
+        if (!rafPending) {
+            rafPending = true;
+            requestAnimationFrame(() => {
+                fn.apply(this, args);
+                rafPending = false;
+            });
+        }
+    };
+}
+
+/**
  * Notification system
  */
 let notificationId = 0;
