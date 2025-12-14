@@ -687,7 +687,13 @@ function createClickOutsideRef(handler, existingRef) {
                 }
             };
             clickOutsideHandlers.set(el, documentHandler);
-            document.addEventListener('click', documentHandler);
+            // Delay adding listener by a frame to avoid the opening click triggering immediate close
+            requestAnimationFrame(() => {
+                // Only add if element is still connected (wasn't immediately removed)
+                if (el.isConnected) {
+                    document.addEventListener('click', documentHandler);
+                }
+            });
             lastEl = el;
         } else {
             lastEl = null;

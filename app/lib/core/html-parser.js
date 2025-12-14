@@ -13,8 +13,6 @@
  * @module core/html-parser
  */
 
-import { componentDefinitions } from './component.js';
-
 // Parser states
 const State = {
     TEXT: 0,
