@@ -673,7 +673,7 @@ function createClickOutsideRef(handler, existingRef) {
         if (lastEl) {
             const oldHandler = clickOutsideHandlers.get(lastEl);
             if (oldHandler) {
-                document.removeEventListener('click', oldHandler);
+                document.removeEventListener('click', oldHandler, true);
                 clickOutsideHandlers.delete(lastEl);
             }
         }
@@ -683,6 +683,8 @@ function createClickOutsideRef(handler, existingRef) {
             const documentHandler = (e) => {
                 // Check if element is still in DOM before handling
                 if (el.isConnected && !el.contains(e.target)) {
+                    // Stop the click from reaching other elements to prevent unintended actions
+                    e.stopPropagation();
                     handler(e);
                 }
             };
@@ -691,7 +693,8 @@ function createClickOutsideRef(handler, existingRef) {
             requestAnimationFrame(() => {
                 // Only add if element is still connected (wasn't immediately removed)
                 if (el.isConnected) {
-                    document.addEventListener('click', documentHandler);
+                    // Use capture phase to intercept clicks before they reach other elements
+                    document.addEventListener('click', documentHandler, true);
                 }
             });
             lastEl = el;
