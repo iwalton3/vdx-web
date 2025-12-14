@@ -39,16 +39,30 @@ function filterDangerousKeys(obj) {
 export function createStore(initial) {
     const state = reactive(initial);
     const subscribers = new Set();
+    let isNotifying = false;
 
     // Helper to notify all subscribers
+    // Uses copy-before-iterate to handle unsubscribe during iteration
+    // Uses re-entry guard to prevent infinite recursion
     function notifySubscribers() {
-        subscribers.forEach(fn => {
-            try {
-                fn(state);
-            } catch (error) {
-                console.error('Error in store subscriber:', error);
+        if (isNotifying) return; // Prevent recursive re-entry
+        isNotifying = true;
+        try {
+            // Copy to array to safely handle unsubscribe during iteration
+            const subscribersCopy = [...subscribers];
+            for (const fn of subscribersCopy) {
+                // Check if still subscribed (might have been removed by earlier callback)
+                if (subscribers.has(fn)) {
+                    try {
+                        fn(state);
+                    } catch (error) {
+                        console.error('Error in store subscriber:', error);
+                    }
+                }
             }
-        });
+        } finally {
+            isNotifying = false;
+        }
     }
 
     // Use createEffect to automatically notify on any state change
