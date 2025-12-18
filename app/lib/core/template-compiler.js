@@ -491,7 +491,9 @@ function applyElement(compiled, values, component) {
         const handler = resolveEventHandler(name, def, values, component, isCustomElement);
         if (handler) {
             if (name === 'clickoutside' || name === 'click-outside') {
-                props.ref = createClickOutsideRef(handler, props.ref);
+                props.ref = createClickOutsideRef(handler, props.ref, false);
+            } else if (name === 'clickoutside-stop' || name === 'click-outside-stop') {
+                props.ref = createClickOutsideRef(handler, props.ref, true);
             } else if (name.includes('-')) {
                 // Collect hyphenated events - they need ref-based handling
                 // because Preact lowercases event names (see preact#2592)
@@ -662,8 +664,11 @@ const clickOutsideHandlers = new WeakMap();
 /**
  * Create a ref callback for click-outside handling.
  * Uses WeakMap for tracking to prevent memory leaks.
+ * @param {Function} handler - The click-outside handler
+ * @param {Function} existingRef - Any existing ref callback to chain
+ * @param {boolean} shouldStopPropagation - If true, stops event propagation (use on-click-outside-stop)
  */
-function createClickOutsideRef(handler, existingRef) {
+function createClickOutsideRef(handler, existingRef, shouldStopPropagation) {
     let lastEl = null;
 
     return (el) => {
@@ -683,10 +688,10 @@ function createClickOutsideRef(handler, existingRef) {
             const documentHandler = (e) => {
                 // Check if element is still in DOM before handling
                 if (el.isConnected && !el.contains(e.target)) {
-                    // Self-destruct: remove this handler after it fires once
-                    // This prevents lingering handlers from blocking UI interactions
-                    document.removeEventListener('click', documentHandler, true);
-                    clickOutsideHandlers.delete(el);
+                    // Only stop propagation if explicitly requested via on-click-outside-stop
+                    if (shouldStopPropagation) {
+                        e.stopPropagation();
+                    }
                     handler(e);
                 }
             };
