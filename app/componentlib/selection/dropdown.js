@@ -274,9 +274,12 @@ export default defineComponent('cl-dropdown', {
         const activeDescendant = this.state.activeIndex >= 0 ? this.getOptionId(this.state.activeIndex) : undefined;
 
         return html`
-            <div class="cl-dropdown-wrapper" on-click-outside="closePanel">
+            <div class="cl-dropdown-wrapper">
                 ${when(this.props.label, html`
                     <label class="cl-label" id="${labelId}">${this.props.label}</label>
+                `)}
+                ${when(this.state.showPanel, html`
+                    <div class="dropdown-backdrop" on-click="closePanel"></div>
                 `)}
                 <div class="dropdown-container">
                     <div class="dropdown-trigger ${this.props.disabled ? 'disabled' : ''}"
@@ -390,6 +393,15 @@ export default defineComponent('cl-dropdown', {
         .dropdown-icon {
             font-size: 10px;
             color: var(--text-muted, #6c757d);
+        }
+
+        .dropdown-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 999;
         }
 
         .dropdown-panel {

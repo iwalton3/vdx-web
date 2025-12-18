@@ -49,7 +49,10 @@ export default defineComponent('cl-split-button', {
 
     template() {
         return html`
-            <div class="cl-split-button" on-click-outside="closeMenu">
+            <div class="cl-split-button">
+                ${when(this.state.showMenu, html`
+                    <div class="split-button-backdrop" on-click="closeMenu"></div>
+                `)}
                 <button
                     class="main-button ${this.props.severity}"
                     disabled="${this.props.disabled}"
@@ -157,6 +160,15 @@ export default defineComponent('cl-split-button', {
         .danger:hover:not(:disabled) {
             background: #c82333;
             border-color: #bd2130;
+        }
+
+        .split-button-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 999;
         }
 
         .dropdown-menu {

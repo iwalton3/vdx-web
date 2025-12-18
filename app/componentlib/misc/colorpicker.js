@@ -90,7 +90,7 @@ export default defineComponent('cl-colorpicker', {
         const displayValue = this.getDisplayValue();
 
         return html`
-            <div class="cl-colorpicker-wrapper" on-click-outside="closePanel">
+            <div class="cl-colorpicker-wrapper">
                 ${when(this.props.label, html`
                     <label class="cl-label">${this.props.label}</label>
                 `)}
@@ -99,6 +99,9 @@ export default defineComponent('cl-colorpicker', {
                         <div class="color-preview" style="background: ${this.state.internalValue}"></div>
                         <span class="color-value">${displayValue}</span>
                     </div>
+                `)}
+                ${when(this.state.showPicker && !this.props.inline, html`
+                    <div class="colorpicker-backdrop" on-click="closePanel"></div>
                 `)}
                 ${when(this.state.showPicker, html`
                     <div class="color-picker ${this.props.inline ? 'inline' : ''}">
@@ -172,6 +175,15 @@ export default defineComponent('cl-colorpicker', {
             font-size: 14px;
             font-family: monospace;
             color: var(--text-color, #333);
+        }
+
+        .colorpicker-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 999;
         }
 
         .color-picker {

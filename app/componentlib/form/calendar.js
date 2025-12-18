@@ -404,7 +404,7 @@ export default defineComponent('cl-calendar', {
         const years = this.getYears();
         const hasError = !!this.state.inputError;
         return html`
-            <div class="cl-calendar-wrapper" on-click-outside="closePicker">
+            <div class="cl-calendar-wrapper">
                 ${when(this.props.label, html`
                     <label class="cl-label">${this.props.label}</label>
                 `)}
@@ -438,6 +438,9 @@ export default defineComponent('cl-calendar', {
                     ${when(hasError, html`
                         <small class="error-text">${this.state.inputError}</small>
                     `)}
+                `)}
+                ${when(this.state.showPicker && !this.props.inline, html`
+                    <div class="calendar-backdrop" on-click="closePicker"></div>
                 `)}
                 ${when(this.state.showPicker, html`
                     <div class="calendar-picker ${this.props.inline ? 'inline' : ''}" on-click="handleCalendarClick">
@@ -604,6 +607,15 @@ export default defineComponent('cl-calendar', {
         .error-text {
             font-size: 12px;
             color: var(--error-color, #dc3545);
+        }
+
+        .calendar-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 999;
         }
 
         .calendar-picker {

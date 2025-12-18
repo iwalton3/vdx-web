@@ -238,9 +238,12 @@ export default defineComponent('cl-multiselect', {
         const activeDescendant = this.state.activeIndex >= 0 ? this.getOptionId(this.state.activeIndex) : undefined;
 
         return html`
-            <div class="cl-multiselect-wrapper" on-click-outside="closePanel">
+            <div class="cl-multiselect-wrapper">
                 ${when(this.props.label, html`
                     <label class="cl-label" id="${labelId}">${this.props.label}</label>
+                `)}
+                ${when(this.state.showPanel, html`
+                    <div class="multiselect-backdrop" on-click="closePanel"></div>
                 `)}
                 <div class="multiselect-container">
                     <div class="multiselect-trigger ${this.props.disabled ? 'disabled' : ''}"
@@ -412,6 +415,15 @@ export default defineComponent('cl-multiselect', {
             font-size: 10px;
             color: var(--text-muted, #6c757d);
             margin-left: 8px;
+        }
+
+        .multiselect-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 999;
         }
 
         .multiselect-panel {
