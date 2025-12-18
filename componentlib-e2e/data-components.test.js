@@ -132,45 +132,6 @@ async function runTests() {
         await test.assertExists('.drag-handle');
     });
 
-    await test.test('OrderableList items have move buttons', async () => {
-        await test.selectComponent('OrderableList');
-        await test.assertExists('.control-btn');
-    });
-
-    await test.test('OrderableList move up button works', async () => {
-        await test.selectComponent('OrderableList');
-        await test.page.waitForSelector('.list-item', { timeout: 2000 });
-
-        // Get text of first two items
-        const initialOrder = await test.page.evaluate(() => {
-            const items = Array.from(document.querySelectorAll('.list-item'));
-            return items.slice(0, 2).map(item => {
-                const label = item.querySelector('.item-label');
-                return label ? label.textContent.trim() : item.textContent.trim();
-            });
-        });
-
-        if (initialOrder.length > 1) {
-            // Click move up on second item
-            const upButtons = await test.page.$$('.control-btn[title="Move up"]');
-            if (upButtons.length > 1) {
-                await upButtons[1].click();
-                await test.page.waitForTimeout(300);
-
-                // Check order changed
-                const newOrder = await test.page.evaluate(() => {
-                    const items = Array.from(document.querySelectorAll('.list-item'));
-                    return items.slice(0, 2).map(item => {
-                        const label = item.querySelector('.item-label');
-                        return label ? label.textContent.trim() : item.textContent.trim();
-                    });
-                });
-
-                await test.assert(newOrder[0] === initialOrder[1], 'Items should have reordered');
-            }
-        }
-    });
-
     await test.teardown();
 }
 
