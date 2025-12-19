@@ -22,9 +22,10 @@ export interface RouteConfig {
   /**
    * Component tag name to render for this route.
    * Must be a registered custom element.
+   * Optional if `redirect` is specified.
    * @example 'home-page', 'user-profile'
    */
-  component: string;
+  component?: string;
 
   /**
    * Optional lazy load function using dynamic import.
@@ -52,6 +53,14 @@ export interface RouteConfig {
    * Paths are prefixed with parent path.
    */
   routes?: Record<string, RouteConfig>;
+
+  /**
+   * Redirect to another path.
+   * Supports parameter substitution with $1, $2, etc. for captured params,
+   * or :paramName for named parameters.
+   * @example '/new-path/', '/$1/', '/:id/'
+   */
+  redirect?: string;
 }
 
 /**

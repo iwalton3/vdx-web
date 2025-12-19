@@ -147,7 +147,12 @@ function compileRoutePattern(pattern) {
     // Escape regex special chars except for our param syntax
     let regexStr = pattern
         .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-        // Replace :paramName with capture group
+        // Replace :paramName* with greedy capture group (matches multiple path segments)
+        .replace(/:([a-zA-Z_][a-zA-Z0-9_]*)\\\*/g, (_, paramName) => {
+            paramNames.push(paramName);
+            return '(.+)';
+        })
+        // Replace :paramName with capture group (single segment)
         .replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, (_, paramName) => {
             paramNames.push(paramName);
             return '([^/]+)';
@@ -192,11 +197,12 @@ function matchRoute(path, compiledPattern) {
  * Router class for managing client-side navigation
  *
  * @typedef {Object} RouteConfig
- * @property {string} component - Component tag name to render
+ * @property {string} [component] - Component tag name to render
  * @property {() => Promise<any>} [load] - Optional lazy load function (dynamic import)
  * @property {string} [require] - Optional capability requirement for access control
  * @property {Object} [meta] - Optional metadata for the route
  * @property {Object<string, RouteConfig>} [routes] - Optional nested routes
+ * @property {string} [redirect] - Redirect to another path (supports $1, $2 for captured params)
  *
  * @example
  * const router = new Router({
@@ -543,6 +549,22 @@ export class Router {
 
         // Find matching route with params
         const { route, params } = this._findRoute(path);
+
+        // Handle redirects
+        if (route.redirect) {
+            let redirectPath = route.redirect;
+            // Substitute captured params ($1, $2, etc. or named params)
+            const paramValues = Object.values(params);
+            for (let i = 0; i < paramValues.length; i++) {
+                redirectPath = redirectPath.replace(`$${i + 1}`, paramValues[i]);
+            }
+            // Also support named params like :paramName
+            for (const [name, value] of Object.entries(params)) {
+                redirectPath = redirectPath.replace(`:${name}`, value);
+            }
+            this.replace(redirectPath, query);
+            return;
+        }
 
         // Run before hooks
         for (const hook of this.beforeHooks) {
