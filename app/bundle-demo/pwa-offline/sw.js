@@ -279,7 +279,8 @@ async function updateCacheIfNeeded() {
         currentCacheName = newCacheName;
         currentVersion = manifest.version;
 
-        await cleanupOldCaches(newCacheName);
+        // NOTE: Don't delete old caches here! The running page may still need them
+        // for lazy-loaded modules. Old caches are cleaned up on navigation (reload).
 
         await postMessageToClients({
             type: 'cache-status',
@@ -348,8 +349,9 @@ self.addEventListener('activate', (event) => {
 /**
  * Strict version mode: Ensure we're serving from the latest version
  * by checking the manifest before serving navigation requests.
+ * cleanupOld: If true, clean up old caches (safe on navigation since page is reloading)
  */
-async function ensureLatestVersion() {
+async function ensureLatestVersion(cleanupOld = false) {
     const manifest = await fetchManifest();
     if (!manifest) {
         // Offline - use existing cache
@@ -360,6 +362,7 @@ async function ensureLatestVersion() {
 
     // Already have this version cached?
     if (currentCacheName === targetCacheName) {
+        if (cleanupOld) cleanupOldCaches(targetCacheName);
         return currentCacheName;
     }
 
@@ -370,8 +373,8 @@ async function ensureLatestVersion() {
         if (isComplete) {
             currentCacheName = targetCacheName;
             currentVersion = manifest.version;
-            // Schedule cleanup of old caches (don't block)
-            cleanupOldCaches(targetCacheName);
+            // Safe to cleanup on navigation - page is reloading
+            if (cleanupOld) cleanupOldCaches(targetCacheName);
             return targetCacheName;
         }
     }
@@ -381,7 +384,7 @@ async function ensureLatestVersion() {
     if (newCacheName) {
         currentCacheName = newCacheName;
         currentVersion = manifest.version;
-        cleanupOldCaches(newCacheName);
+        if (cleanupOld) cleanupOldCaches(newCacheName);
         return newCacheName;
     }
 
@@ -416,10 +419,17 @@ self.addEventListener('fetch', (event) => {
         (async () => {
             let cacheName = currentCacheName;
 
+            // For navigation requests (page reload), clean up old caches
+            // Safe because the page is reloading and won't need old lazy-loaded modules
+            const isNavigation = event.request.mode === 'navigate';
+
             // Strict version mode: For navigation requests, ensure we have latest version
             // This adds latency but guarantees newest version on single reload
-            if (CONFIG.strictVersionMode && event.request.mode === 'navigate') {
-                cacheName = await ensureLatestVersion();
+            if (CONFIG.strictVersionMode && isNavigation) {
+                cacheName = await ensureLatestVersion(true);  // cleanup old caches
+            } else if (isNavigation && currentCacheName) {
+                // Non-strict mode: still cleanup old caches on navigation
+                cleanupOldCaches(currentCacheName);
             }
 
             // Get current cache if not set
