@@ -276,11 +276,15 @@ async function updateCacheIfNeeded() {
 
     if (newCacheName) {
         const hadPreviousVersion = existingVersion && existingVersion !== manifest.version;
-        currentCacheName = newCacheName;
-        currentVersion = manifest.version;
 
-        // NOTE: Don't delete old caches here! The running page may still need them
-        // for lazy-loaded modules. Old caches are cleaned up on navigation (reload).
+        // NOTE: Don't update currentCacheName here! Running pages should continue
+        // using their original version for lazy-loaded modules. The switch to the
+        // new version happens on navigation (page reload).
+        // Only set currentCacheName if we didn't have one before (first install).
+        if (!currentCacheName) {
+            currentCacheName = newCacheName;
+            currentVersion = manifest.version;
+        }
 
         await postMessageToClients({
             type: 'cache-status',
@@ -419,17 +423,25 @@ self.addEventListener('fetch', (event) => {
         (async () => {
             let cacheName = currentCacheName;
 
-            // For navigation requests (page reload), clean up old caches
+            // For navigation requests (page reload), switch to latest cached version
             // Safe because the page is reloading and won't need old lazy-loaded modules
             const isNavigation = event.request.mode === 'navigate';
 
-            // Strict version mode: For navigation requests, ensure we have latest version
-            // This adds latency but guarantees newest version on single reload
-            if (CONFIG.strictVersionMode && isNavigation) {
-                cacheName = await ensureLatestVersion(true);  // cleanup old caches
-            } else if (isNavigation && currentCacheName) {
-                // Non-strict mode: still cleanup old caches on navigation
-                cleanupOldCaches(currentCacheName);
+            if (isNavigation) {
+                if (CONFIG.strictVersionMode) {
+                    // Strict mode: fetch manifest to ensure we have absolute latest
+                    cacheName = await ensureLatestVersion(true);
+                } else {
+                    // Non-strict mode: use latest already-cached version (no network wait)
+                    const found = await findCurrentCache();
+                    if (found.cacheName) {
+                        cacheName = found.cacheName;
+                        currentCacheName = found.cacheName;
+                        currentVersion = found.version;
+                        // Clean up any older caches
+                        cleanupOldCaches(found.cacheName);
+                    }
+                }
             }
 
             // Get current cache if not set
