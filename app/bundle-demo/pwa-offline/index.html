@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Offline Demo - VDX Service Worker</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>PWA Offline Demo</h1>
+        <p class="subtitle">Versioned Service Worker Caching with spider-deps</p>
+
+        <!-- Cache Status Widget -->
+        <div class="card" id="cache-status">
+            <h2>Cache Status</h2>
+            <div class="status-row">
+                <span class="label">Status:</span>
+                <span id="status-text" class="status-badge checking">Checking...</span>
+            </div>
+            <div class="status-row">
+                <span class="label">Version:</span>
+                <span id="version-text">-</span>
+            </div>
+            <div class="status-row">
+                <span class="label">Files:</span>
+                <span id="files-text">-</span>
+            </div>
+            <div class="progress-container" id="progress-container" style="display: none;">
+                <div class="progress-bar" id="progress-bar"></div>
+                <span class="progress-text" id="progress-text">0%</span>
+            </div>
+            <div class="button-row">
+                <button id="update-btn" class="btn">Check for Updates</button>
+                <button id="clear-btn" class="btn secondary">Clear Cache</button>
+            </div>
+        </div>
+
+        <!-- Update Available Banner -->
+        <div class="card update-banner" id="update-banner" style="display: none;">
+            <div class="update-content">
+                <strong>Update Available!</strong>
+                <span id="update-version-text"></span>
+            </div>
+            <button id="reload-btn" class="btn primary">Reload to Update</button>
+        </div>
+
+        <!-- Demo Content -->
+        <div class="card">
+            <h2>How It Works</h2>
+            <ol>
+                <li><strong>Run spider-deps.js</strong> - Discovers all JS/CSS dependencies from entry point</li>
+                <li><strong>Generates cache-manifest.json</strong> - Lists all files with content hash version</li>
+                <li><strong>Service worker caches files</strong> - Creates versioned cache atomically</li>
+                <li><strong>App works offline</strong> - Cache-first strategy serves files instantly</li>
+            </ol>
+
+            <h3>Version Matching</h3>
+            <p>The content hash ensures version consistency:</p>
+            <ul>
+                <li>Any file change creates a new version hash</li>
+                <li>Each version gets its own isolated cache</li>
+                <li>Old caches are only deleted after new cache is complete</li>
+                <li>No mixed versions ever loaded</li>
+            </ul>
+        </div>
+
+        <!-- Interactive Demo -->
+        <div class="card">
+            <h2>Try It</h2>
+            <ol>
+                <li>Open DevTools Network tab</li>
+                <li>Check "Offline" in Network panel</li>
+                <li>Reload the page - it still works!</li>
+                <li>Uncheck "Offline" and modify a file</li>
+                <li>Run <code>node spider-deps.js</code></li>
+                <li>Click "Check for Updates" - new version detected</li>
+            </ol>
+        </div>
+
+        <!-- Debug Panel -->
+        <details class="card">
+            <summary>Debug Info</summary>
+            <button id="debug-btn" class="btn small">Dump Cache Contents</button>
+            <pre id="debug-output"></pre>
+        </details>
+    </div>
+
+    <!-- Demo App Component -->
+    <demo-app></demo-app>
+
+    <!-- Service Worker Registration and Communication -->
+    <script type="module">
+        import './demo-app.js';
+
+        // ==========================================================================
+        // Service Worker Registration
+        // ==========================================================================
+
+        if ('serviceWorker' in navigator) {
+            // Register service worker
+            navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+                .then(registration => {
+                    console.log('[App] Service worker registered');
+
+                    // Check for updates when user returns to tab
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') {
+                            registration.update();
+                        }
+                    });
+
+                    // Request initial cache status
+                    if (registration.active) {
+                        registration.active.postMessage({ type: 'check-cache' });
+                        registration.active.postMessage({ type: 'update-cache' });
+                    }
+
+                    // Handle SW becoming active
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'activated') {
+                                newWorker.postMessage({ type: 'check-cache' });
+                            }
+                        });
+                    });
+                })
+                .catch(err => {
+                    console.error('[App] Service worker registration failed:', err);
+                    updateStatusUI({ status: 'error', error: err.message });
+                });
+
+            // Listen for messages from service worker
+            navigator.serviceWorker.addEventListener('message', handleSWMessage);
+        } else {
+            updateStatusUI({ status: 'unsupported' });
+        }
+
+        // ==========================================================================
+        // UI State Management
+        // ==========================================================================
+
+        let initialVersion = null;
+
+        function handleSWMessage(event) {
+            const data = event.data || {};
+
+            switch (data.type) {
+                case 'cache-status':
+                    updateStatusUI(data);
+                    break;
+                case 'update-available':
+                    showUpdateBanner(data);
+                    break;
+                case 'cache-debug':
+                    showDebugOutput(data);
+                    break;
+            }
+        }
+
+        function updateStatusUI({ status, version, fileCount, progress, error, updated, previousVersion }) {
+            const statusEl = document.getElementById('status-text');
+            const versionEl = document.getElementById('version-text');
+            const filesEl = document.getElementById('files-text');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+
+            // Track initial version for update detection
+            if (version && initialVersion === null) {
+                initialVersion = version;
+            }
+
+            // Update status badge
+            statusEl.className = 'status-badge ' + status;
+            const statusLabels = {
+                checking: 'Checking...',
+                caching: 'Caching...',
+                ready: 'Ready',
+                offline: 'Offline',
+                incomplete: 'Incomplete',
+                error: 'Error',
+                unsupported: 'Not Supported'
+            };
+            statusEl.textContent = statusLabels[status] || status;
+
+            // Update version
+            if (version) {
+                versionEl.textContent = version;
+            }
+
+            // Update file count
+            if (fileCount !== undefined) {
+                filesEl.textContent = fileCount + ' files cached';
+            }
+
+            // Show/hide progress
+            if (status === 'caching' && progress) {
+                progressContainer.style.display = 'block';
+                const percent = Math.round((progress.current / progress.total) * 100);
+                progressBar.style.width = percent + '%';
+                progressText.textContent = `${progress.current}/${progress.total} (${percent}%)`;
+            } else {
+                progressContainer.style.display = 'none';
+            }
+
+            // Show error
+            if (error) {
+                console.error('[App] Cache error:', error);
+            }
+
+            // Detect updates (version changed after initial load)
+            if (status === 'ready' && version && initialVersion && version !== initialVersion) {
+                showUpdateBanner({ version, previousVersion: initialVersion });
+            }
+        }
+
+        function showUpdateBanner({ version, previousVersion }) {
+            const banner = document.getElementById('update-banner');
+            const versionText = document.getElementById('update-version-text');
+
+            versionText.textContent = previousVersion
+                ? `${previousVersion} → ${version}`
+                : `Version ${version}`;
+
+            banner.style.display = 'flex';
+        }
+
+        function showDebugOutput(data) {
+            const output = document.getElementById('debug-output');
+            output.textContent = JSON.stringify(data, null, 2);
+        }
+
+        // ==========================================================================
+        // Button Handlers
+        // ==========================================================================
+
+        document.getElementById('update-btn').addEventListener('click', async () => {
+            const registration = await navigator.serviceWorker.ready;
+            if (registration.active) {
+                registration.active.postMessage({ type: 'update-cache' });
+            }
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', async () => {
+            if (!confirm('Clear all cached files?')) return;
+            const registration = await navigator.serviceWorker.ready;
+            if (registration.active) {
+                registration.active.postMessage({ type: 'clear-cache' });
+            }
+        });
+
+        document.getElementById('reload-btn').addEventListener('click', () => {
+            window.location.reload();
+        });
+
+        document.getElementById('debug-btn').addEventListener('click', async () => {
+            const registration = await navigator.serviceWorker.ready;
+            if (registration.active) {
+                registration.active.postMessage({ type: 'debug-cache' });
+            }
+        });
+    </script>
+</body>
+</html>

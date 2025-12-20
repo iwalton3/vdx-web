@@ -137,6 +137,7 @@ The framework automatically uses the correct attribute (`value` or `checked`), s
 | [Component Library](https://iwalton.com/componentlib/) | Interactive showcase of all vdx-ui components |
 | [Playground](https://iwalton.com/playground.html) | Core framework features demo |
 | [Static Integration](https://iwalton.com/bundle-demo/static-integration-demo.html) | Embedding components in static HTML |
+| [PWA Offline](https://iwalton.com/bundle-demo/pwa-offline/) | Service worker with versioned caching for offline support |
 | [Task Manager (TS Demo)](https://iwalton.com/ts-demo/) | Task management demo application written in typescript |
 | [Framework Tests](https://iwalton.com/tests/) | Comprehensive test suite |
 
@@ -310,6 +311,24 @@ Since there's no build step, deployment is simple:
 2. Configure server routing if using HTML5 mode (see [docs/routing.md](docs/routing.md))
 
 That's it!
+
+## PWA Offline Support
+
+You can use a service worker with vdx-web, which retains the caching and update benefits of a typical application bundler with less complexity and the added benefit of offline support. All you need to do is generate a new manifest before each build and the service worker handles the rest.
+
+### How It Works
+
+1. **spider-deps.js** discovers all JS/CSS dependencies from your entry point
+2. Generates **cache-manifest.json** with content hash version
+3. **Service worker** caches all files atomically with version isolation
+4. App works offline with cache-first strategy
+
+```bash
+# Before deploying, generate the manifest
+node spider-deps.js
+```
+
+See the [PWA Offline Demo](https://iwalton.com/bundle-demo/pwa-offline/) for a working example, or check out the [source code](/app/bundle-demo/pwa-offline/).
 
 ## Use Cases
 
