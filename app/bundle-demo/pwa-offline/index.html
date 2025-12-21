@@ -111,9 +111,9 @@
                         }
                     });
 
-                    // Request initial cache status
+                    // Request initial cache status and trigger update check
+                    // Only send update-cache - it reports status AND checks for updates
                     if (registration.active) {
-                        registration.active.postMessage({ type: 'check-cache' });
                         registration.active.postMessage({ type: 'update-cache' });
                     }
 
