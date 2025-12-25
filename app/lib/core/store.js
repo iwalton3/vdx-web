@@ -40,12 +40,30 @@ export function createStore(initial) {
     const state = reactive(initial);
     const subscribers = new Set();
     let isNotifying = false;
+    let pendingNotification = false;
+    let chainLength = 0;  // Counts total notifications in current chain
+    const MAX_CHAIN_LENGTH = 10;
 
     // Helper to notify all subscribers
     // Uses copy-before-iterate to handle unsubscribe during iteration
-    // Uses re-entry guard to prevent infinite recursion
+    // Queues re-entrant notifications instead of dropping them
+    // Throws error on excessive recursion to surface circular dependencies
     function notifySubscribers() {
-        if (isNotifying) return; // Prevent recursive re-entry
+        if (isNotifying) {
+            // Queue notification for after current batch completes
+            pendingNotification = true;
+            return;
+        }
+
+        chainLength++;
+        if (chainLength > MAX_CHAIN_LENGTH) {
+            chainLength = 0;  // Reset for next chain
+            throw new Error(
+                `Store notification chain exceeded ${MAX_CHAIN_LENGTH}. ` +
+                `This usually indicates circular dependencies in store subscribers.`
+            );
+        }
+
         isNotifying = true;
         try {
             // Copy to array to safely handle unsubscribe during iteration
@@ -62,6 +80,15 @@ export function createStore(initial) {
             }
         } finally {
             isNotifying = false;
+
+            // Process queued notification
+            if (pendingNotification) {
+                pendingNotification = false;
+                queueMicrotask(() => notifySubscribers());
+            } else {
+                // Chain complete - reset for next chain
+                chainLength = 0;
+            }
         }
     }
 

@@ -359,3 +359,129 @@ describe('awaitThen Helper (Component-Based)', function(it) {
         assert.equal(result._values[3], null, 'Fourth value should be null for catch');
     });
 });
+
+import { memoEach, each, setRenderContext } from '../lib/core/template.js';
+
+describe('memoEach Helper', function(it) {
+    it('returns empty result for null/undefined array', () => {
+        const result = memoEach(null, () => html`<div></div>`, x => x.id);
+        assert.ok(result._compiled, 'Should return compiled template');
+        assert.equal(result._compiled.children.length, 0, 'Should have no children');
+    });
+
+    it('falls back to each() when no keyFn provided', () => {
+        const items = [{ id: 1 }, { id: 2 }];
+        const result = memoEach(items, item => html`<div>${item.id}</div>`);
+        assert.ok(result._compiled, 'Should return compiled template');
+    });
+
+    it('uses array reference for cache (not call order)', () => {
+        // Create a mock component context
+        const mockComponent = { _memoEachCaches: null };
+        setRenderContext(mockComponent);
+
+        const array1 = [{ id: 1, name: 'a' }, { id: 2, name: 'b' }];
+        const array2 = [{ id: 3, name: 'c' }];
+
+        // First call with array1
+        memoEach(array1, item => html`<div>${item.name}</div>`, item => item.id);
+
+        // Second call with array2
+        memoEach(array2, item => html`<span>${item.name}</span>`, item => item.id);
+
+        // Component should have WeakMap with both arrays
+        assert.ok(mockComponent._memoEachCaches instanceof WeakMap, 'Should use WeakMap');
+        assert.ok(mockComponent._memoEachCaches.has(array1), 'Should cache array1');
+        assert.ok(mockComponent._memoEachCaches.has(array2), 'Should cache array2');
+
+        setRenderContext(null);
+    });
+
+    it('caches items by reference', () => {
+        const mockComponent = { _memoEachCaches: null };
+        setRenderContext(mockComponent);
+
+        const item1 = { id: 1, name: 'one' };
+        const item2 = { id: 2, name: 'two' };
+        const array = [item1, item2];
+
+        let renderCount = 0;
+        const render = (item) => {
+            renderCount++;
+            return html`<div>${item.name}</div>`;
+        };
+
+        // First render
+        memoEach(array, render, item => item.id);
+        const firstRenderCount = renderCount;
+
+        // Second render with same items
+        memoEach(array, render, item => item.id);
+
+        // Should not re-render cached items
+        assert.equal(renderCount, firstRenderCount, 'Should not re-render cached items');
+
+        setRenderContext(null);
+    });
+
+    it('re-renders when item reference changes', () => {
+        const mockComponent = { _memoEachCaches: null };
+        setRenderContext(mockComponent);
+
+        const item1 = { id: 1, name: 'one' };
+        const item2 = { id: 2, name: 'two' };
+        const array = [item1, item2];
+
+        let renderCount = 0;
+        const render = (item) => {
+            renderCount++;
+            return html`<div>${item.name}</div>`;
+        };
+
+        // First render
+        memoEach(array, render, item => item.id);
+        const firstRenderCount = renderCount;
+
+        // Replace item1 with new object (same id)
+        array[0] = { id: 1, name: 'ONE' };
+        memoEach(array, render, item => item.id);
+
+        // Should re-render item1 (new reference) but not item2 (same reference)
+        assert.equal(renderCount, firstRenderCount + 1, 'Should re-render changed item');
+
+        setRenderContext(null);
+    });
+
+    it('supports conditional memoEach calls', () => {
+        const mockComponent = { _memoEachCaches: null };
+        setRenderContext(mockComponent);
+
+        const array1 = [{ id: 1 }];
+        const array2 = [{ id: 2 }];
+
+        // Simulate conditional rendering - first call array1, then array2
+        let showFirst = true;
+
+        function render() {
+            if (showFirst) {
+                memoEach(array1, item => html`<div>A</div>`, i => i.id);
+            }
+            memoEach(array2, item => html`<div>B</div>`, i => i.id);
+        }
+
+        render();
+        assert.ok(mockComponent._memoEachCaches.has(array1), 'Should have array1');
+        assert.ok(mockComponent._memoEachCaches.has(array2), 'Should have array2');
+
+        // Now hide first - this should NOT break array2's cache
+        showFirst = false;
+        const cacheForArray2Before = mockComponent._memoEachCaches.get(array2);
+        render();
+        const cacheForArray2After = mockComponent._memoEachCaches.get(array2);
+
+        // Same cache should be used (array reference based, not call order)
+        assert.equal(cacheForArray2Before, cacheForArray2After, 'array2 cache should be preserved');
+
+        setRenderContext(null);
+    });
+});

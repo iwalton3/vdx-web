@@ -737,6 +737,51 @@ afterRender() {
 }
 ```
 
+### renderError(error) - Error Boundary
+
+Optional handler called when the component's `template()` or rendering throws an error. Use this to provide graceful degradation instead of crashing the entire app.
+
+**Parameters:**
+- `error` - The Error object that was thrown
+
+**Return value:**
+- Return an `html` template to render as fallback UI
+- Return nothing/null to render nothing (component will be empty)
+
+```javascript
+defineComponent('data-widget', {
+    template() {
+        // This might throw if data is malformed
+        return html`<div>${this.processComplexData()}</div>`;
+    },
+
+    // Optional: gracefully handle render errors
+    renderError(error) {
+        console.error('Widget render failed:', error);
+        return html`
+            <div class="error-state">
+                <p>Unable to display widget</p>
+                <button on-click="retry">Retry</button>
+            </div>
+        `;
+    },
+
+    methods: {
+        retry() {
+            this.state.forceRefresh = Date.now();
+        }
+    }
+});
+```
+
+**Behavior without renderError:**
+- Error is logged to console with component tag name
+- Component renders nothing (empty)
+- Sibling components continue to render normally
+- Component sets `_hasRenderError = true` flag
+
+**Error isolation:** Even without `renderError`, one component failing won't crash the entire application. The component tree continues rendering other components.
+
 ## Component Styles
 
 Styles are automatically scoped to the component tag name:

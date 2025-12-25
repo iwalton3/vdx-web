@@ -566,9 +566,10 @@ ${memoEach(this.state.songs, song => html`
 ```
 
 **How it works:**
-- Caches rendered templates per item key
+- Uses array reference as cache key - safe to use in conditional rendering
+- Caches rendered templates per item key within each array
 - Only re-renders items where the item reference changed
-- Cache is automatically scoped to the component
+- Cache is automatically scoped to the component via WeakMap (proper GC)
 - Stale cache entries are cleaned up when items leave the array
 
 **When to use:**
@@ -584,7 +585,42 @@ memoEach(array, mapFn, keyFn, [cache])
 - `array` - Array to iterate over
 - `mapFn` - Function to render each item: `(item, index) => html\`...\``
 - `keyFn` - **Required** - Function to extract unique key: `item => item.id`
-- `cache` - Optional explicit cache (omit to use automatic component-scoped caching)
+- `cache` - Optional explicit cache (see below for when this is needed)
+
+**Conditional rendering - safe:**
+```javascript
+// ✅ Safe - caching is based on array reference, not call order
+template() {
+    return html`
+        ${when(this.state.showSongs,
+            html`${memoEach(this.state.songs, s => html`...`, s => s.id)}`
+        )}
+        ${memoEach(this.state.playlists, p => html`...`, p => p.id)}
+    `;
+}
+```
+
+**Same array rendered differently - use explicit caches:**
+```javascript
+// When rendering the SAME array with different templates, use explicit caches
+data() {
+    return {
+        items: [],
+        _cacheA: new Map(),  // Explicit cache
+        _cacheB: new Map()   // Explicit cache
+    };
+},
+template() {
+    return html`
+        <div class="view-a">
+            ${memoEach(this.state.items, i => html`<div>${i.a}</div>`, i => i.id, this.state._cacheA)}
+        </div>
+        <div class="view-b">
+            ${memoEach(this.state.items, i => html`<span>${i.b}</span>`, i => i.id, this.state._cacheB)}
+        </div>
+    `;
+}
+```
 
 **Example with virtual scroll:**
 ```javascript

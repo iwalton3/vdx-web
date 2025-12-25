@@ -88,6 +88,12 @@ export default defineComponent('my-component', {
         // Called when a prop changes - see docs/components.md for details
     },
 
+    // Error boundary (optional) - gracefully handle render errors
+    renderError(error) {
+        console.error('Render failed:', error);
+        return html`<div class="error">Something went wrong</div>`;
+    },
+
     // Methods
     methods: {
         handleClick(e) {
@@ -195,9 +201,14 @@ ${each(this.state.items, item => html`
 
 // memoEach() - Memoized list rendering for performance
 // Only re-renders items that changed (by reference)
+// Uses array reference for cache - safe to use conditionally
 ${memoEach(this.state.songs, song => html`
     <div class="song">${song.title}</div>
 `, song => song.uuid)}
+
+// memoEach() with explicit cache - for same array rendered differently
+${memoEach(this.state.songs, song => html`<div>${song.a}</div>`, s => s.uuid, this._cacheA)}
+${memoEach(this.state.songs, song => html`<span>${song.b}</span>`, s => s.uuid, this._cacheB)}
 
 // awaitThen() - Async data loading with loading/error states
 ${awaitThen(

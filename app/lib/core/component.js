@@ -152,16 +152,23 @@ function performTreeRender(root) {
 
 /**
  * Recursively render component tree depth-first
+ * Catches errors to ensure sibling components still render
  */
 function renderComponentTree(component) {
     if (!component._isMounted || component._isDestroyed) {
         return;
     }
 
-    // Render this component
-    component._doRender();
+    // Render this component with error isolation
+    try {
+        component._doRender();
+    } catch (error) {
+        // _doRender has its own error handling, but catch any uncaught errors
+        // to ensure tree continues rendering
+        console.error(`[${component.tagName}] Unhandled render error:`, error);
+    }
 
-    // Render child VDX components (they were updated by our render via Preact props)
+    // Continue rendering child VDX components even if parent had errors
     if (component._vdxChildComponents) {
         for (const child of component._vdxChildComponents) {
             renderComponentTree(child);
@@ -825,48 +832,73 @@ export function defineComponent(name, options) {
                 this._stylesInjected = true;
             }
 
-            // Call template function to get compiled tree
-            // Set render context so template helpers can access the component
-            setRenderContext(this);
-            const templateResult = options.template.call(this);
-            setRenderContext(null);
-
-            if (debugRenderCycleHook) {
-                debugRenderCycleHook(this, 'after-template', {
-                    hasCompiled: !!templateResult?._compiled,
-                    valuesCount: templateResult?._values?.length || 0
-                });
-            }
-
-            // Convert compiled tree to Preact elements
-            if (templateResult && templateResult._compiled) {
-                // Apply values and convert to Preact VNode
-                const preactElement = applyValues(
-                    templateResult._compiled,
-                    templateResult._values || [],
-                    this
-                );
+            // Render with error boundary - catches template/render errors
+            try {
+                // Call template function to get compiled tree
+                // Set render context so template helpers can access the component
+                setRenderContext(this);
+                const templateResult = options.template.call(this);
+                setRenderContext(null);
 
                 if (debugRenderCycleHook) {
-                    debugRenderCycleHook(this, 'before-vnode', {
-                        isNull: preactElement === null,
-                        type: preactElement?.type || 'null'
+                    debugRenderCycleHook(this, 'after-template', {
+                        hasCompiled: !!templateResult?._compiled,
+                        valuesCount: templateResult?._values?.length || 0
                     });
                 }
-                if (debugVNodeHook) {
-                    debugVNodeHook(this, preactElement);
+
+                // Convert compiled tree to Preact elements
+                if (templateResult && templateResult._compiled) {
+                    // Apply values and convert to Preact VNode
+                    const preactElement = applyValues(
+                        templateResult._compiled,
+                        templateResult._values || [],
+                        this
+                    );
+
+                    if (debugRenderCycleHook) {
+                        debugRenderCycleHook(this, 'before-vnode', {
+                            isNull: preactElement === null,
+                            type: preactElement?.type || 'null'
+                        });
+                    }
+                    if (debugVNodeHook) {
+                        debugVNodeHook(this, preactElement);
+                    }
+
+                    // Render using Preact's reconciliation
+                    // Preact automatically maintains vdom state between renders
+                    preactRender(preactElement, this);
+
+                    if (debugRenderCycleHook) {
+                        debugRenderCycleHook(this, 'after-vnode');
+                    }
+                } else {
+                    // No compiled template - this shouldn't happen in production
+                    console.error(`[${this.tagName}] Template was not compiled. Ensure you're using the html\`\` tag.`);
                 }
 
-                // Render using Preact's reconciliation
-                // Preact automatically maintains vdom state between renders
-                preactRender(preactElement, this);
+                this._hasRenderError = false;
+            } catch (error) {
+                setRenderContext(null); // Ensure cleanup on error
+                this._hasRenderError = true;
 
-                if (debugRenderCycleHook) {
-                    debugRenderCycleHook(this, 'after-vnode');
+                // Call error handler if defined
+                if (options.renderError) {
+                    try {
+                        const fallback = options.renderError.call(this, error);
+                        if (fallback && fallback._compiled) {
+                            preactRender(
+                                applyValues(fallback._compiled, fallback._values || [], this),
+                                this
+                            );
+                        }
+                    } catch (fallbackError) {
+                        console.error(`[${this.tagName}] renderError() also failed:`, fallbackError);
+                    }
                 }
-            } else {
-                // No compiled template - this shouldn't happen in production
-                console.error(`[${this.tagName}] Template was not compiled. Ensure you're using the html\`\` tag.`);
+
+                console.error(`[${this.tagName}] Render error:`, error);
             }
 
             // Call afterRender hook if provided
@@ -875,6 +907,8 @@ export function defineComponent(name, options) {
                     if (!this._isDestroyed && this._isMounted) {
                         options.afterRender.call(this);
                     }
+                }).catch(error => {
+                    console.error(`[${this.tagName}] afterRender() error:`, error);
                 });
             }
         }

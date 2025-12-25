@@ -14,17 +14,12 @@ const RAW_MARKER = Symbol('raw');
 // This allows helpers like memoEach to access component-scoped caches
 let currentRenderComponent = null;
 
-// Call-site counter for memoEach (like React hook call order)
-let memoEachCallIndex = 0;
-
 /**
  * Set the current render context (called by component system)
  * @param {object|null} component - The component being rendered, or null to clear
  */
 export function setRenderContext(component) {
     currentRenderComponent = component;
-    // Reset memoEach call index at start of each component render
-    memoEachCallIndex = 0;
 }
 
 /**
@@ -354,8 +349,6 @@ export function createMemoCache() {
  */
 export function memoEach(array, mapFn, keyFn, cache) {
     if (!array || !Array.isArray(array)) {
-        // Increment call index even for empty arrays to maintain call order
-        if (currentRenderComponent) memoEachCallIndex++;
         return {
             [HTML_MARKER]: true,
             _compiled: {
@@ -375,17 +368,17 @@ export function memoEach(array, mapFn, keyFn, cache) {
     }
 
     // Get or create cache
+    // Uses array reference as key (WeakMap) - eliminates call-order dependency
+    // Note: If same array used in multiple memoEach calls, pass explicit caches
     let effectiveCache = cache;
     if (!effectiveCache && currentRenderComponent) {
-        // Automatic caching: store cache on component keyed by call-site index
-        const callIndex = memoEachCallIndex++;
         if (!currentRenderComponent._memoEachCaches) {
-            currentRenderComponent._memoEachCaches = new Map();
+            currentRenderComponent._memoEachCaches = new WeakMap();
         }
-        effectiveCache = currentRenderComponent._memoEachCaches.get(callIndex);
+        effectiveCache = currentRenderComponent._memoEachCaches.get(array);
         if (!effectiveCache) {
             effectiveCache = new Map();
-            currentRenderComponent._memoEachCaches.set(callIndex, effectiveCache);
+            currentRenderComponent._memoEachCaches.set(array, effectiveCache);
         }
     }
 

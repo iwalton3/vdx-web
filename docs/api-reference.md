@@ -45,9 +45,14 @@ Define a custom element component.
     },
 
     // Lifecycle hooks
-    mounted() { },      // Called after component added to DOM
-    unmounted() { },    // Called before component removed
-    afterRender() { },  // Called after each render (use sparingly)
+    mounted() { },       // Called after component added to DOM
+    unmounted() { },     // Called before component removed
+    afterRender() { },   // Called after each render (use sparingly)
+
+    // Error boundary (optional)
+    renderError(error) { // Called if template() throws
+        return html`<div>Error</div>`;  // Return fallback UI
+    },
 
     // Scoped styles
     styles: /*css*/`...`
@@ -188,10 +193,10 @@ ${each(this.state.items, item => html`
 Memoized list rendering - caches rendered templates per item key.
 
 **Parameters:**
-- `array` (Array) - Array to iterate over
+- `array` (Array) - Array to iterate over (used as cache key)
 - `mapFn` (function) - Function that returns template for each item
 - `keyFn` (function) - **Required** - Function to extract unique key from item
-- `cache` (Map, optional) - Explicit cache (omit for automatic component-scoped caching)
+- `cache` (Map, optional) - Explicit cache (only needed when same array rendered with different templates)
 
 **Example:**
 ```javascript
@@ -199,6 +204,11 @@ ${memoEach(this.state.songs, song => html`
     <div class="song">${song.title}</div>
 `, song => song.uuid)}
 ```
+
+**Caching behavior:**
+- Uses array reference as cache key (WeakMap) - safe to use conditionally
+- Each different array automatically gets its own cache
+- Only need explicit `cache` param when rendering same array differently in multiple places
 
 **When to use:** Virtual scroll, large lists (100+ items), expensive item templates.
 
