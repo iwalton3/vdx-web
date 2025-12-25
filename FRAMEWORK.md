@@ -244,9 +244,4 @@ Projects using VDX can reference this in their CLAUDE.md:
 ## Framework
 
 This project uses the VDX framework. See [FRAMEWORK.md](path/to/vdx/FRAMEWORK.md) for patterns.
-
-## Project-Specific Notes
-
-- API endpoint: /api/v1/
-- Auth via JWT in localStorage
 ```
