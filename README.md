@@ -355,7 +355,15 @@ In a world where a simple "hello world" requires hundreds of megabytes of depend
 
 ## License
 
-See LICENSE.md
+VDX Framework and all components are MIT licensed. Preact is also MIT licensed, see bundled license in the vendor folder.
+
+## Quality Assurance
+
+VDX consists mainly of code created using Claude. Quality assurance is achieved through extensive unit and end to end testing, as well as manual tests, performance evaluation, and through usage in other personal projects such as mrepo-web and my personal website.
+
+This project is a quality framework with a high degree of optimization and iteration based on actual development experience and testing, but don't expect it to be perfect. There will be changes in the future but it's mostly feature complete and the core APIs are established and unlikely to change significantly.
+
+There's no warranty if you build a business around my side project and get burned, but the framework in general avoids a lot of other risks such as code rot and supply chain breaches associated with extremely large NPM dependency graphs. (The only dependency is bundled Preact.) Since there is no build step, you could theoretically use this framework long into the future, as long as there are no major breaking changes in web browsers (less likely than your framework/build system/bundler/etc going out of style or deciding to leave you in the cold with a mountain of breaking changes).
 
 ## Contributing
 
