@@ -275,6 +275,120 @@ ${awaitThen(
 
 This behavior allows `awaitThen` to handle both async and sync data sources uniformly.
 
+### lazy(importFn)
+
+Lazy load a component module. Returns a cached promise that resolves when the component is registered. Works seamlessly with `awaitThen()` for loading states.
+
+**Import:** `import { lazy } from './lib/utils.js';`
+
+**Parameters:**
+- `importFn` (function) - Dynamic import function, e.g., `() => import('./my-component.js')`
+
+**Returns:** `Promise<true>` - Promise that resolves to `true` when component is ready
+
+**Example - Basic usage:**
+```javascript
+import { awaitThen, html } from './lib/framework.js';
+import { lazy } from './lib/utils.js';
+
+// Define lazy component at module level (cached)
+const LazyChart = lazy(() => import('./chart-component.js'));
+
+defineComponent('dashboard', {
+    template() {
+        return html`
+            <h1>Dashboard</h1>
+            ${awaitThen(LazyChart,
+                () => html`<chart-component data="${this.state.chartData}"></chart-component>`,
+                html`<cl-spinner></cl-spinner>`
+            )}
+        `;
+    }
+});
+```
+
+**Example - Multiple lazy components:**
+```javascript
+const LazyEditor = lazy(() => import('./editor.js'));
+const LazyPreview = lazy(() => import('./preview.js'));
+
+// Load both, show when ready
+const BothLoaded = Promise.all([LazyEditor, LazyPreview]);
+
+template() {
+    return html`
+        ${awaitThen(BothLoaded,
+            () => html`
+                <code-editor></code-editor>
+                <preview-panel></preview-panel>
+            `,
+            html`<p>Loading editor...</p>`
+        )}
+    `;
+}
+```
+
+**Example - Conditional lazy loading:**
+```javascript
+data() {
+    return { showAdvanced: false };
+},
+
+template() {
+    return html`
+        <button on-click="${() => this.state.showAdvanced = true}">
+            Show Advanced Options
+        </button>
+        ${when(this.state.showAdvanced,
+            () => awaitThen(
+                lazy(() => import('./advanced-panel.js')),
+                () => html`<advanced-panel></advanced-panel>`,
+                html`<cl-spinner size="small"></cl-spinner>`
+            )
+        )}
+    `;
+}
+```
+
+**Note:** The promise is cached by import function reference, so defining `lazy()` at module level is recommended for optimal caching.
+
+### preloadLazy(importFn)
+
+Preload a lazy component without rendering it. Useful for preloading components the user is likely to need (e.g., on hover).
+
+**Import:** `import { preloadLazy } from './lib/utils.js';`
+
+**Parameters:**
+- `importFn` (function) - Dynamic import function
+
+**Returns:** `Promise<true>` - Promise that resolves when loaded
+
+**Example:**
+```javascript
+import { preloadLazy } from './lib/utils.js';
+
+// Preload on hover for instant display when clicked
+template() {
+    return html`
+        <button
+            on-mouseenter="${() => preloadLazy(() => import('./heavy-dialog.js'))}"
+            on-click="${() => this.state.showDialog = true}">
+            Open Dialog
+        </button>
+    `;
+}
+```
+
+### clearLazyCache()
+
+Clears the lazy loading cache. Rarely needed - mainly for testing or memory optimization.
+
+**Import:** `import { clearLazyCache } from './lib/utils.js';`
+
+**Parameters:** None
+
+**Returns:** `void`
+
 ### pruneTemplateCache()
 
 Clears the template compilation cache. The framework caches compiled templates for performance (up to 500 entries). This function clears that cache.

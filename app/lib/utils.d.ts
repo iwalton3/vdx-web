@@ -438,6 +438,56 @@ export interface DarkThemeState {
 export const darkTheme: Store<DarkThemeState>;
 
 // =============================================================================
+// Lazy Component Loading
+// =============================================================================
+
+/**
+ * Lazy load a component module.
+ * Returns a cached promise that resolves when the component is registered.
+ * Works seamlessly with awaitThen() for loading states.
+ *
+ * @param importFn - Dynamic import function, e.g., () => import('./my-component.js')
+ * @returns Promise that resolves to true when component is ready
+ *
+ * @example
+ * import { lazy } from './lib/utils.js';
+ * import { awaitThen, html } from './lib/framework.js';
+ *
+ * const LazyChart = lazy(() => import('./chart-component.js'));
+ *
+ * template() {
+ *     return html`
+ *         ${awaitThen(LazyChart,
+ *             () => html`<chart-component data="${this.state.data}"></chart-component>`,
+ *             html`<cl-spinner></cl-spinner>`
+ *         )}
+ *     `;
+ * }
+ */
+export function lazy(importFn: () => Promise<any>): Promise<true>;
+
+/**
+ * Preload a lazy component without rendering it.
+ * Useful for preloading components the user is likely to need.
+ *
+ * @param importFn - Dynamic import function
+ * @returns Promise that resolves when loaded
+ *
+ * @example
+ * import { preloadLazy } from './lib/utils.js';
+ *
+ * // Preload on hover for instant display when clicked
+ * <button on-mouseenter="${() => preloadLazy(() => import('./heavy-dialog.js'))}">
+ */
+export function preloadLazy(importFn: () => Promise<any>): Promise<true>;
+
+/**
+ * Clear the lazy loading cache.
+ * Rarely needed - mainly for testing or memory optimization.
+ */
+export function clearLazyCache(): void;
+
+// =============================================================================
 // Default Export
 // =============================================================================
 

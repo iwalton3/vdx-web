@@ -645,6 +645,102 @@ export function range(a, b = null, step = 1) {
     return result;
 }
 
+// =============================================================================
+// Lazy Component Loading
+// =============================================================================
+
+/**
+ * Cache for lazy-loaded modules to prevent duplicate imports
+ * @type {Map<Function, Promise<any>>}
+ */
+const lazyCache = new Map();
+
+/**
+ * Create a lazy-loadable component reference.
+ *
+ * Returns a promise that resolves when the component module is loaded.
+ * The promise is cached, so multiple uses don't trigger multiple imports.
+ * Works seamlessly with awaitThen() for loading states.
+ *
+ * @param {() => Promise<any>} importFn - Dynamic import function, e.g., () => import('./my-component.js')
+ * @returns {Promise<true>} Promise that resolves to true when component is ready
+ *
+ * @example
+ * // Define lazy component at module level (cached)
+ * const LazyChart = lazy(() => import('./chart-component.js'));
+ *
+ * // Use with awaitThen in template
+ * template() {
+ *     return html`
+ *         ${awaitThen(LazyChart,
+ *             () => html`<chart-component data="${this.state.data}"></chart-component>`,
+ *             html`<cl-spinner></cl-spinner>`
+ *         )}
+ *     `;
+ * }
+ *
+ * @example
+ * // Conditional lazy loading
+ * ${when(this.state.showAdvanced,
+ *     () => awaitThen(
+ *         lazy(() => import('./advanced-panel.js')),
+ *         () => html`<advanced-panel></advanced-panel>`,
+ *         html`<cl-spinner size="small"></cl-spinner>`
+ *     )
+ * )}
+ */
+export function lazy(importFn) {
+    // Return cached promise if already loading/loaded
+    if (lazyCache.has(importFn)) {
+        return lazyCache.get(importFn);
+    }
+
+    // Create and cache the loading promise
+    const loadPromise = importFn()
+        .then(module => {
+            // Module loaded successfully
+            // The component should be auto-registered via its defineComponent call
+            return true;
+        })
+        .catch(error => {
+            // Remove from cache on error so retry is possible
+            lazyCache.delete(importFn);
+            throw error;
+        });
+
+    lazyCache.set(importFn, loadPromise);
+    return loadPromise;
+}
+
+/**
+ * Preload a lazy component without rendering it.
+ * Useful for preloading components the user is likely to need.
+ *
+ * @param {() => Promise<any>} importFn - Dynamic import function
+ * @returns {Promise<true>} Promise that resolves when loaded
+ *
+ * @example
+ * // Preload on hover for instant display when clicked
+ * <button
+ *     on-mouseenter="${() => preloadLazy(() => import('./heavy-dialog.js'))}"
+ *     on-click="${() => this.state.showDialog = true}">
+ *     Open Dialog
+ * </button>
+ */
+export function preloadLazy(importFn) {
+    return lazy(importFn);
+}
+
+/**
+ * Clear the lazy loading cache.
+ * Rarely needed - mainly for testing or memory optimization.
+ *
+ * @returns {void}
+ */
+export function clearLazyCache() {
+    lazyCache.clear();
+}
+
 /**
  * Default export for backward compatibility
  * @type {typeof notify}

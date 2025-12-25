@@ -256,6 +256,30 @@ defineComponent('user-profile', {
 });
 ```
 
+**Lazy Loading Components with `lazy()`:**
+```javascript
+import { defineComponent, html, awaitThen } from './lib/framework.js';
+import { lazy, preloadLazy } from './lib/utils.js';
+
+// Define lazy component at module level (cached)
+const LazyChart = lazy(() => import('./chart-component.js'));
+
+defineComponent('dashboard', {
+    template() {
+        return html`
+            <h1>Dashboard</h1>
+            ${awaitThen(LazyChart,
+                () => html`<chart-component data="${this.state.chartData}"></chart-component>`,
+                html`<cl-spinner></cl-spinner>`
+            )}
+        `;
+    }
+});
+
+// Preload on hover (for better UX)
+// <button on-mouseenter="${() => preloadLazy(() => import('./heavy-dialog.js'))}">
+```
+
 ### 5. Passing Props to Child Components
 
 The framework **automatically** passes objects, arrays, and functions to custom elements without stringification:

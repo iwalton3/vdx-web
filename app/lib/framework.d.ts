@@ -241,6 +241,22 @@ export interface ComponentOptions<
    * @param oldValue - Previous value
    */
   propsChanged?(this: ComponentInstance<P, S, St>, prop: string, newValue: unknown, oldValue: unknown): void;
+
+  /**
+   * Error boundary - called when template() throws an error.
+   * Return an html`` template to render fallback UI, or nothing to render blank.
+   * The error is also logged to console automatically.
+   *
+   * @param error - The error that was thrown
+   * @returns Fallback template to render, or void for blank
+   *
+   * @example
+   * renderError(error) {
+   *   console.error('Render failed:', error);
+   *   return html`<div class="error">Something went wrong</div>`;
+   * }
+   */
+  renderError?(this: ComponentInstance<P, S, St>, error: Error): HtmlTemplate | void;
 }
 
 /**

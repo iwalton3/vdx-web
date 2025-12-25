@@ -1851,5 +1851,57 @@ export const componentExamples = {
         \`;
     }
 });`
+    },
+
+    errorBoundary: {
+        id: 'errorBoundary',
+        name: 'Error Boundary',
+        category: 'misc',
+        description: 'Pre-styled error display for renderError handlers',
+        demo: `<cl-error-boundary-demo></cl-error-boundary-demo>`,
+        source: `// cl-error-boundary provides pre-styled error display
+// Use it in your renderError() handlers for consistent error UI
+
+defineComponent('my-component', {
+    data() {
+        return { data: null };
+    },
+
+    template() {
+        // If this throws, renderError() will be called instead
+        return html\`
+            <div>
+                <h1>\${this.state.data.title}</h1>
+                <p>\${this.state.data.content}</p>
+            </div>
+        \`;
+    },
+
+    // Use cl-error-boundary for pre-styled error display
+    renderError(error) {
+        return html\`
+            <cl-error-boundary
+                error="\${error}"
+                title="Failed to load content"
+                showDetails="true"
+                onRetry="\${() => this.loadData()}">
+            </cl-error-boundary>
+        \`;
+    },
+
+    methods: {
+        loadData() {
+            this.state.data = { title: 'Loaded', content: 'Content loaded successfully' };
+        }
+    }
+});
+
+// Props:
+// - error: Error object or message string
+// - title: Custom title (default: "Something went wrong")
+// - showDetails: Show error message and stack trace
+// - onRetry: Callback function for retry button (auto-shows button)
+// - showRetry: Explicitly show retry button
+// - compact: Smaller padding and text`
     }
 };

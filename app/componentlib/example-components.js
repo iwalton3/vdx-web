@@ -51,6 +51,8 @@ import './misc/colorpicker.js';
 import './misc/spinner.js';
 import './misc/badge.js';
 import './misc/alert.js';
+import './misc/error-boundary.js';
+import './misc/error-boundary-demo.js';
 
 // InputText Example
 defineComponent('example-input-text', {

@@ -158,6 +158,57 @@ async function runTests() {
             `ColorPicker should persist selected color. Expected "${testColor}", got "${currentColor}"`);
     });
 
+    // ErrorBoundary Tests
+    await test.test('ErrorBoundary component renders', async () => {
+        await test.selectComponent('Error Boundary');
+        await test.assertExists('cl-error-boundary-demo');
+    });
+
+    await test.test('ErrorBoundary demo has trigger button', async () => {
+        await test.selectComponent('Error Boundary');
+        await test.assertExists('.trigger-btn');
+    });
+
+    await test.test('ErrorBoundary shows error state when triggered', async () => {
+        await test.selectComponent('Error Boundary');
+        await test.page.click('.trigger-btn');
+        await test.page.waitForTimeout(300);
+        await test.assertExists('cl-error-boundary');
+    });
+
+    await test.test('ErrorBoundary shows error title and message', async () => {
+        await test.selectComponent('Error Boundary');
+        // May already be in error state from previous test
+        const hasError = await test.page.$('cl-error-boundary');
+        if (!hasError) {
+            await test.page.click('.trigger-btn');
+            await test.page.waitForTimeout(300);
+        }
+
+        const title = await test.page.$eval('.error-title', el => el.textContent);
+        await test.assert(title === 'Render Failed', `Expected title "Render Failed", got "${title}"`);
+
+        const message = await test.page.$eval('.error-message', el => el.textContent);
+        await test.assert(message.includes('data is undefined'), 'Should show error message');
+    });
+
+    await test.test('ErrorBoundary retry button resets error', async () => {
+        await test.selectComponent('Error Boundary');
+        // Ensure we're in error state
+        const hasError = await test.page.$('cl-error-boundary');
+        if (!hasError) {
+            await test.page.click('.trigger-btn');
+            await test.page.waitForTimeout(300);
+        }
+
+        await test.page.click('.retry-btn');
+        await test.page.waitForTimeout(300);
+
+        // Should be back to success state
+        await test.assertExists('.content-box');
+        await test.assertExists('.trigger-btn');
+    });
+
     await test.teardown();
 }
 
