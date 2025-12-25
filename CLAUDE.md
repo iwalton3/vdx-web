@@ -10,6 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The framework requires **no build step** - it runs directly in the browser using ES6 modules.
 
+> **For projects using VDX**: See [FRAMEWORK.md](FRAMEWORK.md) for a compact reference (73% smaller) optimized for app development rather than framework development.
+
 ## Quick Start
 
 ```bash

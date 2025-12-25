@@ -152,7 +152,17 @@ The framework automatically uses the correct attribute (`value` or `checked`), s
 - **[docs/bundles.md](docs/bundles.md)** - Using pre-bundled versions
 - **[docs/typescript.md](docs/typescript.md)** - TypeScript support and demo app
 - **[docs/api-reference.md](docs/api-reference.md)** - Complete API reference
-- **[CLAUDE.md](CLAUDE.md)** - Quick reference for AI coding assistants
+- **[CLAUDE.md](CLAUDE.md)** - Full reference for AI coding assistants (framework development)
+- **[FRAMEWORK.md](FRAMEWORK.md)** - Compact reference for AI coding assistants (app development)
+
+### Using VDX in Your Project
+
+Projects using VDX can reference the compact framework guide in their CLAUDE.md:
+
+```markdown
+## Framework
+This project uses VDX. See [FRAMEWORK.md](path/to/vdx/FRAMEWORK.md) for patterns.
+```
 
 ---
 
