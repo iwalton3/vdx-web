@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Children/Slots Spike Tests</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #9b59b6;
+            padding-bottom: 10px;
+        }
+
+        #console {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .test-results {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat {
+            padding: 15px;
+            border-radius: 6px;
+            background: #f8f9fa;
+            border-left: 4px solid #9b59b6;
+        }
+
+        .stat .label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .stat .value {
+            display: block;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #9b59b6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        button {
+            background: #9b59b6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+
+        button:hover {
+            background: #8e44ad;
+        }
+
+        .note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .note h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Children/Slots Spike Tests</h1>
+
+    <div class="note">
+        <h3>About This Spike</h3>
+        <p>These tests validate the fine-grained children/slots implementation. Key scenarios:</p>
+        <ul>
+            <li>Basic children rendering</li>
+            <li>Reactive children (parent state binding) - THE critical test</li>
+            <li>Named slots routing</li>
+            <li>Control flow in children (when/each)</li>
+            <li>Nested custom elements</li>
+            <li>Context preservation through multiple levels</li>
+        </ul>
+    </div>
+
+    <div>
+        <button type="button" id="runTestsBtn">Run Tests</button>
+        <button type="button" id="clearConsoleBtn">Clear Console</button>
+    </div>
+
+    <div id="results"></div>
+    <div id="console"></div>
+
+    <script type="module">
+        import { runner } from './test-runner.js';
+
+        // Import spike tests
+        import './children-spike.test.js';
+
+        // Capture console output
+        const consoleDiv = document.getElementById('console');
+        const originalConsole = {
+            log: console.log,
+            error: console.error
+        };
+
+        function appendToConsole(message, type = 'log') {
+            const color = type === 'error' ? '#ff6b6b' : '#d4d4d4';
+            const line = document.createElement('div');
+            line.style.color = color;
+            line.textContent = message;
+            consoleDiv.appendChild(line);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        console.log = (...args) => {
+            const message = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            appendToConsole(message, 'log');
+            originalConsole.log(...args);
+        };
+
+        console.error = (...args) => {
+            const message = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            appendToConsole(message, 'error');
+            originalConsole.error(...args);
+        };
+
+        async function runTests() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Running spike tests...</p></div>';
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            await runner.run();
+            runner.renderResults(resultsDiv);
+        }
+
+        function clearConsole() {
+            consoleDiv.innerHTML = '';
+        }
+
+        // Set up event listeners
+        document.getElementById('runTestsBtn').addEventListener('click', runTests);
+        document.getElementById('clearConsoleBtn').addEventListener('click', clearConsole);
+
+        // Auto-run tests on page load
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>
