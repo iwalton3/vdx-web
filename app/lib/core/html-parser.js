@@ -34,15 +34,6 @@ const VOID_ELEMENTS = new Set([
     'link', 'meta', 'param', 'source', 'track', 'wbr'
 ]);
 
-// Boolean attributes
-const BOOLEAN_ATTRS = new Set([
-    'checked', 'selected', 'disabled', 'readonly', 'multiple', 'ismap',
-    'defer', 'declare', 'noresize', 'nowrap', 'noshade', 'compact',
-    'autofocus', 'required', 'autoplay', 'controls', 'loop', 'muted',
-    'default', 'open', 'reversed', 'scoped', 'seamless', 'sortable',
-    'novalidate', 'formnovalidate', 'itemscope', 'hidden', 'async'
-]);
-
 // Known event modifiers
 const KNOWN_MODIFIERS = new Set(['prevent', 'stop']);
 

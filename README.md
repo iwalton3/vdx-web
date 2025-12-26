@@ -11,7 +11,7 @@ A modern web framework with **ZERO npm dependencies**. Reactive state, component
 - **TypeScript support** - Optional `.d.ts` files for type checking ([docs](docs/typescript.md))
 - **Reactive state** - Vue-style proxy-based reactivity
 - **Two-way binding** - `x-model` with automatic type conversion
-- **Component system** - Web Components with Preact rendering
+- **Component system** - Web Components with fine-grained reactive rendering
 - **Router** - Hash and HTML5 routing with lazy loading
 - **Static site friendly** - Embed components in any HTML page
 
@@ -174,9 +174,9 @@ In the age of code rot, supply chain vulnerabilities, and dependency chains too 
 
 - **Zero npm dependencies** - No package.json, no node_modules, no supply chain risk
 - **No build step** - Runs directly in the browser using ES6 modules
-- **Battle-tested core** - Vendored Preact (~4KB) for DOM reconciliation
+- **Fine-grained reactivity** - Direct DOM updates, no virtual DOM diffing overhead
 - **Modern DX** - Reactive state, components, routing, two-way binding
-- **Production ready** - 230+ passing tests, XSS protection, used in real apps
+- **Production ready** - 290+ passing tests, XSS protection, used in real apps
 
 ### Technical Innovation
 
@@ -198,7 +198,7 @@ Components work like native HTML elements, making them perfect for enhancing sta
 - **Nested component hydration** - VDX components in light DOM children hydrate automatically, enabling SSG patterns
 - **No framework lock-in** - Components integrate with jQuery, vanilla JS, or any other code
 
-**Important:** Components are a boundary between vanilla JS and VDX. The framework manages everything *inside* a component's template - don't use DOM manipulation (`appendChild`, `innerHTML`, etc.) on elements inside components, as the virtual DOM will overwrite changes on the next render.
+**Important:** Components are a boundary between vanilla JS and VDX. The framework manages everything *inside* a component's template - don't use DOM manipulation (`appendChild`, `innerHTML`, etc.) on elements inside components, as the reactive system will overwrite changes on the next render.
 
 See the [Static Integration Demo](/bundle-demo/static-integration-demo.html) for live examples.
 
@@ -221,24 +221,24 @@ When the page loads, VDX automatically captures children, parses them as VNodes,
 ### How It Works
 
 1. **Template Compilation** - `html`` templates compiled once to AST structure
-2. **Value Application** - On each render, values applied to create Preact VNodes
-3. **Preact Reconciliation** - Preact efficiently updates the real DOM
+2. **Template Instantiation** - DOM nodes created with reactive bindings for each dynamic value
+3. **Fine-Grained Updates** - Only the specific DOM nodes that depend on changed state are updated
 
 ```javascript
 // Template compiled once when first rendered
 const template = html`<div>${this.state.count}</div>`;
 
-// On re-render: apply new values → Preact VNode → Preact reconciles DOM
+// On state change: only the text node for ${count} is updated, not the whole tree
 ```
 
-### Why Vendor Preact?
+### Fine-Grained Reactivity
 
-1. **Battle-tested** - Used in production by thousands of sites
-2. **Tiny** - Only ~4KB gzipped, smaller than most custom implementations
-3. **Efficient** - Highly optimized reconciliation algorithm
-4. **No npm needed** - We vendor it, no package.json required
+VDX uses **fine-grained reactive rendering** inspired by SolidJS:
 
-The innovative part is the **template compilation system** that converts `html`` templates to Preact VNodes efficiently without JSX or a build step.
+- Each template binding (`${value}`) creates its own reactive effect
+- State changes trigger **O(1) updates** to specific DOM nodes
+- No full-tree diffing - direct DOM manipulation for maximum performance
+- Scales to thousands of items with consistent performance
 
 ## Project Structure
 
@@ -255,7 +255,7 @@ app/
 ├── dist/                    # Pre-bundled versions for embedding
 ├── componentlib/            # vdx-ui: Professional UI component library
 ├── components/              # Shared UI components
-├── tests/                   # Test suite (187 tests)
+├── tests/                   # Test suite (293 tests)
 ├── ts-demo/                 # TypeScript demo application
 └── index.html               # Entry point
 ```
@@ -359,13 +359,13 @@ In a world where a simple "hello world" requires hundreds of megabytes of depend
 
 - **[lit-html](https://lit.dev/)** - Tagged template literals for HTML
 - **Vue 3** - Proxy-based reactivity system
-- **Preact** - Efficient VDOM reconciliation (vendored)
+- **SolidJS** - Fine-grained reactive rendering
 - **Svelte** - Component-first architecture
 - **Web Components** - Native browser APIs
 
 ## License
 
-VDX Framework and all components are MIT licensed. Preact is also MIT licensed, see bundled license in the vendor folder.
+VDX Framework and all components are MIT licensed.
 
 ## Quality Assurance
 
@@ -373,7 +373,7 @@ VDX consists mainly of code created using Claude. Quality assurance is achieved 
 
 This project is a quality framework with a high degree of optimization and iteration based on actual development experience and testing, but don't expect it to be perfect. There will be changes in the future but it's mostly feature complete and the core APIs are established and unlikely to change significantly.
 
-There's no warranty if you build a business around my side project and get burned, but the framework in general avoids a lot of other risks such as code rot and supply chain breaches associated with extremely large NPM dependency graphs. (The only dependency is bundled Preact.) Since there is no build step, you could theoretically use this framework long into the future, as long as there are no major breaking changes in web browsers (less likely than your framework/build system/bundler/etc going out of style or deciding to leave you in the cold with a mountain of breaking changes).
+There's no warranty if you build a business around my side project and get burned, but the framework in general avoids a lot of other risks such as code rot and supply chain breaches associated with extremely large NPM dependency graphs. (There are no external dependencies.) Since there is no build step, you could theoretically use this framework long into the future, as long as there are no major breaking changes in web browsers (less likely than your framework/build system/bundler/etc going out of style or deciding to leave you in the cold with a mountain of breaking changes).
 
 ## Contributing
 
@@ -385,7 +385,7 @@ PRs are welcome! Please ensure:
 
 ## Acknowledgments
 
-- **Preact team** - For creating an amazing, tiny VDOM library
+- **SolidJS** - For inspiration on fine-grained reactivity
 - **Vue.js** - For inspiration on reactivity system
 - **lit-html** - For tagged template literal ideas
 - **developit/htm** - For optimization ideas for template engine

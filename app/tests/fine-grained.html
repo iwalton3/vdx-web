@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Children/Slots Spike Tests</title>
+    <title>Fine-Grained Renderer Tests</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -15,7 +15,7 @@
 
         h1 {
             color: #333;
-            border-bottom: 3px solid #9b59b6;
+            border-bottom: 3px solid #4caf50;
             padding-bottom: 10px;
         }
 
@@ -31,7 +31,6 @@
             overflow-y: auto;
             white-space: pre-wrap;
             margin: 20px 0;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         .test-results {
@@ -39,7 +38,6 @@
             padding: 20px;
             border-radius: 8px;
             margin: 20px 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .summary {
@@ -53,7 +51,7 @@
             padding: 15px;
             border-radius: 6px;
             background: #f8f9fa;
-            border-left: 4px solid #9b59b6;
+            border-left: 4px solid #4caf50;
         }
 
         .stat .label {
@@ -71,29 +69,8 @@
             color: #333;
         }
 
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #9b59b6;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
         button {
-            background: #9b59b6;
+            background: #4caf50;
             color: white;
             border: none;
             padding: 10px 20px;
@@ -104,12 +81,12 @@
         }
 
         button:hover {
-            background: #8e44ad;
+            background: #45a049;
         }
 
         .note {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
             border-radius: 5px;
             padding: 15px;
             margin: 20px 0;
@@ -117,23 +94,26 @@
 
         .note h3 {
             margin-top: 0;
-            color: #856404;
+            color: #1976d2;
         }
     </style>
 </head>
 <body>
-    <h1>🧪 Children/Slots Spike Tests</h1>
+    <h1>Fine-Grained Renderer Tests</h1>
 
     <div class="note">
-        <h3>About This Spike</h3>
-        <p>These tests validate the fine-grained children/slots implementation. Key scenarios:</p>
+        <h3>About These Tests</h3>
+        <p>These tests validate the fine-grained template renderer before integration with component.js.</p>
         <ul>
-            <li>Basic children rendering</li>
-            <li>Reactive children (parent state binding) - THE critical test</li>
-            <li>Named slots routing</li>
-            <li>Control flow in children (when/each)</li>
-            <li>Nested custom elements</li>
-            <li>Context preservation through multiple levels</li>
+            <li>Static content rendering</li>
+            <li>Dynamic text and attributes</li>
+            <li>Reactive updates (per-binding effects)</li>
+            <li>Event handling</li>
+            <li>x-model two-way binding</li>
+            <li>Refs</li>
+            <li>Control flow (when, each)</li>
+            <li>Effect cleanup</li>
+            <li>Deferred children (for slots)</li>
         </ul>
     </div>
 
@@ -148,8 +128,8 @@
     <script type="module">
         import { runner } from './test-runner.js';
 
-        // Import spike tests
-        import './children-spike.test.js';
+        // Import fine-grained tests
+        import './fine-grained.test.js';
 
         // Capture console output
         const consoleDiv = document.getElementById('console');
@@ -185,7 +165,7 @@
 
         async function runTests() {
             const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Running spike tests...</p></div>';
+            resultsDiv.innerHTML = '<p>Running tests...</p>';
 
             await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -197,7 +177,6 @@
             consoleDiv.innerHTML = '';
         }
 
-        // Set up event listeners
         document.getElementById('runTestsBtn').addEventListener('click', runTests);
         document.getElementById('clearConsoleBtn').addEventListener('click', clearConsole);
 

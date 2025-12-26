@@ -5,7 +5,7 @@
  * Zero-dependency reactive web framework with:
  * - Web Components based architecture
  * - Vue 3-style proxy reactivity
- * - Preact rendering for efficient DOM updates
+ * - Fine-grained reactive rendering
  * - Compile-once template system
  * - Template helpers (html, when, each, raw)
  * - Reactive stores
@@ -165,14 +165,43 @@ export { defineComponent, flushRenders, flushSync } from './core/component.js';
  * @param {any} obj - Object to check
  * @returns {boolean} True if object is untracked
  */
-export { reactive, createEffect, trackAllDependencies, isReactive, watch, computed, memo, untracked, isUntracked } from './core/reactivity.js';
+/**
+ * Execute a function without tracking reactive dependencies.
+ * Any state accessed during the callback won't become a dependency
+ * of the current effect.
+ *
+ * @template T
+ * @param {function(): T} fn - Callback to execute without tracking
+ * @returns {T} Return value of the callback
+ *
+ * @example
+ * createEffect(() => {
+ *   // This will NOT be tracked:
+ *   const data = withoutTracking(() => this.state.hugeArray);
+ *   // This WILL be tracked:
+ *   console.log(this.state.filter);
+ * });
+ */
+/**
+ * Flush all pending reactive effects synchronously.
+ * Normally effects are batched and run via queueMicrotask. Call this when you
+ * need effects to run immediately (e.g., in tests, or reading DOM after state change).
+ *
+ * @returns {void}
+ *
+ * @example
+ * state.count = 5;
+ * flushEffects(); // Effects run now, not on next microtask
+ * console.log(document.querySelector('.count').textContent); // "5"
+ */
+export { reactive, createEffect, trackAllDependencies, isReactive, watch, computed, memo, untracked, isUntracked, withoutTracking, flushEffects } from './core/reactivity.js';
 
 /**
  * Tagged template literal for creating XSS-safe HTML templates
  *
  * @param {TemplateStringsArray} strings - Template strings
  * @param {...any} values - Interpolated values (automatically escaped)
- * @returns {Object} Compiled template structure compatible with Preact
+ * @returns {Object} Compiled template structure
  *
  * @example
  * html`<div>${userInput}</div>` // Auto-escaped
@@ -277,27 +306,6 @@ export { pruneTemplateCache } from './core/template-compiler.js';
  * unsubscribe();
  */
 export { createStore } from './core/store.js';
-
-/**
- * Preact's createElement function (for advanced usage)
- * @function h
- * @param {string | Function} type - Element type or component
- * @param {Object | null} props - Props/attributes
- * @param {...any} children - Child elements
- * @returns {Object} VNode
- */
-/**
- * Preact's Fragment component (for grouping elements without wrapper)
- * @type {Function}
- */
-/**
- * Preact's render function (for manual rendering)
- * @function render
- * @param {Object} vnode - Virtual node to render
- * @param {HTMLElement} container - Container element
- * @returns {void}
- */
-export { h, Fragment, render } from './vendor/preact/index.js';
 
 // Auto-register x-await-then component (used by awaitThen() helper)
 import './core/x-await-then.js';

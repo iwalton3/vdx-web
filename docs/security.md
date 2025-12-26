@@ -21,7 +21,7 @@ The framework implements **defense-in-depth** with multiple security layers:
 
 | Layer | Protection |
 |-------|-----------|
-| **Automatic HTML escaping** | Preact auto-escapes all text content |
+| **Automatic HTML escaping** | Auto-escapes all text content |
 | **URL scheme allowlisting** | Blocks `javascript:`, `data:`, `vbscript:` |
 | **Symbol-based trust markers** | Prevents JSON spoofing of `raw()` |
 | **Unicode normalization** | Removes BOM and zero-width characters |
@@ -33,7 +33,7 @@ The framework implements **defense-in-depth** with multiple security layers:
 
 | Attack | Protection | Status |
 |--------|-----------|--------|
-| XSS via content | Preact auto-escaping | ✅ Blocked |
+| XSS via content | Auto-escaping | ✅ Blocked |
 | XSS via attributes | Quote escaping | ✅ Blocked |
 | XSS via URLs | Scheme allowlist | ✅ Blocked |
 | XSS via event handlers | No eval, compile-time binding | ✅ Blocked |

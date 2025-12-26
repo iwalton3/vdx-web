@@ -6,9 +6,9 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { compileTemplate, applyValues, clearTemplateCache, getTemplateCacheSize } from '../lib/core/template-compiler.js';
+import { compileTemplate, clearTemplateCache, getTemplateCacheSize } from '../lib/core/template-compiler.js';
+import { instantiateTemplate } from '../lib/core/template-renderer.js';
 import { defineComponent, html } from '../lib/framework.js';
-import { render as preactRender } from '../lib/vendor/preact/index.js';
 
 // Define a simple test custom element
 defineComponent('x-component', {
@@ -20,11 +20,17 @@ defineComponent('x-component', {
     }
 });
 
-// Helper to render template to container
+// Helper to render compiled template to container using fine-grained renderer
+function renderToContainer(compiled, values, container) {
+    const { fragment, cleanup } = instantiateTemplate(compiled, values, null);
+    container.appendChild(fragment);
+    return cleanup;
+}
+
+// Helper to render html`` template to container
 function renderTemplate(template, container) {
     if (template._compiled) {
-        const vnode = applyValues(template._compiled, template._values || []);
-        preactRender(vnode, container);
+        return renderToContainer(template._compiled, template._values || [], container);
     } else if (template && typeof template === 'object' && template.toString) {
         // Fallback for string-based templates
         container.innerHTML = template.toString();
@@ -41,8 +47,7 @@ describe('Template Compiler', function(it) {
 
         // Test behavior: renders correctly
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.textContent, 'Hello World', 'Should render Hello World');
     });
 
@@ -65,8 +70,7 @@ describe('Template Compiler', function(it) {
 
         // Test behavior: slot value is interpolated
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, ['Hello Slot']);
-        preactRender(vnode, container);
+        renderToContainer(compiled, ['Hello Slot'], container);
         assert.equal(container.textContent, 'Hello Slot', 'Should render slot value');
     });
 
@@ -76,8 +80,7 @@ describe('Template Compiler', function(it) {
 
         // Test behavior: attribute is applied
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, ['my-class']);
-        preactRender(vnode, container);
+        renderToContainer(compiled, ['my-class'], container);
 
         const div = container.querySelector('div');
         assert.equal(div.className, 'my-class', 'Should apply class attribute');
@@ -89,8 +92,7 @@ describe('Template Compiler', function(it) {
 
         // Test behavior: all slots are applied correctly
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, ['my-id', 'my-class', 'Content']);
-        preactRender(vnode, container);
+        renderToContainer(compiled, ['my-id', 'my-class', 'Content'], container);
 
         const div = container.querySelector('div');
         assert.equal(div.id, 'my-id', 'Should apply id');
@@ -104,8 +106,7 @@ describe('Template Compiler', function(it) {
 
         // Test behavior: dangerous URLs are sanitized
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, ['javascript:alert(1)']);
-        preactRender(vnode, container);
+        renderToContainer(compiled, ['javascript:alert(1)'], container);
 
         const a = container.querySelector('a');
         assert.equal(a.getAttribute('href'), '', 'Should sanitize javascript: URL');
@@ -118,8 +119,7 @@ describe('Template Compiler', function(it) {
         // Test behavior: object props passed to custom element
         const container = document.createElement('div');
         const data = { foo: 'bar' };
-        const vnode = applyValues(compiled, [data]);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [data], container);
 
         const el = container.querySelector('x-component');
         assert.equal(el.data, data, 'Should pass object to custom element');
@@ -133,8 +133,7 @@ describe('Template Compiler', function(it) {
         let clicked = false;
         const handler = () => { clicked = true; };
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, [handler]);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [handler], container);
 
         const button = container.querySelector('button');
         button.click();
@@ -147,8 +146,7 @@ describe('Template Compiler', function(it) {
 
         // Test behavior: nested structure renders correctly
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, ['Nested']);
-        preactRender(vnode, container);
+        renderToContainer(compiled, ['Nested'], container);
 
         const span = container.querySelector('div span');
         assert.ok(span, 'Should have nested span');
@@ -161,9 +159,7 @@ describe('Template Value Application', function(it) {
         const container = document.createElement('div');
         const strings = ['<div>', '</div>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, ['Hello']);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, ['Hello'], container);
 
         const div = container.querySelector('div');
         assert.equal(div.textContent, 'Hello', 'Should render Hello');
@@ -173,9 +169,7 @@ describe('Template Value Application', function(it) {
         const container = document.createElement('div');
         const strings = ['<div>', '</div>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, ['<script>alert(1)</script>']);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, ['<script>alert(1)</script>'], container);
 
         const div = container.querySelector('div');
         assert.equal(div.textContent, '<script>alert(1)</script>', 'Should escape script tags');
@@ -186,9 +180,7 @@ describe('Template Value Application', function(it) {
         const container = document.createElement('div');
         const strings = ['<div class="', '">Content</div>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, ['my-class']);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, ['my-class'], container);
 
         const div = container.querySelector('div');
         assert.equal(div.className, 'my-class', 'Should apply class value');
@@ -198,12 +190,10 @@ describe('Template Value Application', function(it) {
         const container = document.createElement('div');
         const strings = ['<div title="', '">Content</div>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, ['\"><script>alert(1)</script>']);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, ['\"><script>alert(1)</script>'], container);
 
         const div = container.querySelector('div');
-        // Preact/browser should escape quotes in attributes
+        // Browser should escape quotes in attributes
         // The output will contain "><script with escaped quotes: &quot;><script
         // This is safe - the quotes prevent breaking out of the attribute context
         assert.ok(!div.outerHTML.includes('\"><script'), 'Should not allow unescaped attribute injection');
@@ -214,9 +204,7 @@ describe('Template Value Application', function(it) {
         const container = document.createElement('div');
         const strings = ['<option selected="', '">Test</option>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, [true]);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, [true], container);
 
         const option = container.querySelector('option');
         assert.ok(option.selected, 'Boolean true should set selected');
@@ -226,9 +214,7 @@ describe('Template Value Application', function(it) {
         const container = document.createElement('div');
         const strings = ['<option selected="', '">Test</option>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, [false]);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, [false], container);
 
         const option = container.querySelector('option');
         assert.ok(!option.selected, 'Boolean false should not set selected');
@@ -238,9 +224,7 @@ describe('Template Value Application', function(it) {
         const container = document.createElement('div');
         const strings = ['<div class="', '">Content</div>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, [undefined]);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, [undefined], container);
 
         const div = container.querySelector('div');
         assert.ok(!div.className, 'Undefined should not set class');
@@ -250,9 +234,7 @@ describe('Template Value Application', function(it) {
         const container = document.createElement('div');
         const strings = ['<a href="', '">Link</a>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, ['javascript:alert(1)']);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, ['javascript:alert(1)'], container);
 
         const a = container.querySelector('a');
         assert.equal(a.getAttribute('href'), '', 'Should block javascript: URL');
@@ -262,9 +244,7 @@ describe('Template Value Application', function(it) {
         const container = document.createElement('div');
         const strings = ['<a href="', '">Link</a>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, ['https://example.com']);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, ['https://example.com'], container);
 
         const a = container.querySelector('a');
         assert.equal(a.getAttribute('href'), 'https://example.com', 'Should allow HTTPS');
@@ -276,9 +256,7 @@ describe('Template Value Application', function(it) {
         const handler = () => { clicked = true; };
         const strings = ['<button on-click="', '">Click</button>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, [handler]);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, [handler], container);
 
         const button = container.querySelector('button');
         button.click();
@@ -290,9 +268,7 @@ describe('Template Value Application', function(it) {
         const data = { foo: 'bar' };
         const strings = ['<x-component data="', '"></x-component>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, [data]);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, [data], container);
 
         const el = container.querySelector('x-component');
         assert.equal(el.data, data, 'Should pass object to custom element');
@@ -304,9 +280,7 @@ describe('Template Value Application', function(it) {
         const data = "Test!";
         const strings = ['<x-component data="', '"></x-component>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, [data]);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, [data], container);
 
         const el = container.querySelector('x-component');
         assert.equal(el.data, "Test!", 'Should pass string to custom element');
@@ -317,9 +291,7 @@ describe('Template Value Application', function(it) {
         const container = document.createElement('div');
         const strings = ['<div id="', '" class="', '">', '</div>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, ['my-id', 'my-class', 'Content']);
-
-        preactRender(applied, container);
+        renderToContainer(compiled, ['my-id', 'my-class', 'Content'], container);
 
         const div = container.querySelector('div');
         assert.equal(div.id, 'my-id', 'Should apply id');
@@ -348,8 +320,9 @@ describe('Template Compiler Edge Cases', function(it) {
 
         assert.ok(compiled, 'Should compile');
 
-        // Should produce valid (empty or null) output
-        const vnode = applyValues(compiled, []);
+        // Should render without crashing
+        const container = document.createElement('div');
+        renderToContainer(compiled, [], container);
         // Empty templates should not crash
     });
 
@@ -368,8 +341,7 @@ describe('Template Compiler Edge Cases', function(it) {
 
         // Test behavior: slot value is rendered
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, ['Just a slot']);
-        preactRender(vnode, container);
+        renderToContainer(compiled, ['Just a slot'], container);
         assert.equal(container.textContent, 'Just a slot', 'Should render slot value');
     });
 
@@ -379,8 +351,7 @@ describe('Template Compiler Edge Cases', function(it) {
 
         // Test behavior: img is rendered with src
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, ['test.png']);
-        preactRender(vnode, container);
+        renderToContainer(compiled, ['test.png'], container);
 
         const img = container.querySelector('img');
         assert.ok(img, 'Should render img');
@@ -393,8 +364,7 @@ describe('Template Compiler Edge Cases', function(it) {
 
         // Test behavior: deeply nested slot is applied
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, ['https://example.com']);
-        preactRender(vnode, container);
+        renderToContainer(compiled, ['https://example.com'], container);
 
         const a = container.querySelector('div ul li a');
         assert.ok(a, 'Should render deeply nested a');
@@ -407,8 +377,7 @@ describe('Template Compiler Edge Cases', function(it) {
 
         // Test behavior: both elements are rendered
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
 
         const divs = container.querySelectorAll('div');
         assert.equal(divs.length, 2, 'Should have 2 divs');
@@ -422,8 +391,7 @@ describe('Template Compiler Edge Cases', function(it) {
 
         // Comments should be stripped, slot should work
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, ['Content']);
-        preactRender(vnode, container);
+        renderToContainer(compiled, ['Content'], container);
 
         const div = container.querySelector('div');
         assert.equal(div.textContent, 'Content', 'Should render content after comment');
@@ -488,10 +456,9 @@ describe('Template Compiler Performance', function(it) {
         // Static templates should have isStatic flag
         assert.ok(compiled.isStatic, 'Static template should be marked as static');
 
-        // Applying values multiple times should return same reference for static
-        const vnode1 = applyValues(compiled, []);
-        const vnode2 = applyValues(compiled, []);
-        assert.equal(vnode1, vnode2, 'Static VNode should be reused');
+        // Static templates should have a template property (pre-built DOM)
+        assert.ok(compiled.template, 'Static template should have pre-built DOM');
+        assert.ok(compiled.template instanceof Node, 'template should be a DOM Node');
     });
 });
 
@@ -502,8 +469,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.textContent, 'Tom & Jerry', 'Should render bare ampersand correctly');
     });
 
@@ -513,8 +479,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.textContent, 'A & B & C & D', 'Should render multiple ampersands');
     });
 
@@ -525,8 +490,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(stringsWithEntity);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         // Non-breaking space is Unicode 160
         assert.ok(container.textContent.includes('\u00A0'), 'Should render non-breaking space');
     });
@@ -537,8 +501,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.textContent, '© 2024', 'Should render copyright symbol');
     });
 
@@ -548,8 +511,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.textContent, '<tag> & "text"', 'Should decode XML entities correctly');
     });
 
@@ -559,8 +521,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.textContent, '© —', 'Should render numeric entities');
     });
 
@@ -570,8 +531,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.textContent, '© —', 'Should render hex entities');
     });
 
@@ -581,8 +541,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.firstChild.getAttribute('title'), 'Tom & Jerry', 'Should handle entities in attributes');
     });
 
@@ -592,8 +551,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.firstChild.getAttribute('title'), 'R&D', 'Should escape bare ampersand in attributes');
     });
 
@@ -603,8 +561,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.textContent, '© Tom & Jerry — 2024', 'Should handle mixed entities');
     });
 
@@ -615,8 +572,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         // Unknown entity gets escaped, so it renders as literal text
         assert.equal(container.textContent, '&unknownentity;', 'Should escape unknown entities');
     });
@@ -627,8 +583,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.textContent, 'α β γ', 'Should render Greek letters');
     });
 
@@ -638,8 +593,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, []);
-        preactRender(vnode, container);
+        renderToContainer(compiled, [], container);
         assert.equal(container.textContent, '← → ↑ ↓', 'Should render arrow entities');
     });
 
@@ -649,8 +603,7 @@ describe('Entity Preprocessing', function(it) {
         const compiled = compileTemplate(strings);
 
         const container = document.createElement('div');
-        const vnode = applyValues(compiled, ['2024']);
-        preactRender(vnode, container);
+        renderToContainer(compiled, ['2024'], container);
         assert.equal(container.textContent, '© 2024 — All rights reserved', 'Should work with slots');
     });
 });

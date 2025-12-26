@@ -102,19 +102,26 @@ class TestHelper {
     }
 
     async selectComponent(name) {
-        // First expand all groups to make sure the component is visible
-        // Check current expansion state and only click to expand if needed
-        await this.page.evaluate(() => {
-            const groupHeaders = document.querySelectorAll('.nav-item.has-children');
-            groupHeaders.forEach(header => {
-                const arrow = header.querySelector('.nav-arrow');
-                // Only click if not expanded (arrow exists and doesn't have 'expanded' class)
-                if (!arrow || !arrow.classList.contains('expanded')) {
-                    header.click();
-                }
-            });
+        // Expand all groups one at a time to avoid state interference
+        const groups = await this.page.evaluate(() => {
+            const items = document.querySelectorAll('.nav-item.has-children');
+            return Array.from(items).map(el => el.querySelector('.nav-label')?.textContent.trim());
         });
-        await this.page.waitForTimeout(300);
+
+        for (const groupName of groups) {
+            await this.page.evaluate((gn) => {
+                const items = Array.from(document.querySelectorAll('.nav-item.has-children'));
+                const group = items.find(el => el.querySelector('.nav-label')?.textContent.trim() === gn);
+                if (group) {
+                    const arrow = group.querySelector('.nav-arrow');
+                    if (!arrow || !arrow.classList.contains('expanded')) {
+                        group.click();
+                    }
+                }
+            }, groupName);
+            await this.page.waitForTimeout(100);
+        }
+        await this.page.waitForTimeout(200);
 
         // Now try to find and click the component
         await this.page.evaluate((componentName) => {
@@ -157,8 +164,8 @@ class TestHelper {
         } catch (e) {
             // Some components might not set active state immediately
         }
-        // Wait a bit for rendering to complete
-        await this.page.waitForTimeout(300);
+        // Wait for rendering to complete (re-instantiation can take longer)
+        await this.page.waitForTimeout(500);
     }
 
     async getActiveComponent() {

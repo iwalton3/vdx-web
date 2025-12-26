@@ -307,7 +307,7 @@ export default defineComponent('cl-input-mask', {
         },
 
         updateInputAndCursor(input, cursorPos) {
-            // Don't set input.value directly - let Preact handle it via the template
+            // Don't set input.value directly - let the reactive template handle it
             // Just set cursor position after the render completes
             setTimeout(() => {
                 input.setSelectionRange(cursorPos, cursorPos);
@@ -320,7 +320,7 @@ export default defineComponent('cl-input-mask', {
             // Position cursor at first empty slot after render
             setTimeout(() => {
                 const input = e.target;
-                // Don't set input.value - let Preact handle it via the template
+                // Don't set input.value - let the reactive template handle it
                 const nextEmpty = this.getNextEmptyBufferIdx();
                 const cursorPos = this.bufferIdxToDisplayPos(nextEmpty);
                 input.setSelectionRange(cursorPos, cursorPos);

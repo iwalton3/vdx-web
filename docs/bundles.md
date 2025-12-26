@@ -20,7 +20,6 @@ Complete framework bundle including:
 - **Reactivity:** `reactive`, `createEffect`, `computed`, `isReactive`, `watch`, `memo`, `trackAllDependencies`
 - **Template system:** `html`, `when`, `each`, `raw`, `pruneTemplateCache`
 - **Store system:** `createStore`
-- **Preact rendering:** `h`, `Fragment`, `render`, `Component`, `createContext`
 
 **Usage:**
 ```html
@@ -333,7 +332,7 @@ Then open: http://localhost:9000/bundle-demo/
 ## Notes
 
 - **No build step required** - Use directly in browsers with ES6 module support
-- **Self-contained** - All dependencies bundled (including Preact for framework.js)
+- **Self-contained** - All dependencies bundled
 - **Tree-shakeable** - Import only what you need
 - **No external dependencies** - Works offline, no CDN required
 
@@ -344,7 +343,6 @@ Then open: http://localhost:9000/bundle-demo/
 - Gzipped: ~20 KB (estimated)
 
 **Includes:**
-- Preact 10.x (~4 KB core)
 - Reactive system (reactive, createEffect, computed, watch, memo, isReactive)
 - Template compiler and helpers (html, when, each, raw)
 - Component system (defineComponent)

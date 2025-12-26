@@ -40,10 +40,10 @@ export default defineComponent('my-component', {
     },
 
     // Lifecycle: called after each render
-    // ⚠️ Often unnecessary with Preact - use only when needed for DOM manipulation
+    // ⚠️ Often unnecessary - use only when needed for DOM manipulation
     afterRender() {
         // Use only for: imperative DOM APIs, third-party library integration
-        // NOT for: syncing values (Preact handles this), event binding (use on-*)
+        // NOT for: syncing values (framework handles this), event binding (use on-*)
     },
 
     // Lifecycle: called before component is removed
@@ -705,7 +705,7 @@ propsChanged(prop, newValue, oldValue) {
 
 ### afterRender()
 
-Called after each render. **Use sparingly** - Preact handles most DOM sync automatically.
+Called after each render. **Use sparingly** - the framework handles most DOM sync automatically.
 
 **When to use:**
 - Imperative DOM APIs (focus, scroll position)
@@ -713,7 +713,7 @@ Called after each render. **Use sparingly** - Preact handles most DOM sync autom
 - Reading DOM measurements
 
 **When NOT to use:**
-- ❌ Value syncing (Preact handles this)
+- ❌ Value syncing (framework handles this)
 - ❌ Event binding (use `on-*` attributes)
 - ❌ Setting select values (use `value` attribute)
 
@@ -726,7 +726,7 @@ afterRender() {
     }
 }
 
-// ❌ WRONG - Preact handles value syncing automatically
+// ❌ WRONG - Framework handles value syncing automatically
 afterRender() {
     this.querySelector('select').value = this.state.selected;
 }

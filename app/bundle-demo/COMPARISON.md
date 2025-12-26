@@ -431,7 +431,7 @@ styles: /*css*/`
 | **Maintainability** | Hard to modify | Easy to modify |
 | **Bundle size** | 0 KB (but limited) | ~35 KB gzipped (full features) |
 | **Learning curve** | Low | Medium |
-| **Performance** | Can be optimized | Optimized by default (Preact) |
+| **Performance** | Can be optimized | Optimized by default |
 
 ## When to Use Each
 

@@ -41,7 +41,13 @@ export default defineComponent('cl-input-text', {
 
     propsChanged(prop, newValue, oldValue) {
         // Sync internal value when prop changes (controlled mode)
+        // But skip if input is focused - user is actively typing
         if (prop === 'value' && newValue !== this.state.internalValue) {
+            const input = this.querySelector('input');
+            if (input && document.activeElement === input) {
+                // Input is focused, user is typing - don't overwrite
+                return;
+            }
             this.state.internalValue = newValue || '';
         }
     },

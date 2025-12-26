@@ -41,8 +41,8 @@ export default defineComponent('x-await-then', {
 
             this._trackedPromise = promise;
 
-            // Not a promise - treat as immediate value
-            if (!promise || typeof promise.then !== 'function') {
+            // Not a promise (including null/undefined) - treat as immediate value
+            if (promise == null || typeof promise.then !== 'function') {
                 this.state.status = 'resolved';
                 this.state.value = promise;
                 this.state.err = null;
@@ -97,7 +97,19 @@ export default defineComponent('x-await-then', {
 
             // Resolved
             if (typeof thenFn === 'function') {
-                return thenFn(value);
+                try {
+                    return thenFn(value);
+                } catch (err) {
+                    // If thenFn throws (e.g., accessing property on null),
+                    // show error content if available, otherwise re-throw
+                    if (typeof catchFn === 'function') {
+                        return catchFn(err);
+                    }
+                    if (catchFn) {
+                        return catchFn;
+                    }
+                    throw err;
+                }
             }
             return html``;
         }

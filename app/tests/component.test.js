@@ -309,5 +309,5 @@ describe('Component Event Isolation', function(it) {
         }, 150);
     });
 
-    // Removed: Shadow DOM test - no longer supported after Preact migration
+    // Removed: Shadow DOM test - not supported in current architecture
 });

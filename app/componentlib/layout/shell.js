@@ -199,8 +199,15 @@ export default defineComponent('cl-shell', {
     styles: /*css*/`
         :host {
             display: block;
-            height: 100vh;
+            height: 100dvh;  /* Dynamic viewport height - excludes mobile browser UI */
+            height: 100vh;   /* Fallback for older browsers */
             overflow: hidden;
+        }
+
+        @supports (height: 100dvh) {
+            :host {
+                height: 100dvh;
+            }
         }
 
         .shell-container {
@@ -245,6 +252,7 @@ export default defineComponent('cl-shell', {
             border: none;
             cursor: pointer;
             padding: 0;
+            color: var(--topbar-text, white);
         }
 
         .hamburger-line {
@@ -415,8 +423,8 @@ export default defineComponent('cl-shell', {
         .main-content {
             flex: 1;
             overflow-y: auto;
-            padding: 24px;
-            padding-bottom: 32px;
+            padding: var(--shell-content-padding, 24px);
+            padding-bottom: calc(var(--shell-content-padding-bottom, 32px) + env(safe-area-inset-bottom, 0px));
         }
 
         /* Responsive */
@@ -430,8 +438,8 @@ export default defineComponent('cl-shell', {
             }
 
             .main-content {
-                padding: 16px;
-                padding-bottom: 24px;
+                padding: var(--shell-content-padding, 16px);
+                padding-bottom: calc(var(--shell-content-padding-bottom, 24px) + env(safe-area-inset-bottom, 0px));
             }
         }
     `

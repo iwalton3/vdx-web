@@ -4,8 +4,9 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { compileTemplate, applyValues } from '../lib/core/template-compiler.js';
-import { render as preactRender } from '../lib/vendor/preact/index.js';
+import { compileTemplate } from '../lib/core/template-compiler.js';
+import { instantiateTemplate } from '../lib/core/template-renderer.js';
+
 
 // Define a simple test custom element
 if (!customElements.get('x-component')) {
@@ -34,9 +35,8 @@ describe('Compiled Templates - Direct References', function(it) {
         const compiled = compileTemplate(strings);
 
         // Pass actual function references (no string lookup needed!)
-        const applied = applyValues(compiled, [handler(1), handler(2)]);
-
-        preactRender(applied, container);
+        const { fragment } = instantiateTemplate(compiled, [handler(1), handler(2)], null);
+        container.appendChild(fragment);
 
         const buttons = container.querySelectorAll('button');
         buttons[0].click();
@@ -57,13 +57,12 @@ describe('Compiled Templates - Direct References', function(it) {
 
         const strings = ['<x-component data="', '"></x-component>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, [complexData]);
-
-        preactRender(applied, container);
+        const { fragment } = instantiateTemplate(compiled, [complexData], null);
+        container.appendChild(fragment);
 
         const el = container.querySelector('x-component');
 
-        // Wait for Preact ref callback to fire
+        // Wait for custom element to be ready
         await new Promise(resolve => setTimeout(resolve, 10));
 
         // Object reference preserved with methods intact
@@ -75,7 +74,6 @@ describe('Compiled Templates - Direct References', function(it) {
 
     it('enables closures in event handlers', () => {
         const container = document.createElement('div');
-        const component = {};
         const results = [];
 
         // Each button gets a closure that captures its index
@@ -89,24 +87,18 @@ describe('Compiled Templates - Direct References', function(it) {
         // Create 3 separate buttons, each with one slot
         const strings1 = ['<button on-click="', '">0</button>'];
         const compiled1 = compileTemplate(strings1);
-        const applied1 = applyValues(compiled1, [handlers[0]]);
+        const result1 = instantiateTemplate(compiled1, [handlers[0]], null);
+        container.appendChild(result1.fragment);
 
         const strings2 = ['<button on-click="', '">1</button>'];
         const compiled2 = compileTemplate(strings2);
-        const applied2 = applyValues(compiled2, [handlers[1]]);
+        const result2 = instantiateTemplate(compiled2, [handlers[1]], null);
+        container.appendChild(result2.fragment);
 
         const strings3 = ['<button on-click="', '">2</button>'];
         const compiled3 = compileTemplate(strings3);
-        const applied3 = applyValues(compiled3, [handlers[2]]);
-
-        // Render all three
-        preactRender(applied1, container);
-        const temp2 = document.createElement('div');
-        preactRender(applied2, temp2);
-        container.appendChild(temp2.firstChild);
-        const temp3 = document.createElement('div');
-        preactRender(applied3, temp3);
-        container.appendChild(temp3.firstChild);
+        const result3 = instantiateTemplate(compiled3, [handlers[2]], null);
+        container.appendChild(result3.fragment);
 
         const buttons = container.querySelectorAll('button');
         buttons[0].click();
@@ -125,9 +117,8 @@ describe('Compiled Templates - Direct References', function(it) {
 
         const strings = ['<button on-click="', '">Click</button>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, [handler]);
-
-        preactRender(applied, container);
+        const { fragment } = instantiateTemplate(compiled, [handler], null);
+        container.appendChild(fragment);
 
         // Handler is bound directly, no registry lookup on each click
         const button = container.querySelector('button');
@@ -167,10 +158,9 @@ describe('Compiled Templates - Direct References', function(it) {
 
             const strings = ['<div on-click="', '" on-mouseenter="', '">', '</div>'];
             const compiled = compileTemplate(strings);
-            const applied = applyValues(compiled, [onClick, onHover, item.name]);
-
+            const applied = instantiateTemplate(compiled, [onClick, onHover, item.name], null);
             const temp = document.createElement('div');
-            preactRender(applied, temp);
+            temp.appendChild(applied.fragment);
             container.appendChild(temp.firstChild);
         });
 
@@ -211,9 +201,8 @@ describe('Compiled Templates - Direct References', function(it) {
 
         const strings = ['<button on-click="', '">Click</button>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, [newPatternHandler(42)]);
-
-        preactRender(applied, container);
+        const { fragment } = instantiateTemplate(compiled, [newPatternHandler(42)], null);
+        container.appendChild(fragment);
 
         // The function is already bound and ready - no lookup!
         assert.ok(true, 'Direct references are faster and more powerful');

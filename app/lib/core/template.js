@@ -73,8 +73,8 @@ function normalizeInput(input) {
 
 /**
  * Sanitize URL - blocks dangerous schemes like javascript:
- * No HTML escaping needed since URLs go into Preact props, not raw HTML strings.
- * Preact sets href/src/action as DOM properties, so the browser handles them directly.
+ * No HTML escaping needed since URLs are set as DOM properties directly.
+ * The browser handles href/src/action properties natively.
  */
 export function sanitizeUrl(url) {
     const normalized = normalizeInput(url);
@@ -155,11 +155,26 @@ export function raw(htmlString) {
 /**
  * Conditional rendering helper
  * Returns thenValue if condition is truthy, otherwise returns elseValue (default: null)
- * Preact handles null children natively, no keys needed
  * @param {boolean} condition - Condition to evaluate
  * @param {*} thenValue - Value to return if condition is true
  * @param {*} elseValue - Value to return if condition is false (default: null)
  */
+// Cached empty template for when() false case - stable reference for fine-grained diffing
+const EMPTY_COMPILED = {
+    op: OP.STATIC,
+    template: null,
+    type: 'fragment',
+    wrapped: false,
+    children: []
+};
+const EMPTY_WHEN_RESULT = {
+    [HTML_MARKER]: true,
+    _compiled: EMPTY_COMPILED,
+    toString() {
+        return '';
+    }
+};
+
 export function when(condition, thenValue, elseValue = null) {
     let result = condition ? thenValue : elseValue;
 
@@ -167,36 +182,14 @@ export function when(condition, thenValue, elseValue = null) {
         result = result();
     }
 
-    // Preact handles null/false natively - just return it
+    // Null/false returns empty template for stable reference in fine-grained diffing
     if (!result) {
-        // Return null wrapped in compiled structure
-        return {
-            [HTML_MARKER]: true,
-            _compiled: {
-                op: OP.STATIC,
-                vnode: null,
-                type: 'fragment',
-                wrapped: false,
-                children: []
-            },
-            toString() {
-                return '';
-            }
-        };
+        return EMPTY_WHEN_RESULT;
     }
 
     // Handle html template objects (check Symbol for security)
     if (isHtml(result)) {
-        // Mark as wrapped so applyValues doesn't convert to HTML string
-        if (result._compiled) {
-            return {
-                ...result,
-                _compiled: {
-                    ...result._compiled,
-                    wrapped: true
-                }
-            };
-        }
+        // Return directly to preserve stable _compiled reference
         return result;
     }
 
@@ -223,7 +216,7 @@ export function each(array, mapFn, keyFn = null) {
             [HTML_MARKER]: true,
             _compiled: {
                 op: OP.STATIC,
-                vnode: null,
+                template: null,
                 type: 'fragment',
                 wrapped: false,
                 children: []
@@ -239,7 +232,7 @@ export function each(array, mapFn, keyFn = null) {
 
         // If keyFn provided and result has compiled template, add key to the node
         if (keyFn && result && result._compiled) {
-            const key = keyFn(item);
+            const key = keyFn(item, index);
             // Attach key to the compiled node
             return {
                 ...result,
@@ -268,16 +261,16 @@ export function each(array, mapFn, keyFn = null) {
             }
 
             // If unwrapped fragment with single element child, unwrap and move key to element
-            // This is needed for Preact's keyed reconciliation (keys must be on elements, not fragments)
+            // This is needed for keyed reconciliation (keys must be on elements, not fragments)
             if (child.type === 'fragment' && !child.wrapped && child.children.length === 1 && child.children[0].type === 'element') {
                 const element = child.children[0];
-                const key = keyFn ? keyFn(array[itemIndex]) : itemIndex;
+                const key = keyFn ? keyFn(array[itemIndex], itemIndex) : itemIndex;
                 return {...element, key, _itemValues: childValues};
             }
 
             // For multi-child fragments or other nodes, keep as-is
-            // Set key for Preact reconciliation
-            const key = keyFn ? keyFn(array[itemIndex]) : itemIndex;
+            // Set key for list reconciliation
+            const key = keyFn ? keyFn(array[itemIndex], itemIndex) : itemIndex;
             return {...child, key, _itemValues: childValues};
         })
         .filter(Boolean);
@@ -290,6 +283,7 @@ export function each(array, mapFn, keyFn = null) {
             type: 'fragment',
             wrapped: false,  // Unwrapped fragments spread their children into parent
             fromEach: true,   // Mark as from each() to distinguish from nested html() templates
+            hasExplicitKeys: !!keyFn,  // Only use keyed reconciliation when user provides keys
             children: compiledChildren
         },
         toString() {
@@ -353,7 +347,7 @@ export function memoEach(array, mapFn, keyFn, cache) {
             [HTML_MARKER]: true,
             _compiled: {
                 op: OP.STATIC,
-                vnode: null,
+                template: null,
                 type: 'fragment',
                 wrapped: false,
                 children: []
@@ -391,7 +385,7 @@ export function memoEach(array, mapFn, keyFn, cache) {
     const currentKeys = new Set();
 
     const results = array.map((item, index) => {
-        const key = keyFn(item);
+        const key = keyFn(item, index);
         currentKeys.add(key);
 
         // Check cache - hit if same key AND same item reference
@@ -442,11 +436,11 @@ export function memoEach(array, mapFn, keyFn, cache) {
 
             if (child.type === 'fragment' && !child.wrapped && child.children.length === 1 && child.children[0].type === 'element') {
                 const element = child.children[0];
-                const key = keyFn(array[itemIndex]);
+                const key = keyFn(array[itemIndex], itemIndex);
                 return {...element, key, _itemValues: childValues};
             }
 
-            const key = keyFn(array[itemIndex]);
+            const key = keyFn(array[itemIndex], itemIndex);
             return {...child, key, _itemValues: childValues};
         })
         .filter(Boolean);
@@ -458,6 +452,7 @@ export function memoEach(array, mapFn, keyFn, cache) {
             type: 'fragment',
             wrapped: false,
             fromEach: true,
+            hasExplicitKeys: true,  // memoEach always has explicit keys
             children: compiledChildren
         },
         toString() { return ''; }

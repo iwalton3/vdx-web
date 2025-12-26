@@ -11,11 +11,55 @@ export function setDebugReactivityHook(hook) {
     debugReactivityHook = hook;
 }
 
+// Effect flush hooks - allows template-renderer to batch DOM updates
+let onBeforeEffectFlush = null;
+let onAfterEffectFlush = null;
+
+/**
+ * Register callbacks to run before/after effect flush.
+ * Used by template-renderer to batch DOM updates.
+ * @param {Function} before - Called before effects run
+ * @param {Function} after - Called after all effects complete
+ */
+export function registerEffectFlushHooks(before, after) {
+    onBeforeEffectFlush = before;
+    onAfterEffectFlush = after;
+}
+
 /** @type {Function|null} Current active effect being tracked */
 let activeEffect = null;
 
 /** @type {Array<Function>} Stack of effects for nested tracking */
 const effectStack = [];
+
+/**
+ * Temporarily detach from the current effect context.
+ * Any state accessed during the callback won't become a dependency
+ * of the current effect. However, new effects created inside the callback
+ * will track their own dependencies normally.
+ *
+ * @param {Function} fn - Callback to execute without current effect context
+ * @returns {any} Return value of the callback
+ */
+export function withoutTracking(fn) {
+    const savedActiveEffect = activeEffect;
+    const savedStack = effectStack.slice();
+
+    // Clear the effect context - state access won't be tracked
+    activeEffect = null;
+    effectStack.length = 0;
+
+    try {
+        return fn();
+    } finally {
+        // Restore the effect context
+        effectStack.length = 0;
+        for (const effect of savedStack) {
+            effectStack.push(effect);
+        }
+        activeEffect = savedActiveEffect;
+    }
+}
 
 /**
  * Creates a reactive effect that automatically tracks dependencies.
@@ -124,6 +168,108 @@ function track(target, key) {
  * @param {string|symbol} key - The property key being modified
  * @private
  */
+/**
+ * Triggers all effects that depend on a reactive property.
+ * Called internally when a reactive property is modified.
+ *
+ * Note: Effects run synchronously for predictable behavior.
+ * Batching should be done at the component level (e.g., render batching).
+ *
+ * @param {Object} target - The target object
+ * @param {string|symbol} key - The property key being modified
+ * @private
+ */
+// Track currently running effects to prevent re-entrancy
+const runningEffects = new Set();
+
+// Pending effects to run (batched via microtask)
+const pendingEffects = new Set();
+let flushScheduled = false;
+let isFlushing = false;  // Track if we're inside flushEffects
+
+/** Max iterations to prevent infinite effect loops */
+const MAX_FLUSH_ITERATIONS = 100;
+
+/**
+ * Schedule effect flush using queueMicrotask.
+ * This batches all synchronous state changes into a single effect run,
+ * while still being fast enough for interactive updates.
+ */
+function scheduleFlush() {
+    // Don't schedule if already scheduled OR if we're currently flushing
+    // (effects triggered during flush are handled by the while loop)
+    if (flushScheduled || isFlushing) return;
+    flushScheduled = true;
+
+    // Use microtask for fast batching - runs after current sync code
+    // but before browser rendering, so UI stays responsive
+    queueMicrotask(flushEffects);
+}
+
+/**
+ * Flush all pending effects synchronously.
+ * Effects that were triggered multiple times only run once with latest state.
+ *
+ * Normally effects are batched and run via requestAnimationFrame (60fps).
+ * Call this when you need effects to run immediately (e.g., in tests,
+ * or when you need to read DOM state right after a state change).
+ *
+ * @example
+ * state.count = 5;
+ * flushEffects(); // Effects run now, not on next frame
+ * console.log(document.querySelector('.count').textContent); // "5"
+ */
+export function flushEffects() {
+    // Prevent re-entrant flushing
+    if (isFlushing) return;
+
+    isFlushing = true;
+
+    let iterations = 0;
+
+    try {
+        // Outer loop: effects → commit → repeat if commit triggered new effects
+        do {
+            // Begin deferred DOM updates mode (if registered)
+            if (onBeforeEffectFlush) onBeforeEffectFlush();
+
+            // Inner loop: run all queued effects (effects can trigger more effects)
+            while (pendingEffects.size > 0) {
+                iterations++;
+                if (iterations > MAX_FLUSH_ITERATIONS) {
+                    console.error('[Reactivity] Max flush iterations exceeded - possible infinite effect loop');
+                    pendingEffects.clear();
+                    break;
+                }
+
+                // Copy to array and clear pending set before running
+                const effects = [...pendingEffects];
+                pendingEffects.clear();
+
+                for (const effect of effects) {
+                    if (!runningEffects.has(effect)) {
+                        runningEffects.add(effect);
+                        try {
+                            effect();
+                        } finally {
+                            runningEffects.delete(effect);
+                        }
+                    }
+                }
+            }
+
+            // Commit all queued DOM updates in one batch
+            // This may trigger new effects (e.g., custom element props changed)
+            if (onAfterEffectFlush) onAfterEffectFlush();
+
+        } while (pendingEffects.size > 0 && iterations < MAX_FLUSH_ITERATIONS);
+
+    } finally {
+        isFlushing = false;
+        flushScheduled = false;
+    }
+}
+
 function trigger(target, key) {
     const depsMap = targetMap.get(target);
     if (!depsMap) return;
@@ -133,8 +279,14 @@ function trigger(target, key) {
         if (debugReactivityHook) {
             debugReactivityHook(target, key, target[key], `trigger(${deps.size} effects)`);
         }
-        const effects = [...deps];
-        effects.forEach(effect => effect());
+
+        // Queue effects for batched execution
+        for (const effect of deps) {
+            pendingEffects.add(effect);
+        }
+
+        // Schedule flush via rAF (60fps) or microtask (fallback)
+        scheduleFlush();
     }
 }
 
@@ -169,8 +321,13 @@ export function reactive(obj) {
     }
 
     // Don't wrap objects with internal slots that can't be proxied
-    // These include Set, Map, WeakSet, WeakMap, and Promise
-    if (obj instanceof Set || obj instanceof Map || obj instanceof WeakSet || obj instanceof WeakMap || obj instanceof Promise) {
+    // These include Set, Map, WeakSet, WeakMap, Promise, and Error
+    if (obj instanceof Set || obj instanceof Map || obj instanceof WeakSet || obj instanceof WeakMap || obj instanceof Promise || obj instanceof Error) {
+        return obj;
+    }
+
+    // Don't wrap html template objects - they're immutable data structures
+    if ('_compiled' in obj && '_values' in obj) {
         return obj;
     }
 
@@ -215,10 +372,13 @@ export function reactive(obj) {
                 }
             }
 
-            // Recursively make nested objects reactive (but skip Sets/Maps)
+            // Recursively make nested objects reactive (but skip Sets/Maps/Promises/Errors/DOM Nodes/html templates)
             if (typeof value === 'object' && value !== null &&
                 !(value instanceof Set) && !(value instanceof Map) &&
-                !(value instanceof WeakSet) && !(value instanceof WeakMap)) {
+                !(value instanceof WeakSet) && !(value instanceof WeakMap) &&
+                !(value instanceof Promise) && !(value instanceof Error) &&
+                !(typeof Node !== 'undefined' && value instanceof Node) &&  // Skip DOM Nodes (can't be proxied)
+                !('_compiled' in value && '_values' in value)) {  // Skip html template objects
                 return reactive(value);
             }
 

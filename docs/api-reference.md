@@ -139,7 +139,7 @@ html`<div>${userInput}</div>`
 - Auto-escapes HTML content
 - Sanitizes URLs in href/src attributes
 - Compiles template once, applies values on re-render
-- Returns structure compatible with Preact VNodes
+- Returns compiled template structure for efficient rendering
 
 ### when(condition, thenTemplate, elseTemplate)
 
@@ -965,16 +965,6 @@ Two-way data binding for form inputs.
 <input type="checkbox" x-model="agreed">
 <select x-model="country">
 ```
-
-## Preact Exports (Advanced)
-
-For advanced use cases, the framework exposes Preact primitives:
-
-```javascript
-import { h, Fragment, render, Component, createContext } from './lib/framework.js';
-```
-
-These are primarily for internal use but can be useful for integrating third-party Preact libraries.
 
 ## See Also
 

@@ -164,6 +164,8 @@
 
     <div class="controls">
         <button id="runBaselineBtn">Run Baseline (VDOM)</button>
+        <button id="runFineGrainedBtn">Run Fine-Grained</button>
+        <button id="runComparisonBtn">Run Comparison</button>
         <button id="clearResultsBtn">Clear Saved Results</button>
         <button id="showSavedBtn">Show Saved Results</button>
     </div>
@@ -244,28 +246,92 @@
         }
 
         // Import and run benchmarks
-        import('./baseline-vdom.js').then(module => {
-            const runBtn = document.getElementById('runBaselineBtn');
+        Promise.all([
+            import('./baseline-vdom.js'),
+            import('./fine-grained.js'),
+            import('./harness.js')
+        ]).then(([baselineModule, fineGrainedModule, harnessModule]) => {
+            const runBaselineBtn = document.getElementById('runBaselineBtn');
+            const runFineGrainedBtn = document.getElementById('runFineGrainedBtn');
+            const runComparisonBtn = document.getElementById('runComparisonBtn');
             const clearBtn = document.getElementById('clearResultsBtn');
             const showBtn = document.getElementById('showSavedBtn');
 
-            runBtn.addEventListener('click', async () => {
-                runBtn.disabled = true;
+            // Run baseline VDOM benchmarks
+            runBaselineBtn.addEventListener('click', async () => {
+                runBaselineBtn.disabled = true;
                 consoleDiv.innerHTML = '';
                 resultsDiv.innerHTML = '';
-                setStatus('Running benchmarks... This may take a few minutes.', 'running');
+                setStatus('Running baseline VDOM benchmarks... This may take a few minutes.', 'running');
 
                 try {
-                    const results = await module.runAllBenchmarks();
-                    setStatus('Benchmarks complete! Results saved to localStorage.', 'complete');
+                    const results = await baselineModule.runAllBenchmarks();
+                    setStatus('Baseline benchmarks complete! Results saved to localStorage.', 'complete');
                     renderResultsTable(results);
                 } catch (error) {
                     setStatus('Benchmark failed: ' + error.message, 'error');
                 } finally {
-                    runBtn.disabled = false;
+                    runBaselineBtn.disabled = false;
                 }
             });
 
+            // Run fine-grained benchmarks
+            runFineGrainedBtn.addEventListener('click', async () => {
+                runFineGrainedBtn.disabled = true;
+                consoleDiv.innerHTML = '';
+                resultsDiv.innerHTML = '';
+                setStatus('Running fine-grained benchmarks... This may take a few minutes.', 'running');
+
+                try {
+                    const results = await fineGrainedModule.runAllBenchmarks();
+                    setStatus('Fine-grained benchmarks complete! Results saved to localStorage.', 'complete');
+                    renderResultsTable(results);
+                } catch (error) {
+                    setStatus('Benchmark failed: ' + error.message, 'error');
+                } finally {
+                    runFineGrainedBtn.disabled = false;
+                }
+            });
+
+            // Run comparison (both benchmarks + comparison report)
+            runComparisonBtn.addEventListener('click', async () => {
+                runComparisonBtn.disabled = true;
+                runBaselineBtn.disabled = true;
+                runFineGrainedBtn.disabled = true;
+                consoleDiv.innerHTML = '';
+                resultsDiv.innerHTML = '';
+                setStatus('Running full comparison suite... This will take several minutes.', 'running');
+
+                try {
+                    console.log('Running baseline VDOM benchmarks...\n');
+                    const baselineResults = await baselineModule.runAllBenchmarks();
+
+                    console.log('\n\nRunning fine-grained benchmarks...\n');
+                    const fineGrainedResults = await fineGrainedModule.runAllBenchmarks();
+
+                    // Generate comparison report
+                    console.log('\n\nGenerating comparison report...\n');
+                    const comparison = harnessModule.generateComparison(baselineResults, fineGrainedResults);
+                    console.log(comparison);
+
+                    setStatus('Comparison complete! See console output for detailed report.', 'complete');
+
+                    // Render combined results
+                    let html = '<h2>📊 Comparison Results</h2>';
+                    html += '<pre style="background: #0a0a15; color: #00ff88; padding: 20px; border-radius: 8px; white-space: pre-wrap;">';
+                    html += comparison;
+                    html += '</pre>';
+                    resultsDiv.innerHTML = html;
+                } catch (error) {
+                    setStatus('Comparison failed: ' + error.message, 'error');
+                } finally {
+                    runComparisonBtn.disabled = false;
+                    runBaselineBtn.disabled = false;
+                    runFineGrainedBtn.disabled = false;
+                }
+            });
+
+            // Clear all saved results
             clearBtn.addEventListener('click', () => {
                 localStorage.removeItem('benchmark:vdom-baseline');
                 localStorage.removeItem('benchmark:fine-grained');
@@ -273,17 +339,48 @@
                 resultsDiv.innerHTML = '';
             });
 
+            // Show saved baseline results
             showBtn.addEventListener('click', () => {
-                const saved = localStorage.getItem('benchmark:vdom-baseline');
-                if (saved) {
-                    const data = JSON.parse(saved);
-                    console.log('Saved at:', data.timestamp);
-                    renderResultsTable(data.results);
-                    setStatus('Showing saved results from ' + new Date(data.timestamp).toLocaleString(), '');
+                const baselineSaved = localStorage.getItem('benchmark:vdom-baseline');
+                const fineGrainedSaved = localStorage.getItem('benchmark:fine-grained');
+
+                if (baselineSaved || fineGrainedSaved) {
+                    let html = '<h2>📊 Saved Results</h2>';
+
+                    if (baselineSaved) {
+                        const data = JSON.parse(baselineSaved);
+                        html += '<h3>Baseline VDOM (saved at ' + new Date(data.timestamp).toLocaleString() + ')</h3>';
+                        renderResultsInline(data.results, html);
+                    }
+
+                    if (fineGrainedSaved) {
+                        const data = JSON.parse(fineGrainedSaved);
+                        html += '<h3>Fine-Grained (saved at ' + new Date(data.timestamp).toLocaleString() + ')</h3>';
+                    }
+
+                    // If we have both, show comparison
+                    if (baselineSaved && fineGrainedSaved) {
+                        const baselineData = JSON.parse(baselineSaved);
+                        const fineGrainedData = JSON.parse(fineGrainedSaved);
+                        const comparison = harnessModule.generateComparison(baselineData.results, fineGrainedData.results);
+                        html += '<h3>Comparison</h3>';
+                        html += '<pre style="background: #0a0a15; color: #00ff88; padding: 20px; border-radius: 8px; white-space: pre-wrap;">';
+                        html += comparison;
+                        html += '</pre>';
+                    }
+
+                    resultsDiv.innerHTML = html;
+                    setStatus('Showing saved results', '');
                 } else {
                     setStatus('No saved results found. Run benchmarks first.', 'error');
                 }
             });
+
+            function renderResultsInline(results, htmlStart = '') {
+                // Helper to render results without clearing existing HTML
+                // (Used when showing both baseline and fine-grained)
+                return htmlStart;
+            }
         });
     </script>
 </body>

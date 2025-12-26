@@ -3,7 +3,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { reactive, createEffect, computed, watch, isReactive, trackAllDependencies, memo } from '../lib/framework.js';
+import { reactive, createEffect, computed, watch, isReactive, trackAllDependencies, memo, flushEffects } from '../lib/framework.js';
 
 describe('Reactivity System', function(it) {
     it('creates reactive proxy', () => {
@@ -21,11 +21,13 @@ describe('Reactivity System', function(it) {
             capturedValue = obj.count;
             effectRuns++;
         });
+        flushEffects();
 
         assert.equal(effectRuns, 1, 'Effect should run immediately');
         assert.equal(capturedValue, 0, 'Effect should capture initial value');
 
         obj.count = 5;
+        flushEffects();
         assert.equal(effectRuns, 2, 'Effect should re-run on change');
         assert.equal(capturedValue, 5, 'Effect should capture new value');
     });
@@ -44,8 +46,10 @@ describe('Reactivity System', function(it) {
         createEffect(() => {
             capturedName = obj.user.name;
         });
+        flushEffects();
 
         obj.user.name = 'Bob';
+        flushEffects();
         assert.equal(capturedName, 'Bob', 'Nested updates should trigger effects');
     });
 
@@ -57,22 +61,27 @@ describe('Reactivity System', function(it) {
             obj.count; // Read to track dependency
             effectRuns++;
         });
+        flushEffects();
 
         const initialRuns = effectRuns;
         obj.count = 0; // Same value
+        flushEffects();
         assert.equal(effectRuns, initialRuns, 'Should not re-run for same value');
 
         obj.count = 1; // Different value
+        flushEffects();
         assert.equal(effectRuns, initialRuns + 1, 'Should re-run for different value');
     });
 
     it('creates computed values', () => {
         const obj = reactive({ a: 1, b: 2 });
         const sum = computed(() => obj.a + obj.b);
+        flushEffects();
 
         assert.equal(sum.get(), 3, 'Computed should return correct initial value');
 
         obj.a = 5;
+        flushEffects();
         assert.equal(sum.get(), 7, 'Computed should update when dependencies change');
 
         sum.dispose(); // Cleanup
@@ -90,8 +99,10 @@ describe('Reactivity System', function(it) {
                 oldValue = oldVal;
             }
         );
+        flushEffects();
 
         obj.count = 5;
+        flushEffects();
         assert.equal(watchedValue, 5, 'Watch callback should receive new value');
         assert.equal(oldValue, 0, 'Watch callback should receive old value');
     });
@@ -104,14 +115,17 @@ describe('Reactivity System', function(it) {
             () => obj.value,
             () => { callCount++; }
         );
+        flushEffects();
 
         obj.value = 1;
+        flushEffects();
         assert.equal(callCount, 1, 'Watch should fire on first change');
 
         dispose();
 
         obj.value = 2;
         obj.value = 3;
+        flushEffects();
         assert.equal(callCount, 1, 'Watch should not fire after dispose');
     });
 
@@ -123,8 +137,10 @@ describe('Reactivity System', function(it) {
             () => obj.user.name,
             (newName) => { watchedName = newName; }
         );
+        flushEffects();
 
         obj.user.name = 'Bob';
+        flushEffects();
         assert.equal(watchedName, 'Bob', 'Watch should track nested property changes');
     });
 
@@ -136,11 +152,14 @@ describe('Reactivity System', function(it) {
             () => obj.count,
             () => { callCount++; }
         );
+        flushEffects();
 
         obj.count = 5; // Same value
+        flushEffects();
         assert.equal(callCount, 0, 'Watch should not fire when value does not change');
 
         obj.count = 6; // Different value
+        flushEffects();
         assert.equal(callCount, 1, 'Watch should fire when value changes');
     });
 
@@ -151,10 +170,12 @@ describe('Reactivity System', function(it) {
         createEffect(() => {
             sum = arr.items.reduce((a, b) => a + b, 0);
         });
+        flushEffects();
 
         assert.equal(sum, 6, 'Initial sum should be correct');
 
         arr.items.push(4);
+        flushEffects();
         assert.equal(sum, 10, 'Array mutations should trigger effects');
     });
 
@@ -184,15 +205,18 @@ describe('Reactivity System', function(it) {
             obj.count; // Track dependency
             effectRuns++;
         });
+        flushEffects();
 
         assert.equal(effectRuns, 1, 'Effect should run initially');
 
         obj.count = 1;
+        flushEffects();
         assert.equal(effectRuns, 2, 'Effect should run after change');
 
         dispose(); // Stop tracking
 
         obj.count = 2;
+        flushEffects();
         assert.equal(effectRuns, 2, 'Effect should not run after disposal');
     });
 
@@ -208,16 +232,20 @@ describe('Reactivity System', function(it) {
             trackAllDependencies(obj);
             tracked++;
         });
+        flushEffects();
 
         assert.equal(tracked, 1, 'Should run initially');
 
         obj.a = 5;
+        flushEffects();
         assert.equal(tracked, 2, 'Should track top-level changes');
 
         obj.b.c = 10;
+        flushEffects();
         assert.equal(tracked, 3, 'Should track nested changes');
 
         obj.items.push(4);
+        flushEffects();
         // Array push triggers twice: once for the mutation, once for length change
         // This is expected behavior - both are valid reactivity triggers
         assert.ok(tracked >= 4, 'Should track array changes (may trigger multiple times)');
@@ -249,6 +277,7 @@ describe('Reactivity System', function(it) {
             computeCount++;
             return obj.value * 2;
         });
+        flushEffects();
 
         const result1 = doubledValue.get();
         assert.equal(result1, 10, 'Should compute initially');
@@ -261,6 +290,7 @@ describe('Reactivity System', function(it) {
 
         // Change reactive value - invalidates cache
         obj.value = 10;
+        flushEffects();
         const result3 = doubledValue.get();
         assert.equal(result3, 20, 'Should recompute with new value');
         assert.equal(computeCount, 2, 'Should have recomputed');

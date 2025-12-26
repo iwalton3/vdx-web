@@ -34,14 +34,14 @@ The framework:
 **How it works:**
 
 1. **Template Compilation** - `html`` templates compiled once to AST structure
-2. **Value Application** - On each render, values applied to create Preact VNodes
-3. **Preact Reconciliation** - Preact efficiently updates the real DOM
+2. **Value Application** - On each render, values applied to create DOM nodes
+3. **Fine-grained Updates** - Direct DOM updates without virtual DOM diffing
 
 ```javascript
 // Template compiled once when first rendered ✓
 const template = html`<div>${this.state.count}</div>`;
 
-// On re-render: apply new values → Preact VNode → Preact reconciles DOM
+// On re-render: apply new values → direct DOM updates
 ```
 
 ## Event Binding
@@ -95,7 +95,7 @@ Add modifiers to the end of event names:
 
 ### Custom Events with Hyphens
 
-Custom events with hyphens in their names (like `status-change` or `item-delete`) are handled via a ref-based mechanism because Preact lowercases event names.
+Custom events with hyphens in their names (like `status-change` or `item-delete`) are handled via a ref-based mechanism.
 
 ```javascript
 // Child component emits custom event
@@ -540,7 +540,7 @@ The third parameter is a `keyFn` that returns a unique identifier for each item.
 - List items contain form inputs (text boxes, checkboxes)
 - List items have internal state that should be preserved
 
-Without a key function, Preact uses array index for reconciliation, which can cause:
+Without a key function, the framework uses array index for reconciliation, which can cause:
 - Text inputs to "shift" content when items are reordered
 - Checkbox states to appear on wrong items
 - Focus to be lost during updates
@@ -710,12 +710,12 @@ methods: {
     }
 }
 
-// ✅ No afterRender() needed! Preact handles value syncing automatically
+// ✅ No afterRender() needed! Framework handles value syncing automatically
 ```
 
 ### Select Dropdowns
 
-Use `value` attribute and let Preact handle syncing:
+Use `value` attribute and let the framework handle syncing:
 
 ```javascript
 template() {

@@ -234,15 +234,20 @@ export default defineComponent('cl-button', {
             background: rgba(0, 0, 0, 0.05);
         }
 
-        /* Loading spinner */
+        /* Loading spinner - sized to match typical icon/text height */
         .spinner {
-            width: 14px;
-            height: 14px;
+            width: 1em;
+            height: 1em;
             border: 2px solid currentColor;
             border-right-color: transparent;
             border-radius: 50%;
             animation: spin 0.6s linear infinite;
             flex-shrink: 0;
+            box-sizing: border-box;
+        }
+
+        .button-icon {
+            line-height: 1;
         }
 
         @keyframes spin {

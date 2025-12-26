@@ -29,8 +29,8 @@ if (DEBUG_COMPONENTS || DEBUG_VNODES) {
                 debugLog('PropSet', `Triggering render for ${tagName}`);
             }
         } : null,
-        vnode: DEBUG_VNODES ? (component, preactElement) => {
-            debugLog('VNode', `${component.tagName} vnode:\n${vnodeToString(preactElement)}`);
+        vnode: DEBUG_VNODES ? (component, templateElement) => {
+            debugLog('VNode', `${component.tagName} template:\n${vnodeToString(templateElement)}`);
         } : null
     });
 

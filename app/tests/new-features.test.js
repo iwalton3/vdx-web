@@ -11,8 +11,8 @@ import { describe, assert } from './test-runner.js';
 import { defineComponent } from '../lib/framework.js';
 import { html } from '../lib/framework.js';
 import { memoize } from '../lib/utils.js';
-import { compileTemplate, applyValues } from '../lib/core/template-compiler.js';
-import { render as preactRender } from '../lib/vendor/preact/index.js';
+import { compileTemplate } from '../lib/core/template-compiler.js';
+import { instantiateTemplate } from '../lib/core/template-renderer.js';
 import { createStore } from '../lib/core/store.js';
 import '../components/virtual-list.js';
 
@@ -568,12 +568,12 @@ describe('Function Passing to Components', function(it) {
 
         const strings = ['<test-func-receiver callback="', '"></test-func-receiver>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, [testFunction]);
 
         const container = document.createElement('div');
-        preactRender(applied, container);
+        const { fragment } = instantiateTemplate(compiled, [testFunction], null);
+        container.appendChild(fragment);
 
-        // Wait for Preact ref callback
+        // Wait for custom element to be ready
         await new Promise(resolve => setTimeout(resolve, 10));
 
         const el = container.querySelector('test-func-receiver');
@@ -593,9 +593,8 @@ describe('Function Passing to Components', function(it) {
 
         const strings = ['<button on-click="', '">Click</button>'];
         const compiled = compileTemplate(strings);
-        const applied = applyValues(compiled, [handler]);
-
-        preactRender(applied, container);
+        const { fragment } = instantiateTemplate(compiled, [handler], null);
+        container.appendChild(fragment);
 
         const button = container.querySelector('button');
         button.click();

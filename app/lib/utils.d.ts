@@ -103,6 +103,15 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
   limit?: number
 ): (...args: Parameters<T>) => void;
 
+/**
+ * Creates a function that batches calls to the next animation frame.
+ * Multiple calls before the frame fires will only execute once.
+ * Useful for scroll/resize handlers that need smooth 60fps updates.
+ */
+export function rafThrottle<T extends (...args: unknown[]) => unknown>(
+  fn: T
+): (...args: Parameters<T>) => void;
+
 // =============================================================================
 // Notifications
 // =============================================================================

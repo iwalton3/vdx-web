@@ -1,12 +1,12 @@
 /**
  * Component System
- * Web Components-based system with reactive state (using Preact VDOM)
+ * Web Components-based system with fine-grained reactive rendering
  */
 
-import { reactive, createEffect, trackAllDependencies } from './reactivity.js';
-import { render as preactRender } from '../vendor/preact/index.js';
-import { applyValues, compileTemplate, groupChildrenBySlot } from './template-compiler.js';
+import { reactive, createEffect, trackAllDependencies, flushEffects } from './reactivity.js';
+import { compileTemplate } from './template-compiler.js';
 import { setRenderContext } from './template.js';
+import { instantiateTemplate, createDeferredChild, VALUE_GETTER } from './template-renderer.js';
 
 // Debug hooks - can be set by debug-enable.js
 let debugRenderCycleHook = null;
@@ -18,9 +18,8 @@ export const componentDefinitions = new Map();
 // ============================================================================
 // Coordinated Root Rendering System with Automatic Batching
 // ============================================================================
-// This system ensures that all VDX components render from a single root,
-// preventing the cascading re-render issues that occur when each component
-// manages its own Preact VDOM tree independently.
+// This system ensures that all VDX components render efficiently,
+// preventing cascading re-render issues through fine-grained reactivity.
 //
 // BATCHING: Multiple state changes within the same synchronous execution
 // are automatically batched into a single render. For example:
@@ -88,6 +87,8 @@ function flushPendingRenders() {
  * expect(component.textContent).toBe('5');
  */
 export function flushRenders() {
+    // Flush effects first - effects may trigger renders
+    flushEffects();
     flushPendingRenders();
 }
 
@@ -124,6 +125,8 @@ export function flushRenders() {
  */
 export function flushSync(fn) {
     const result = fn();
+    // Flush effects first - effects may trigger renders
+    flushEffects();
     flushPendingRenders();
     return result;
 }
@@ -453,8 +456,13 @@ export function defineComponent(name, options) {
                 slots: {}
             };
 
+            // Reactive version counter for fine-grained prop tracking
+            // Effects that access this will re-run when props change
+            this._propsVersion = reactive({ v: 0 });
+
+
             // Apply any props that were set via prototype setters before constructor ran
-            // (This happens when Preact sets props on an already-constructed element)
+            // (This happens when props are set on an element before it's added to DOM)
             if (this._pendingProps) {
                 for (const [propName, value] of Object.entries(this._pendingProps)) {
                     this.props[propName] = value;
@@ -567,28 +575,37 @@ export function defineComponent(name, options) {
             // If no VDX parent found, this is a root component
             this._isVdxRoot = !this._vdxParent;
 
-            // For root components, capture light DOM children before first render
-            // This enables static HTML inside component tags to be passed as children
-            // Nested VDX components in the light DOM will be properly hydrated
-            if (this._isVdxRoot && this.innerHTML.trim()) {
+            // Capture light DOM children before first render
+            // All components capture children as real DOM nodes
+            if (this.innerHTML.trim()) {
                 // Capture the light DOM content
                 const lightDomContent = this.innerHTML;
                 // Clear it so it doesn't duplicate when we render
                 this.innerHTML = '';
 
-                // Parse the HTML using the template compiler
-                // Using array notation to call compileTemplate with raw HTML (no interpolations)
-                const compiled = compileTemplate([lightDomContent]);
-                // Convert to VNodes (no dynamic values, no component context needed)
-                const vnodes = applyValues(compiled, [], null);
+                // Create a temporary container to parse the HTML
+                const temp = document.createElement('div');
+                temp.innerHTML = lightDomContent;
 
-                // Normalize to array for slot processing
-                const childArray = Array.isArray(vnodes) ? vnodes : (vnodes ? [vnodes] : []);
+                // Process children and extract slots
+                const defaultChildren = [];
+                const namedSlots = {};
 
-                // Separate default children from named slots
-                const { defaultChildren, namedSlots } = groupChildrenBySlot(childArray);
+                for (const child of Array.from(temp.childNodes)) {
+                    if (child.nodeType === Node.ELEMENT_NODE) {
+                        const slotName = child.getAttribute('slot');
+                        if (slotName) {
+                            child.removeAttribute('slot');
+                            if (!namedSlots[slotName]) namedSlots[slotName] = [];
+                            namedSlots[slotName].push(child);
+                        } else {
+                            defaultChildren.push(child);
+                        }
+                    } else if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
+                        defaultChildren.push(child);
+                    }
+                }
 
-                // Set children and slots on props
                 this.props.children = defaultChildren;
                 this.props.slots = namedSlots;
             }
@@ -606,28 +623,294 @@ export function defineComponent(name, options) {
                 }
             }
 
-            // Setup reactivity - re-render on state changes
-            // Uses coordinated root rendering to prevent cascading re-renders
-            const { dispose: disposeRenderEffect } = createEffect(() => {
-                // Track all state dependencies efficiently
-                trackAllDependencies(this.state);
+            // Setup reactivity - fine-grained rendering with per-binding effects
+            if (options.template) {
+                    this._injectStyles();
 
-                // Track store dependencies too
-                if (this.stores) {
-                    for (const storeState of Object.values(this.stores)) {
-                        trackAllDependencies(storeState);
+                    const component = this;
+                    let currentCompiled = null;
+                    let currentCleanup = null;
+                    let afterRenderCalled = false;
+
+                    // Function to instantiate error fallback template (uses static values)
+                    const instantiateErrorFallback = (templateResult) => {
+                        // Clean up previous if exists
+                        if (currentCleanup) {
+                            currentCleanup();
+                            component.innerHTML = '';
+                        }
+
+                        currentCompiled = templateResult._compiled;
+
+                        // Use static values directly - error fallbacks don't need reactive getters
+                        const values = templateResult._values || [];
+
+                        // Instantiate template with static values
+                        const { fragment, cleanup: templateCleanup } = instantiateTemplate(
+                            templateResult._compiled,
+                            values,
+                            component
+                        );
+
+                        component.appendChild(fragment);
+                        currentCleanup = templateCleanup;
+                    };
+
+                    // Function to instantiate/reinstantiate template
+                    const instantiate = (templateResult) => {
+                        // Clean up previous if exists
+                        if (currentCleanup) {
+                            currentCleanup();
+                            component.innerHTML = '';
+                        }
+
+                        currentCompiled = templateResult._compiled;
+
+                        // Convert static values to reactive getters
+                        const values = templateResult._values || [];
+                        const valueGetters = values.map((initialValue, index) => {
+                            if (typeof initialValue === 'function') {
+                                // Actual function values (like renderItem) - pass through as-is
+                                return initialValue;
+                            }
+                            // Create getter that re-evaluates template and checks for structure changes
+                            const getter = () => {
+                                // Access props version to track it as a dependency
+                                // This ensures effects re-run when props change
+                                if (component._propsVersion) {
+                                    // Reading .v creates a dependency in the current effect
+                                    const _ = component._propsVersion.v;
+                                }
+
+                                try {
+                                    setRenderContext(component);
+                                    const result = options.template.call(component);
+                                    setRenderContext(null);
+
+                                    // If template structure changed, schedule re-instantiation
+                                    if (result._compiled !== currentCompiled) {
+                                        queueMicrotask(() => {
+                                            if (!component._isDestroyed && component._isMounted) {
+                                                instantiate(result);
+                                            }
+                                        });
+                                        return undefined;
+                                    }
+                                    return result._values[index];
+                                } catch (error) {
+                                    setRenderContext(null);
+                                    // Log error and schedule error fallback instantiation
+                                    if (!component._hasRenderError) {
+                                        component._hasRenderError = true;
+                                        console.error(`[${component.tagName}] Render error:`, error);
+
+                                        // Schedule renderError fallback if defined
+                                        if (options.renderError) {
+                                            queueMicrotask(() => {
+                                                if (component._isDestroyed || !component._isMounted) return;
+                                                try {
+                                                    const fallback = options.renderError.call(component, error);
+                                                    if (fallback && fallback._compiled) {
+                                                        instantiateErrorFallback(fallback);
+                                                    }
+                                                } catch (fallbackError) {
+                                                    console.error(`[${component.tagName}] renderError() also failed:`, fallbackError);
+                                                }
+                                            });
+                                        }
+                                    }
+                                    return undefined;
+                                }
+                            };
+                            // Mark as a value getter so template-renderer knows to call it
+                            getter[VALUE_GETTER] = true;
+                            return getter;
+                        });
+
+                        // For templates with no dynamic values but conditional structure,
+                        // we need an effect to track state changes and detect structure switches
+                        let structureEffect = null;
+                        if (values.length === 0) {
+                            structureEffect = createEffect(() => {
+                                // Track props version to re-run when props change
+                                if (component._propsVersion) {
+                                    const _ = component._propsVersion.v;
+                                }
+
+                                // Track all state dependencies
+                                trackAllDependencies(component.state);
+                                if (component.stores) {
+                                    for (const storeState of Object.values(component.stores)) {
+                                        trackAllDependencies(storeState);
+                                    }
+                                }
+
+                                // Re-call template to check for structure changes
+                                try {
+                                    setRenderContext(component);
+                                    const result = options.template.call(component);
+                                    setRenderContext(null);
+
+                                    if (result._compiled !== currentCompiled) {
+                                        queueMicrotask(() => {
+                                            if (!component._isDestroyed && component._isMounted) {
+                                                instantiate(result);
+                                            }
+                                        });
+                                    }
+                                } catch (error) {
+                                    setRenderContext(null);
+                                    if (!component._hasRenderError) {
+                                        component._hasRenderError = true;
+                                        console.error(`[${component.tagName}] Render error:`, error);
+
+                                        // Schedule renderError fallback if defined
+                                        if (options.renderError) {
+                                            queueMicrotask(() => {
+                                                if (component._isDestroyed || !component._isMounted) return;
+                                                try {
+                                                    const fallback = options.renderError.call(component, error);
+                                                    if (fallback && fallback._compiled) {
+                                                        instantiateErrorFallback(fallback);
+                                                    }
+                                                } catch (fallbackError) {
+                                                    console.error(`[${component.tagName}] renderError() also failed:`, fallbackError);
+                                                }
+                                            });
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
+                        // Instantiate template
+                        const { fragment, cleanup: templateCleanup } = instantiateTemplate(
+                            templateResult._compiled,
+                            valueGetters,
+                            component
+                        );
+
+                        component.appendChild(fragment);
+                        currentCleanup = () => {
+                            templateCleanup();
+                            if (structureEffect) structureEffect.dispose();
+                        };
+
+                        // Call afterRender hook
+                        if (options.afterRender && !afterRenderCalled) {
+                            afterRenderCalled = true;
+                            Promise.resolve().then(() => {
+                                if (!component._isDestroyed && component._isMounted) {
+                                    options.afterRender.call(component);
+                                }
+                            }).catch(error => {
+                                console.error(`[${component.tagName}] afterRender() error:`, error);
+                            });
+                        }
+                    };
+
+                    // Store reinstantiate function for prop change handling
+                    component._fgReinstantiate = () => {
+                        if (component._isDestroyed || !component._isMounted) return;
+                        try {
+                            setRenderContext(component);
+                            const result = options.template.call(component);
+                            setRenderContext(null);
+                            if (result && result._compiled) {
+                                instantiate(result);
+                            }
+                            component._hasRenderError = false;
+                        } catch (error) {
+                            setRenderContext(null);
+                            component._hasRenderError = true;
+
+                            // Call error handler if defined
+                            if (options.renderError) {
+                                try {
+                                    const fallback = options.renderError.call(component, error);
+                                    if (fallback && fallback._compiled) {
+                                        instantiateErrorFallback(fallback);
+                                    }
+                                } catch (fallbackError) {
+                                    console.error(`[${component.tagName}] renderError() also failed:`, fallbackError);
+                                }
+                            }
+
+                            console.error(`[${component.tagName}] Render error:`, error);
+                        }
+                    };
+
+                    // Initial instantiation with error handling
+                    try {
+                        setRenderContext(this);
+                        const templateResult = options.template.call(this);
+                        setRenderContext(null);
+
+                        if (templateResult && templateResult._compiled) {
+                            instantiate(templateResult);
+                        }
+                        this._hasRenderError = false;
+                    } catch (error) {
+                        setRenderContext(null);
+                        this._hasRenderError = true;
+
+                        // Call error handler if defined
+                        if (options.renderError) {
+                            try {
+                                const fallback = options.renderError.call(this, error);
+                                if (fallback && fallback._compiled) {
+                                    instantiateErrorFallback(fallback);
+                                }
+                            } catch (fallbackError) {
+                                console.error(`[${this.tagName}] renderError() also failed:`, fallbackError);
+                            }
+                        }
+
+                        console.error(`[${this.tagName}] Render error:`, error);
+
+                        // Set up recovery effect - watches state and retries when it changes
+                        const recoveryEffect = createEffect(() => {
+                            // Track all state dependencies
+                            trackAllDependencies(component.state);
+                            if (component.stores) {
+                                for (const storeState of Object.values(component.stores)) {
+                                    trackAllDependencies(storeState);
+                                }
+                            }
+
+                            // Don't run recovery on first execution (that's the initial failed render)
+                            if (!component._hasRenderError) return;
+
+                            // Try to re-render
+                            queueMicrotask(() => {
+                                if (component._isDestroyed || !component._isMounted) return;
+                                try {
+                                    setRenderContext(component);
+                                    const result = options.template.call(component);
+                                    setRenderContext(null);
+
+                                    if (result && result._compiled) {
+                                        // Success! Clean up recovery effect and instantiate
+                                        recoveryEffect.dispose();
+                                        instantiate(result);
+                                        component._hasRenderError = false;
+                                    }
+                                } catch (retryError) {
+                                    setRenderContext(null);
+                                    // Still failing - will retry on next state change
+                                }
+                            });
+                        });
+
+                        // Store recovery effect cleanup
+                        this._cleanups.push(() => recoveryEffect.dispose());
                     }
-                }
 
-                // Schedule a batched render from root
-                // Multiple state changes in the same sync execution are batched
-                if (this._isMounted && !this._isDestroyed) {
-                    scheduleRootRender(this._getVdxRoot());
-                }
-            });
-
-            // Store disposal function for cleanup
-            this._cleanups.push(disposeRenderEffect);
+                // Store cleanup
+                this._fineGrainedCleanup = () => {
+                    if (currentCleanup) currentCleanup();
+                };
+            }
 
             // Call mounted hook AFTER initial render (async, non-blocking)
             // This ensures the component renders immediately and doesn't block navigation
@@ -661,6 +944,12 @@ export function defineComponent(name, options) {
                 this._cleanups = [];
             }
 
+            // Clean up fine-grained rendering effects
+            if (this._fineGrainedCleanup) {
+                this._fineGrainedCleanup();
+                this._fineGrainedCleanup = null;
+            }
+
             // Call unmounted hook (after effects are disposed)
             if (options.unmounted) {
                 options.unmounted.call(this);
@@ -668,9 +957,6 @@ export function defineComponent(name, options) {
 
             // Clear refs to prevent memory leaks from stale DOM references
             this.refs = {};
-
-            // Unmount Preact tree
-            preactRender(null, this);
         }
 
         attributeChangedCallback(name, oldValue, newValue) {
@@ -679,11 +965,9 @@ export function defineComponent(name, options) {
                 return;
             }
 
-            // Update props
+            // Update props (prop changes are tracked by fine-grained effects automatically)
             if (options.props && name in options.props) {
                 this.props[name] = newValue;
-                // Schedule batched re-render from root
-                scheduleRootRender(this._getVdxRoot());
             }
         }
 
@@ -714,7 +998,7 @@ export function defineComponent(name, options) {
                     }
 
                     // Check if property was set directly on element (before connectedCallback)
-                    // This happens when VDOM sets el[propName] = value before adding to DOM
+                    // This happens when el[propName] = value is set before adding to DOM
                     if (propName in this && this[propName] !== undefined && this[propName] !== options.props[propName]) {
                         // Property was set, use it
                         const value = this[propName];
@@ -790,23 +1074,9 @@ export function defineComponent(name, options) {
         }
 
         /**
-         * Internal render implementation - called by the coordinated rendering system
-         * This is the actual Preact render call. External code should NOT call this directly.
-         * Instead, use scheduleRootRender() to trigger a coordinated tree render.
+         * Inject component styles into document head (shared by both render paths)
          */
-        _doRender() {
-            // Guard: Don't render if component is destroyed or not mounted
-            if (this._isDestroyed || !this._isMounted) {
-                return;
-            }
-
-            if (!options.template) return;
-
-            if (debugRenderCycleHook) {
-                debugRenderCycleHook(this, 'before-template');
-            }
-
-            // Inject styles into document head if not already done
+        _injectStyles() {
             if (options.styles && !this._stylesInjected) {
                 const styleId = `component-styles-${options.name || this.tagName}`;
                 const tagName = this.tagName.toLowerCase();
@@ -831,96 +1101,14 @@ export function defineComponent(name, options) {
                 }
                 this._stylesInjected = true;
             }
-
-            // Render with error boundary - catches template/render errors
-            try {
-                // Call template function to get compiled tree
-                // Set render context so template helpers can access the component
-                setRenderContext(this);
-                const templateResult = options.template.call(this);
-                setRenderContext(null);
-
-                if (debugRenderCycleHook) {
-                    debugRenderCycleHook(this, 'after-template', {
-                        hasCompiled: !!templateResult?._compiled,
-                        valuesCount: templateResult?._values?.length || 0
-                    });
-                }
-
-                // Convert compiled tree to Preact elements
-                if (templateResult && templateResult._compiled) {
-                    // Apply values and convert to Preact VNode
-                    const preactElement = applyValues(
-                        templateResult._compiled,
-                        templateResult._values || [],
-                        this
-                    );
-
-                    if (debugRenderCycleHook) {
-                        debugRenderCycleHook(this, 'before-vnode', {
-                            isNull: preactElement === null,
-                            type: preactElement?.type || 'null'
-                        });
-                    }
-                    if (debugVNodeHook) {
-                        debugVNodeHook(this, preactElement);
-                    }
-
-                    // Render using Preact's reconciliation
-                    // Preact automatically maintains vdom state between renders
-                    preactRender(preactElement, this);
-
-                    if (debugRenderCycleHook) {
-                        debugRenderCycleHook(this, 'after-vnode');
-                    }
-                } else {
-                    // No compiled template - this shouldn't happen in production
-                    console.error(`[${this.tagName}] Template was not compiled. Ensure you're using the html\`\` tag.`);
-                }
-
-                this._hasRenderError = false;
-            } catch (error) {
-                setRenderContext(null); // Ensure cleanup on error
-                this._hasRenderError = true;
-
-                // Call error handler if defined
-                if (options.renderError) {
-                    try {
-                        const fallback = options.renderError.call(this, error);
-                        if (fallback && fallback._compiled) {
-                            preactRender(
-                                applyValues(fallback._compiled, fallback._values || [], this),
-                                this
-                            );
-                        }
-                    } catch (fallbackError) {
-                        console.error(`[${this.tagName}] renderError() also failed:`, fallbackError);
-                    }
-                }
-
-                console.error(`[${this.tagName}] Render error:`, error);
-            }
-
-            // Call afterRender hook if provided
-            if (options.afterRender && this._isMounted) {
-                Promise.resolve().then(() => {
-                    if (!this._isDestroyed && this._isMounted) {
-                        options.afterRender.call(this);
-                    }
-                }).catch(error => {
-                    console.error(`[${this.tagName}] afterRender() error:`, error);
-                });
-            }
         }
 
         /**
-         * Public render method - schedules a batched render from root
-         * This ensures all components render in the correct order
+         * Public render method - no-op in fine-grained mode.
+         * Kept for API backwards compatibility.
          */
         render() {
-            if (this._isMounted && !this._isDestroyed) {
-                scheduleRootRender(this._getVdxRoot());
-            }
+            // No-op - fine-grained effects handle all updates automatically
         }
 
         // Helper method to access methods from component
@@ -930,14 +1118,11 @@ export function defineComponent(name, options) {
     }
 
     // Define property accessors on prototype BEFORE registration
-    // This ensures `name in dom` returns true when Preact checks, allowing
-    // direct property setting instead of falling back to setAttribute()
 
-    // Helper to schedule a batched render from root
-    // This ensures all renders go through the batching system to prevent multiple renders
+    // Helper to trigger re-instantiation on prop change (for error recovery)
     const scheduleRender = (component) => {
-        if (component._isMounted && !component._isDestroyed) {
-            scheduleRootRender(component._getVdxRoot());
+        if (component._fgReinstantiate && component._isMounted && !component._isDestroyed) {
+            queueMicrotask(component._fgReinstantiate);
         }
     };
 
@@ -963,6 +1148,14 @@ export function defineComponent(name, options) {
             }
 
             const oldValue = this.props[propName];
+
+            // Compare values to avoid unnecessary updates
+            // For primitives: compare by value
+            // For objects/arrays: compare by reference (deep comparison is too expensive)
+            if (value === oldValue) {
+                return; // No change, skip update
+            }
+
             this.props[propName] = value;
 
             // improves usability/accessibility
@@ -977,11 +1170,18 @@ export function defineComponent(name, options) {
 
             // Only trigger updates if mounted
             if (this._isMounted) {
-                if (typeof this.propsChanged === 'function' && value !== oldValue) {
+                if (typeof this.propsChanged === 'function') {
                     this.propsChanged(propName, value, oldValue);
                 }
-                // Use batched render to prevent multiple render cycles during prop updates
-                scheduleRender(this);
+                // Increment props version to trigger reactive effects
+                if (this._propsVersion) {
+                    this._propsVersion.v++;
+                    // If component is in error state, also trigger reinstantiation
+                    // since error fallbacks don't have reactive effects watching _propsVersion
+                    if (this._hasRenderError) {
+                        scheduleRender(this);
+                    }
+                }
             }
         },
         enumerable: true,
@@ -1003,7 +1203,9 @@ export function defineComponent(name, options) {
                 return;
             }
             this.props.children = value;
-            if (this._isMounted) scheduleRender(this);
+            if (this._isMounted && this._propsVersion) {
+                this._propsVersion.v++;
+            }
         },
         enumerable: true,
         configurable: true
@@ -1024,14 +1226,16 @@ export function defineComponent(name, options) {
                 return;
             }
             this.props.slots = value;
-            if (this._isMounted) scheduleRender(this);
+            if (this._isMounted && this._propsVersion) {
+                this._propsVersion.v++;
+            }
         },
         enumerable: true,
         configurable: true
     });
 
     // Define '_vdxChildren' accessor - avoids conflicts with native DOM 'children' property
-    // and Preact's special handling of props.children. Maps to props.children internally.
+    // Maps to props.children internally.
     Object.defineProperty(Component.prototype, '_vdxChildren', {
         get() {
             return this.props ? this.props.children : undefined;
@@ -1046,14 +1250,15 @@ export function defineComponent(name, options) {
                 return;
             }
             this.props.children = value;
-            if (this._isMounted) scheduleRender(this);
+            if (this._isMounted && this._propsVersion) {
+                this._propsVersion.v++;
+            }
         },
         enumerable: true,
         configurable: true
     });
 
-    // Define '_vdxSlots' accessor - avoids conflicts with Preact prop handling.
-    // Maps to props.slots internally.
+    // Define '_vdxSlots' accessor - maps to props.slots internally.
     Object.defineProperty(Component.prototype, '_vdxSlots', {
         get() {
             return this.props ? this.props.slots : undefined;
@@ -1068,7 +1273,9 @@ export function defineComponent(name, options) {
                 return;
             }
             this.props.slots = value;
-            if (this._isMounted) scheduleRender(this);
+            if (this._isMounted && this._propsVersion) {
+                this._propsVersion.v++;
+            }
         },
         enumerable: true,
         configurable: true

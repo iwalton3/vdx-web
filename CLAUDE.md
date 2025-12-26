@@ -23,13 +23,13 @@ Then open: http://localhost:9000/
 
 ## Framework Architecture
 
-- **Zero npm dependencies** - Pure vanilla JavaScript, vendored Preact, no npm packages
+- **Zero npm dependencies** - Pure vanilla JavaScript, no npm packages
 - **No build step** - Runs directly in the browser using ES6 modules
 - **TypeScript support** - Optional `.d.ts` files for type checking (see [docs/typescript.md](docs/typescript.md))
 - **Reactive state management** - Vue 3-style proxy-based reactivity
 - **Web Components** - Built on native Custom Elements API
-- **Preact rendering** - Vendored Preact (~4KB) for efficient DOM reconciliation
-- **Template compilation** - Compile-once system: `html`` → compile → Preact VNode → render`
+- **Fine-grained rendering** - Direct DOM updates without virtual DOM overhead
+- **Template compilation** - Compile-once system: `html`` → compile → DOM template → render`
 - **Router** - Hash-based and HTML5 routing with capability checks
 - **Stores** - Reactive stores with pub/sub pattern (use `localStore()` from utils.js for localStorage persistence)
 
@@ -660,7 +660,7 @@ For project overview and quickstart, see [README.md](README.md).
 ### ❌ Don't use afterRender() for value syncing or event binding
 
 ```javascript
-// ❌ WRONG - Preact handles value syncing automatically
+// ❌ WRONG - Framework handles value syncing automatically
 afterRender() {
     const select = this.querySelector('select');
     select.value = this.state.selected;
@@ -739,4 +739,4 @@ node test-runner.js --only-errors
 - Review `/app/lib/core/` for framework APIs
 - See `/app/components/` for component patterns
 - Read the docs/ folder for detailed information
-- VERY IMPORTANT: This framework does not use shadow dom for anything, children are handled via preact virtual dom rendering.
+- VERY IMPORTANT: This framework does not use shadow dom for anything, children are handled via template rendering.
