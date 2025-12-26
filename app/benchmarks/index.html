@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VDX Performance Benchmarks</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        h1 {
+            color: #00d4ff;
+            border-bottom: 3px solid #00d4ff;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #ff6b6b;
+            margin-top: 30px;
+        }
+
+        .controls {
+            margin: 20px 0;
+            padding: 20px;
+            background: #16213e;
+            border-radius: 8px;
+        }
+
+        button {
+            background: #00d4ff;
+            color: #1a1a2e;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+            transition: transform 0.1s, background 0.2s;
+        }
+
+        button:hover {
+            background: #00b8e6;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            background: #0f3460;
+            border-radius: 5px;
+            border-left: 4px solid #00d4ff;
+        }
+
+        .status.running {
+            border-left-color: #ffc107;
+        }
+
+        .status.complete {
+            border-left-color: #4caf50;
+        }
+
+        .status.error {
+            border-left-color: #f44336;
+        }
+
+        #console {
+            background: #0a0a15;
+            color: #00ff88;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 20px 0;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+
+        .results-table th {
+            background: #16213e;
+            color: #00d4ff;
+        }
+
+        .results-table tr:hover {
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .metric {
+            font-family: monospace;
+            color: #4caf50;
+        }
+
+        .note {
+            background: #2a2a4a;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #555;
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏎️ VDX Performance Benchmarks</h1>
+
+    <div class="note">
+        <strong>About This Tool:</strong> Measures rendering performance to establish baseline metrics
+        before fine-grained migration. Results are saved to localStorage for later comparison.
+    </div>
+
+    <div class="controls">
+        <button id="runBaselineBtn">Run Baseline (VDOM)</button>
+        <button id="clearResultsBtn">Clear Saved Results</button>
+        <button id="showSavedBtn">Show Saved Results</button>
+    </div>
+
+    <div id="status" class="status hidden"></div>
+
+    <div id="console"></div>
+
+    <div id="results"></div>
+
+    <script type="module">
+        // Capture console output
+        const consoleDiv = document.getElementById('console');
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+
+        const originalLog = console.log;
+        const originalError = console.error;
+
+        function appendConsole(text, type = 'log') {
+            const line = document.createElement('div');
+            line.style.color = type === 'error' ? '#ff6b6b' : '#00ff88';
+            line.textContent = text;
+            consoleDiv.appendChild(line);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        console.log = (...args) => {
+            const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
+            appendConsole(msg, 'log');
+            originalLog.apply(console, args);
+        };
+
+        console.error = (...args) => {
+            const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
+            appendConsole(msg, 'error');
+            originalError.apply(console, args);
+        };
+
+        function setStatus(text, type = '') {
+            statusDiv.textContent = text;
+            statusDiv.className = 'status ' + type;
+            statusDiv.classList.remove('hidden');
+        }
+
+        function renderResultsTable(results) {
+            let html = '<h2>📊 Results Summary</h2>';
+
+            for (const [category, suites] of Object.entries(results)) {
+                html += `<h3>${category}</h3>`;
+
+                for (const [suite, benchmarks] of Object.entries(suites)) {
+                    html += `<h4>${suite}</h4>`;
+                    html += '<table class="results-table"><thead><tr>';
+                    html += '<th>Benchmark</th><th>Mean</th><th>Median</th><th>P95</th><th>Min</th><th>Max</th>';
+                    html += '</tr></thead><tbody>';
+
+                    for (const [bench, stats] of Object.entries(benchmarks)) {
+                        html += '<tr>';
+                        html += `<td>${bench}</td>`;
+                        if (stats.error) {
+                            html += `<td colspan="5" style="color: #ff6b6b;">Error: ${stats.error}</td>`;
+                        } else if (stats) {
+                            html += `<td class="metric">${stats.mean.toFixed(3)}ms</td>`;
+                            html += `<td class="metric">${stats.median.toFixed(3)}ms</td>`;
+                            html += `<td class="metric">${stats.p95.toFixed(3)}ms</td>`;
+                            html += `<td class="metric">${stats.min.toFixed(3)}ms</td>`;
+                            html += `<td class="metric">${stats.max.toFixed(3)}ms</td>`;
+                        }
+                        html += '</tr>';
+                    }
+
+                    html += '</tbody></table>';
+                }
+            }
+
+            resultsDiv.innerHTML = html;
+        }
+
+        // Import and run benchmarks
+        import('./baseline-vdom.js').then(module => {
+            const runBtn = document.getElementById('runBaselineBtn');
+            const clearBtn = document.getElementById('clearResultsBtn');
+            const showBtn = document.getElementById('showSavedBtn');
+
+            runBtn.addEventListener('click', async () => {
+                runBtn.disabled = true;
+                consoleDiv.innerHTML = '';
+                resultsDiv.innerHTML = '';
+                setStatus('Running benchmarks... This may take a few minutes.', 'running');
+
+                try {
+                    const results = await module.runAllBenchmarks();
+                    setStatus('Benchmarks complete! Results saved to localStorage.', 'complete');
+                    renderResultsTable(results);
+                } catch (error) {
+                    setStatus('Benchmark failed: ' + error.message, 'error');
+                } finally {
+                    runBtn.disabled = false;
+                }
+            });
+
+            clearBtn.addEventListener('click', () => {
+                localStorage.removeItem('benchmark:vdom-baseline');
+                localStorage.removeItem('benchmark:fine-grained');
+                setStatus('Saved results cleared.', '');
+                resultsDiv.innerHTML = '';
+            });
+
+            showBtn.addEventListener('click', () => {
+                const saved = localStorage.getItem('benchmark:vdom-baseline');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    console.log('Saved at:', data.timestamp);
+                    renderResultsTable(data.results);
+                    setStatus('Showing saved results from ' + new Date(data.timestamp).toLocaleString(), '');
+                } else {
+                    setStatus('No saved results found. Run benchmarks first.', 'error');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
