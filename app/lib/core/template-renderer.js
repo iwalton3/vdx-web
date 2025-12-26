@@ -744,7 +744,7 @@ function instantiateText(node, parent) {
  */
 function instantiateSlot(node, values, component, parent, effects, inSvg = false) {
     // Create a placeholder comment for this slot
-    const placeholder = document.createComment(`slot:${node.index}`);
+    const placeholder = document.createComment('');
     parent.appendChild(placeholder);
 
     // Determine SVG context for child content:
