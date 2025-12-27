@@ -10,6 +10,7 @@ import * as templateCompiler from './template-compiler.js';
 const HTML_MARKER = Symbol('html');
 const RAW_MARKER = Symbol('raw');
 const CONTAIN_MARKER = Symbol('contain');
+const MEMO_EACH_MARKER = Symbol('memoEach');
 
 // Render context - tracks current component during template evaluation
 // This allows helpers like memoEach to access component-scoped caches
@@ -35,6 +36,7 @@ export function getRenderContext() {
 export const isHtml = (obj) => obj && obj[HTML_MARKER] === true;
 export const isRaw = (obj) => obj && obj[RAW_MARKER] === true;
 export const isContain = (obj) => obj && obj[CONTAIN_MARKER] === true;
+export const isMemoEach = (obj) => obj && obj[MEMO_EACH_MARKER] === true;
 
 // Op codes for the instruction-based system
 export const OP = {
@@ -442,7 +444,7 @@ export function createMemoCache() {
  *     `;
  * }
  */
-export function memoEach(array, mapFn, keyFn, cache) {
+export function memoEach(array, mapFn, keyFn, options) {
     if (!array || !Array.isArray(array)) {
         return {
             [HTML_MARKER]: true,
@@ -462,107 +464,38 @@ export function memoEach(array, mapFn, keyFn, cache) {
         return each(array, mapFn, null);
     }
 
-    // Get or create cache for this component
-    // Uses mapFn.toString() as call-site identifier to scope caches correctly.
-    // This allows proper cleanup of stale items without affecting other memoEach calls.
-    let effectiveCache = null;
+    // Support both old API (cache as Map) and new API (options object)
+    // Old: memoEach(arr, fn, keyFn, cacheMap)
+    // New: memoEach(arr, fn, keyFn, { cache, trustKey })
+    let cache = null;
+    let trustKey = false;
 
-    // Handle explicit cache parameter (backward compatibility)
-    if (cache) {
-        if (cache instanceof Map) {
-            effectiveCache = cache;
-        } else if (cache.itemCache) {
-            effectiveCache = cache.itemCache;
+    if (options) {
+        if (options instanceof Map || options?.itemCache) {
+            // Backward compatibility: options is a cache Map or cache object
+            cache = options;
+        } else if (typeof options === 'object') {
+            // New API: options object
+            cache = options.cache || null;
+            trustKey = options.trustKey || false;
         }
-    } else if (currentRenderComponent) {
-        // Use mapFn + keyFn source as call-site identifier (stable across renders)
-        // This differentiates even if mapFn is identical but keyFn differs
-        const callSiteId = mapFn.toString() + '||' + keyFn.toString();
-        if (!currentRenderComponent._memoCallSiteCaches) {
-            currentRenderComponent._memoCallSiteCaches = new Map();
-        }
-        if (!currentRenderComponent._memoCallSiteCaches.has(callSiteId)) {
-            currentRenderComponent._memoCallSiteCaches.set(callSiteId, new Map());
-        }
-        effectiveCache = currentRenderComponent._memoCallSiteCaches.get(callSiteId);
     }
 
-    if (!effectiveCache) {
-        // No cache available (not in component context and no explicit cache)
-        return each(array, mapFn, keyFn);
-    }
-
-    const results = array.map((item, index) => {
-        const key = keyFn(item, index);
-
-        // Check cache - hit only if same key AND same item reference
-        // Reference check ensures re-render when item data changes
-        const cached = effectiveCache.get(key);
-        if (cached && cached.item === item) {
-            // Cache hit - return cached compiled template
-            return cached.result;
-        }
-
-        // Cache miss - render and cache
-        const result = mapFn(item, index);
-
-        // Add key to the compiled result
-        if (result && result._compiled) {
-            const keyedResult = {
-                ...result,
-                _compiled: {
-                    ...result._compiled,
-                    key: key
-                }
-            };
-            effectiveCache.set(key, { item, result: keyedResult });
-            return keyedResult;
-        }
-
-        effectiveCache.set(key, { item, result });
-        return result;
-    });
-
-
-    // NOTE: We intentionally do NOT clean up stale cache entries here.
-    // For virtualized/windowed lists, items scroll in and out of view frequently.
-    // Cleaning up items not in the current array would force re-rendering when
-    // scrolling back. The cache is scoped to the component and cleaned up on unmount.
-
-    // Extract compiled children (same logic as each())
-    const compiledChildren = results
-        .map((r, itemIndex) => {
-            if (!r || !r._compiled) return null;
-
-            const child = r._compiled;
-            const childValues = r._values;
-
-            if (child.type === 'text' && child.value && /^\s*$/.test(child.value)) {
-                return null;
-            }
-
-            if (child.type === 'fragment' && !child.wrapped && child.children.length === 1 && child.children[0].type === 'element') {
-                const element = child.children[0];
-                const key = keyFn(array[itemIndex], itemIndex);
-                return {...element, key, _itemValues: childValues};
-            }
-
-            const key = keyFn(array[itemIndex], itemIndex);
-            return {...child, key, _itemValues: childValues};
-        })
-        .filter(Boolean);
-
+    // Return a marker object that template-renderer will handle
+    // The caching is done at the slot level (DOM location) for stable identity
     return {
+        [MEMO_EACH_MARKER]: true,
         [HTML_MARKER]: true,
+        _array: array,
+        _mapFn: mapFn,
+        _keyFn: keyFn,
+        _explicitCache: cache,  // Optional explicit cache for backward compatibility
+        _trustKey: trustKey,    // When true, skip item reference check - trust key alone
         _compiled: {
-            op: OP.FRAGMENT,
-            type: 'fragment',
-            wrapped: false,
-            fromEach: true,
-            hasExplicitKeys: true,  // memoEach always has explicit keys
-            children: compiledChildren
+            op: OP.SLOT,
+            type: 'memoEach'
         },
-        toString() { return ''; }
+        toString() { return '[memoEach]'; }
     };
 }
 

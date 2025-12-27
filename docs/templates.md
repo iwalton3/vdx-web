@@ -645,6 +645,52 @@ ${memoEach(visibleSongs, (song, idx) => {
 
 **Note:** The `keyFn` is required for memoization. Without it, `memoEach` falls back to regular `each()` behavior.
 
+**⚠️ External State Dependencies:**
+
+Unlike `each()`, `memoEach()` defers execution of the mapFn to a later phase. This means **state accessed inside the mapFn closure does NOT create reactive dependencies** for the component. If your memoEach items depend on external state (not just the item itself), you must read that state outside the closure:
+
+```javascript
+// ❌ WRONG - selectedIndex accessed inside closure won't trigger re-renders
+template() {
+    return html`
+        ${memoEach(this.state.items, (item, idx) => {
+            const isSelected = idx === this.state.selectedIndex;  // NOT tracked!
+            return html`<div class="${isSelected ? 'selected' : ''}">${item.name}</div>`;
+        }, item => item.id)}
+    `;
+}
+
+// ✅ CORRECT - Read external state outside the closure
+template() {
+    // Read HERE to create dependency (during template evaluation)
+    const selectedIdx = this.state.selectedIndex;
+
+    return html`
+        ${memoEach(this.state.items, (item, idx) => {
+            const isSelected = idx === selectedIdx;  // Uses captured value
+            return html`<div class="${isSelected ? 'selected' : ''}">${item.name}</div>`;
+        }, item => item.id)}
+    `;
+}
+```
+
+**Why this matters:**
+- `each()` executes mapFn immediately during template() - state access IS tracked
+- `memoEach()` stores the closure and executes it later - state access is NOT tracked
+- When external state changes but isn't tracked, the template won't re-render
+
+**When to include external state in the key:**
+
+If cached items should invalidate when external state changes, include it in the key:
+
+```javascript
+// Selection state changes which item looks "selected" - include in key
+${memoEach(items, (item, idx) => {
+    const isSelected = idx === selectedIdx;
+    return html`<div class="${isSelected ? 'selected' : ''}">${item.name}</div>`;
+}, (item, idx) => `${item.id}-${idx === selectedIdx}`)}
+```
+
 ### contain() - Reactive Boundaries
 
 Use `contain()` to isolate high-frequency state updates from the rest of the template. This prevents expensive parent re-renders when only a small part of the UI changes rapidly.

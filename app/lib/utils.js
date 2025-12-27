@@ -11,7 +11,7 @@
  * - Dark theme management
  */
 
-import { createStore } from './framework.js';
+import { createStore, withoutTracking } from './framework.js';
 
 /**
  * Memoize a function based on its arguments.
@@ -739,6 +739,103 @@ export function preloadLazy(importFn) {
  */
 export function clearLazyCache() {
     lazyCache.clear();
+}
+
+/**
+ * Strip reactive proxies from an object for clean logging/serialization.
+ * Recursively converts reactive proxies back to plain objects/arrays.
+ *
+ * @param {any} obj - Object to strip proxies from
+ * @param {WeakSet} [seen] - Internal: tracks visited objects to handle cycles
+ * @returns {any} Plain object without reactive proxies
+ */
+function stripProxies(obj, seen = new WeakSet()) {
+    if (obj === null || typeof obj !== 'object') {
+        return obj;
+    }
+
+    // Handle circular references
+    if (seen.has(obj)) {
+        return '[Circular]';
+    }
+    seen.add(obj);
+
+    // Handle arrays
+    if (Array.isArray(obj)) {
+        return obj.map(item => stripProxies(item, seen));
+    }
+
+    // Handle Date, RegExp, etc. - return as-is
+    if (obj instanceof Date || obj instanceof RegExp || obj instanceof Error) {
+        return obj;
+    }
+
+    // Handle plain objects (including reactive proxies)
+    const plain = {};
+    for (const key in obj) {
+        // Skip internal reactive markers
+        if (key === '__isReactive') continue;
+        try {
+            plain[key] = stripProxies(obj[key], seen);
+        } catch (e) {
+            plain[key] = '[Error accessing property]';
+        }
+    }
+    return plain;
+}
+
+/**
+ * Debug logging helper that doesn't create reactive dependencies.
+ * Strips reactive proxies so objects print cleanly in console.
+ *
+ * @param {Function} fn - Function that returns array of values to log
+ * @param {Object} [options] - Options object
+ * @param {boolean} [options.json] - If true, output as JSON (useful for puppeteer)
+ * @returns {void}
+ *
+ * @example
+ * // Basic usage - pass a function to avoid creating dependencies
+ * rlog(() => ['Current state:', this.state]);
+ * rlog(() => ['Queue:', this.state.queue, 'Index:', this.state.index]);
+ *
+ * // With JSON output (useful for puppeteer)
+ * rlog(() => ['Data:', this.state.items], { json: true });
+ */
+export function rlog(fn, options = {}) {
+    if (typeof fn !== 'function') {
+        console.warn('[rlog] First argument must be a function to avoid reactive tracking');
+        console.log(fn);
+        return;
+    }
+
+    // Read values without creating dependencies
+    const stripped = withoutTracking(() => {
+        const values = fn();
+        const arr = Array.isArray(values) ? values : [values];
+        return arr.map(arg => {
+            if (arg === null || typeof arg !== 'object') {
+                return arg;
+            }
+            return stripProxies(arg);
+        });
+    });
+
+    if (options.json) {
+        // JSON output for puppeteer or other tools lacking pretty printing
+        const jsonArgs = stripped.map(arg => {
+            if (typeof arg === 'string') {
+                return arg;
+            }
+            try {
+                return JSON.stringify(arg, null, 2);
+            } catch (e) {
+                return String(arg);
+            }
+        });
+        console.log(...jsonArgs);
+    } else {
+        console.log(...stripped);
+    }
 }
 
 /**

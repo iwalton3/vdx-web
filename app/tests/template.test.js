@@ -383,131 +383,30 @@ describe('memoEach Helper', function(it) {
         assert.ok(result._compiled, 'Should return compiled template');
     });
 
-    it('uses call-site-scoped caches for memoEach', () => {
-        // Create a mock component context
-        const mockComponent = { _memoCallSiteCaches: null };
-        setRenderContext(mockComponent);
+    it('returns marker object for slot-level caching', () => {
+        // memoEach now returns a marker that template-renderer handles
+        // The actual caching happens at the DOM slot level, not in template evaluation
+        const array = [{ id: 1, name: 'a' }, { id: 2, name: 'b' }];
+        const mapFn = item => html`<div>${item.name}</div>`;
+        const keyFn = item => item.id;
 
-        const array1 = [{ id: 1, name: 'a' }, { id: 2, name: 'b' }];
-        const array2 = [{ id: 3, name: 'c' }];
+        const result = memoEach(array, mapFn, keyFn);
 
-        // First call with array1 (mapFn A)
-        const mapFnA = item => html`<div>${item.name}</div>`;
-        memoEach(array1, mapFnA, item => item.id);
-
-        // Second call with array2 (mapFn B)
-        const mapFnB = item => html`<span>${item.name}</span>`;
-        memoEach(array2, mapFnB, item => item.id);
-
-        // Component should have Map of call-site caches
-        assert.ok(mockComponent._memoCallSiteCaches instanceof Map, 'Should use Map of caches');
-        // Each call site should have its own cache
-        assert.equal(mockComponent._memoCallSiteCaches.size, 2, 'Should have 2 call-site caches');
-
-        setRenderContext(null);
+        // Should return a marker object
+        assert.ok(result._compiled, 'Should have _compiled');
+        assert.equal(result._compiled.type, 'memoEach', 'Should be memoEach type');
+        assert.equal(result._array, array, 'Should store array reference');
+        assert.equal(result._mapFn, mapFn, 'Should store mapFn');
+        assert.equal(result._keyFn, keyFn, 'Should store keyFn');
     });
 
-    it('caches items by reference', () => {
-        const mockComponent = { _memoCallSiteCaches: null };
-        setRenderContext(mockComponent);
+    it('supports explicit cache parameter for backward compatibility', () => {
+        const array = [{ id: 1 }];
+        const explicitCache = new Map();
 
-        const item1 = { id: 1, name: 'one' };
-        const item2 = { id: 2, name: 'two' };
-        const array = [item1, item2];
+        const result = memoEach(array, item => html`<div></div>`, item => item.id, explicitCache);
 
-        let renderCount = 0;
-        const render = (item) => {
-            renderCount++;
-            return html`<div>${item.name}</div>`;
-        };
-
-        // First render
-        memoEach(array, render, item => item.id);
-        const firstRenderCount = renderCount;
-
-        // Second render with same items
-        memoEach(array, render, item => item.id);
-
-        // Should not re-render cached items
-        assert.equal(renderCount, firstRenderCount, 'Should not re-render cached items');
-
-        setRenderContext(null);
-    });
-
-    it('re-renders when item reference changes', () => {
-        const mockComponent = { _memoCallSiteCaches: null };
-        setRenderContext(mockComponent);
-
-        const item1 = { id: 1, name: 'one' };
-        const item2 = { id: 2, name: 'two' };
-        const array = [item1, item2];
-
-        let renderCount = 0;
-        const render = (item) => {
-            renderCount++;
-            return html`<div>${item.name}</div>`;
-        };
-
-        // First render
-        memoEach(array, render, item => item.id);
-        const firstRenderCount = renderCount;
-
-        // Replace item1 with new object (same id) - should re-render
-        // because reference changed (cached.item !== item)
-        array[0] = { id: 1, name: 'ONE' };
-        memoEach(array, render, item => item.id);
-
-        // Should re-render the changed item
-        assert.equal(renderCount, firstRenderCount + 1, 'Should re-render (reference changed)');
-
-        // Same array with same references - should not re-render
-        memoEach(array, render, item => item.id);
-        assert.equal(renderCount, firstRenderCount + 1, 'Should NOT re-render (same references)');
-
-        setRenderContext(null);
-    });
-
-    it('supports conditional memoEach calls', () => {
-        const mockComponent = { _memoCallSiteCaches: null };
-        setRenderContext(mockComponent);
-
-        const item1 = { id: 1 };
-        const item2 = { id: 2 };
-        const array1 = [item1];
-        const array2 = [item2];
-
-        // Use named functions so we can track their caches
-        const mapFnA = item => html`<div>A</div>`;
-        const mapFnB = item => html`<div>B</div>`;
-
-        // Simulate conditional rendering - first call array1, then array2
-        let showFirst = true;
-
-        function render() {
-            if (showFirst) {
-                memoEach(array1, mapFnA, i => i.id);
-            }
-            memoEach(array2, mapFnB, i => i.id);
-        }
-
-        render();
-        // Each call site has its own cache
-        assert.equal(mockComponent._memoCallSiteCaches.size, 2, 'Should have 2 call-site caches');
-
-        // Get cache for mapFnB (key is mapFn.toString() + '||' + keyFn.toString())
-        const keyFnB = (i => i.id).toString();
-        const cacheB = mockComponent._memoCallSiteCaches.get(mapFnB.toString() + '||' + keyFnB);
-        assert.ok(cacheB.has(2), 'Should have item id 2 in cache B');
-
-        // Now hide first - this should NOT break array2's cache
-        showFirst = false;
-        const cachedItem2Before = cacheB.get(2);
-        render();
-        const cachedItem2After = cacheB.get(2);
-
-        // Same cached entry should be used (item reference based)
-        assert.equal(cachedItem2Before, cachedItem2After, 'item2 cache should be preserved');
-
-        setRenderContext(null);
+        // Should store explicit cache reference
+        assert.equal(result._explicitCache, explicitCache, 'Should store explicit cache');
     });
 });

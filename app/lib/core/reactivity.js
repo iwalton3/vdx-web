@@ -372,13 +372,14 @@ export function reactive(obj) {
                 }
             }
 
-            // Recursively make nested objects reactive (but skip Sets/Maps/Promises/Errors/DOM Nodes/html templates)
+            // Recursively make nested objects reactive (but skip Sets/Maps/Promises/Errors/DOM Nodes/html templates/untracked)
             if (typeof value === 'object' && value !== null &&
                 !(value instanceof Set) && !(value instanceof Map) &&
                 !(value instanceof WeakSet) && !(value instanceof WeakMap) &&
                 !(value instanceof Promise) && !(value instanceof Error) &&
                 !(typeof Node !== 'undefined' && value instanceof Node) &&  // Skip DOM Nodes (can't be proxied)
-                !('_compiled' in value && '_values' in value)) {  // Skip html template objects
+                !('_compiled' in value && '_values' in value) &&  // Skip html template objects
+                !value[UNTRACKED]) {  // Skip untracked objects - they shouldn't be deeply proxied
                 return reactive(value);
             }
 

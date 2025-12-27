@@ -250,9 +250,9 @@ getSortedItems() {
 
 ### ⚠️ Large Arrays Cause Performance Issues
 
-The reactivity system tracks dependencies by walking all properties of all objects in state. For arrays with hundreds or thousands of items, this becomes expensive.
+For arrays with hundreds or thousands of items, deep proxying becomes expensive.
 
-**Use `untracked()` to opt out of deep tracking:**
+**Use `untracked()` to prevent deep proxying:**
 
 ```javascript
 import { defineComponent, html, untracked } from './lib/framework.js';
@@ -331,8 +331,65 @@ defineComponent('song-list', {
 ```
 
 This combination:
-- `untracked()` - Prevents expensive tracking of thousands of array items
+- `untracked()` - Prevents expensive deep proxying of thousands of array items
 - `memoEach()` - Caches rendered templates so unchanged items don't re-render
+
+### withoutTracking() - Read Without Creating Dependencies
+
+Use `withoutTracking()` to read reactive state without creating a dependency. The effect won't re-run when those values change.
+
+```javascript
+import { defineComponent, withoutTracking } from './lib/framework.js';
+
+defineComponent('my-component', {
+    data() {
+        return { count: 0, name: '' };
+    },
+
+    mounted() {
+        // Read initial value without tracking - effect won't re-run when count changes
+        const initialCount = withoutTracking(() => this.state.count);
+        console.log('Initial count:', initialCount);
+    },
+
+    methods: {
+        logState() {
+            // Log without creating dependencies
+            withoutTracking(() => {
+                console.log('Current state:', this.state.count, this.state.name);
+            });
+        }
+    }
+});
+```
+
+**When to use `withoutTracking()`:**
+- Reading initial values in `mounted()` without subscribing to changes
+- Logging/debugging without affecting reactivity
+- Accessing state in event handlers where you don't want to create effect dependencies
+
+### untracked() vs withoutTracking() - Key Differences
+
+| | `untracked(obj)` | `withoutTracking(fn)` |
+|---|---|---|
+| **What it does** | Marks object to prevent deep proxying | Temporarily disables dependency tracking |
+| **Scope** | Permanent (object-level) | Temporary (during fn execution) |
+| **Use case** | Large arrays/objects | Reading without subscribing |
+| **Affects** | How the object is stored | How reads are tracked |
+
+```javascript
+// untracked() - object won't be deeply proxied
+data() {
+    return {
+        songs: untracked([])  // Array items won't become reactive proxies
+    };
+}
+
+// withoutTracking() - reads won't create dependencies
+mounted() {
+    const value = withoutTracking(() => this.state.count);  // No dependency on count
+}
+```
 
 ## Stores
 

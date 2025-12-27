@@ -217,6 +217,36 @@ Common components from `vdx/componentlib/`:
 <cl-datatable items="${rows}" columns="${cols}"></cl-datatable>
 ```
 
+## Reactive Boundaries (Critical for Performance)
+
+Templates re-evaluate as a single unit - you can't track individual `${}` slots separately. For frequently updating values mixed with expensive content, use reactive boundaries:
+
+```javascript
+// ❌ ANTIPATTERN: High-frequency updates in large templates
+// Every currentTime update re-evaluates the entire template including memoEach
+template() {
+    return html`
+        <div class="time">${this.stores.player.currentTime}</div>
+        ${memoEach(this.state.songs, song => html`...`, song => song.uuid)}
+    `;
+}
+
+// ✅ CORRECT: Isolate high-frequency updates with contain()
+template() {
+    return html`
+        ${contain(() => html`<div class="time">${this.stores.player.currentTime}</div>`)}
+        ${memoEach(this.state.songs, song => html`...`, song => song.uuid)}
+    `;
+}
+```
+
+**When to use reactive boundaries:**
+- `contain()` - Isolate frequently updating values (timers, progress, animations)
+- `when(() => html\`...\`)` - Function form creates boundary for conditional content
+- Child components - Moving content to a child naturally isolates its updates
+
+**The rule:** If a template has both high-frequency updates AND expensive content (large lists, complex rendering), they must be separated by a reactive boundary.
+
 ## Anti-Patterns
 
 ```javascript

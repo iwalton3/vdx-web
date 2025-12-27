@@ -1628,10 +1628,66 @@ defineComponent('song-list', {
 
 The `cl-virtual-list` component automatically uses `memoEach()` and `rafThrottle()` for optimal performance. See [componentlib.md](componentlib.md#cl-virtual-list) for full documentation.
 
+### Reactive Boundaries (Critical)
+
+Templates re-evaluate as a single unit - you can't track individual `${}` slots separately. This is a fundamental limitation of JavaScript tagged template literals.
+
+**The Problem:**
+
+```javascript
+// ❌ ANTIPATTERN: High-frequency updates in large templates
+// Every currentTime update (e.g., every 100ms) re-evaluates the ENTIRE template
+template() {
+    return html`
+        <div class="time">${this.stores.player.currentTime}</div>
+        ${memoEach(this.state.songs, song => html`
+            <div class="song">${song.title}</div>
+        `, song => song.uuid)}
+    `;
+}
+```
+
+Even though `memoEach()` caches the rendered items, the template function itself runs on every `currentTime` update. For a list of 1000 songs, this means iterating 1000 items 10 times per second - causing UI jank.
+
+**The Solution: Reactive Boundaries**
+
+Use `contain()` to isolate high-frequency updates:
+
+```javascript
+// ✅ CORRECT: Isolate high-frequency updates with contain()
+template() {
+    return html`
+        ${contain(() => html`<div class="time">${this.stores.player.currentTime}</div>`)}
+        ${memoEach(this.state.songs, song => html`
+            <div class="song">${song.title}</div>
+        `, song => song.uuid)}
+    `;
+}
+```
+
+Now `currentTime` updates only run the small `contain()` callback, not the entire template.
+
+**Other reactive boundary options:**
+
+```javascript
+// Function-form when() also creates a boundary
+${when(this.state.isPlaying,
+    () => html`<playing-animation></playing-animation>`,  // Own boundary
+    () => html`<paused-icon></paused-icon>`               // Own boundary
+)}
+
+// Child components naturally isolate updates
+<player-time store="${this.stores.player}"></player-time>  // Isolated
+${memoEach(this.state.songs, ...)}  // Not affected by player-time's updates
+```
+
+**The Rule:** If a template has both high-frequency updates AND expensive content (large lists, complex rendering), they must be separated by a reactive boundary.
+
 ### Performance Tips Summary
 
 | Technique | Use When | Benefit |
 |-----------|----------|---------|
+| `contain()` | High-frequency updates mixed with expensive content | Isolates update scope |
 | `untracked()` | Arrays with 100+ items | Avoids expensive dependency tracking |
 | `memoEach()` | Expensive item templates | Caches rendered items |
 | `rafThrottle()` | Scroll/resize handlers | Limits to 60fps max |

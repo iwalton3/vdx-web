@@ -11,7 +11,7 @@
  */
 
 import { createEffect, withoutTracking, reactive, registerEffectFlushHooks } from './reactivity.js';
-import { isHtml, isRaw, isContain, OP, sanitizeUrl, setRenderContext } from './template.js';
+import { isHtml, isRaw, isContain, isMemoEach, OP, sanitizeUrl, setRenderContext } from './template.js';
 import { componentDefinitions } from './component.js';
 import { BOOLEAN_ATTRS } from './constants.js';
 
@@ -790,6 +790,19 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
     // Reactive container for child template values - allows updates without reinstantiation
     let currentValuesRef = null;
 
+    // memoEach slot-level caches - stable identity per DOM location
+    // We keep two caches (previous + current) and rotate each render for automatic pruning
+    let memoPrevCache = null;     // Map<key, { item, result }> from previous render
+    let memoCurrCache = null;     // Map<key, { item, result }> for current render
+
+    // contain() slot-level state - for DOM reuse across containEffect recreations
+    let containPreviousCompiled = null;
+    let containValuesRef = null;
+    let containNodes = [];
+    let containEffects = [];
+    let containEffectRef = null;      // The active containEffect
+    let containRenderFnRef = null;    // Mutable ref to current renderFn (updated on each render)
+
     const effect = createEffect(() => {
         // Get the value (may be a function for reactive access)
         let value = values[node.index];
@@ -822,17 +835,10 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 // Fall through to re-instantiation if no valuesRef (shouldn't happen)
             }
 
-            // For contain() boundaries, check if it's the same logical boundary
-            // Compare by function source since arrow functions are recreated each render
-            if (isContain(value) && isContain(previousValue)) {
-                const sameSource = value._renderFn.toString() === previousValue._renderFn.toString();
-                if (sameSource) {
-                    // Same contain boundary - existing containEffect is already tracking
-                    // and will update when its dependencies change
-                    previousValue = value;
-                    return;
-                }
-            }
+            // For contain() boundaries, we always recreate the containEffect (cheap)
+            // but reuse DOM when the compiled template structure matches.
+            // State is maintained at the slot level, not inside the containEffect.
+            // This removes the fragile toString() comparison for call-site identity.
 
             // For each() fragments, do smart keyed diffing
             // This preserves DOM for items that haven't changed structure
@@ -876,26 +882,49 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
         currentEffects = [];
         currentItemMap = null;  // Reset keyed item tracking
 
+        // Helper to clean up contain state when transitioning away
+        const cleanupContain = () => {
+            if (containEffectRef) {
+                containEffectRef.dispose();
+                for (const oldNode of containNodes) oldNode.remove();
+                for (const oldEffect of containEffects) if (oldEffect.dispose) oldEffect.dispose();
+                containNodes = [];
+                containEffects = [];
+                containPreviousCompiled = null;
+                containValuesRef = null;
+                containEffectRef = null;
+                containRenderFnRef = null;
+            }
+        };
+
         // Handle different value types
         if (value == null || value === false) {
+            cleanupContain();  // Clean up contain if we had one
             return;
         }
 
         // Handle contain() - isolated reactive boundary
         // Creates its own effect that only tracks dependencies from its render function
+        // State is maintained at slot level to enable DOM reuse across containEffect recreations
         if (isContain(value) && value._renderFn) {
-            // Track state across effect runs to enable DOM reuse
-            let containPreviousCompiled = null;
-            let containValuesRef = null;
-            let containNodes = [];
-            let containEffects = [];
+            // If we already have a containEffect, just update the renderFn ref
+            // The arrow function is recreated each parent render, but we reuse the containEffect
+            // and let it call the updated renderFn via the mutable ref
+            if (containEffectRef) {
+                containRenderFnRef = value._renderFn;
+                return;
+            }
+
+            // Store the initial renderFn - will be updated via containRenderFnRef on parent re-renders
+            containRenderFnRef = value._renderFn;
 
             // Create an isolated effect for this boundary
-            const containEffect = createEffect(() => {
+            const newContainEffect = createEffect(() => {
                 // Evaluate the render function in this isolated effect
+                // Use containRenderFnRef to get the current renderFn (may be updated by parent)
                 // This creates the dependency tracking for just this boundary
                 setRenderContext(component);
-                const result = value._renderFn();
+                const result = containRenderFnRef();
                 setRenderContext(null);
 
                 if (!result || !isHtml(result) || !result._compiled) {
@@ -916,6 +945,7 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 const rawValues = result._values || [];
 
                 // Check if template structure is the same - can reuse DOM
+                // Uses slot-level state so this works across containEffect recreations
                 if (containPreviousCompiled === result._compiled && containValuesRef) {
                     // Same template structure - just update values reactively
                     // Child effects will re-run automatically
@@ -953,19 +983,129 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 containNodes = nodes;
                 containEffects = childEffects;
                 containPreviousCompiled = result._compiled;
-
-                // Update outer tracking for cleanup
-                currentNodes = nodes;
-                currentEffects = childEffects;
             });
 
+            // Track this containEffect (renderFn already stored above)
+            containEffectRef = newContainEffect;
+
             // Add the contain effect to our effects list for cleanup
-            effects.push(containEffect);
+            effects.push(newContainEffect);
             return;
         }
 
+        // Clean up contain if we're switching to a different value type
+        cleanupContain();
+
+        // Handle memoEach() - memoized list rendering with slot-level cache
+        // The cache is stored at the slot level (DOM location) for stable identity
+        if (isMemoEach(value)) {
+            const { _array: array, _mapFn: mapFn, _keyFn: keyFn, _explicitCache: explicitCache, _trustKey: trustKey } = value;
+
+            // For explicit cache (backward compatibility), use it directly
+            // Otherwise use slot-level two-cache rotation for automatic pruning
+            const useExplicitCache = explicitCache instanceof Map ? explicitCache :
+                                     explicitCache?.itemCache ? explicitCache.itemCache : null;
+
+            // Create new current cache for this render
+            // We rotate: previous becomes garbage, current becomes previous
+            const newCurrCache = new Map();
+
+            // Iterate array and apply memoization
+            const results = array.map((item, index) => {
+                const key = keyFn(item, index);
+
+                // Check both previous and current cache for hits
+                // (current may have duplicates if same key appears twice in array)
+                // When trustKey is true, skip item reference check - useful for virtual scroll
+                // where items are sliced from arrays and positions change
+                const cachedCurr = newCurrCache.get(key);
+                if (cachedCurr && (trustKey || cachedCurr.item === item)) {
+                    return cachedCurr.result;
+                }
+
+                // Check previous render's cache
+                const cachedPrev = useExplicitCache ? useExplicitCache.get(key) :
+                                   (memoPrevCache?.get(key) || memoCurrCache?.get(key));
+                if (cachedPrev && (trustKey || cachedPrev.item === item)) {
+                    // Copy to current cache and return
+                    newCurrCache.set(key, cachedPrev);
+                    if (useExplicitCache) {
+                        useExplicitCache.set(key, cachedPrev);
+                    }
+                    return cachedPrev.result;
+                }
+
+                // Cache miss - render and cache
+                setRenderContext(component);
+                const result = mapFn(item, index);
+                setRenderContext(null);
+
+                // Add key to the compiled result
+                if (result && result._compiled) {
+                    const keyedResult = {
+                        ...result,
+                        _compiled: {
+                            ...result._compiled,
+                            key: key
+                        }
+                    };
+                    const cacheEntry = { item, result: keyedResult };
+                    newCurrCache.set(key, cacheEntry);
+                    if (useExplicitCache) {
+                        useExplicitCache.set(key, cacheEntry);
+                    }
+                    return keyedResult;
+                }
+
+                const cacheEntry = { item, result };
+                newCurrCache.set(key, cacheEntry);
+                if (useExplicitCache) {
+                    useExplicitCache.set(key, cacheEntry);
+                }
+                return result;
+            });
+
+            // Rotate caches: previous = current, current = new
+            // Old previous cache is garbage collected (automatic pruning!)
+            memoPrevCache = memoCurrCache;
+            memoCurrCache = newCurrCache;
+
+            // Build each()-like fragment structure for the keyed list handling
+            const compiledChildren = results
+                .map((r, itemIndex) => {
+                    if (!r || !r._compiled) return null;
+
+                    const child = r._compiled;
+                    const childValues = r._values;
+
+                    if (child.type === 'text' && child.value && /^\s*$/.test(child.value)) {
+                        return null;
+                    }
+
+                    if (child.type === 'fragment' && !child.wrapped && child.children.length === 1 && child.children[0].type === 'element') {
+                        const element = child.children[0];
+                        const key = keyFn(array[itemIndex], itemIndex);
+                        return {...element, key, _itemValues: childValues};
+                    }
+
+                    const key = keyFn(array[itemIndex], itemIndex);
+                    return {...child, key, _itemValues: childValues};
+                })
+                .filter(Boolean);
+
+            // Convert to html-like object so it falls through to the each() fragment handling
+            value = {
+                _compiled: {
+                    fromEach: true,
+                    hasExplicitKeys: true,
+                    children: compiledChildren
+                }
+            };
+            // Fall through to html() handling which will process the each() fragment
+        }
+
         // Handle html() template result
-        if (isHtml(value)) {
+        if (isHtml(value) || value?._compiled?.fromEach) {
             if (!value._compiled) return;
 
             // Check if this is an each() fragment with keyed children

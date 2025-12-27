@@ -212,6 +212,13 @@ ${memoEach(this.state.songs, song => html`
 ${memoEach(this.state.songs, song => html`<div>${song.a}</div>`, s => s.uuid, this._cacheA)}
 ${memoEach(this.state.songs, song => html`<span>${song.b}</span>`, s => s.uuid, this._cacheB)}
 
+// memoEach() with external state - read OUTSIDE closure to track dependencies
+const selectedIdx = this.state.selectedIndex;  // Read here to create dependency
+${memoEach(this.state.items, (item, idx) => {
+    const isSelected = idx === selectedIdx;  // Use captured value, not this.state
+    return html`<div class="${isSelected ? 'selected' : ''}">${item.name}</div>`;
+}, item => item.id)}
+
 // contain() - Isolate high-frequency updates from parent template
 // Prevents expensive sibling re-renders (e.g., list doesn't re-render on timer tick)
 ${contain(() => html`

@@ -497,6 +497,38 @@ export function preloadLazy(importFn: () => Promise<any>): Promise<true>;
 export function clearLazyCache(): void;
 
 // =============================================================================
+// Debug Logging
+// =============================================================================
+
+/**
+ * Options for rlog function
+ */
+export interface RlogOptions {
+  /** If true, output as JSON (useful for puppeteer) */
+  json?: boolean;
+}
+
+/**
+ * Debug logging helper that doesn't create reactive dependencies.
+ * Strips reactive proxies so objects print cleanly in console.
+ *
+ * Must pass a function to avoid tracking - the function is called inside
+ * withoutTracking() so state access won't create dependencies.
+ *
+ * @param fn - Function that returns array of values to log
+ * @param options - Optional settings
+ *
+ * @example
+ * // Basic usage - pass a function to avoid creating dependencies
+ * rlog(() => ['Current state:', this.state]);
+ * rlog(() => ['Queue:', this.state.queue, 'Index:', this.state.index]);
+ *
+ * // With JSON output (useful for puppeteer)
+ * rlog(() => ['Data:', this.state.items], { json: true });
+ */
+export function rlog(fn: () => unknown[], options?: RlogOptions): void;
+
+// =============================================================================
 // Default Export
 // =============================================================================
 

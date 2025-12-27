@@ -1723,6 +1723,118 @@ describe('Fine-Grained Renderer - contain() Reactive Boundary', function(it) {
 
         container.remove();
     });
+
+    it('contain() DOM persists when parent template re-renders', async () => {
+        // This test verifies the fix for the bug where contain() DOM was removed
+        // on every parent re-render because currentNodes/currentEffects were incorrectly set
+        let parentRenderCount = 0;
+
+        const TestComp = defineComponent('test-contain-persists', {
+            data() {
+                return {
+                    parentValue: 'parent-initial',
+                    containedValue: 0
+                };
+            },
+            template() {
+                parentRenderCount++;
+                return html`
+                    <div>
+                        <span class="parent">${this.state.parentValue}</span>
+                        ${contain(() => html`<span class="contained">${this.state.containedValue}</span>`)}
+                    </div>
+                `;
+            }
+        });
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        container.innerHTML = '<test-contain-persists></test-contain-persists>';
+
+        await waitForRender();
+
+        const comp = container.querySelector('test-contain-persists');
+
+        // Initial render should show both values
+        assert.equal(comp.querySelector('.parent').textContent, 'parent-initial');
+        assert.equal(comp.querySelector('.contained').textContent, '0');
+
+        const initialContainedEl = comp.querySelector('.contained');
+
+        // Update parent value (triggers parent re-render)
+        comp.state.parentValue = 'parent-updated';
+        await waitForRender();
+
+        // Parent should update
+        assert.equal(comp.querySelector('.parent').textContent, 'parent-updated');
+
+        // Contained element should still exist and have same content
+        assert.ok(comp.querySelector('.contained'), 'Contained element should still exist after parent re-render');
+        assert.equal(comp.querySelector('.contained').textContent, '0', 'Contained value should be preserved');
+
+        // DOM element should be the same (not recreated)
+        assert.equal(comp.querySelector('.contained'), initialContainedEl, 'Should reuse same DOM element');
+
+        // Update contained value
+        comp.state.containedValue = 42;
+        await waitForRender();
+
+        // Contained should update
+        assert.equal(comp.querySelector('.contained').textContent, '42');
+
+        container.remove();
+    });
+
+    it('contain() cleans up properly when slot value changes to non-contain', async () => {
+        const TestComp = defineComponent('test-contain-cleanup', {
+            data() {
+                return {
+                    useContain: true,
+                    value: 'hello'
+                };
+            },
+            template() {
+                return html`
+                    <div>
+                        ${this.state.useContain
+                            ? contain(() => html`<span class="contained">${this.state.value}</span>`)
+                            : html`<span class="not-contained">${this.state.value}</span>`
+                        }
+                    </div>
+                `;
+            }
+        });
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        container.innerHTML = '<test-contain-cleanup></test-contain-cleanup>';
+
+        await waitForRender();
+
+        const comp = container.querySelector('test-contain-cleanup');
+
+        // Initially should show contained
+        assert.ok(comp.querySelector('.contained'), 'Should show contained element');
+        assert.ok(!comp.querySelector('.not-contained'), 'Should not show non-contained element');
+
+        // Switch to non-contain
+        comp.state.useContain = false;
+        await waitForRender();
+
+        // Should show non-contained, not contained
+        assert.ok(!comp.querySelector('.contained'), 'Contained element should be removed');
+        assert.ok(comp.querySelector('.not-contained'), 'Non-contained element should be shown');
+        assert.equal(comp.querySelector('.not-contained').textContent, 'hello');
+
+        // Switch back to contain
+        comp.state.useContain = true;
+        await waitForRender();
+
+        assert.ok(comp.querySelector('.contained'), 'Contained element should be back');
+        assert.ok(!comp.querySelector('.not-contained'), 'Non-contained element should be removed');
+
+        container.remove();
+    });
 });
 
 describe('Fine-Grained Renderer - when() Function Forms', function(it) {
