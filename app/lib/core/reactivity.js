@@ -315,14 +315,33 @@ export function reactive(obj) {
         return obj;
     }
 
-    // If already a proxy, return as-is
-    if (obj.__isReactive) {
+    // If already a proxy or reactive collection, return as-is
+    if (obj.__isReactive || isReactiveCollection(obj)) {
         return obj;
     }
 
+    // Auto-wrap Set and Map with reactive collections (unless marked untracked)
+    // Cache the wrappers so the same wrapper is returned on each access
+    if (obj instanceof Set && !obj[UNTRACKED]) {
+        if (reactiveCollectionCache.has(obj)) {
+            return reactiveCollectionCache.get(obj);
+        }
+        const wrapped = reactiveSet(obj);
+        reactiveCollectionCache.set(obj, wrapped);
+        return wrapped;
+    }
+    if (obj instanceof Map && !obj[UNTRACKED]) {
+        if (reactiveCollectionCache.has(obj)) {
+            return reactiveCollectionCache.get(obj);
+        }
+        const wrapped = reactiveMap(obj);
+        reactiveCollectionCache.set(obj, wrapped);
+        return wrapped;
+    }
+
     // Don't wrap objects with internal slots that can't be proxied
-    // These include Set, Map, WeakSet, WeakMap, Promise, and Error
-    if (obj instanceof Set || obj instanceof Map || obj instanceof WeakSet || obj instanceof WeakMap || obj instanceof Promise || obj instanceof Error) {
+    // These include WeakSet, WeakMap, Promise, and Error
+    if (obj instanceof WeakSet || obj instanceof WeakMap || obj instanceof Promise || obj instanceof Error) {
         return obj;
     }
 
@@ -350,7 +369,20 @@ export function reactive(obj) {
                 return true;
             }
 
-            track(target, key);
+            // Mutation version for trackMutations() - O(1) way to track any change
+            if (key === MUTATION_VERSION) {
+                track(target, MUTATION_VERSION);
+                return target[MUTATION_VERSION] || 0;
+            }
+
+            // For arrays, track 'length' instead of individual indices
+            // This makes iteration O(1) instead of O(n) for dependency tracking
+            // Template diffing handles "same output" cases efficiently
+            if (Array.isArray(target) && typeof key === 'string' && /^\d+$/.test(key)) {
+                track(target, 'length');
+            } else {
+                track(target, key);
+            }
             const value = Reflect.get(target, key, receiver);
 
             // Date methods need to be bound to the original Date object
@@ -364,22 +396,41 @@ export function reactive(obj) {
                 const arrayMethods = ['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse'];
                 if (arrayMethods.includes(key)) {
                     return function(...args) {
+                        // For sort/reverse, make them atomic to prevent infinite loops
+                        // Instead of mutating in place (which triggers during iteration),
+                        // we copy, sort, and commit back in one operation
+                        if (key === 'sort' || key === 'reverse') {
+                            const copy = [...target];
+                            copy[key](...args);
+                            // Replace contents atomically
+                            target.length = 0;
+                            target.push(...copy);
+                            trigger(target, 'length');
+                            // Increment mutation version
+                            target[MUTATION_VERSION] = (target[MUTATION_VERSION] || 0) + 1;
+                            trigger(target, MUTATION_VERSION);
+                            return proxy;  // Return proxy for chaining (like native sort)
+                        }
                         const result = value.apply(target, args);
                         // Trigger on length change (covers both length and iteration tracking)
                         trigger(target, 'length');
+                        // Increment mutation version
+                        target[MUTATION_VERSION] = (target[MUTATION_VERSION] || 0) + 1;
+                        trigger(target, MUTATION_VERSION);
                         return result;
                     };
                 }
             }
 
-            // Recursively make nested objects reactive (but skip Sets/Maps/Promises/Errors/DOM Nodes/html templates/untracked)
+            // Recursively make nested objects reactive
+            // Sets/Maps are auto-wrapped by reactive() into reactiveSet/reactiveMap
+            // Skip: WeakSet/WeakMap/Promise/Error (can't proxy), DOM Nodes, html templates, untracked
             if (typeof value === 'object' && value !== null &&
-                !(value instanceof Set) && !(value instanceof Map) &&
                 !(value instanceof WeakSet) && !(value instanceof WeakMap) &&
                 !(value instanceof Promise) && !(value instanceof Error) &&
-                !(typeof Node !== 'undefined' && value instanceof Node) &&  // Skip DOM Nodes (can't be proxied)
-                !('_compiled' in value && '_values' in value) &&  // Skip html template objects
-                !value[UNTRACKED]) {  // Skip untracked objects - they shouldn't be deeply proxied
+                !(typeof Node !== 'undefined' && value instanceof Node) &&
+                !('_compiled' in value && '_values' in value) &&
+                !value[UNTRACKED]) {
                 return reactive(value);
             }
 
@@ -404,7 +455,17 @@ export function reactive(obj) {
                 if (debugReactivityHook) {
                     debugReactivityHook(target, key, value, 'set');
                 }
-                trigger(target, key);
+
+                // For array index sets, trigger 'length' since that's what we track
+                if (Array.isArray(target) && typeof key === 'string' && /^\d+$/.test(key)) {
+                    trigger(target, 'length');
+                } else {
+                    trigger(target, key);
+                }
+
+                // Increment mutation version for trackMutations()
+                target[MUTATION_VERSION] = (target[MUTATION_VERSION] || 0) + 1;
+                trigger(target, MUTATION_VERSION);
             }
 
             return result;
@@ -413,6 +474,11 @@ export function reactive(obj) {
         deleteProperty(target, key) {
             const result = Reflect.deleteProperty(target, key);
             trigger(target, key);
+
+            // Increment mutation version for trackMutations()
+            target[MUTATION_VERSION] = (target[MUTATION_VERSION] || 0) + 1;
+            trigger(target, MUTATION_VERSION);
+
             return result;
         }
     });
@@ -519,6 +585,12 @@ export function isReactive(value) {
 
 /** Symbol to mark objects as untracked */
 const UNTRACKED = Symbol('untracked');
+
+/** Symbol for mutation version counter - used by trackMutations() */
+const MUTATION_VERSION = Symbol('mutationVersion');
+
+/** WeakMap to cache reactive collection wrappers (Set/Map -> reactiveSet/reactiveMap) */
+const reactiveCollectionCache = new WeakMap();
 
 /**
  * Marks an object as untracked. When used with reactive state, the object's
@@ -685,4 +757,326 @@ export function trackAllDependencies(obj, visited) {
             // Skip properties that throw on access (getters that error, etc.)
         }
     }
+}
+
+/**
+ * Track mutations to a reactive object using O(1) mutation counter.
+ * Much more efficient than trackAllDependencies() for large objects.
+ *
+ * Instead of walking every property (O(n)), this just reads a single
+ * mutation version counter that increments on any change.
+ *
+ * @param {Object} obj - The reactive object to track
+ * @example
+ * const state = reactive({ items: [...thousandsOfItems] });
+ * createEffect(() => {
+ *     trackMutations(state);  // O(1) - just reads mutation counter
+ *     console.log('State changed!');
+ * });
+ *
+ * state.items.push(newItem);  // Effect runs (mutation counter incremented)
+ * state.anyProp = 'value';    // Effect runs (mutation counter incremented)
+ */
+export function trackMutations(obj) {
+    // Handle null/undefined/primitives
+    if (obj == null || typeof obj !== 'object') return;
+
+    // For reactive proxies, access the mutation version to establish dependency
+    if (obj.__isReactive) {
+        // Accessing MUTATION_VERSION triggers tracking via proxy get trap
+        const _ = obj[MUTATION_VERSION];
+    }
+
+    // For reactive collections (Set/Map), track their size
+    if (isReactiveCollection(obj)) {
+        const _ = obj.size;
+    }
+}
+
+/** Symbol to mark reactive collections */
+const REACTIVE_COLLECTION = Symbol('reactiveCollection');
+
+/**
+ * Creates a reactive Set that automatically triggers updates when modified.
+ * Unlike regular Set in reactive state, you don't need to reassign after mutations.
+ *
+ * @param {Iterable} [initial] - Initial values for the Set
+ * @returns {Object} A reactive Set-like object
+ * @example
+ * data() {
+ *     return {
+ *         selectedIds: reactiveSet()
+ *     };
+ * }
+ *
+ * // These automatically trigger re-renders:
+ * this.state.selectedIds.add(5);
+ * this.state.selectedIds.delete(3);
+ * this.state.selectedIds.clear();
+ *
+ * // Reading also tracks dependencies:
+ * if (this.state.selectedIds.has(5)) { ... }
+ */
+export function reactiveSet(initial) {
+    const internal = new Set(initial);
+
+    // Use an object as the tracking target (Sets can't be proxied directly)
+    const target = { [REACTIVE_COLLECTION]: 'Set' };
+
+    const wrapper = {
+        add(value) {
+            if (!internal.has(value)) {
+                internal.add(value);
+                trigger(target, 'size');
+            }
+            return wrapper;
+        },
+
+        delete(value) {
+            const had = internal.has(value);
+            if (had) {
+                internal.delete(value);
+                trigger(target, 'size');
+            }
+            return had;
+        },
+
+        /**
+         * Add multiple values at once (single trigger)
+         * @param {Iterable} values - Values to add
+         * @returns {Object} The wrapper for chaining
+         */
+        addAll(values) {
+            let changed = false;
+            for (const value of values) {
+                if (!internal.has(value)) {
+                    internal.add(value);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                trigger(target, 'size');
+            }
+            return wrapper;
+        },
+
+        /**
+         * Delete multiple values at once (single trigger)
+         * @param {Iterable} values - Values to delete
+         * @returns {number} Number of values actually deleted
+         */
+        deleteAll(values) {
+            let deleted = 0;
+            for (const value of values) {
+                if (internal.delete(value)) {
+                    deleted++;
+                }
+            }
+            if (deleted > 0) {
+                trigger(target, 'size');
+            }
+            return deleted;
+        },
+
+        has(value) {
+            track(target, 'size');
+            return internal.has(value);
+        },
+
+        clear() {
+            if (internal.size > 0) {
+                internal.clear();
+                trigger(target, 'size');
+            }
+        },
+
+        get size() {
+            track(target, 'size');
+            return internal.size;
+        },
+
+        forEach(callback, thisArg) {
+            track(target, 'size');
+            internal.forEach(callback, thisArg);
+        },
+
+        *[Symbol.iterator]() {
+            track(target, 'size');
+            yield* internal;
+        },
+
+        *keys() {
+            track(target, 'size');
+            yield* internal.keys();
+        },
+
+        *values() {
+            track(target, 'size');
+            yield* internal.values();
+        },
+
+        *entries() {
+            track(target, 'size');
+            yield* internal.entries();
+        },
+
+        // Allow spreading: [...mySet]
+        get [Symbol.toStringTag]() {
+            return 'ReactiveSet';
+        }
+    };
+
+    return wrapper;
+}
+
+/**
+ * Creates a reactive Map that automatically triggers updates when modified.
+ * Unlike regular Map in reactive state, you don't need to reassign after mutations.
+ *
+ * @param {Iterable} [initial] - Initial entries for the Map
+ * @returns {Object} A reactive Map-like object
+ * @example
+ * data() {
+ *     return {
+ *         userScores: reactiveMap()
+ *     };
+ * }
+ *
+ * // These automatically trigger re-renders:
+ * this.state.userScores.set('alice', 100);
+ * this.state.userScores.delete('bob');
+ * this.state.userScores.clear();
+ *
+ * // Reading also tracks dependencies:
+ * const score = this.state.userScores.get('alice');
+ */
+export function reactiveMap(initial) {
+    const internal = new Map(initial);
+
+    // Use an object as the tracking target (Maps can't be proxied directly)
+    const target = { [REACTIVE_COLLECTION]: 'Map' };
+
+    const wrapper = {
+        set(key, value) {
+            const hadKey = internal.has(key);
+            const oldValue = internal.get(key);
+            internal.set(key, value);
+            // Trigger if new key or value changed
+            if (!hadKey || oldValue !== value) {
+                trigger(target, 'size');
+            }
+            return wrapper;
+        },
+
+        get(key) {
+            track(target, 'size');
+            return internal.get(key);
+        },
+
+        delete(key) {
+            const had = internal.has(key);
+            if (had) {
+                internal.delete(key);
+                trigger(target, 'size');
+            }
+            return had;
+        },
+
+        /**
+         * Set multiple key-value pairs at once (single trigger)
+         * @param {Iterable<[key, value]>} entries - Entries to set
+         * @returns {Object} The wrapper for chaining
+         */
+        setAll(entries) {
+            let changed = false;
+            for (const [key, value] of entries) {
+                const hadKey = internal.has(key);
+                const oldValue = internal.get(key);
+                internal.set(key, value);
+                if (!hadKey || oldValue !== value) {
+                    changed = true;
+                }
+            }
+            if (changed) {
+                trigger(target, 'size');
+            }
+            return wrapper;
+        },
+
+        /**
+         * Delete multiple keys at once (single trigger)
+         * @param {Iterable} keys - Keys to delete
+         * @returns {number} Number of keys actually deleted
+         */
+        deleteAll(keys) {
+            let deleted = 0;
+            for (const key of keys) {
+                if (internal.delete(key)) {
+                    deleted++;
+                }
+            }
+            if (deleted > 0) {
+                trigger(target, 'size');
+            }
+            return deleted;
+        },
+
+        has(key) {
+            track(target, 'size');
+            return internal.has(key);
+        },
+
+        clear() {
+            if (internal.size > 0) {
+                internal.clear();
+                trigger(target, 'size');
+            }
+        },
+
+        get size() {
+            track(target, 'size');
+            return internal.size;
+        },
+
+        forEach(callback, thisArg) {
+            track(target, 'size');
+            internal.forEach(callback, thisArg);
+        },
+
+        *[Symbol.iterator]() {
+            track(target, 'size');
+            yield* internal;
+        },
+
+        *keys() {
+            track(target, 'size');
+            yield* internal.keys();
+        },
+
+        *values() {
+            track(target, 'size');
+            yield* internal.values();
+        },
+
+        *entries() {
+            track(target, 'size');
+            yield* internal.entries();
+        },
+
+        get [Symbol.toStringTag]() {
+            return 'ReactiveMap';
+        }
+    };
+
+    return wrapper;
+}
+
+/**
+ * Check if a value is a reactive collection (Set or Map)
+ * @param {*} value - Value to check
+ * @returns {boolean}
+ */
+export function isReactiveCollection(value) {
+    return value && typeof value === 'object' && value[Symbol.toStringTag] &&
+        (value[Symbol.toStringTag] === 'ReactiveSet' || value[Symbol.toStringTag] === 'ReactiveMap');
 }

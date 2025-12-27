@@ -422,59 +422,71 @@ defineComponent('result-display', {
 
 ### 7. Reactive State - CRITICAL
 
-⚠️ **NEVER mutate reactive arrays with `.sort()`** - This causes infinite re-render loops!
+✅ **`.sort()` and `.reverse()` are now safe** - they're made atomic automatically:
 
 ```javascript
-// ✅ CORRECT - Create a copy before sorting
-getSortedItems() {
-    return [...this.state.items].sort((a, b) => a.time - b.time);
-}
+// ✅ Both work correctly
+this.state.items.sort((a, b) => a.time - b.time);  // Atomic - one update
+this.state.items.reverse();  // Atomic - one update
 
-// ❌ WRONG - Infinite loop!
-getSortedItems() {
-    return this.state.items.sort((a, b) => a.time - b.time);
-}
+// ✅ Creating a copy also still works
+const sorted = [...this.state.items].sort((a, b) => a.time - b.time);
 ```
 
 **Safe methods** (return new arrays): `.filter()`, `.map()`, `.slice()`
-**Unsafe methods** (mutate in place): `.sort()`, `.reverse()`, `.splice()`
+**Mutating methods** (trigger updates): `.sort()`, `.reverse()`, `.push()`, `.pop()`, `.splice()`
 
-⚠️ **Sets and Maps are NOT reactive** - Must reassign:
+✅ **Sets and Maps are automatically reactive** - just use them normally:
 
 ```javascript
-// ✅ CORRECT
-addItem(item) {
-    const newSet = new Set(this.state.items);
-    newSet.add(item);
-    this.state.items = newSet;
+data() {
+    return {
+        selectedIds: new Set(),  // ✅ Auto-wrapped as reactive!
+        userScores: new Map()    // ✅ Auto-wrapped as reactive!
+    };
+},
+
+methods: {
+    toggleSelection(id) {
+        // ✅ Automatically triggers re-render!
+        if (this.state.selectedIds.has(id)) {
+            this.state.selectedIds.delete(id);
+        } else {
+            this.state.selectedIds.add(id);
+        }
+    }
 }
 ```
 
-⚠️ **Large arrays cause performance issues** - Use `untracked()` for arrays with 100+ items:
+Use `untracked()` to opt-out for large Set/Map that don't need reactivity.
 
+**Batch operations** (single trigger for multiple items):
 ```javascript
-import { defineComponent, html, untracked } from './lib/framework.js';
-
-defineComponent('playlist-view', {
-    data() {
-        return {
-            // Large array - only track when the whole array is replaced
-            songs: untracked([]),
-            // Small values - track normally
-            currentIndex: 0
-        };
-    },
-
-    methods: {
-        loadSongs(newSongs) {
-            // Just assign - untracked is auto-applied to keys marked initially
-            this.state.songs = newSongs;
-        }
-    }
-});
+this.state.selectedIds.addAll([1, 2, 3]);     // ✅ One trigger, not 3
+this.state.selectedIds.deleteAll([1, 2]);     // ✅ One trigger, not 2
+this.state.userScores.setAll([['a', 1], ['b', 2]]);  // ✅ One trigger
+this.state.userScores.deleteAll(['a', 'b']);  // ✅ One trigger
 ```
 
-Once a key is marked with `untracked()` in `data()`, all future assignments to that key are automatically untracked. This prevents the framework from walking every property of every item in large arrays.
+✅ **Array iteration is O(1)** - Large arrays work efficiently by default:
+
+```javascript
+// Iterating 2000 items creates 1 dependency (on 'length'), not 2000
+each(this.state.items, item => html`<div>${item.name}</div>`)
+```
+
+**Optional: `untracked()` to skip deep proxying entirely:**
+
+```javascript
+data() {
+    return {
+        // Skip proxying: 2000 items × 50 properties = skip reactive wrapping
+        songs: untracked([]),
+    };
+}
+```
+
+Use `untracked()` when items have many properties you never read individually, or for third-party objects with custom proxies. Reassign the whole array to trigger updates.
 
 #### Automatic Render Batching
 

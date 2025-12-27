@@ -11,6 +11,7 @@ const HTML_MARKER = Symbol('html');
 const RAW_MARKER = Symbol('raw');
 const CONTAIN_MARKER = Symbol('contain');
 const MEMO_EACH_MARKER = Symbol('memoEach');
+const WHEN_MARKER = Symbol('when');
 
 // Render context - tracks current component during template evaluation
 // This allows helpers like memoEach to access component-scoped caches
@@ -37,6 +38,7 @@ export const isHtml = (obj) => obj && obj[HTML_MARKER] === true;
 export const isRaw = (obj) => obj && obj[RAW_MARKER] === true;
 export const isContain = (obj) => obj && obj[CONTAIN_MARKER] === true;
 export const isMemoEach = (obj) => obj && obj[MEMO_EACH_MARKER] === true;
+export const isWhen = (obj) => obj && obj[WHEN_MARKER] === true;
 
 // Op codes for the instruction-based system
 export const OP = {
@@ -180,53 +182,27 @@ const EMPTY_WHEN_RESULT = {
 };
 
 export function when(condition, thenValue, elseValue = null) {
-    // OPTIMIZATION: When using function forms, cache result based on condition
-    // This prevents re-evaluating branches when unrelated state changes
-    // Note: Only works with function forms - document this in tutorials
     const isFunctionForm = typeof thenValue === 'function' || typeof elseValue === 'function';
 
-    if (isFunctionForm && currentRenderComponent) {
-        // Use thenValue function reference as cache key (stable across renders)
-        if (!currentRenderComponent._whenCaches) {
-            currentRenderComponent._whenCaches = new WeakMap();
-        }
-
-        // Get or create cache for this when() call site
-        const cacheKey = typeof thenValue === 'function' ? thenValue : elseValue;
-        if (cacheKey && typeof cacheKey === 'function') {
-            let cacheData = currentRenderComponent._whenCaches.get(cacheKey);
-            if (!cacheData) {
-                cacheData = { lastCondition: undefined, lastResult: null };
-                currentRenderComponent._whenCaches.set(cacheKey, cacheData);
-            }
-
-            // Check if condition is unchanged (compare truthy/falsy)
-            const conditionTruthy = !!condition;
-            if (cacheData.lastCondition === conditionTruthy && cacheData.lastResult) {
-                return cacheData.lastResult;
-            }
-
-            // Condition changed - evaluate and cache
-            cacheData.lastCondition = conditionTruthy;
-            let result = condition ? thenValue : elseValue;
-            if (typeof result === 'function') {
-                result = result();
-            }
-            if (!result) {
-                cacheData.lastResult = EMPTY_WHEN_RESULT;
-                return EMPTY_WHEN_RESULT;
-            }
-            cacheData.lastResult = result;
-            return result;
-        }
+    // For function forms, return a marker object that gets cached at DOM position
+    // This fixes the bug where the same function used in multiple when() calls shares cache
+    if (isFunctionForm) {
+        return {
+            [WHEN_MARKER]: true,
+            [HTML_MARKER]: true,  // Mark as html-like so slot renderer handles it
+            _condition: !!condition,
+            _thenValue: thenValue,
+            _elseValue: elseValue,
+            _compiled: {
+                op: OP.SLOT,
+                type: 'when'
+            },
+            toString() { return '[when]'; }
+        };
     }
 
-    // Non-function form or no component context - evaluate normally
-    let result = condition ? thenValue : elseValue;
-
-    if (typeof result === 'function') {
-        result = result();
-    }
+    // Non-function form - evaluate immediately (no caching benefit)
+    const result = condition ? thenValue : elseValue;
 
     // Null/false returns empty template for stable reference in fine-grained diffing
     if (!result) {
@@ -235,16 +211,10 @@ export function when(condition, thenValue, elseValue = null) {
 
     // Handle html template objects (check Symbol for security)
     if (isHtml(result)) {
-        // Return directly to preserve stable _compiled reference
         return result;
     }
 
-    // Handle functions (lazy evaluation)
-    if (typeof result === 'function') {
-        return when(condition, result());
-    }
-
-    // Otherwise return as-is
+    // Otherwise return as-is (primitives, etc)
     return result;
 }
 
@@ -412,37 +382,35 @@ export function createMemoCache() {
 
 /**
  * Memoized version of each() - caches rendered templates per item key.
- * Only re-renders items that have changed (by reference).
+ * Only re-renders items that have changed (by reference, or by key if trustKey is true).
  *
  * If called within a component's template(), automatically uses component-scoped caching.
- * Can also pass an explicit cache for manual control.
  *
  * @param {Array} array - Array to iterate over
  * @param {Function} mapFn - Function to map each item to a template
  * @param {Function} keyFn - Function to extract unique key from each item (REQUIRED for memoization)
- * @param {Map} [cache] - Optional explicit cache (if omitted, uses automatic component-scoped cache)
+ * @param {Object} [options] - Options object
+ * @param {boolean} [options.trustKey=false] - If true, only compare keys (not item references). Useful for virtual scroll.
+ * @param {Array} [options.deps] - External dependencies array. When any value changes, ALL items re-render.
+ * @param {Map} [options.cache] - Explicit cache Map (for advanced use cases)
  * @returns {Object} Compiled fragment template
  *
  * @example
- * // Automatic caching (recommended) - cache is managed automatically per component
- * template() {
- *     return html`
- *         ${memoEach(this.state.songs, song => html`
- *             <div class="song">${song.title}</div>
- *         `, song => song.uuid)}
- *     `;
- * }
+ * // Basic usage - cache is managed automatically
+ * ${memoEach(this.state.songs, song => html`
+ *     <div class="song">${song.title}</div>
+ * `, song => song.uuid)}
  *
  * @example
- * // Explicit cache (for advanced use cases)
- * mounted() {
- *     this._songCache = createMemoCache();
- * }
- * template() {
- *     return html`
- *         ${memoEach(this.state.songs, song => html`...`, song => song.uuid, this._songCache)}
- *     `;
- * }
+ * // With trustKey for virtual scroll (items may be different object refs with same key)
+ * ${memoEach(this.state.songs, song => html`...`, song => song.uuid, { trustKey: true })}
+ *
+ * @example
+ * // With deps for external state (busts ALL item caches when selection changes)
+ * ${memoEach(this.state.items, (item, idx) => {
+ *     const isSelected = this.state.selectedIndex === idx;
+ *     return html`<div class="${isSelected ? 'selected' : ''}">${item.name}</div>`;
+ * }, item => item.id, { deps: [this.state.selectedIndex] })}
  */
 export function memoEach(array, mapFn, keyFn, options) {
     if (!array || !Array.isArray(array)) {
@@ -466,9 +434,10 @@ export function memoEach(array, mapFn, keyFn, options) {
 
     // Support both old API (cache as Map) and new API (options object)
     // Old: memoEach(arr, fn, keyFn, cacheMap)
-    // New: memoEach(arr, fn, keyFn, { cache, trustKey })
+    // New: memoEach(arr, fn, keyFn, { cache, trustKey, deps })
     let cache = null;
     let trustKey = false;
+    let deps = null;
 
     if (options) {
         if (options instanceof Map || options?.itemCache) {
@@ -478,6 +447,7 @@ export function memoEach(array, mapFn, keyFn, options) {
             // New API: options object
             cache = options.cache || null;
             trustKey = options.trustKey || false;
+            deps = options.deps || null;  // External dependencies that bust all caches when changed
         }
     }
 
@@ -491,6 +461,7 @@ export function memoEach(array, mapFn, keyFn, options) {
         _keyFn: keyFn,
         _explicitCache: cache,  // Optional explicit cache for backward compatibility
         _trustKey: trustKey,    // When true, skip item reference check - trust key alone
+        _deps: deps,            // External deps array - when any value changes, bust all caches
         _compiled: {
             op: OP.SLOT,
             type: 'memoEach'

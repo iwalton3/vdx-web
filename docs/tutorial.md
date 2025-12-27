@@ -214,30 +214,40 @@ this.state.items.push(newItem);
 this.state.items.splice(index, 1);
 ```
 
-**DON'T:**
+**sort() and reverse() are safe** - they're made atomic automatically:
 ```javascript
-// NEVER mutate arrays with .sort() during render - infinite loop!
 getSortedItems() {
-    return this.state.items.sort(); // BAD!
-}
-
-// Instead, copy first:
-getSortedItems() {
-    return [...this.state.items].sort(); // GOOD!
+    return this.state.items.sort((a, b) => a.name.localeCompare(b.name)); // ✅ Works!
 }
 ```
 
-### Sets and Maps Are Not Reactive
+### Sets and Maps Are Automatically Reactive
 
-You must reassign to trigger updates:
+Sets and Maps are automatically wrapped to be reactive:
 
 ```javascript
-// Adding to a Set
-addToSet(item) {
-    const newSet = new Set(this.state.mySet);
-    newSet.add(item);
-    this.state.mySet = newSet;  // Reassignment triggers update
+data() {
+    return {
+        selectedIds: new Set(),  // ✅ Automatically reactive!
+        userScores: new Map()    // ✅ Automatically reactive!
+    };
+},
+
+methods: {
+    toggleSelection(id) {
+        if (this.state.selectedIds.has(id)) {
+            this.state.selectedIds.delete(id);  // ✅ Triggers re-render
+        } else {
+            this.state.selectedIds.add(id);     // ✅ Triggers re-render
+        }
+    }
 }
+```
+
+**Batch operations** for multiple items (single re-render):
+```javascript
+this.state.selectedIds.addAll([1, 2, 3]);
+this.state.userScores.setAll([['alice', 100], ['bob', 85]]);
 ```
 
 ### Automatic Render Batching
@@ -1492,9 +1502,20 @@ defineComponent('my-slider', {
 
 VDX provides tools to optimize rendering performance for large datasets and complex UIs.
 
-### Large Arrays with `untracked()`
+### Array Iteration is O(1)
 
-The reactivity system tracks all properties in state objects. For arrays with hundreds or thousands of items, this becomes expensive. Use `untracked()` to opt out of deep tracking:
+Large arrays work efficiently by default. Array index access is optimized to track `length` instead of individual indices:
+
+```javascript
+// Iterating 2000 items creates 1 dependency, not 2000
+each(this.state.songs, song => html`<div>${song.title}</div>`)
+```
+
+You no longer need special handling just for array iteration performance.
+
+### Optional: `untracked()` to Skip Proxying
+
+Use `untracked()` when you want to **completely skip reactive proxying** for an object:
 
 ```javascript
 import { defineComponent, html, untracked } from './lib/framework.js';
@@ -1502,38 +1523,30 @@ import { defineComponent, html, untracked } from './lib/framework.js';
 defineComponent('song-library', {
     data() {
         return {
-            // Large array - only track when the whole array is replaced
+            // Skip proxying: 2000 items × 50 properties = expensive
             songs: untracked([]),
-            // Small values - track normally
-            currentIndex: 0,
-            searchQuery: ''
+            // Normal reactivity for simple values
+            currentIndex: 0
         };
     },
 
     methods: {
         loadSongs(newSongs) {
-            // Just assign - untracked is auto-applied for keys marked initially
+            // Reassign to trigger update (items aren't individually reactive)
             this.state.songs = newSongs;
-        },
-
-        addSong(song) {
-            // Must reassign to trigger update
-            this.state.songs = [...this.state.songs, song];
         }
     }
 });
 ```
 
-**How it works:**
-1. Mark a key with `untracked()` in `data()`
-2. All future assignments to that key skip deep tracking
-3. Only the array reference is tracked, not individual items
-4. Reassign the array to trigger re-renders
+**When to use `untracked()`:**
+- Large arrays where items have many properties you never read individually
+- Third-party objects with custom getters/proxies (avoid double-proxying)
+- Immutable API responses where you replace the whole object on change
 
-**When to use:**
-- Arrays with 100+ items
-- Deeply nested objects you don't need to track individually
-- API response data where you only care about the whole response changing
+**When NOT to use:**
+- Normal arrays - iteration is already O(1)
+- Objects where you need `item.property = value` to trigger updates
 
 ### Memoized Lists with `memoEach()`
 
@@ -1578,12 +1591,12 @@ defineComponent('playlist-view', {
 For very large lists (1000+ items), use the `cl-virtual-list` component:
 
 ```javascript
-import { defineComponent, html, untracked } from './lib/framework.js';
+import { defineComponent, html } from './lib/framework.js';
 
 defineComponent('song-list', {
     data() {
         return {
-            songs: untracked([])  // Don't track 2000+ items
+            songs: []  // Array iteration is O(1), no special handling needed
         };
     },
 
@@ -1688,11 +1701,12 @@ ${memoEach(this.state.songs, ...)}  // Not affected by player-time's updates
 | Technique | Use When | Benefit |
 |-----------|----------|---------|
 | `contain()` | High-frequency updates mixed with expensive content | Isolates update scope |
-| `untracked()` | Arrays with 100+ items | Avoids expensive dependency tracking |
 | `memoEach()` | Expensive item templates | Caches rendered items |
 | `rafThrottle()` | Scroll/resize handlers | Limits to 60fps max |
 | `cl-virtual-list` | Lists with 500+ items | Only renders visible items |
-| `[...array].sort()` | Sorting in templates | Prevents infinite loops |
+| `untracked()` | Objects with many unused properties | Skips reactive proxying entirely |
+
+**Note:** Array iteration and `sort()`/`reverse()` are optimized automatically - no special handling needed.
 
 ---
 
@@ -1736,17 +1750,14 @@ unmounted() {
        on-input="${(e) => this.state.username = e.target.value}">
 ```
 
-### 4. Never Mutate Arrays During Render
+### 4. sort() and reverse() Are Safe
+
+These methods are made atomic automatically:
 
 ```javascript
-// BAD: Infinite loop
+// ✅ This is now safe - made atomic automatically
 template() {
     const sorted = this.state.items.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-// GOOD: Copy first
-template() {
-    const sorted = [...this.state.items].sort((a, b) => a.name.localeCompare(b.name));
 }
 ```
 
@@ -1842,7 +1853,7 @@ VDX provides a modern development experience without the complexity:
 | Conditionals | `when(condition, then, else)` |
 | Lists | `each(array, item => html\`...\`)` |
 | Memoized lists | `memoEach(array, fn, keyFn)` |
-| Large arrays | `untracked([])` |
+| Sets/Maps | `new Set()`, `new Map()` (auto-reactive) |
 | Props | `props: { name: 'default' }` |
 | Children | `this.props.children` |
 | Lifecycle | `mounted()`, `unmounted()` |

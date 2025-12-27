@@ -3,7 +3,7 @@
  * Web Components-based system with fine-grained reactive rendering
  */
 
-import { reactive, createEffect, trackAllDependencies, flushEffects } from './reactivity.js';
+import { reactive, createEffect, trackMutations, flushEffects } from './reactivity.js';
 import { compileTemplate } from './template-compiler.js';
 import { setRenderContext } from './template.js';
 import { instantiateTemplate, createDeferredChild, VALUE_GETTER, flushDOMUpdates } from './template-renderer.js';
@@ -834,11 +834,11 @@ export function defineComponent(name, options) {
 
                         // Set up recovery effect - watches state and retries when it changes
                         const recoveryEffect = createEffect(() => {
-                            // Track all state dependencies
-                            trackAllDependencies(component.state);
+                            // Track mutations using O(1) mutation counter
+                            trackMutations(component.state);
                             if (component.stores) {
                                 for (const storeState of Object.values(component.stores)) {
-                                    trackAllDependencies(storeState);
+                                    trackMutations(storeState);
                                 }
                             }
 

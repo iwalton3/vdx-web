@@ -3,7 +3,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { reactive, createEffect, computed, watch, isReactive, trackAllDependencies, memo, flushEffects } from '../lib/framework.js';
+import { reactive, createEffect, computed, watch, isReactive, trackAllDependencies, trackMutations, memo, flushEffects, reactiveSet, reactiveMap, isReactiveCollection, untracked, isUntracked } from '../lib/framework.js';
 
 describe('Reactivity System', function(it) {
     it('creates reactive proxy', () => {
@@ -296,5 +296,508 @@ describe('Reactivity System', function(it) {
         assert.equal(computeCount, 2, 'Should have recomputed');
 
         doubledValue.dispose();
+    });
+});
+
+describe('Reactive Collections', function(it) {
+    it('reactiveSet triggers effects on add', () => {
+        const set = reactiveSet([1, 2, 3]);
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const size = set.size;
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        set.add(4);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on add');
+        assert.equal(set.size, 4, 'Size should be updated');
+    });
+
+    it('reactiveSet triggers effects on delete', () => {
+        const set = reactiveSet([1, 2, 3]);
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const _ = set.has(2);
+            effectRuns++;
+        });
+        flushEffects();
+
+        set.delete(2);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on delete');
+        assert.equal(set.has(2), false, 'Item should be deleted');
+    });
+
+    it('reactiveSet supports iteration', () => {
+        const set = reactiveSet([1, 2, 3]);
+        const values = [...set];
+        assert.equal(values.length, 3, 'Should iterate all values');
+        assert.ok(values.includes(1) && values.includes(2) && values.includes(3), 'Should contain all values');
+    });
+
+    it('reactiveSet clear triggers effects', () => {
+        const set = reactiveSet([1, 2, 3]);
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const size = set.size;
+            effectRuns++;
+        });
+        flushEffects();
+
+        set.clear();
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on clear');
+        assert.equal(set.size, 0, 'Set should be empty');
+    });
+
+    it('reactiveMap triggers effects on set', () => {
+        const map = reactiveMap([['a', 1], ['b', 2]]);
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const val = map.get('a');
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        map.set('a', 10);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on set');
+        assert.equal(map.get('a'), 10, 'Value should be updated');
+    });
+
+    it('reactiveMap triggers effects on delete', () => {
+        const map = reactiveMap([['a', 1], ['b', 2]]);
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const _ = map.has('a');
+            effectRuns++;
+        });
+        flushEffects();
+
+        map.delete('a');
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on delete');
+        assert.equal(map.has('a'), false, 'Key should be deleted');
+    });
+
+    it('reactiveMap supports iteration', () => {
+        const map = reactiveMap([['a', 1], ['b', 2]]);
+        const entries = [...map];
+        assert.equal(entries.length, 2, 'Should iterate all entries');
+    });
+
+    it('reactive() auto-wraps Set', () => {
+        const state = reactive({ items: new Set([1, 2, 3]) });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const size = state.items.size;
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        state.items.add(4);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on add (auto-wrapped Set)');
+        assert.equal(state.items.size, 4, 'Size should be updated');
+    });
+
+    it('reactive() auto-wraps Map', () => {
+        const state = reactive({ data: new Map([['a', 1]]) });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const val = state.data.get('a');
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        state.data.set('a', 10);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on set (auto-wrapped Map)');
+        assert.equal(state.data.get('a'), 10, 'Value should be updated');
+    });
+
+    it('reactive() does not wrap untracked Set/Map', () => {
+        const state = reactive({
+            items: untracked(new Set([1, 2, 3])),
+            data: untracked(new Map([['a', 1]]))
+        });
+
+        // untracked Set/Map should NOT be reactive collections
+        assert.ok(!isReactiveCollection(state.items), 'Untracked Set should not be reactive');
+        assert.ok(!isReactiveCollection(state.data), 'Untracked Map should not be reactive');
+    });
+
+    it('nested Set/Map in reactive objects are auto-wrapped', () => {
+        const state = reactive({
+            nested: {
+                items: new Set([1, 2]),
+                data: new Map([['x', 1]])
+            }
+        });
+
+        let effectRuns = 0;
+        createEffect(() => {
+            const size = state.nested.items.size;
+            effectRuns++;
+        });
+        flushEffects();
+
+        state.nested.items.add(3);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on nested Set add');
+    });
+
+    it('reactiveSet addAll triggers once', () => {
+        const set = reactiveSet([1, 2]);
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const size = set.size;
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        set.addAll([3, 4, 5]);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should run exactly once after addAll');
+        assert.equal(set.size, 5, 'Size should be 5');
+    });
+
+    it('reactiveSet deleteAll triggers once', () => {
+        const set = reactiveSet([1, 2, 3, 4, 5]);
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const size = set.size;
+            effectRuns++;
+        });
+        flushEffects();
+
+        const deleted = set.deleteAll([2, 3, 4]);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should run exactly once after deleteAll');
+        assert.equal(deleted, 3, 'Should return number of deleted items');
+        assert.equal(set.size, 2, 'Size should be 2');
+    });
+
+    it('reactiveMap setAll triggers once', () => {
+        const map = reactiveMap([['a', 1]]);
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const size = map.size;
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        map.setAll([['b', 2], ['c', 3], ['d', 4]]);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should run exactly once after setAll');
+        assert.equal(map.size, 4, 'Size should be 4');
+        assert.equal(map.get('c'), 3, 'Should have correct value');
+    });
+
+    it('reactiveMap deleteAll triggers once', () => {
+        const map = reactiveMap([['a', 1], ['b', 2], ['c', 3], ['d', 4]]);
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const size = map.size;
+            effectRuns++;
+        });
+        flushEffects();
+
+        const deleted = map.deleteAll(['b', 'c']);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should run exactly once after deleteAll');
+        assert.equal(deleted, 2, 'Should return number of deleted items');
+        assert.equal(map.size, 2, 'Size should be 2');
+    });
+});
+
+describe('Atomic Array Operations', function(it) {
+    it('sort() on reactive array is atomic and safe', () => {
+        const state = reactive({ items: [3, 1, 4, 1, 5, 9, 2, 6] });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            // Access the array
+            const len = state.items.length;
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run once initially');
+
+        // Sort should be atomic - only triggers once, not cause infinite loop
+        state.items.sort((a, b) => a - b);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should run exactly once after sort');
+        assert.deepEqual([...state.items], [1, 1, 2, 3, 4, 5, 6, 9], 'Array should be sorted');
+    });
+
+    it('reverse() on reactive array is atomic and safe', () => {
+        const state = reactive({ items: [1, 2, 3, 4, 5] });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const len = state.items.length;
+            effectRuns++;
+        });
+        flushEffects();
+
+        state.items.reverse();
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should run exactly once after reverse');
+        assert.deepEqual([...state.items], [5, 4, 3, 2, 1], 'Array should be reversed');
+    });
+});
+
+describe('Untracked', function(it) {
+    it('untracked() marks objects', () => {
+        const arr = untracked([1, 2, 3]);
+        assert.ok(isUntracked(arr), 'Array should be marked as untracked');
+    });
+
+    it('untracked objects are not deeply tracked', () => {
+        const state = reactive({
+            items: untracked([{ a: 1 }, { a: 2 }])
+        });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            // Access the untracked array
+            const len = state.items.length;
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect runs initially');
+
+        // Modifying nested object should NOT trigger effect (it's untracked)
+        state.items[0].a = 100;
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should NOT re-run for nested changes in untracked array');
+
+        // But replacing the array should trigger
+        state.items = untracked([{ a: 3 }]);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run when untracked array is replaced');
+    });
+
+    it('auto-applies untracked to reassigned keys', () => {
+        const state = reactive({
+            items: untracked([1, 2, 3])
+        });
+
+        // Replace with new array (should auto-apply untracked)
+        state.items = [4, 5, 6];
+        assert.ok(isUntracked(state.items), 'Reassigned array should be auto-untracked');
+    });
+});
+
+describe('Mutation Counter (trackMutations)', function(it) {
+    it('trackMutations triggers on property set', () => {
+        const state = reactive({ a: 1, b: 2 });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            trackMutations(state);
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        state.a = 10;
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on any property change');
+
+        state.b = 20;
+        flushEffects();
+        assert.equal(effectRuns, 3, 'Effect should re-run on different property change');
+    });
+
+    it('trackMutations triggers on array mutation (direct)', () => {
+        const items = reactive([1, 2, 3]);
+        let effectRuns = 0;
+
+        createEffect(() => {
+            trackMutations(items);
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        items.push(4);
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on array push');
+
+        items.sort((a, b) => b - a);
+        flushEffects();
+        assert.equal(effectRuns, 3, 'Effect should re-run on array sort');
+    });
+
+    it('trackMutations on parent does not track nested array mutations', () => {
+        // This is expected behavior - trackMutations only tracks direct mutations
+        const state = reactive({ items: [1, 2, 3] });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            trackMutations(state);
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        // Nested mutation - parent doesn't see it
+        state.items.push(4);
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should NOT re-run on nested array mutation');
+
+        // But replacing the array does trigger
+        state.items = [5, 6, 7];
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run when array is replaced');
+    });
+
+    it('trackMutations triggers on delete', () => {
+        const state = reactive({ a: 1, b: 2 });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            trackMutations(state);
+            effectRuns++;
+        });
+        flushEffects();
+
+        delete state.a;
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on property delete');
+    });
+
+    it('trackMutations is O(1) - does not walk all properties', () => {
+        // Create object with many properties
+        const data = {};
+        for (let i = 0; i < 1000; i++) {
+            data[`prop${i}`] = i;
+        }
+        const state = reactive(data);
+        let effectRuns = 0;
+
+        // trackMutations should be O(1), not O(n) like trackAllDependencies
+        createEffect(() => {
+            trackMutations(state);
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        // Modify one property - should trigger the effect
+        state.prop500 = 999;
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on property change');
+
+        // The key point: trackMutations establishes dependency without
+        // walking all 1000 properties - it just reads the mutation counter
+    });
+
+    it('trackMutations works with nested objects', () => {
+        const state = reactive({
+            nested: { deep: { value: 1 } }
+        });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            trackMutations(state);
+            effectRuns++;
+        });
+        flushEffects();
+
+        // Note: trackMutations only tracks the top-level object's mutations
+        // Nested mutations need their own trackMutations call or trigger via set
+        state.nested = { deep: { value: 2 } };
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run when nested object is replaced');
+    });
+});
+
+describe('Array Index Optimization', function(it) {
+    it('array index access tracks length, not individual indices', () => {
+        const state = reactive({ items: ['a', 'b', 'c'] });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            // Access specific indices
+            const first = state.items[0];
+            const second = state.items[1];
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        // Direct index replacement triggers via length
+        state.items[0] = 'x';
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on index replacement');
+
+        // push triggers via length
+        state.items.push('d');
+        flushEffects();
+        assert.equal(effectRuns, 3, 'Effect should re-run on push');
+    });
+
+    it('array iteration is O(1) for tracking', () => {
+        // Create large array
+        const items = [];
+        for (let i = 0; i < 1000; i++) {
+            items.push({ id: i, name: `item${i}` });
+        }
+        const state = reactive({ items });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            // Iterate entire array - should only create 1 dependency (on length)
+            for (const item of state.items) {
+                const _ = item.name;
+            }
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        // Modifying any item triggers re-run
+        state.items[500] = { id: 500, name: 'modified' };
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on item replacement');
+    });
+
+    it('nested property access still tracks correctly', () => {
+        const state = reactive({ items: [{ name: 'first' }, { name: 'second' }] });
+        let effectRuns = 0;
+
+        createEffect(() => {
+            const name = state.items[0].name;
+            effectRuns++;
+        });
+        flushEffects();
+        assert.equal(effectRuns, 1, 'Effect should run initially');
+
+        // Nested property change triggers via nested proxy
+        state.items[0].name = 'modified';
+        flushEffects();
+        assert.equal(effectRuns, 2, 'Effect should re-run on nested property change');
     });
 });

@@ -150,72 +150,133 @@ In normal application code, you don't need `flushRenders()` - use `flushSync()` 
 
 ## Critical Gotchas
 
-### ⚠️ NEVER Mutate Reactive Arrays with .sort()
+### Array .sort() and .reverse() are Atomic
 
-**This causes infinite re-render loops!**
+**Good news:** `.sort()` and `.reverse()` on reactive arrays are automatically made atomic and safe!
 
 ```javascript
-// ✅ CORRECT - Create a copy before sorting
-getSortedItems() {
-    return [...this.state.items].sort((a, b) => a.time - b.time);
-}
+// ✅ Both work correctly now
+this.state.items.sort((a, b) => a.time - b.time);  // Atomic - one update
+this.state.items.reverse();  // Atomic - one update
 
-// ❌ WRONG - Mutates reactive array, triggers re-render loop!
-getSortedItems() {
-    return this.state.items.sort((a, b) => a.time - b.time);  // INFINITE LOOP!
-}
+// ✅ Also still works (creates a copy)
+const sorted = [...this.state.items].sort((a, b) => a.time - b.time);
 ```
 
-**Why?** When you call `.sort()` on a reactive array during rendering:
-1. Sort mutates the array
-2. Mutation triggers reactivity
-3. Reactivity triggers re-render
-4. Re-render calls your method again
-5. Loop repeats forever → Stack overflow
+The framework automatically copies, sorts, and commits back in a single operation to prevent infinite loops.
 
 **Safe methods** (return new arrays):
-- `.filter()` - Creates new array
-- `.map()` - Creates new array
-- `.slice()` - Creates new array
-- `.concat()` - Creates new array
+- `.filter()`, `.map()`, `.slice()`, `.concat()` - Always safe, create new arrays
 
-**Unsafe methods** (mutate in place):
-- `.sort()` - Mutates array
-- `.reverse()` - Mutates array
-- `.splice()` - Mutates array
-- `.push()`, `.pop()`, `.shift()`, `.unshift()` - OK in event handlers, NOT in getters
+**Mutating methods** (trigger updates):
+- `.sort()`, `.reverse()` - Safe, made atomic automatically
+- `.push()`, `.pop()`, `.shift()`, `.unshift()`, `.splice()` - OK in event handlers
 
-### ⚠️ Sets and Maps are NOT Reactive
+### Reactive Sets and Maps
 
-**Must reassign to trigger updates:**
+**Sets and Maps are automatically reactive!** When you use a Set or Map in reactive state, the framework automatically wraps them to trigger updates on mutations:
 
 ```javascript
-// ✅ CORRECT
-addItem(item) {
-    const newSet = new Set(this.state.items);
-    newSet.add(item);
-    this.state.items = newSet;
-}
+import { defineComponent, html } from './lib/framework.js';
 
-// ❌ WRONG - Won't trigger re-render
-addItem(item) {
-    this.state.items.add(item);
-}
+defineComponent('my-component', {
+    data() {
+        return {
+            selectedIds: new Set(),      // ✅ Auto-wrapped as reactive!
+            userScores: new Map()        // ✅ Auto-wrapped as reactive!
+        };
+    },
+
+    methods: {
+        toggleSelection(id) {
+            // ✅ Automatically triggers re-render!
+            if (this.state.selectedIds.has(id)) {
+                this.state.selectedIds.delete(id);
+            } else {
+                this.state.selectedIds.add(id);
+            }
+        },
+
+        updateScore(userId, score) {
+            // ✅ Automatically triggers re-render!
+            this.state.userScores.set(userId, score);
+        }
+    },
+
+    template() {
+        return html`
+            <p>Selected: ${this.state.selectedIds.size}</p>
+            <p>Alice's score: ${this.state.userScores.get('alice') || 0}</p>
+        `;
+    }
+});
 ```
 
-**For Maps:**
-```javascript
-// ✅ CORRECT
-updateMap(key, value) {
-    const newMap = new Map(this.state.data);
-    newMap.set(key, value);
-    this.state.data = newMap;
-}
+**Supported operations (all trigger re-renders):**
+- Set: `add`, `delete`, `has`, `clear`, `size`, `forEach`, `keys()`, `values()`, `entries()`, `for...of`, `[...set]`
+- Map: `set`, `get`, `delete`, `has`, `clear`, `size`, `forEach`, `keys()`, `values()`, `entries()`, `for...of`, `[...map]`
 
-// ❌ WRONG - Won't trigger re-render
-updateMap(key, value) {
-    this.state.data.set(key, value);
-}
+**Batch operations (single trigger for multiple items):**
+
+Use these when adding/removing multiple items to avoid triggering multiple re-renders:
+
+```javascript
+// ✅ Set batch operations - triggers once, not N times
+this.state.selectedIds.addAll([1, 2, 3, 4, 5]);
+this.state.selectedIds.deleteAll([2, 3]);
+
+// ✅ Map batch operations - triggers once, not N times
+this.state.userScores.setAll([['alice', 100], ['bob', 85], ['carol', 92]]);
+this.state.userScores.deleteAll(['alice', 'bob']);
+```
+
+**API:**
+- `set.addAll(iterable)` - Add multiple values, returns the set
+- `set.deleteAll(iterable)` - Delete multiple values, returns count deleted
+- `map.setAll(entries)` - Set multiple key-value pairs, returns the map
+- `map.deleteAll(keys)` - Delete multiple keys, returns count deleted
+
+**Opt-out with `untracked()`:**
+
+If you have a large Set/Map that doesn't need reactivity, wrap it with `untracked()`:
+
+```javascript
+import { defineComponent, html, untracked } from './lib/framework.js';
+
+defineComponent('my-component', {
+    data() {
+        return {
+            // Large Set - not reactive, must reassign to trigger updates
+            cachedIds: untracked(new Set()),
+        };
+    },
+
+    methods: {
+        updateCache(newIds) {
+            // Must reassign to trigger re-render
+            this.state.cachedIds = untracked(new Set(newIds));
+        }
+    }
+});
+```
+
+**Advanced: Manual wrapping with `reactiveSet()` / `reactiveMap()`:**
+
+These explicit functions are available for advanced use cases (e.g., creating reactive collections outside of component state):
+
+```javascript
+import { reactiveSet, reactiveMap, createEffect } from './lib/framework.js';
+
+// Create reactive collections outside components
+const globalSelectedIds = reactiveSet([1, 2, 3]);
+const globalScores = reactiveMap([['alice', 100]]);
+
+// Effects will track and re-run on changes
+createEffect(() => {
+    console.log('Selected count:', globalSelectedIds.size);
+});
+
+globalSelectedIds.add(4);  // Effect re-runs
 ```
 
 ### Safe Array Mutations
@@ -248,11 +309,20 @@ getSortedItems() {
 }
 ```
 
-### ⚠️ Large Arrays Cause Performance Issues
+### Array Iteration is O(1)
 
-For arrays with hundreds or thousands of items, deep proxying becomes expensive.
+Array index access is optimized to track `length` instead of individual indices. This means iterating over large arrays during rendering is efficient:
 
-**Use `untracked()` to prevent deep proxying:**
+```javascript
+// Iterating 2000 items creates 1 dependency (on 'length'), not 2000
+each(this.state.items, item => html`<div>${item.name}</div>`)
+```
+
+You no longer need `untracked()` just for array iteration performance.
+
+### untracked() - Skip Reactive Proxying
+
+Use `untracked()` when you want to **completely skip reactive proxying** for an object:
 
 ```javascript
 import { defineComponent, html, untracked } from './lib/framework.js';
@@ -260,56 +330,50 @@ import { defineComponent, html, untracked } from './lib/framework.js';
 defineComponent('playlist-view', {
     data() {
         return {
-            // Large array - only track when the whole array is replaced
+            // Skip proxying: 2000 items × 50 properties = expensive
             songs: untracked([]),
-            // Small values - track normally
-            currentIndex: 0,
-            searchQuery: ''
+
+            // Normal reactivity for simple values
+            currentIndex: 0
         };
     },
 
     methods: {
         loadSongs(newSongs) {
-            // Just assign - auto-applies untracked for keys marked initially
+            // Reassign to trigger update (items aren't individually reactive)
             this.state.songs = newSongs;
-        },
-
-        addSong(song) {
-            // Reassign to trigger update
-            this.state.songs = [...this.state.songs, song];
         }
     }
 });
 ```
 
-**How `untracked()` works:**
-
-1. **Initial marking** - Mark a key with `untracked()` in `data()`
-2. **Automatic propagation** - All future assignments to that key are automatically untracked
-3. **Shallow tracking** - Only the array reference is tracked, not individual items
-4. **Reassignment required** - Must reassign the array to trigger re-render
-
-**When to use:**
-- Arrays with 100+ items
-- Objects with deeply nested structures you don't need to track
-- Data from APIs where you only care about the whole response changing
+**When to use `untracked()`:**
+- Large arrays where items have many properties you never read individually
+- Third-party objects with custom getters/proxies (avoid double-proxying)
+- Immutable API responses where you replace the whole object on change
 
 **When NOT to use:**
-- Small arrays (< 100 items)
-- Objects where individual property changes should trigger updates
-- Form data where you need two-way binding on nested properties
+- Normal arrays - iteration is already O(1)
+- Objects where you need `item.property = value` to trigger updates
+- Form data with two-way binding on nested properties
 
-**Combine with `memoEach()` for optimal performance:**
+**How it works:**
+1. Mark a key with `untracked()` in `data()`
+2. Future assignments to that key are auto-untracked
+3. Items aren't wrapped in reactive proxies
+4. Must reassign the whole array/object to trigger updates
 
-For large lists, use both `untracked()` (to avoid expensive dependency tracking) and `memoEach()` (to cache rendered items):
+### memoEach() for Cached Rendering
+
+For large lists, use `memoEach()` to cache rendered items:
 
 ```javascript
-import { defineComponent, html, memoEach, untracked } from './lib/framework.js';
+import { defineComponent, html, memoEach } from './lib/framework.js';
 
 defineComponent('song-list', {
     data() {
         return {
-            songs: untracked([]),  // Don't track 2000 items
+            songs: [],  // Normal reactive array is fine now
             visibleStart: 0,
             visibleEnd: 50
         };
@@ -330,9 +394,7 @@ defineComponent('song-list', {
 });
 ```
 
-This combination:
-- `untracked()` - Prevents expensive deep proxying of thousands of array items
-- `memoEach()` - Caches rendered templates so unchanged items don't re-render
+`memoEach()` caches rendered templates so unchanged items don't re-render. Combined with O(1) array tracking, large lists are efficient by default.
 
 ### withoutTracking() - Read Without Creating Dependencies
 

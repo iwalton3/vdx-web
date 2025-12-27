@@ -123,26 +123,33 @@ methods: {
 
 ## Reactivity Rules
 
-**Critical - avoid infinite loops:**
+**sort()/reverse() are safe** - made atomic automatically:
 ```javascript
-// WRONG - mutates in place, causes infinite loop
-this.state.items.sort((a, b) => a.time - b.time)
-
-// CORRECT - create copy first
-[...this.state.items].sort((a, b) => a.time - b.time)
+this.state.items.sort((a, b) => a.time - b.time)  // ✅ Works
+this.state.items.reverse()  // ✅ Works
 ```
 
-**Sets/Maps must be reassigned:**
+**Sets/Maps are automatically reactive:**
 ```javascript
-const newSet = new Set(this.state.items);
-newSet.add(item);
-this.state.items = newSet;
+data() { return { ids: new Set(), scores: new Map() }; }
+this.state.ids.add(1);        // ✅ Triggers re-render
+this.state.scores.set('a', 1); // ✅ Triggers re-render
+
+// Batch operations (single trigger):
+this.state.ids.addAll([1, 2, 3]);
+this.state.scores.setAll([['a', 1], ['b', 2]]);
 ```
 
-**Large arrays (100+ items):**
+**Array iteration is O(1)** - large arrays work efficiently:
+```javascript
+// Iterating 2000 items creates 1 dependency, not 2000
+each(this.state.items, item => html`<div>${item.name}</div>`)
+```
+
+**Optional: untracked() to skip proxying entirely:**
 ```javascript
 import { untracked } from 'vdx/lib/framework.js';
-data() { return { songs: untracked([]) }; }
+data() { return { songs: untracked([]) }; }  // Items aren't reactive
 ```
 
 **Immediate DOM updates:**

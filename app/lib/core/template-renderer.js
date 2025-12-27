@@ -11,7 +11,7 @@
  */
 
 import { createEffect, withoutTracking, reactive, registerEffectFlushHooks } from './reactivity.js';
-import { isHtml, isRaw, isContain, isMemoEach, OP, sanitizeUrl, setRenderContext } from './template.js';
+import { isHtml, isRaw, isContain, isMemoEach, isWhen, OP, sanitizeUrl, setRenderContext } from './template.js';
 import { componentDefinitions } from './component.js';
 import { BOOLEAN_ATTRS } from './constants.js';
 
@@ -823,6 +823,11 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
     // We keep two caches (previous + current) and rotate each render for automatic pruning
     let memoPrevCache = null;     // Map<key, { item, result }> from previous render
     let memoCurrCache = null;     // Map<key, { item, result }> for current render
+    let memoPrevDeps = null;      // Previous deps array for cache invalidation
+
+    // when() slot-level cache - caches by DOM position, not function reference
+    let whenLastCondition = undefined;
+    let whenLastResult = null;
 
     // contain() slot-level state - for DOM reuse across containEffect recreations
     let containPreviousCompiled = null;
@@ -932,6 +937,36 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
             return;
         }
 
+        // Handle when() - DOM-position-based caching
+        // This fixes the bug where same function used in multiple when() calls shares cache
+        if (isWhen(value)) {
+            const { _condition, _thenValue, _elseValue } = value;
+
+            // Check if condition changed (cache hit if same)
+            if (whenLastCondition === _condition && whenLastResult) {
+                value = whenLastResult;
+            } else {
+                // Evaluate the appropriate branch
+                whenLastCondition = _condition;
+                let result = _condition ? _thenValue : _elseValue;
+                if (typeof result === 'function') {
+                    setRenderContext(component);
+                    result = result();
+                    setRenderContext(null);
+                }
+                whenLastResult = result;
+                value = result;
+            }
+
+            // If result is null/empty, clean up and return
+            if (!value) {
+                cleanupContain();
+                return;
+            }
+
+            // Fall through to normal html/primitive handling
+        }
+
         // Handle contain() - isolated reactive boundary
         // Creates its own effect that only tracks dependencies from its render function
         // State is maintained at slot level to enable DOM reuse across containEffect recreations
@@ -1028,12 +1063,36 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
         // Handle memoEach() - memoized list rendering with slot-level cache
         // The cache is stored at the slot level (DOM location) for stable identity
         if (isMemoEach(value)) {
-            const { _array: array, _mapFn: mapFn, _keyFn: keyFn, _explicitCache: explicitCache, _trustKey: trustKey } = value;
+            const { _array: array, _mapFn: mapFn, _keyFn: keyFn, _explicitCache: explicitCache, _trustKey: trustKey, _deps: deps } = value;
 
             // For explicit cache (backward compatibility), use it directly
             // Otherwise use slot-level two-cache rotation for automatic pruning
             const useExplicitCache = explicitCache instanceof Map ? explicitCache :
                                      explicitCache?.itemCache ? explicitCache.itemCache : null;
+
+            // Check if deps changed - if so, bust all caches
+            let depsChanged = false;
+            if (deps) {
+                if (!memoPrevDeps || memoPrevDeps.length !== deps.length) {
+                    depsChanged = true;
+                } else {
+                    for (let i = 0; i < deps.length; i++) {
+                        if (deps[i] !== memoPrevDeps[i]) {
+                            depsChanged = true;
+                            break;
+                        }
+                    }
+                }
+                if (depsChanged) {
+                    // Clear caches when deps change
+                    memoPrevCache = null;
+                    memoCurrCache = null;
+                    if (useExplicitCache) {
+                        useExplicitCache.clear();
+                    }
+                }
+                memoPrevDeps = deps;
+            }
 
             // Create new current cache for this render
             // We rotate: previous becomes garbage, current becomes previous
