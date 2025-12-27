@@ -434,7 +434,7 @@ describe('memoEach Helper', function(it) {
         setRenderContext(null);
     });
 
-    it('caches by key only (use version in key for data change re-renders)', () => {
+    it('re-renders when item reference changes', () => {
         const mockComponent = { _memoCallSiteCaches: null };
         setRenderContext(mockComponent);
 
@@ -452,20 +452,17 @@ describe('memoEach Helper', function(it) {
         memoEach(array, render, item => item.id);
         const firstRenderCount = renderCount;
 
-        // Replace item1 with new object (same id) - should NOT re-render
-        // because memoEach caches by key only (for virtualized list performance)
+        // Replace item1 with new object (same id) - should re-render
+        // because reference changed (cached.item !== item)
         array[0] = { id: 1, name: 'ONE' };
         memoEach(array, render, item => item.id);
 
-        // Should NOT re-render - key is the same, use version in key to force re-render
-        assert.equal(renderCount, firstRenderCount, 'Should NOT re-render (same key)');
+        // Should re-render the changed item
+        assert.equal(renderCount, firstRenderCount + 1, 'Should re-render (reference changed)');
 
-        // To force re-render on data change, include version in key
-        let version = 1;
-        memoEach(array, render, item => `${item.id}-${version}`);
-        version++;
-        memoEach(array, render, item => `${item.id}-${version}`);
-        assert.equal(renderCount, firstRenderCount + 4, 'Version change should re-render all');
+        // Same array with same references - should not re-render
+        memoEach(array, render, item => item.id);
+        assert.equal(renderCount, firstRenderCount + 1, 'Should NOT re-render (same references)');
 
         setRenderContext(null);
     });

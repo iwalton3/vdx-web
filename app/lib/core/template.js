@@ -495,13 +495,11 @@ export function memoEach(array, mapFn, keyFn, cache) {
     const results = array.map((item, index) => {
         const key = keyFn(item, index);
 
-        // Check cache - hit if same key (reference check removed for virtualized lists)
-        // The key function should capture what makes items unique (e.g., uuid + version)
+        // Check cache - hit only if same key AND same item reference
+        // Reference check ensures re-render when item data changes
         const cached = effectiveCache.get(key);
-        if (cached) {
+        if (cached && cached.item === item) {
             // Cache hit - return cached compiled template
-            // Update stored item reference for future comparisons
-            cached.item = item;
             return cached.result;
         }
 
