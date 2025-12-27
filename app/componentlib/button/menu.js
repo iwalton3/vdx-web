@@ -29,16 +29,12 @@ export default defineComponent('cl-menu', {
         },
 
         toggleSubmenu(item) {
-            const newExpanded = new Set(this.state.expandedItems);
             const key = item.label;
-
-            if (newExpanded.has(key)) {
-                newExpanded.delete(key);
+            if (this.state.expandedItems.has(key)) {
+                this.state.expandedItems.delete(key);
             } else {
-                newExpanded.add(key);
+                this.state.expandedItems.add(key);
             }
-
-            this.state.expandedItems = newExpanded;
         },
 
         isExpanded(item) {

@@ -87,9 +87,7 @@ export default defineComponent('cl-stepper', {
 
             // Mark previous step as completed when moving forward
             if (index > oldStep) {
-                const newCompleted = new Set(this.state.completedSteps);
-                newCompleted.add(oldStep);
-                this.state.completedSteps = newCompleted;
+                this.state.completedSteps.add(oldStep);
             }
 
             this.emitChange(null, {
@@ -137,12 +135,9 @@ export default defineComponent('cl-stepper', {
             }
 
             // Mark all steps as completed
-            const newCompleted = new Set();
             const steps = this.props.steps || [];
-            for (let i = 0; i < steps.length; i++) {
-                newCompleted.add(i);
-            }
-            this.state.completedSteps = newCompleted;
+            this.state.completedSteps.clear();
+            this.state.completedSteps.addAll([...Array(steps.length).keys()]);
 
             // Emit complete event
             this.dispatchEvent(new CustomEvent('complete', {

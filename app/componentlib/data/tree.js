@@ -28,13 +28,11 @@ export default defineComponent('cl-tree', {
 
     methods: {
         toggleNode(node) {
-            const newExpanded = new Set(this.state.expandedKeys);
-            if (newExpanded.has(node.key)) {
-                newExpanded.delete(node.key);
+            if (this.state.expandedKeys.has(node.key)) {
+                this.state.expandedKeys.delete(node.key);
             } else {
-                newExpanded.add(node.key);
+                this.state.expandedKeys.add(node.key);
             }
-            this.state.expandedKeys = newExpanded;
         },
 
         selectNode(node, event) {
@@ -42,24 +40,20 @@ export default defineComponent('cl-tree', {
 
             if (this.props.selectionmode === 'none') return;
 
-            const newSelected = new Set(this.state.selectedKeys);
-
             if (this.props.selectionmode === 'single') {
-                newSelected.clear();
-                newSelected.add(node.key);
+                this.state.selectedKeys.clear();
+                this.state.selectedKeys.add(node.key);
             } else if (this.props.selectionmode === 'multiple') {
-                if (newSelected.has(node.key)) {
-                    newSelected.delete(node.key);
+                if (this.state.selectedKeys.has(node.key)) {
+                    this.state.selectedKeys.delete(node.key);
                 } else {
-                    newSelected.add(node.key);
+                    this.state.selectedKeys.add(node.key);
                 }
             }
 
-            this.state.selectedKeys = newSelected;
-
             const selectedValues = this.props.selectionmode === 'single'
                 ? node.key
-                : Array.from(newSelected);
+                : Array.from(this.state.selectedKeys);
 
             this.emitChange(null, selectedValues);
         },

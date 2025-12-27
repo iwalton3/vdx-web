@@ -26,25 +26,24 @@ export default defineComponent('cl-accordion', {
 
     methods: {
         toggleTab(index) {
-            const newActive = new Set(this.state.activeTabs);
-
             if (this.props.multiple) {
-                if (newActive.has(index)) {
-                    newActive.delete(index);
+                if (this.state.activeTabs.has(index)) {
+                    this.state.activeTabs.delete(index);
                 } else {
-                    newActive.add(index);
+                    this.state.activeTabs.add(index);
                 }
             } else {
-                if (newActive.has(index)) {
-                    newActive.clear();
+                if (this.state.activeTabs.has(index)) {
+                    this.state.activeTabs.clear();
                 } else {
-                    newActive.clear();
-                    newActive.add(index);
+                    this.state.activeTabs.clear();
+                    this.state.activeTabs.add(index);
                 }
             }
 
-            this.state.activeTabs = newActive;
-            this.emitChange(null, this.props.multiple ? Array.from(newActive) : Array.from(newActive)[0]);
+            this.emitChange(null, this.props.multiple
+                ? Array.from(this.state.activeTabs)
+                : Array.from(this.state.activeTabs)[0]);
         },
 
         isActive(index) {
