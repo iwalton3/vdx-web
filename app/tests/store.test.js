@@ -91,8 +91,9 @@ describe('Store System', function(it) {
             }
         });
 
-        // Second subscriber to track b
+        // Second subscriber to track b - must access state.b to track it
         store.subscribe(state => {
+            void state.b;  // Fine-grained: must access to track
             bNotifications++;
         });
 

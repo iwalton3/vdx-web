@@ -383,30 +383,32 @@ describe('memoEach Helper', function(it) {
         assert.ok(result._compiled, 'Should return compiled template');
     });
 
-    it('uses array reference for cache (not call order)', () => {
+    it('uses call-site-scoped caches for memoEach', () => {
         // Create a mock component context
-        const mockComponent = { _memoEachCaches: null };
+        const mockComponent = { _memoCallSiteCaches: null };
         setRenderContext(mockComponent);
 
         const array1 = [{ id: 1, name: 'a' }, { id: 2, name: 'b' }];
         const array2 = [{ id: 3, name: 'c' }];
 
-        // First call with array1
-        memoEach(array1, item => html`<div>${item.name}</div>`, item => item.id);
+        // First call with array1 (mapFn A)
+        const mapFnA = item => html`<div>${item.name}</div>`;
+        memoEach(array1, mapFnA, item => item.id);
 
-        // Second call with array2
-        memoEach(array2, item => html`<span>${item.name}</span>`, item => item.id);
+        // Second call with array2 (mapFn B)
+        const mapFnB = item => html`<span>${item.name}</span>`;
+        memoEach(array2, mapFnB, item => item.id);
 
-        // Component should have WeakMap with both arrays
-        assert.ok(mockComponent._memoEachCaches instanceof WeakMap, 'Should use WeakMap');
-        assert.ok(mockComponent._memoEachCaches.has(array1), 'Should cache array1');
-        assert.ok(mockComponent._memoEachCaches.has(array2), 'Should cache array2');
+        // Component should have Map of call-site caches
+        assert.ok(mockComponent._memoCallSiteCaches instanceof Map, 'Should use Map of caches');
+        // Each call site should have its own cache
+        assert.equal(mockComponent._memoCallSiteCaches.size, 2, 'Should have 2 call-site caches');
 
         setRenderContext(null);
     });
 
     it('caches items by reference', () => {
-        const mockComponent = { _memoEachCaches: null };
+        const mockComponent = { _memoCallSiteCaches: null };
         setRenderContext(mockComponent);
 
         const item1 = { id: 1, name: 'one' };
@@ -432,8 +434,8 @@ describe('memoEach Helper', function(it) {
         setRenderContext(null);
     });
 
-    it('re-renders when item reference changes', () => {
-        const mockComponent = { _memoEachCaches: null };
+    it('caches by key only (use version in key for data change re-renders)', () => {
+        const mockComponent = { _memoCallSiteCaches: null };
         setRenderContext(mockComponent);
 
         const item1 = { id: 1, name: 'one' };
@@ -450,45 +452,64 @@ describe('memoEach Helper', function(it) {
         memoEach(array, render, item => item.id);
         const firstRenderCount = renderCount;
 
-        // Replace item1 with new object (same id)
+        // Replace item1 with new object (same id) - should NOT re-render
+        // because memoEach caches by key only (for virtualized list performance)
         array[0] = { id: 1, name: 'ONE' };
         memoEach(array, render, item => item.id);
 
-        // Should re-render item1 (new reference) but not item2 (same reference)
-        assert.equal(renderCount, firstRenderCount + 1, 'Should re-render changed item');
+        // Should NOT re-render - key is the same, use version in key to force re-render
+        assert.equal(renderCount, firstRenderCount, 'Should NOT re-render (same key)');
+
+        // To force re-render on data change, include version in key
+        let version = 1;
+        memoEach(array, render, item => `${item.id}-${version}`);
+        version++;
+        memoEach(array, render, item => `${item.id}-${version}`);
+        assert.equal(renderCount, firstRenderCount + 4, 'Version change should re-render all');
 
         setRenderContext(null);
     });
 
     it('supports conditional memoEach calls', () => {
-        const mockComponent = { _memoEachCaches: null };
+        const mockComponent = { _memoCallSiteCaches: null };
         setRenderContext(mockComponent);
 
-        const array1 = [{ id: 1 }];
-        const array2 = [{ id: 2 }];
+        const item1 = { id: 1 };
+        const item2 = { id: 2 };
+        const array1 = [item1];
+        const array2 = [item2];
+
+        // Use named functions so we can track their caches
+        const mapFnA = item => html`<div>A</div>`;
+        const mapFnB = item => html`<div>B</div>`;
 
         // Simulate conditional rendering - first call array1, then array2
         let showFirst = true;
 
         function render() {
             if (showFirst) {
-                memoEach(array1, item => html`<div>A</div>`, i => i.id);
+                memoEach(array1, mapFnA, i => i.id);
             }
-            memoEach(array2, item => html`<div>B</div>`, i => i.id);
+            memoEach(array2, mapFnB, i => i.id);
         }
 
         render();
-        assert.ok(mockComponent._memoEachCaches.has(array1), 'Should have array1');
-        assert.ok(mockComponent._memoEachCaches.has(array2), 'Should have array2');
+        // Each call site has its own cache
+        assert.equal(mockComponent._memoCallSiteCaches.size, 2, 'Should have 2 call-site caches');
+
+        // Get cache for mapFnB (key is mapFn.toString() + '||' + keyFn.toString())
+        const keyFnB = (i => i.id).toString();
+        const cacheB = mockComponent._memoCallSiteCaches.get(mapFnB.toString() + '||' + keyFnB);
+        assert.ok(cacheB.has(2), 'Should have item id 2 in cache B');
 
         // Now hide first - this should NOT break array2's cache
         showFirst = false;
-        const cacheForArray2Before = mockComponent._memoEachCaches.get(array2);
+        const cachedItem2Before = cacheB.get(2);
         render();
-        const cacheForArray2After = mockComponent._memoEachCaches.get(array2);
+        const cachedItem2After = cacheB.get(2);
 
-        // Same cache should be used (array reference based, not call order)
-        assert.equal(cacheForArray2Before, cacheForArray2After, 'array2 cache should be preserved');
+        // Same cached entry should be used (item reference based)
+        assert.equal(cachedItem2Before, cachedItem2After, 'item2 cache should be preserved');
 
         setRenderContext(null);
     });

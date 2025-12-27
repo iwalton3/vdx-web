@@ -212,6 +212,43 @@ ${memoEach(this.state.songs, song => html`
 
 **When to use:** Virtual scroll, large lists (100+ items), expensive item templates.
 
+### contain(renderFn)
+
+Creates an isolated reactive boundary. State accessed inside the boundary only triggers re-renders inside the boundary, not the parent template.
+
+**Parameters:**
+- `renderFn` (function) - Function that returns an html template
+
+**Returns:** Template result that renders in its own reactive context
+
+**Example:**
+```javascript
+import { html, contain, memoEach } from './lib/framework.js';
+
+template() {
+    return html`
+        <div class="player">
+            <!-- Queue list only re-renders when queue changes -->
+            ${memoEach(this.state.queue, song => html`
+                <div class="song">${song.title}</div>
+            `, song => song.uuid)}
+
+            <!-- High-frequency updates isolated from siblings -->
+            ${contain(() => html`
+                <div class="time">${this.stores.player.currentTime}</div>
+            `)}
+        </div>
+    `;
+}
+```
+
+**When to use:**
+- High-frequency updates (timers, progress bars, currentTime)
+- Small UI sections that update independently from siblings
+- Avoiding expensive sibling re-renders
+
+**Note:** Use sparingly - adds overhead. Prefer when the isolation benefit outweighs the cost (e.g., preventing large list re-renders).
+
 ### raw(htmlString)
 
 Renders trusted HTML without escaping.

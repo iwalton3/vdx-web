@@ -171,6 +171,8 @@ describe('Authentication State Management', function(it) {
         let lastState = null;
 
         loginStore.subscribe(state => {
+            // Fine-grained: must access properties to track them
+            void state.partialLogin;
             notifications++;
             lastState = state;
         });

@@ -191,9 +191,9 @@ let isFlushing = false;  // Track if we're inside flushEffects
 const MAX_FLUSH_ITERATIONS = 100;
 
 /**
- * Schedule effect flush using queueMicrotask.
- * This batches all synchronous state changes into a single effect run,
- * while still being fast enough for interactive updates.
+ * Schedule effect flush using microtask.
+ * Effects run via microtask so they execute even when tab is backgrounded.
+ * DOM updates are batched separately via rAF (see template-renderer.js).
  */
 function scheduleFlush() {
     // Don't schedule if already scheduled OR if we're currently flushing
@@ -201,8 +201,8 @@ function scheduleFlush() {
     if (flushScheduled || isFlushing) return;
     flushScheduled = true;
 
-    // Use microtask for fast batching - runs after current sync code
-    // but before browser rendering, so UI stays responsive
+    // Use microtask for effects - runs even in background tabs
+    // DOM updates are batched to rAF separately (template-renderer.js)
     queueMicrotask(flushEffects);
 }
 

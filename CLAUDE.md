@@ -185,7 +185,7 @@ ${when(this.state.isLoggedIn,
     html`<p>Please log in</p>`
 )}
 
-// Can also accept function to avoid executing when a condition is invalid
+// Can also accept function - preferred for performance (caches by condition)
 ${when(this.state.isLoggedIn,
     () => html`<p>Welcome!</p>`,
     () => html`<p>Please log in</p>`
@@ -211,6 +211,12 @@ ${memoEach(this.state.songs, song => html`
 // memoEach() with explicit cache - for same array rendered differently
 ${memoEach(this.state.songs, song => html`<div>${song.a}</div>`, s => s.uuid, this._cacheA)}
 ${memoEach(this.state.songs, song => html`<span>${song.b}</span>`, s => s.uuid, this._cacheB)}
+
+// contain() - Isolate high-frequency updates from parent template
+// Prevents expensive sibling re-renders (e.g., list doesn't re-render on timer tick)
+${contain(() => html`
+    <div class="time">${this.stores.player.currentTime}</div>
+`)}
 
 // awaitThen() - Async data loading with loading/error states
 ${awaitThen(

@@ -9,6 +9,7 @@ import * as templateCompiler from './template-compiler.js';
 // Symbols are private - only helper functions are exported
 const HTML_MARKER = Symbol('html');
 const RAW_MARKER = Symbol('raw');
+const CONTAIN_MARKER = Symbol('contain');
 
 // Render context - tracks current component during template evaluation
 // This allows helpers like memoEach to access component-scoped caches
@@ -33,6 +34,7 @@ export function getRenderContext() {
 // Helper functions to check markers (safe API for other code)
 export const isHtml = (obj) => obj && obj[HTML_MARKER] === true;
 export const isRaw = (obj) => obj && obj[RAW_MARKER] === true;
+export const isContain = (obj) => obj && obj[CONTAIN_MARKER] === true;
 
 // Op codes for the instruction-based system
 export const OP = {
@@ -176,6 +178,48 @@ const EMPTY_WHEN_RESULT = {
 };
 
 export function when(condition, thenValue, elseValue = null) {
+    // OPTIMIZATION: When using function forms, cache result based on condition
+    // This prevents re-evaluating branches when unrelated state changes
+    // Note: Only works with function forms - document this in tutorials
+    const isFunctionForm = typeof thenValue === 'function' || typeof elseValue === 'function';
+
+    if (isFunctionForm && currentRenderComponent) {
+        // Use thenValue function reference as cache key (stable across renders)
+        if (!currentRenderComponent._whenCaches) {
+            currentRenderComponent._whenCaches = new WeakMap();
+        }
+
+        // Get or create cache for this when() call site
+        const cacheKey = typeof thenValue === 'function' ? thenValue : elseValue;
+        if (cacheKey && typeof cacheKey === 'function') {
+            let cacheData = currentRenderComponent._whenCaches.get(cacheKey);
+            if (!cacheData) {
+                cacheData = { lastCondition: undefined, lastResult: null };
+                currentRenderComponent._whenCaches.set(cacheKey, cacheData);
+            }
+
+            // Check if condition is unchanged (compare truthy/falsy)
+            const conditionTruthy = !!condition;
+            if (cacheData.lastCondition === conditionTruthy && cacheData.lastResult) {
+                return cacheData.lastResult;
+            }
+
+            // Condition changed - evaluate and cache
+            cacheData.lastCondition = conditionTruthy;
+            let result = condition ? thenValue : elseValue;
+            if (typeof result === 'function') {
+                result = result();
+            }
+            if (!result) {
+                cacheData.lastResult = EMPTY_WHEN_RESULT;
+                return EMPTY_WHEN_RESULT;
+            }
+            cacheData.lastResult = result;
+            return result;
+        }
+    }
+
+    // Non-function form or no component context - evaluate normally
     let result = condition ? thenValue : elseValue;
 
     if (typeof result === 'function') {
@@ -203,6 +247,57 @@ export function when(condition, thenValue, elseValue = null) {
 }
 
 /**
+ * Create a reactive boundary - isolates state tracking from parent template.
+ * Use this to prevent high-frequency state updates (like currentTime) from
+ * causing the entire parent template to re-render.
+ *
+ * The render function is evaluated in its own isolated effect, so only state
+ * accessed within the function triggers re-renders of this boundary.
+ *
+ * @param {Function} renderFn - Function that returns html template
+ * @returns {Object} Contained template result
+ *
+ * @example
+ * // Without contain: entire template re-renders when currentTime changes
+ * template() {
+ *     return html`
+ *         <div class="queue">${memoEach(this.state.queue, ...)}</div>
+ *         <div class="time">${this.stores.player.currentTime}</div>
+ *     `;
+ * }
+ *
+ * // With contain: only the time display re-renders
+ * template() {
+ *     return html`
+ *         <div class="queue">${memoEach(this.state.queue, ...)}</div>
+ *         ${contain(() => html`
+ *             <div class="time">${this.stores.player.currentTime}</div>
+ *         `)}
+ *     `;
+ * }
+ */
+export function contain(renderFn) {
+    if (typeof renderFn !== 'function') {
+        console.warn('[contain] Expected a function, got:', typeof renderFn);
+        return renderFn;
+    }
+
+    // Return a special marker object that template-renderer will handle
+    // by creating an isolated effect for this boundary
+    return {
+        [CONTAIN_MARKER]: true,
+        [HTML_MARKER]: true,  // Also mark as html so it's handled as a slot value
+        _renderFn: renderFn,
+        _compiled: {
+            op: OP.SLOT,
+            type: 'contain',
+            isContain: true
+        },
+        toString() { return '[contain]'; }
+    };
+}
+
+/**
  * Loop rendering helper with optional key support
  * Maps array items to templates and returns safe concatenated HTML or compiled fragment
  * @param {Array} array - Array to iterate over
@@ -226,6 +321,12 @@ export function each(array, mapFn, keyFn = null) {
             }
         };
     }
+
+    // NOTE: We intentionally DON'T cache each() results based on array reference.
+    // The mapFn may access reactive state (e.g., this.isGroupExpanded(item)) that
+    // changes even when the array reference is unchanged. Fine-grained reactivity
+    // requires re-evaluating the mapFn on each template() call.
+    // For performance with large arrays, use memoEach() instead.
 
     const results = array.map((item, index) => {
         const result = mapFn(item, index);
@@ -361,19 +462,29 @@ export function memoEach(array, mapFn, keyFn, cache) {
         return each(array, mapFn, null);
     }
 
-    // Get or create cache
-    // Uses array reference as key (WeakMap) - eliminates call-order dependency
-    // Note: If same array used in multiple memoEach calls, pass explicit caches
-    let effectiveCache = cache;
-    if (!effectiveCache && currentRenderComponent) {
-        if (!currentRenderComponent._memoEachCaches) {
-            currentRenderComponent._memoEachCaches = new WeakMap();
+    // Get or create cache for this component
+    // Uses mapFn.toString() as call-site identifier to scope caches correctly.
+    // This allows proper cleanup of stale items without affecting other memoEach calls.
+    let effectiveCache = null;
+
+    // Handle explicit cache parameter (backward compatibility)
+    if (cache) {
+        if (cache instanceof Map) {
+            effectiveCache = cache;
+        } else if (cache.itemCache) {
+            effectiveCache = cache.itemCache;
         }
-        effectiveCache = currentRenderComponent._memoEachCaches.get(array);
-        if (!effectiveCache) {
-            effectiveCache = new Map();
-            currentRenderComponent._memoEachCaches.set(array, effectiveCache);
+    } else if (currentRenderComponent) {
+        // Use mapFn + keyFn source as call-site identifier (stable across renders)
+        // This differentiates even if mapFn is identical but keyFn differs
+        const callSiteId = mapFn.toString() + '||' + keyFn.toString();
+        if (!currentRenderComponent._memoCallSiteCaches) {
+            currentRenderComponent._memoCallSiteCaches = new Map();
         }
+        if (!currentRenderComponent._memoCallSiteCaches.has(callSiteId)) {
+            currentRenderComponent._memoCallSiteCaches.set(callSiteId, new Map());
+        }
+        effectiveCache = currentRenderComponent._memoCallSiteCaches.get(callSiteId);
     }
 
     if (!effectiveCache) {
@@ -381,17 +492,16 @@ export function memoEach(array, mapFn, keyFn, cache) {
         return each(array, mapFn, keyFn);
     }
 
-    // Track which keys are in current render (for cleanup)
-    const currentKeys = new Set();
-
     const results = array.map((item, index) => {
         const key = keyFn(item, index);
-        currentKeys.add(key);
 
-        // Check cache - hit if same key AND same item reference
+        // Check cache - hit if same key (reference check removed for virtualized lists)
+        // The key function should capture what makes items unique (e.g., uuid + version)
         const cached = effectiveCache.get(key);
-        if (cached && cached.item === item) {
+        if (cached) {
             // Cache hit - return cached compiled template
+            // Update stored item reference for future comparisons
+            cached.item = item;
             return cached.result;
         }
 
@@ -415,12 +525,11 @@ export function memoEach(array, mapFn, keyFn, cache) {
         return result;
     });
 
-    // Clean up stale cache entries (items no longer in array)
-    for (const key of effectiveCache.keys()) {
-        if (!currentKeys.has(key)) {
-            effectiveCache.delete(key);
-        }
-    }
+
+    // NOTE: We intentionally do NOT clean up stale cache entries here.
+    // For virtualized/windowed lists, items scroll in and out of view frequently.
+    // Cleaning up items not in the current array would force re-rendering when
+    // scrolling back. The cache is scoped to the component and cleaned up on unmount.
 
     // Extract compiled children (same logic as each())
     const compiledChildren = results

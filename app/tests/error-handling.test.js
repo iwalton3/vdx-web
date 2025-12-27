@@ -163,6 +163,7 @@ describe('Store Subscriber Error Handling', function(it) {
 
             // Second subscriber should continue working
             const unsub2 = store.subscribe(state => {
+                void state.value;  // Fine-grained: must access to track
                 subscriber2Runs++;
             });
 

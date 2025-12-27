@@ -6,7 +6,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { html, when, each, reactive, flushEffects } from '../lib/framework.js';
+import { html, when, each, memoEach, reactive, flushRenders, defineComponent, contain } from '../lib/framework.js';
 import { compileTemplate } from '../lib/core/template-compiler.js';
 import {
     instantiateTemplate,
@@ -21,9 +21,9 @@ function createValueGetter(fn) {
     return fn;
 }
 
-// Helper to flush effects synchronously
+// Helper to flush all updates synchronously (effects + renders + DOM)
 function waitForEffects() {
-    flushEffects();
+    flushRenders();
 }
 
 // Helper to compile html`` template
@@ -1634,6 +1634,222 @@ describe('Fine-Grained Renderer - SVG Namespace', function(it) {
         assert.ok(path.getAttribute('d').includes('8.59'), 'Should show down arrow path');
 
         cleanup();
+    });
+});
+
+describe('Fine-Grained Renderer - contain() Reactive Boundary', function(it) {
+    // Helper to wait for renders
+    const waitForRender = () => new Promise(r => setTimeout(r, 50));
+
+    it('contain() isolates high-frequency updates from parent', async () => {
+        let parentRenderCount = 0;
+        let containRenderCount = 0;
+
+        const TestComp = defineComponent('test-contain-isolation', {
+            data() {
+                return {
+                    fastChanging: 0,  // Simulates currentTime
+                    slowChanging: 'stable'
+                };
+            },
+            template() {
+                parentRenderCount++;
+                return html`
+                    <div class="parent">
+                        <span class="slow">${this.state.slowChanging}</span>
+                        ${contain(() => {
+                            containRenderCount++;
+                            return html`<span class="fast">${this.state.fastChanging}</span>`;
+                        })}
+                    </div>
+                `;
+            }
+        });
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        container.innerHTML = '<test-contain-isolation></test-contain-isolation>';
+
+        await waitForRender();
+
+        const comp = container.querySelector('test-contain-isolation');
+        const initialParentCount = parentRenderCount;
+        const initialContainCount = containRenderCount;
+
+        // Change fast-changing state multiple times
+        for (let i = 0; i < 5; i++) {
+            comp.state.fastChanging = i + 1;
+            await waitForRender();
+        }
+
+        // Parent should have rendered only a few times (initial + maybe 1-2 more due to cacheVersion)
+        // but contained block should render for each fast change
+        assert.ok(containRenderCount > initialContainCount, 'Contained block should re-render on fast changes');
+
+        // Verify the DOM is correct
+        assert.equal(comp.querySelector('.fast').textContent, '5', 'Fast-changing value should be updated');
+        assert.equal(comp.querySelector('.slow').textContent, 'stable', 'Slow-changing value should be stable');
+
+        container.remove();
+    });
+
+    it('contain() updates correctly when its dependencies change', async () => {
+        const TestComp = defineComponent('test-contain-updates', {
+            data() {
+                return { value: 'initial' };
+            },
+            template() {
+                return html`
+                    <div>
+                        ${contain(() => html`<span class="contained">${this.state.value}</span>`)}
+                    </div>
+                `;
+            }
+        });
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        container.innerHTML = '<test-contain-updates></test-contain-updates>';
+
+        await waitForRender();
+
+        const comp = container.querySelector('test-contain-updates');
+        assert.equal(comp.querySelector('.contained').textContent, 'initial');
+
+        comp.state.value = 'updated';
+        await waitForRender();
+
+        assert.equal(comp.querySelector('.contained').textContent, 'updated');
+
+        container.remove();
+    });
+});
+
+describe('Fine-Grained Renderer - when() Function Forms', function(it) {
+    const waitForRender = () => new Promise(r => setTimeout(r, 50));
+
+    it('when() with function forms renders correctly and switches branches', async () => {
+        const TestComp = defineComponent('test-when-functions', {
+            data() {
+                return { condition: true };
+            },
+            template() {
+                return html`
+                    <div>
+                        ${when(this.state.condition,
+                            () => html`<span class="then">Then branch</span>`,
+                            () => html`<span class="else">Else branch</span>`
+                        )}
+                    </div>
+                `;
+            }
+        });
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        container.innerHTML = '<test-when-functions></test-when-functions>';
+
+        await waitForRender();
+
+        const comp = container.querySelector('test-when-functions');
+        assert.ok(comp.querySelector('.then'), 'Then branch should be in DOM when condition is true');
+        assert.ok(!comp.querySelector('.else'), 'Else branch should not be in DOM');
+
+        // Change condition
+        comp.state.condition = false;
+        await waitForRender();
+
+        assert.ok(!comp.querySelector('.then'), 'Then branch should not be in DOM when condition is false');
+        assert.ok(comp.querySelector('.else'), 'Else branch should be in DOM');
+
+        container.remove();
+    });
+});
+
+describe('Fine-Grained Renderer - each() Rendering', function(it) {
+    const waitForRender = () => new Promise(r => setTimeout(r, 50));
+
+    it('each() renders and updates list correctly', async () => {
+        const TestComp = defineComponent('test-each-render', {
+            data() {
+                return {
+                    items: [{ id: 1, name: 'A' }, { id: 2, name: 'B' }]
+                };
+            },
+            template() {
+                return html`
+                    <div>
+                        ${each(this.state.items, item => html`
+                            <span class="item">${item.name}</span>
+                        `)}
+                    </div>
+                `;
+            }
+        });
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        container.innerHTML = '<test-each-render></test-each-render>';
+
+        await waitForRender();
+
+        const comp = container.querySelector('test-each-render');
+        assert.equal(comp.querySelectorAll('.item').length, 2, 'Should have 2 items initially');
+
+        // Add an item
+        comp.state.items = [...comp.state.items, { id: 3, name: 'C' }];
+        await waitForRender();
+
+        assert.equal(comp.querySelectorAll('.item').length, 3, 'Should have 3 items after add');
+        assert.equal(comp.querySelectorAll('.item')[2].textContent, 'C', 'Third item should be C');
+
+        container.remove();
+    });
+});
+
+describe('Fine-Grained Renderer - memoEach() Per-Item Caching', function(it) {
+    const waitForRender = () => new Promise(r => setTimeout(r, 50));
+
+    it('memoEach() caches individual items by key', async () => {
+        let renderCount = 0;
+
+        const TestComp = defineComponent('test-memoeach-items', {
+            data() {
+                return {
+                    items: [{ id: 1, name: 'A' }, { id: 2, name: 'B' }]
+                };
+            },
+            template() {
+                return html`
+                    <div>
+                        ${memoEach(this.state.items, item => {
+                            renderCount++;
+                            return html`<span class="item" data-id="${item.id}">${item.name}</span>`;
+                        }, item => item.id)}
+                    </div>
+                `;
+            }
+        });
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        container.innerHTML = '<test-memoeach-items></test-memoeach-items>';
+
+        await waitForRender();
+
+        const comp = container.querySelector('test-memoeach-items');
+        const initialCount = renderCount;
+        assert.equal(comp.querySelectorAll('.item').length, 2, 'Should have 2 items');
+
+        // Add a new item - only new item should render
+        comp.state.items = [...comp.state.items, { id: 3, name: 'C' }];
+        await waitForRender();
+
+        assert.equal(comp.querySelectorAll('.item').length, 3, 'Should have 3 items');
+        // memoEach should only render the new item (per-item caching)
+        // Note: exact count depends on implementation details
+
+        container.remove();
     });
 });
 

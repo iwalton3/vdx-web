@@ -6,7 +6,7 @@
 import { reactive, createEffect, trackAllDependencies, flushEffects } from './reactivity.js';
 import { compileTemplate } from './template-compiler.js';
 import { setRenderContext } from './template.js';
-import { instantiateTemplate, createDeferredChild, VALUE_GETTER } from './template-renderer.js';
+import { instantiateTemplate, createDeferredChild, VALUE_GETTER, flushDOMUpdates } from './template-renderer.js';
 
 // Debug hooks - can be set by debug-enable.js
 let debugRenderCycleHook = null;
@@ -86,10 +86,22 @@ function flushPendingRenders() {
  * flushRenders();  // Force render to happen now
  * expect(component.textContent).toBe('5');
  */
-export function flushRenders() {
-    // Flush effects first - effects may trigger renders
+/**
+ * Internal function to flush all pending updates synchronously.
+ * Flushes: reactive effects -> component renders -> DOM updates
+ */
+function flushAll() {
     flushEffects();
     flushPendingRenders();
+    flushDOMUpdates();
+}
+
+/**
+ * Force all pending renders and DOM updates to complete synchronously.
+ * Alias for flushSync() without a callback - use when you need DOM to be current.
+ */
+export function flushRenders() {
+    flushAll();
 }
 
 /**
@@ -125,9 +137,7 @@ export function flushRenders() {
  */
 export function flushSync(fn) {
     const result = fn();
-    // Flush effects first - effects may trigger renders
-    flushEffects();
-    flushPendingRenders();
+    flushAll();
     return result;
 }
 
@@ -474,12 +484,13 @@ export function defineComponent(name, options) {
                 delete this._pendingProps;
             }
 
-            // Initialize stores (reactive copies of external store state)
+            // Initialize stores (direct references to store state for fine-grained reactivity)
             if (options.stores) {
                 this.stores = {};
                 for (const [storeName, store] of Object.entries(options.stores)) {
-                    // Create reactive copy of store state
-                    this.stores[storeName] = reactive({ ...store.state });
+                    // Use store state directly - templates access this.stores.name.property
+                    // which tracks only the specific properties accessed, enabling fine-grained updates
+                    this.stores[storeName] = store.state;
                 }
             }
 
@@ -610,18 +621,9 @@ export function defineComponent(name, options) {
                 this.props.slots = namedSlots;
             }
 
-            // Setup store subscriptions (auto-sync external stores)
-            if (options.stores) {
-                for (const [storeName, store] of Object.entries(options.stores)) {
-                    const unsubscribe = store.subscribe(state => {
-                        // Sync all properties from store to our reactive copy
-                        for (const key of Object.keys(state)) {
-                            this.stores[storeName][key] = state[key];
-                        }
-                    });
-                    this._cleanups.push(unsubscribe);
-                }
-            }
+            // Note: Store subscriptions are no longer needed because this.stores[name]
+            // directly references store.state. Templates access this.stores.name.property
+            // which tracks the store's reactive state directly (fine-grained reactivity).
 
             // Setup reactivity - fine-grained rendering with per-binding effects
             if (options.template) {
@@ -666,122 +668,84 @@ export function defineComponent(name, options) {
 
                         currentCompiled = templateResult._compiled;
 
-                        // Convert static values to reactive getters
+                        // Cached template result - updated by a single "compute" effect
+                        // Slot getters read from this cache (NOT calling template() themselves)
+                        // Use a wrapper object so getters always see updated values via cache.values
+                        const cache = { values: templateResult._values || [] };
+
+                        // Reactive version counter - slot effects track this to know when to re-read
+                        const cacheVersion = reactive({ v: 0 });
+                        // Non-reactive counter to avoid self-tracking loop (v++ reads then writes)
+                        let versionCounter = 0;
+
+                        // Single effect that watches ALL state and recomputes template once
+                        // This prevents N slots from calling template() N times
+                        const computeEffect = createEffect(() => {
+                            // Track props version
+                            if (component._propsVersion) {
+                                const _ = component._propsVersion.v;
+                            }
+
+                            try {
+                                setRenderContext(component);
+                                const result = options.template.call(component);
+                                setRenderContext(null);
+
+                                // If template structure changed, schedule re-instantiation
+                                if (result._compiled !== currentCompiled) {
+                                    queueMicrotask(() => {
+                                        if (!component._isDestroyed && component._isMounted) {
+                                            instantiate(result);
+                                        }
+                                    });
+                                    return;
+                                }
+
+                                // Update cached values and bump version to trigger slot effects
+                                // Write to cache.values (not reassign) so getters see update
+                                cache.values = result._values || [];
+                                // Write new version without reading (avoids self-tracking loop)
+                                cacheVersion.v = ++versionCounter;
+                            } catch (error) {
+                                setRenderContext(null);
+                                if (!component._hasRenderError) {
+                                    component._hasRenderError = true;
+                                    console.error(`[${component.tagName}] Render error:`, error);
+
+                                    if (options.renderError) {
+                                        queueMicrotask(() => {
+                                            if (component._isDestroyed || !component._isMounted) return;
+                                            try {
+                                                const fallback = options.renderError.call(component, error);
+                                                if (fallback && fallback._compiled) {
+                                                    instantiateErrorFallback(fallback);
+                                                }
+                                            } catch (fallbackError) {
+                                                console.error(`[${component.tagName}] renderError() also failed:`, fallbackError);
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+                        });
+
+                        // Convert initial values to getters that read from cached result
                         const values = templateResult._values || [];
                         const valueGetters = values.map((initialValue, index) => {
                             if (typeof initialValue === 'function') {
                                 // Actual function values (like renderItem) - pass through as-is
                                 return initialValue;
                             }
-                            // Create getter that re-evaluates template and checks for structure changes
+                            // Create getter that reads from cached values
+                            // Tracking cacheVersion.v ensures this re-runs when computeEffect updates
                             const getter = () => {
-                                // Access props version to track it as a dependency
-                                // This ensures effects re-run when props change
-                                if (component._propsVersion) {
-                                    // Reading .v creates a dependency in the current effect
-                                    const _ = component._propsVersion.v;
-                                }
-
-                                try {
-                                    setRenderContext(component);
-                                    const result = options.template.call(component);
-                                    setRenderContext(null);
-
-                                    // If template structure changed, schedule re-instantiation
-                                    if (result._compiled !== currentCompiled) {
-                                        queueMicrotask(() => {
-                                            if (!component._isDestroyed && component._isMounted) {
-                                                instantiate(result);
-                                            }
-                                        });
-                                        return undefined;
-                                    }
-                                    return result._values[index];
-                                } catch (error) {
-                                    setRenderContext(null);
-                                    // Log error and schedule error fallback instantiation
-                                    if (!component._hasRenderError) {
-                                        component._hasRenderError = true;
-                                        console.error(`[${component.tagName}] Render error:`, error);
-
-                                        // Schedule renderError fallback if defined
-                                        if (options.renderError) {
-                                            queueMicrotask(() => {
-                                                if (component._isDestroyed || !component._isMounted) return;
-                                                try {
-                                                    const fallback = options.renderError.call(component, error);
-                                                    if (fallback && fallback._compiled) {
-                                                        instantiateErrorFallback(fallback);
-                                                    }
-                                                } catch (fallbackError) {
-                                                    console.error(`[${component.tagName}] renderError() also failed:`, fallbackError);
-                                                }
-                                            });
-                                        }
-                                    }
-                                    return undefined;
-                                }
+                                const _ = cacheVersion.v;  // Track version to trigger re-runs
+                                return cache.values[index];
                             };
                             // Mark as a value getter so template-renderer knows to call it
                             getter[VALUE_GETTER] = true;
                             return getter;
                         });
-
-                        // For templates with no dynamic values but conditional structure,
-                        // we need an effect to track state changes and detect structure switches
-                        let structureEffect = null;
-                        if (values.length === 0) {
-                            structureEffect = createEffect(() => {
-                                // Track props version to re-run when props change
-                                if (component._propsVersion) {
-                                    const _ = component._propsVersion.v;
-                                }
-
-                                // Track all state dependencies
-                                trackAllDependencies(component.state);
-                                if (component.stores) {
-                                    for (const storeState of Object.values(component.stores)) {
-                                        trackAllDependencies(storeState);
-                                    }
-                                }
-
-                                // Re-call template to check for structure changes
-                                try {
-                                    setRenderContext(component);
-                                    const result = options.template.call(component);
-                                    setRenderContext(null);
-
-                                    if (result._compiled !== currentCompiled) {
-                                        queueMicrotask(() => {
-                                            if (!component._isDestroyed && component._isMounted) {
-                                                instantiate(result);
-                                            }
-                                        });
-                                    }
-                                } catch (error) {
-                                    setRenderContext(null);
-                                    if (!component._hasRenderError) {
-                                        component._hasRenderError = true;
-                                        console.error(`[${component.tagName}] Render error:`, error);
-
-                                        // Schedule renderError fallback if defined
-                                        if (options.renderError) {
-                                            queueMicrotask(() => {
-                                                if (component._isDestroyed || !component._isMounted) return;
-                                                try {
-                                                    const fallback = options.renderError.call(component, error);
-                                                    if (fallback && fallback._compiled) {
-                                                        instantiateErrorFallback(fallback);
-                                                    }
-                                                } catch (fallbackError) {
-                                                    console.error(`[${component.tagName}] renderError() also failed:`, fallbackError);
-                                                }
-                                            });
-                                        }
-                                    }
-                                }
-                            });
-                        }
 
                         // Instantiate template
                         const { fragment, cleanup: templateCleanup } = instantiateTemplate(
@@ -793,7 +757,7 @@ export function defineComponent(name, options) {
                         component.appendChild(fragment);
                         currentCleanup = () => {
                             templateCleanup();
-                            if (structureEffect) structureEffect.dispose();
+                            computeEffect.dispose();
                         };
 
                         // Call afterRender hook

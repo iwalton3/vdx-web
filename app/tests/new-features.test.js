@@ -920,40 +920,34 @@ describe('Stores (Auto-Subscribe/Unsubscribe)', function(it) {
         }, 100);
     });
 
-    it('auto-unsubscribes when component is unmounted', (done) => {
-        const testStore = createStore({ value: 'test' });
-        let subscriberCount = 0;
+    it('components use store state directly (fine-grained reactivity)', (done) => {
+        const testStore = createStore({ value: 'initial' });
 
-        // Wrap subscribe to count subscribers
-        const originalSubscribe = testStore.subscribe.bind(testStore);
-        testStore.subscribe = (fn) => {
-            subscriberCount++;
-            const unsubscribe = originalSubscribe(fn);
-            return () => {
-                subscriberCount--;
-                unsubscribe();
-            };
-        };
-
-        const TestComponent = defineComponent('test-stores-unsub', {
+        const TestComponent = defineComponent('test-stores-direct', {
             stores: {
                 test: testStore
             },
             template() {
-                return html`<div>${this.stores.test.value}</div>`;
+                return html`<div class="store-value">${this.stores.test.value}</div>`;
             }
         });
 
-        const el = document.createElement('test-stores-unsub');
+        const el = document.createElement('test-stores-direct');
         document.body.appendChild(el);
 
         setTimeout(() => {
-            assert.equal(subscriberCount, 1, 'Should have 1 subscriber after mount');
+            // Verify initial value is displayed
+            assert.equal(el.querySelector('.store-value').textContent, 'initial', 'Should show initial value');
 
-            document.body.removeChild(el);
+            // Update store - component should react (fine-grained)
+            testStore.state.value = 'updated';
 
             setTimeout(() => {
-                assert.equal(subscriberCount, 0, 'Should have 0 subscribers after unmount');
+                // Component should reflect the update
+                assert.equal(el.querySelector('.store-value').textContent, 'updated', 'Component should react to store changes');
+
+                // Cleanup
+                document.body.removeChild(el);
                 done();
             }, 100);
         }, 100);

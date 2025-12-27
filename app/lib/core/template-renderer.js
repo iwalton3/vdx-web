@@ -11,16 +11,16 @@
  */
 
 import { createEffect, withoutTracking, reactive, registerEffectFlushHooks } from './reactivity.js';
-import { isHtml, isRaw, OP, sanitizeUrl } from './template.js';
+import { isHtml, isRaw, isContain, OP, sanitizeUrl, setRenderContext } from './template.js';
 import { componentDefinitions } from './component.js';
 import { BOOLEAN_ATTRS } from './constants.js';
 
 // ============================================================================
 // Deferred DOM Updates System
 // ============================================================================
-// Instead of effects directly mutating the DOM, they queue updates.
-// After all effects complete, updates are committed in one batch.
-// This prevents intermediate visual states and ensures last-write-wins.
+// Effects run via microtask (fast, works in background tabs).
+// DOM updates are batched and applied via requestAnimationFrame.
+// This reduces layout thrashing - multiple state changes = one layout.
 
 /** Pending attribute updates: Map<Element, Map<attrName, value>> */
 const pendingAttrUpdates = new Map();
@@ -31,19 +31,15 @@ const pendingTextUpdates = new Map();
 /** Whether we're currently in effect flush mode (queue updates vs apply directly) */
 let isDeferringUpdates = false;
 
-/**
- * Enter deferred update mode. Called at start of effect flush.
- */
-export function beginDeferredUpdates() {
-    isDeferringUpdates = true;
-}
+/** Whether a rAF is scheduled for DOM commits */
+let domCommitScheduled = false;
 
 /**
- * Exit deferred update mode and commit all pending updates.
- * Called at end of effect flush.
+ * Actually apply all pending DOM updates.
+ * Called from rAF or flushDOMUpdates (for flushSync).
  */
-export function commitDeferredUpdates() {
-    isDeferringUpdates = false;
+function applyPendingDOMUpdates() {
+    domCommitScheduled = false;
 
     // Commit attribute updates
     for (const [el, attrs] of pendingAttrUpdates) {
@@ -58,6 +54,38 @@ export function commitDeferredUpdates() {
         textNode.textContent = value ?? '';
     }
     pendingTextUpdates.clear();
+}
+
+/**
+ * Enter deferred update mode. Called at start of effect flush.
+ */
+export function beginDeferredUpdates() {
+    isDeferringUpdates = true;
+}
+
+/**
+ * Exit deferred update mode and schedule DOM commits via rAF.
+ * Called at end of effect flush.
+ */
+export function commitDeferredUpdates() {
+    isDeferringUpdates = false;
+
+    // Schedule rAF to apply DOM updates (batches multiple effect flushes)
+    // DOM updates don't need to happen when tab is backgrounded
+    if (!domCommitScheduled && (pendingAttrUpdates.size > 0 || pendingTextUpdates.size > 0)) {
+        domCommitScheduled = true;
+        requestAnimationFrame(applyPendingDOMUpdates);
+    }
+}
+
+/**
+ * Force-flush all pending DOM updates immediately.
+ * Used by flushSync() when synchronous DOM access is needed.
+ */
+export function flushDOMUpdates() {
+    if (pendingAttrUpdates.size > 0 || pendingTextUpdates.size > 0) {
+        applyPendingDOMUpdates();
+    }
 }
 
 /**
@@ -794,6 +822,18 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 // Fall through to re-instantiation if no valuesRef (shouldn't happen)
             }
 
+            // For contain() boundaries, check if it's the same logical boundary
+            // Compare by function source since arrow functions are recreated each render
+            if (isContain(value) && isContain(previousValue)) {
+                const sameSource = value._renderFn.toString() === previousValue._renderFn.toString();
+                if (sameSource) {
+                    // Same contain boundary - existing containEffect is already tracking
+                    // and will update when its dependencies change
+                    previousValue = value;
+                    return;
+                }
+            }
+
             // For each() fragments, do smart keyed diffing
             // This preserves DOM for items that haven't changed structure
             // For index-based keys (no keyFn), only safe when keys are identical
@@ -838,6 +878,89 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
 
         // Handle different value types
         if (value == null || value === false) {
+            return;
+        }
+
+        // Handle contain() - isolated reactive boundary
+        // Creates its own effect that only tracks dependencies from its render function
+        if (isContain(value) && value._renderFn) {
+            // Track state across effect runs to enable DOM reuse
+            let containPreviousCompiled = null;
+            let containValuesRef = null;
+            let containNodes = [];
+            let containEffects = [];
+
+            // Create an isolated effect for this boundary
+            const containEffect = createEffect(() => {
+                // Evaluate the render function in this isolated effect
+                // This creates the dependency tracking for just this boundary
+                setRenderContext(component);
+                const result = value._renderFn();
+                setRenderContext(null);
+
+                if (!result || !isHtml(result) || !result._compiled) {
+                    // Clean up if result is null/empty
+                    for (const oldNode of containNodes) {
+                        oldNode.remove();
+                    }
+                    for (const oldEffect of containEffects) {
+                        if (oldEffect.dispose) oldEffect.dispose();
+                    }
+                    containNodes = [];
+                    containEffects = [];
+                    containPreviousCompiled = null;
+                    containValuesRef = null;
+                    return;
+                }
+
+                const rawValues = result._values || [];
+
+                // Check if template structure is the same - can reuse DOM
+                if (containPreviousCompiled === result._compiled && containValuesRef) {
+                    // Same template structure - just update values reactively
+                    // Child effects will re-run automatically
+                    containValuesRef.current = rawValues;
+                    return;
+                }
+
+                // Different template structure - need to reinstantiate
+                // Clean up old nodes first
+                for (const oldNode of containNodes) {
+                    oldNode.remove();
+                }
+                for (const oldEffect of containEffects) {
+                    if (oldEffect.dispose) oldEffect.dispose();
+                }
+
+                // Create reactive container for values
+                containValuesRef = reactive({ current: rawValues });
+
+                // Wrap values in getters that read from reactive container
+                const wrappedValues = rawValues.map((_, index) => {
+                    const getter = () => containValuesRef.current[index];
+                    getter[VALUE_GETTER] = true;
+                    return getter;
+                });
+
+                const { fragment, effects: childEffects } = instantiateTemplate(
+                    result._compiled,
+                    wrappedValues,
+                    component,
+                    slotInSvg
+                );
+                const nodes = [...fragment.childNodes];
+                insertWithoutParentTracking(placeholder, fragment);
+                containNodes = nodes;
+                containEffects = childEffects;
+                containPreviousCompiled = result._compiled;
+
+                // Update outer tracking for cleanup
+                currentNodes = nodes;
+                currentEffects = childEffects;
+            });
+
+            // Add the contain effect to our effects list for cleanup
+            effects.push(containEffect);
             return;
         }
 
@@ -1047,10 +1170,11 @@ function instantiateElement(node, values, component, parent, effects, inheritedS
         : document.createElement(tag);
     const isCustomElement = node.isCustomElement;
 
-    // Apply static props
+    // Apply static props - always apply directly since this is initial instantiation
+    // (Deferring would cause FOUC as element appears without attributes)
     if (node.staticProps) {
         for (const [name, value] of Object.entries(node.staticProps)) {
-            applyAttribute(el, name, value, isCustomElement);
+            applyAttributeDirect(el, name, value, isCustomElement);
         }
     }
 
@@ -1072,9 +1196,17 @@ function instantiateElement(node, values, component, parent, effects, inheritedS
         }
 
         // Create effect for dynamic prop
+        // First run applies directly (no deferring) to avoid FOUC
+        // Subsequent runs defer to batch DOM updates
+        let isFirstRun = true;
         const effect = createEffect(() => {
             const value = resolveDynamicProp(name, def, values, component, isCustomElement);
-            applyAttribute(el, name, value, isCustomElement);
+            if (isFirstRun) {
+                isFirstRun = false;
+                applyAttributeDirect(el, name, value, isCustomElement);
+            } else {
+                applyAttribute(el, name, value, isCustomElement);
+            }
         });
         effects.push(effect);
     }

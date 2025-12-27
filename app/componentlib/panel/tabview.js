@@ -43,7 +43,7 @@ export default defineComponent('cl-tabview', {
                     `)}
                 </div>
                 <div class="tab-content">
-                    ${when(activeTab, raw(activeTab.content))}
+                    ${when(activeTab, () => raw(activeTab.content))}
                 </div>
             </div>
         `;

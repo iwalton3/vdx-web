@@ -78,7 +78,8 @@ describe('Component Cleanup', function(it) {
 
         const TestComponent = defineComponent('test-manual-store-cleanup', {
             mounted() {
-                this._unsubscribe = testStore.subscribe(() => {
+                this._unsubscribe = testStore.subscribe(state => {
+                    void state.count;  // Fine-grained: must access to track
                     updateCount++;
                 });
             },

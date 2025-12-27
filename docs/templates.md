@@ -490,7 +490,7 @@ ${when(this.state.isLoggedIn,
     html`<p>Please log in</p>`
 )}
 
-// ✅ CORRECT
+// ✅ CORRECT - Function form (preferred for performance)
 ${when(this.state.isLoggedIn,
     () => html`<p>Welcome!</p>`,
     () => html`<p>Please log in</p>`
@@ -498,6 +498,16 @@ ${when(this.state.isLoggedIn,
 
 // ❌ WRONG
 ${this.state.isLoggedIn ? html`<p>Welcome!</p>` : html`<p>Log in</p>`}
+```
+
+**Performance tip:** When using function forms (passing `() => html\`...\`` instead of `html\`...\``), the framework can cache branches based on the condition value. This avoids re-evaluating both branches on every render - only the active branch is evaluated.
+
+```javascript
+// Template form - both branches evaluated every render
+${when(condition, html`<a>...</a>`, html`<b>...</b>`)}
+
+// Function form - only active branch evaluated, cached by condition
+${when(condition, () => html`<a>...</a>`, () => html`<b>...</b>`)}
 ```
 
 **Nested conditionals:**
@@ -634,6 +644,57 @@ ${memoEach(visibleSongs, (song, idx) => {
 ```
 
 **Note:** The `keyFn` is required for memoization. Without it, `memoEach` falls back to regular `each()` behavior.
+
+### contain() - Reactive Boundaries
+
+Use `contain()` to isolate high-frequency state updates from the rest of the template. This prevents expensive parent re-renders when only a small part of the UI changes rapidly.
+
+```javascript
+import { defineComponent, html, contain } from './lib/framework.js';
+
+template() {
+    return html`
+        <div class="player">
+            <!-- This list only re-renders when queue changes -->
+            ${memoEach(this.state.queue, song => html`
+                <div class="song">${song.title}</div>
+            `, song => song.uuid)}
+
+            <!-- This updates frequently but is isolated from the list -->
+            ${contain(() => html`
+                <div class="time">${this.stores.player.currentTime}</div>
+            `)}
+        </div>
+    `;
+}
+```
+
+**How it works:**
+- Creates an isolated reactive boundary around the render function
+- State accessed inside `contain()` only triggers re-renders inside the boundary
+- Parent template does NOT re-render when contained state changes
+- Effectively creates a mini-component without the overhead of a separate element
+
+**When to use:**
+- High-frequency updates (timers, progress bars, audio currentTime)
+- Small UI sections that update independently from siblings
+- Avoiding expensive sibling re-renders (e.g., long virtualized lists)
+
+**When NOT to use:**
+- For one-off or infrequent updates (overhead not worth it)
+- When you need a proper component with props/state (use a real component)
+- For static content that never changes
+
+**Comparison with components:**
+```javascript
+// contain() - Lightweight, inline reactive boundary
+${contain(() => html`<span>${this.state.timer}</span>`)}
+
+// Component - Full lifecycle, props, methods, reusable
+<timer-display time="${this.state.timer}"></timer-display>
+```
+
+Use `contain()` when you just need isolation without the overhead of defining a full component.
 
 ### raw() - Unsafe HTML
 

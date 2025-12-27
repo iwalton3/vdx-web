@@ -56,8 +56,8 @@ template() {
 ## Template Helpers
 
 ```javascript
-// Conditional
-${when(condition, html`<p>Yes</p>`, html`<p>No</p>`)}
+// Conditional (function form preferred - caches by condition)
+${when(condition, () => html`<p>Yes</p>`, () => html`<p>No</p>`)}
 
 // Lists
 ${each(items, item => html`<li>${item.name}</li>`)}
@@ -67,6 +67,9 @@ ${each(items, item => html`<li>${item.name}</li>`, item => item.id)}
 
 // Memoized lists (performance)
 ${memoEach(items, item => html`<div>${item.name}</div>`, item => item.id)}
+
+// Reactive boundary (isolates high-frequency updates from parent)
+${contain(() => html`<div>${this.state.timer}</div>`)}
 
 // Async data
 ${awaitThen(promise, data => html`<p>${data}</p>`, html`<p>Loading...</p>`)}
