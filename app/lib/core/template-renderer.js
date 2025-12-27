@@ -34,6 +34,9 @@ let isDeferringUpdates = false;
 /** Whether a rAF is scheduled for DOM commits */
 let domCommitScheduled = false;
 
+/** Whether any DOM instantiations occurred during deferred update mode */
+let hadInstantiations = false;
+
 /**
  * Actually apply all pending DOM updates.
  * Called from rAF or flushDOMUpdates (for flushSync).
@@ -61,21 +64,43 @@ function applyPendingDOMUpdates() {
  */
 export function beginDeferredUpdates() {
     isDeferringUpdates = true;
+    hadInstantiations = false;
 }
 
 /**
- * Exit deferred update mode and schedule DOM commits via rAF.
- * Called at end of effect flush.
+ * Signal that DOM instantiation occurred during deferred mode.
+ * Called from instantiateTemplate when new elements are created.
+ */
+export function markInstantiation() {
+    if (isDeferringUpdates) {
+        hadInstantiations = true;
+    }
+}
+
+/**
+ * Exit deferred update mode and apply DOM commits.
+ * If instantiations occurred, apply immediately to avoid FOUC.
+ * Otherwise, schedule via rAF for batching efficiency.
  */
 export function commitDeferredUpdates() {
     isDeferringUpdates = false;
 
-    // Schedule rAF to apply DOM updates (batches multiple effect flushes)
-    // DOM updates don't need to happen when tab is backgrounded
-    if (!domCommitScheduled && (pendingAttrUpdates.size > 0 || pendingTextUpdates.size > 0)) {
-        domCommitScheduled = true;
-        requestAnimationFrame(applyPendingDOMUpdates);
+    const hasPendingUpdates = pendingAttrUpdates.size > 0 || pendingTextUpdates.size > 0;
+
+    if (hasPendingUpdates) {
+        if (hadInstantiations) {
+            // New elements were added - apply updates immediately to keep
+            // instantiations and style updates in sync (avoids jank in virtual scroll
+            // where elements would appear then jump to correct position)
+            applyPendingDOMUpdates();
+        } else if (!domCommitScheduled) {
+            // No instantiations - safe to batch via RAF for efficiency
+            domCommitScheduled = true;
+            requestAnimationFrame(applyPendingDOMUpdates);
+        }
     }
+
+    hadInstantiations = false;
 }
 
 /**
@@ -179,6 +204,10 @@ export function isDeferredChild(value) {
  * @returns {{ fragment: DocumentFragment, effects: Array, cleanup: Function }}
  */
 export function instantiateTemplate(compiled, values, component, inSvg = false) {
+    // Signal that DOM instantiation is occurring - this ensures attribute updates
+    // are applied immediately (not deferred to RAF) to avoid FOUC
+    markInstantiation();
+
     const effects = [];
     const fragment = document.createDocumentFragment();
 
