@@ -742,6 +742,76 @@ ${contain(() => html`<span>${this.state.timer}</span>`)}
 
 Use `contain()` when you just need isolation without the overhead of defining a full component.
 
+### opt() - Automatic Fine-Grained Reactivity
+
+The `opt()` function enables Solid-style fine-grained reactivity by automatically wrapping ALL template expressions in `html.contain()`. This gives you the benefits of `contain()` without manually wrapping each expression.
+
+```javascript
+import { defineComponent, html, when } from './lib/framework.js';
+import { opt } from './lib/opt.js';
+
+export default defineComponent('counter', {
+    data() {
+        return { count: 0, name: 'Counter' };
+    },
+
+    // Wrap template function in eval(opt(...))
+    template: eval(opt(function() {
+        return html`
+            <div>
+                <h1>${this.state.name}</h1>
+                <p>Count: ${this.state.count}</p>
+                <button on-click="${() => this.state.count++}">+</button>
+            </div>
+        `;
+    }))
+});
+```
+
+**What opt() does:**
+
+Transforms template expressions from:
+```javascript
+${this.state.count}
+```
+To:
+```javascript
+${html.contain(() => this.state.count)}
+```
+
+**Benefits:**
+- Changing `count` only updates the count display, not the entire template
+- Changing `name` only updates the heading, not the count
+- Each expression has isolated reactivity automatically
+- No need to manually wrap expressions in `contain()`
+
+**Expressions that are NOT wrapped:**
+- Arrow functions: `${() => this.doSomething()}`
+- Already contained: `${contain(() => ...)}`
+- Control flow: `${when(...)}`, `${each(...)}`, `${memoEach(...)}`
+- Raw content: `${raw(...)}`
+- Slots/children: `${this.props.children}`, `${this.props.slots.xxx}`
+
+**When to use opt():**
+- Components with many independent reactive values
+- High-frequency updates (timers, animations, real-time data)
+- Large templates where full re-renders are expensive
+- When you want contain() on every expression without manual wrapping
+
+**CSP Considerations:**
+
+`opt()` requires `eval()`, so your Content Security Policy must allow `'unsafe-eval'`. For strict CSP environments, use manual `contain()` calls instead.
+
+**Build-Time Alternative:**
+
+For production builds, use the `optimize.js` script to apply opt() transformations at build time, eliminating the need for `eval()` in deployed code:
+
+```bash
+node optimize.js --input ./src --output ./dist
+```
+
+This transforms ALL `html`` ` templates to use fine-grained reactivity, and strips any existing `eval(opt())` calls since they become redundant.
+
 ### raw() - Unsafe HTML
 
 Only use for trusted, sanitized content:

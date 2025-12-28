@@ -1696,15 +1696,84 @@ ${memoEach(this.state.songs, ...)}  // Not affected by player-time's updates
 
 **The Rule:** If a template has both high-frequency updates AND expensive content (large lists, complex rendering), they must be separated by a reactive boundary.
 
+### Automatic Fine-Grained Reactivity with opt()
+
+Instead of manually wrapping each expression with `contain()`, you can use `opt()` to automatically wrap ALL template expressions:
+
+```javascript
+import { defineComponent, html, when, each } from './lib/framework.js';
+import { opt } from './lib/opt.js';
+
+defineComponent('music-player', {
+    stores: { player: playerStore },
+
+    data() {
+        return { songs: [] };
+    },
+
+    // opt() wraps every ${...} expression in contain() automatically
+    template: eval(opt(function() {
+        return html`
+            <div class="player">
+                <!-- Each expression is isolated - no manual contain() needed -->
+                <div class="time">${this.stores.player.currentTime}</div>
+                <div class="title">${this.stores.player.currentSong?.title}</div>
+
+                ${each(this.state.songs, song => html`
+                    <div class="song">${song.title}</div>
+                `)}
+            </div>
+        `;
+    }))
+});
+```
+
+**What opt() does:**
+- Transforms `${this.state.count}` to `${html.contain(() => this.state.count)}`
+- Skips expressions that are already optimized: `when()`, `each()`, `memoEach()`, `contain()`, `raw()`
+- Skips arrow functions (event handlers) and slot references
+
+**When to use opt():**
+- Components with many independent reactive values
+- High-frequency updates (timers, animations, real-time data)
+- Large templates where you'd otherwise need many `contain()` calls
+
+**CSP Note:** `opt()` requires `eval()`, so your Content Security Policy must allow `'unsafe-eval'`. For strict CSP environments, use manual `contain()` calls.
+
+### Build-Time Optimizer
+
+For production builds, use `optimize.js` to apply opt() transformations at build time, eliminating the need for `eval()`:
+
+```bash
+# Copy and optimize all files
+node optimize.js --input ./src --output ./dist
+
+# With minification and source maps
+node optimize.js -i ./src -o ./dist --minify --sourcemap
+
+# Only optimize templates wrapped in eval(opt())
+node optimize.js -i ./src -o ./dist --wrapped-only
+```
+
+**What the optimizer does:**
+- Transforms ALL `html`` ` templates to use fine-grained reactivity (by default)
+- Strips existing `eval(opt())` calls (they become redundant)
+- Optionally minifies code with source maps
+- Copies non-JS files as-is
+
+**The `--wrapped-only` option** only transforms templates explicitly wrapped in `eval(opt())`, leaving other templates unchanged. Useful for incremental adoption.
+
 ### Performance Tips Summary
 
 | Technique | Use When | Benefit |
 |-----------|----------|---------|
+| `opt()` | Many reactive expressions in one template | Auto-wraps all expressions |
 | `contain()` | High-frequency updates mixed with expensive content | Isolates update scope |
 | `memoEach()` | Expensive item templates | Caches rendered items |
 | `rafThrottle()` | Scroll/resize handlers | Limits to 60fps max |
 | `cl-virtual-list` | Lists with 500+ items | Only renders visible items |
 | `untracked()` | Objects with many unused properties | Skips reactive proxying entirely |
+| `optimize.js` | Production builds | Build-time opt() without eval() |
 
 **Note:** Array iteration and `sort()`/`reverse()` are optimized automatically - no special handling needed.
 

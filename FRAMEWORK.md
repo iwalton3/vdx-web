@@ -76,6 +76,12 @@ ${awaitThen(promise, data => html`<p>${data}</p>`, html`<p>Loading...</p>`)}
 
 // Trusted HTML only
 ${raw(trustedHtml)}
+
+// Fine-grained reactivity (auto-contain all expressions)
+import { opt } from './lib/opt.js';
+template: eval(opt(function() {
+    return html`<p>${this.state.count}</p>`;  // Each ${} is isolated
+}))
 ```
 
 ## Passing Props
@@ -269,9 +275,6 @@ options="${items}"                   // CORRECT
 this._bound = this.method.bind(this)  // WRONG
 renderItem="${this.method}"           // CORRECT
 
-// DON'T mutate reactive arrays in place
-this.state.items.sort()        // WRONG - infinite loop
-[...this.state.items].sort()   // CORRECT
 ```
 
 ---

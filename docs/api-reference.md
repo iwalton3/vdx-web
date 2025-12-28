@@ -929,6 +929,59 @@ range(0, 5);        // [0, 1, 2, 3, 4]
 range(1, 10, 2);    // [1, 3, 5, 7, 9]
 ```
 
+### opt(templateFn)
+
+Enables fine-grained reactivity by transforming a template function to wrap all expressions in `html.contain()`. Use with `eval()` for runtime transformation.
+
+**Parameters:**
+- `templateFn` (function) - Template function that returns `html\`...\``
+
+**Returns:** String of transformed function source code (requires eval())
+
+**Example:**
+```javascript
+import { defineComponent, html } from './lib/framework.js';
+import { opt } from './lib/opt.js';
+
+defineComponent('my-counter', {
+    data() {
+        return { count: 0, name: 'Counter' };
+    },
+
+    // Wrap template function in eval(opt(...))
+    template: eval(opt(function() {
+        return html`
+            <div>
+                <h1>${this.state.name}</h1>
+                <p>Count: ${this.state.count}</p>
+                <button on-click="${() => this.state.count++}">+</button>
+            </div>
+        `;
+    }))
+});
+```
+
+**What it does:**
+- Transforms `${this.state.count}` to `${html.contain(() => this.state.count)}`
+- Each expression becomes an isolated reactive boundary
+- Only the affected expression re-renders when its dependencies change
+
+**Expressions NOT wrapped:**
+- Arrow functions: `${() => handler}`
+- Already contained: `${contain(() => ...)}`
+- Control flow: `${when(...)}`, `${each(...)}`, `${memoEach(...)}`
+- Raw content: `${raw(...)}`
+- Slots/children: `${this.props.children}`, `${this.props.slots.xxx}`
+
+**CSP Note:** Requires `'unsafe-eval'` in Content Security Policy. For strict CSP environments, use manual `contain()` calls or the build-time optimizer.
+
+**Build-Time Alternative:**
+```bash
+node optimize.js --input ./src --output ./dist
+```
+
+This applies opt() transformations at build time to ALL html`` templates, eliminating the need for eval().
+
 ## Event Attributes
 
 ### on-click

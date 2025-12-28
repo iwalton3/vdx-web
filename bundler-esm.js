@@ -1936,6 +1936,15 @@ function bundleAll(verbose) {
     console.log(`  Readable: ${(utilsSizes.readable / 1024).toFixed(2)} KB`);
     console.log(`  ✓ utils.js (${(utilsSizes.minified / 1024).toFixed(2)} KB) + .map`);
 
+    // === 4. Process opt.js ===
+    console.log('\n=== opt.js ===');
+    const optSizes = processSimpleFile(
+        path.join(baseDir, 'app', 'lib', 'opt.js'),
+        path.join(distDir, 'opt.js')
+    );
+    console.log(`  Readable: ${(optSizes.readable / 1024).toFixed(2)} KB`);
+    console.log(`  ✓ opt.js (${(optSizes.minified / 1024).toFixed(2)} KB) + .map`);
+
     // Summary
     console.log('\n=== Summary ===');
     console.log(`  Output directory: ${distDir}`);
@@ -1943,6 +1952,7 @@ function bundleAll(verbose) {
     console.log('    framework.js + framework.js.map');
     console.log('    router.js + router.js.map');
     console.log('    utils.js + utils.js.map');
+    console.log('    opt.js + opt.js.map');
     console.log('\n  Source maps contain embedded readable source for debugging.');
     console.log('\n✓ Done!\n');
 }

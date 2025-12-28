@@ -1089,8 +1089,8 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 const result = containRenderFnRef();
                 setRenderContext(null);
 
-                if (!result || !isHtml(result) || !result._compiled) {
-                    // Clean up if result is null/empty
+                // Handle null/undefined/false - clean up and return
+                if (result == null || result === false) {
                     for (const oldNode of containNodes) {
                         oldNode.remove();
                     }
@@ -1099,6 +1099,81 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                     }
                     containNodes = [];
                     containEffects = [];
+                    containPreviousCompiled = null;
+                    containValuesRef = null;
+                    return;
+                }
+
+                // Handle arrays (e.g., slot children, each() results)
+                // Arrays of DOM nodes or vnodes need to be rendered directly
+                if (Array.isArray(result)) {
+                    // Clean up old nodes
+                    for (const oldNode of containNodes) {
+                        oldNode.remove();
+                    }
+                    for (const oldEffect of containEffects) {
+                        if (oldEffect.dispose) oldEffect.dispose();
+                    }
+                    containNodes = [];
+                    containEffects = [];
+
+                    // Insert array items
+                    for (const item of result) {
+                        if (item instanceof Node) {
+                            insertWithoutParentTracking(placeholder, item);
+                            containNodes.push(item);
+                        } else if (isHtml(item) && item._compiled) {
+                            // Render vnode
+                            const { fragment, effects: itemEffects } = instantiateTemplate(
+                                item._compiled, item._values || [], component, slotInSvg
+                            );
+                            const nodes = [...fragment.childNodes];
+                            insertWithoutParentTracking(placeholder, fragment);
+                            containNodes.push(...nodes);
+                            containEffects.push(...itemEffects);
+                        } else if (item && item.compiled) {
+                            // Slot item from named slots (has compiled, values, parentComponent, slotName)
+                            const { fragment, effects: itemEffects } = instantiateTemplate(
+                                item.compiled, item.values || [], item.parentComponent || component, slotInSvg
+                            );
+                            const nodes = [...fragment.childNodes];
+                            insertWithoutParentTracking(placeholder, fragment);
+                            containNodes.push(...nodes);
+                            containEffects.push(...itemEffects);
+                        } else if (item != null) {
+                            // Primitive value
+                            const textNode = document.createTextNode(String(item));
+                            insertWithoutParentTracking(placeholder, textNode);
+                            containNodes.push(textNode);
+                        }
+                    }
+                    containPreviousCompiled = null;
+                    containValuesRef = null;
+                    return;
+                }
+
+                // Handle primitive values (strings, numbers, booleans)
+                // This supports opt() which wraps expressions like ${this.state.count}
+                if (!isHtml(result) || !result._compiled) {
+                    const textValue = String(result);
+                    if (containNodes.length === 1 && containNodes[0].nodeType === Node.TEXT_NODE) {
+                        // Reuse existing text node
+                        if (containNodes[0].textContent !== textValue) {
+                            containNodes[0].textContent = textValue;
+                        }
+                    } else {
+                        // Clean up old nodes and create text node
+                        for (const oldNode of containNodes) {
+                            oldNode.remove();
+                        }
+                        for (const oldEffect of containEffects) {
+                            if (oldEffect.dispose) oldEffect.dispose();
+                        }
+                        const textNode = document.createTextNode(textValue);
+                        insertWithoutParentTracking(placeholder, textNode);
+                        containNodes = [textNode];
+                        containEffects = [];
+                    }
                     containPreviousCompiled = null;
                     containValuesRef = null;
                     return;
@@ -1721,12 +1796,25 @@ function resolveDynamicProp(name, def, values, component, isCustomElement) {
                 let slotValue = values[slotIndex];
                 // Only call if marked as a value getter (not an actual function value)
                 if (typeof slotValue === 'function' && slotValue[VALUE_GETTER]) slotValue = slotValue();
+                // Handle contain markers for opt() support
+                if (slotValue && isContain(slotValue) && slotValue._renderFn) {
+                    setRenderContext(component);
+                    slotValue = slotValue._renderFn();
+                    setRenderContext(null);
+                }
                 value = value.replace(marker, String(slotValue ?? ''));
             }
         } else {
             value = values[def.slot];
             // Only call if marked as a value getter (not an actual function value)
             if (typeof value === 'function' && value[VALUE_GETTER]) value = value();
+            // Handle contain markers for opt() support - unwrap and call the renderFn
+            // This allows html.contain() to work in attribute positions
+            if (value && isContain(value) && value._renderFn) {
+                setRenderContext(component);
+                value = value._renderFn();
+                setRenderContext(null);
+            }
             if (def.template) {
                 const marker = `\x00${def.slot}\x00`;
                 value = def.template.replace(marker, String(value ?? ''));

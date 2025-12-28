@@ -517,3 +517,7 @@ export function awaitThen(promiseOrValue, thenFn, pendingContent, catchFn = null
 
 // Initialize template compiler at module load
 html._compiler = templateCompiler;
+
+// Attach contain to html for opt() usage
+// This allows eval(opt(...)) to use html.contain without importing contain
+html.contain = contain;
