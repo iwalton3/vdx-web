@@ -1323,8 +1323,9 @@ function minifyHTMLFile(html) {
     result = result.replace(/>\s+</g, '><');
 
     // Restore preserved content
+    // Use function replacer to avoid special $-pattern interpretation
     for (let i = 0; i < preserved.length; i++) {
-        result = result.replace(`__HTML_PRESERVE_${i}__`, preserved[i]);
+        result = result.replace(`__HTML_PRESERVE_${i}__`, () => preserved[i]);
     }
 
     return result;
@@ -1657,6 +1658,8 @@ function minifyCode(code, generateMap = false, filename = 'source.js') {
                     (/[a-zA-Z_$]/.test(lastChar) && nextChar === '(') ||
                     // Keep space before { and * after import/export (for regex-based parsers)
                     ((endsWithImport || endsWithExport) && (nextChar === '{' || nextChar === '*')) ||
+                    // Keep space after import before quote (for bare imports: import './foo.js')
+                    (endsWithImport && (nextChar === '"' || nextChar === "'")) ||
                     // Keep space before 'from' after } or * (for import/export from syntax)
                     ((lastChar === '}' || lastChar === '*') && nextIsFrom) ||
                     // Keep space after 'from' before quote (for import/export from syntax)
