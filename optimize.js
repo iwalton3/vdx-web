@@ -2037,7 +2037,12 @@ function showDiff(original, modified) {
 
 /**
  * Auto-fix early dereferences in a source file.
- * Replaces variable usages with their reactive paths throughout the template.
+ *
+ * Fixes variables in two contexts:
+ * 1. Inside eval(opt()) blocks: ALL occurrences, because the runtime optimizer
+ *    will wrap expressions in contain() - including when() conditions and each() arrays
+ * 2. Outside eval(opt()): ONLY inside callback function bodies (when/each/memoEach/contain)
+ *    because non-callback args like conditions are evaluated synchronously
  */
 function autoFixSource(source) {
     const { fixable } = detectEarlyDereferences(source);
@@ -2046,193 +2051,166 @@ function autoFixSource(source) {
     let result = source;
     let totalFixed = 0;
 
-    // Find template() function and replace variables within it
-    const templateMatch = result.match(/\btemplate\s*\(\s*\)\s*\{|\btemplate\s*:\s*function\s*\(\s*\)\s*\{/);
-    if (!templateMatch) return { code: source, fixedCount: 0 };
+    // Regions where ALL early-dereferenced variables should be fixed
+    const fixAllRegions = [];
 
-    const templateStart = templateMatch.index;
+    // Regions where only callback-body variables should be fixed
+    const callbackRegions = [];
 
-    // Find the end of template function
-    let depth = 0;
-    let i = templateStart;
-    while (i < result.length) {
-        if (result[i] === '{') depth++;
-        else if (result[i] === '}') {
-            depth--;
-            if (depth === 0) break;
-        }
-        i++;
-    }
-    const templateEnd = i + 1;
-
-    // Extract template function
-    const beforeTemplate = result.slice(0, templateStart);
-    const templateBody = result.slice(templateStart, templateEnd);
-    const afterTemplate = result.slice(templateEnd);
-
-    // Find first html`` in template body
-    const firstHtml = templateBody.indexOf('html`');
-    if (firstHtml === -1) return { code: source, fixedCount: 0 };
-
-    // Split template: declarations before html``, and the html`` part
-    const declarations = templateBody.slice(0, firstHtml);
-    let htmlPart = templateBody.slice(firstHtml);
-
-    // Find all ${...} expressions with proper brace depth tracking
-    // This handles nested braces like ${obj.method({ key: value })}
-    const expressions = [];
-    i = 0;
-    while (i < htmlPart.length) {
-        if (htmlPart[i] === '$' && htmlPart[i + 1] === '{') {
-            const exprStart = i;
-            i += 2;  // Skip ${
-            let braceDepth = 1;
-            while (i < htmlPart.length && braceDepth > 0) {
-                const ch = htmlPart[i];
-                if (ch === '{') braceDepth++;
-                else if (ch === '}') braceDepth--;
-                else if (ch === '"' || ch === "'" || ch === '`') {
-                    // Skip strings
-                    const quote = ch;
-                    i++;
-                    while (i < htmlPart.length) {
-                        if (htmlPart[i] === '\\') { i += 2; continue; }
-                        if (htmlPart[i] === quote) break;
-                        i++;
-                    }
-                }
-                i++;
-            }
-            expressions.push({ start: exprStart, end: i });
-        } else {
+    // Find eval(opt()) blocks - everything inside needs fixing
+    const evalOptPattern = /eval\s*\(\s*opt\s*\(/g;
+    let match;
+    while ((match = evalOptPattern.exec(source)) !== null) {
+        const startPos = match.index;
+        let depth = 2;  // After eval(opt(
+        let i = match.index + match[0].length;
+        while (i < source.length && depth > 0) {
+            if (source[i] === '(') depth++;
+            else if (source[i] === ')') depth--;
             i++;
         }
+        fixAllRegions.push({ start: startPos, end: i });
     }
 
-    // Replace variables ONLY inside the ${...} expressions we found
-    // Process in reverse order so indices stay valid
-    for (let idx = expressions.length - 1; idx >= 0; idx--) {
-        const { start, end } = expressions[idx];
-        let expr = htmlPart.slice(start + 2, end - 1);  // Content between ${ and }
+    // Find callback bodies in when/each/memoEach/contain calls (outside eval(opt()))
+    const deferredPattern = /\b(when|each|memoEach|contain)\s*\(/g;
+    while ((match = deferredPattern.exec(source)) !== null) {
+        const helperStart = match.index;
 
-        // Find regions to SKIP (inside strings, and TEXT parts of template literals)
-        // For template literals, we want to replace vars in ${...} but not in text
-        // This handles nested templates by recursively scanning ${...} expressions
-        const skipRegions = [];
+        // Skip if inside an eval(opt()) region - those are handled by fixAllRegions
+        const insideEvalOpt = fixAllRegions.some(r => helperStart >= r.start && helperStart < r.end);
+        if (insideEvalOpt) continue;
 
-        function scanForSkipRegions(str, offset = 0) {
-            let j = 0;
-            while (j < str.length) {
-                const ch = str[j];
-                if (ch === '"' || ch === "'") {
-                    // Regular strings - skip entirely
-                    const strStart = j;
-                    const quote = ch;
-                    j++;
-                    while (j < str.length) {
-                        if (str[j] === '\\') { j += 2; continue; }
-                        if (str[j] === quote) { j++; break; }
-                        j++;
-                    }
-                    skipRegions.push({ start: offset + strStart, end: offset + j });
-                } else if (ch === '`') {
-                    // Template literals - skip TEXT parts only, not ${...} expressions
-                    j++;  // Skip opening backtick
-                    let textStart = j;
-                    while (j < str.length) {
-                        if (str[j] === '\\') { j += 2; continue; }
-                        if (str[j] === '`') {
-                            // End of template - add final text part
-                            if (j > textStart) {
-                                skipRegions.push({ start: offset + textStart, end: offset + j });
-                            }
-                            j++;
-                            break;
+        const helperName = match[1];
+
+        // Parse to find arguments, tracking all bracket types
+        let i = match.index + match[0].length;
+        let depth = 1;
+        let bracketDepth = 0;
+        let braceDepth = 0;
+        const argStarts = [i];
+
+        while (i < source.length && depth > 0) {
+            const ch = source[i];
+
+            // Skip strings
+            if (ch === '"' || ch === "'" || ch === '`') {
+                const quote = ch;
+                i++;
+                while (i < source.length) {
+                    if (source[i] === '\\') { i += 2; continue; }
+                    if (source[i] === quote) { i++; break; }
+                    if (quote === '`' && source[i] === '$' && source[i+1] === '{') {
+                        i += 2;
+                        let tDepth = 1;
+                        while (i < source.length && tDepth > 0) {
+                            if (source[i] === '{') tDepth++;
+                            else if (source[i] === '}') tDepth--;
+                            i++;
                         }
-                        if (str[j] === '$' && str[j + 1] === '{') {
-                            // Expression starts - add text part before it
-                            if (j > textStart) {
-                                skipRegions.push({ start: offset + textStart, end: offset + j });
-                            }
-                            j += 2;  // Skip ${
-                            // Extract the expression content and recursively scan it
-                            let tDepth = 1;
-                            const exprStart = j;
-                            while (j < str.length && tDepth > 0) {
-                                if (str[j] === '{') tDepth++;
-                                else if (str[j] === '}') tDepth--;
-                                else if (str[j] === '"' || str[j] === "'" || str[j] === '`') {
-                                    // Skip strings/templates to avoid miscounting braces
-                                    const q = str[j];
-                                    j++;
-                                    while (j < str.length) {
-                                        if (str[j] === '\\') { j += 2; continue; }
-                                        if (str[j] === q) break;
-                                        if (q === '`' && str[j] === '$' && str[j + 1] === '{') {
-                                            j += 2;
-                                            let d = 1;
-                                            while (j < str.length && d > 0) {
-                                                if (str[j] === '{') d++;
-                                                else if (str[j] === '}') d--;
-                                                j++;
-                                            }
-                                            continue;
-                                        }
-                                        j++;
-                                    }
-                                }
-                                j++;
-                            }
-                            // Recursively scan the nested expression for more skip regions
-                            const nestedExpr = str.slice(exprStart, j - 1);
-                            scanForSkipRegions(nestedExpr, offset + exprStart);
-                            textStart = j;  // Text resumes after }
-                            continue;
-                        }
-                        j++;
+                        continue;
                     }
-                } else {
-                    j++;
+                    i++;
                 }
+                continue;
             }
+
+            if (ch === '(') { depth++; i++; continue; }
+            if (ch === ')') { depth--; i++; continue; }
+            if (ch === '[') { bracketDepth++; i++; continue; }
+            if (ch === ']') { bracketDepth--; i++; continue; }
+            if (ch === '{') { braceDepth++; i++; continue; }
+            if (ch === '}') { braceDepth--; i++; continue; }
+            if (ch === ',' && depth === 1 && bracketDepth === 0 && braceDepth === 0) {
+                argStarts.push(i + 1);
+            }
+            i++;
         }
 
-        scanForSkipRegions(expr, 0);
+        const callEnd = i;
 
-        for (const [varName, path] of fixable) {
-            // Match variable name not preceded by dot or followed by colon (object key)
-            // Also not preceded/followed by hyphen (e.g., "mode-item" should not match "mode")
-            const pattern = new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`, 'g');
-
-            // Replace only if match is NOT inside a skip region
-            let lastIndex = 0;
-            let newExpr = '';
-            let match;
-            while ((match = pattern.exec(expr)) !== null) {
-                const matchStart = match.index;
-                const matchEnd = match.index + match[0].length;
-
-                // Check if this match is inside any skip region
-                const insideSkipRegion = skipRegions.some(r => matchStart >= r.start && matchEnd <= r.end);
-
-                newExpr += expr.slice(lastIndex, matchStart);
-                if (insideSkipRegion) {
-                    newExpr += match[0];  // Keep original
-                } else {
-                    newExpr += path;  // Replace
-                    totalFixed++;
-                }
-                lastIndex = matchEnd;
-            }
-            newExpr += expr.slice(lastIndex);
-            expr = newExpr || expr;
+        // Determine which arguments can be callbacks
+        let callbackArgIndices;
+        if (helperName === 'contain') {
+            callbackArgIndices = [0];
+        } else if (helperName === 'when') {
+            callbackArgIndices = [1, 2];
+        } else {
+            callbackArgIndices = [1];  // each, memoEach
         }
 
-        htmlPart = htmlPart.slice(0, start) + '${' + expr + '}' + htmlPart.slice(end);
+        // Find callback function bodies
+        for (const argIdx of callbackArgIndices) {
+            if (argIdx >= argStarts.length) continue;
+
+            const argStart = argStarts[argIdx];
+            const argEnd = argIdx + 1 < argStarts.length
+                ? argStarts[argIdx + 1] - 1
+                : callEnd - 1;
+
+            const argContent = source.slice(argStart, argEnd);
+            const trimmedArg = argContent.trim();
+
+            let bodyStart = null;
+
+            // Arrow function: () => body or name => body
+            const arrowMatch = trimmedArg.match(/^(?:\([^)]*\)|[a-zA-Z_$][\w$]*)\s*=>\s*/);
+            if (arrowMatch) {
+                const bodyOffset = argStart + argContent.indexOf(trimmedArg) + arrowMatch[0].length;
+                bodyStart = bodyOffset;
+            }
+
+            // Function expression: function(...) { body }
+            const funcMatch = trimmedArg.match(/^function\s*\([^)]*\)\s*\{/);
+            if (funcMatch) {
+                const bodyOffset = argStart + argContent.indexOf(trimmedArg) + funcMatch[0].length;
+                bodyStart = bodyOffset;
+            }
+
+            if (bodyStart !== null) {
+                callbackRegions.push({ start: bodyStart, end: argEnd });
+            }
+        }
     }
 
-    // Reconstruct
-    result = beforeTemplate + declarations + htmlPart + afterTemplate;
+    if (fixAllRegions.length === 0 && callbackRegions.length === 0) {
+        return { code: source, fixedCount: 0 };
+    }
+
+    // Collect all replacements
+    const replacements = [];
+
+    for (const [varName, path] of fixable) {
+        const pattern = new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`, 'g');
+
+        let varMatch;
+        while ((varMatch = pattern.exec(source)) !== null) {
+            const matchStart = varMatch.index;
+            const matchEnd = varMatch.index + varMatch[0].length;
+
+            // Check if inside a fix-all region (eval(opt()))
+            const insideFixAll = fixAllRegions.some(r => matchStart >= r.start && matchEnd <= r.end);
+
+            // Check if inside a callback region
+            const insideCallback = callbackRegions.some(r => matchStart >= r.start && matchEnd <= r.end);
+
+            if (insideFixAll || insideCallback) {
+                replacements.push({ start: matchStart, end: matchEnd, replacement: path });
+            }
+        }
+    }
+
+    if (replacements.length === 0) {
+        return { code: source, fixedCount: 0 };
+    }
+
+    // Sort by position descending and apply
+    replacements.sort((a, b) => b.start - a.start);
+
+    for (const { start, end, replacement } of replacements) {
+        result = result.slice(0, start) + replacement + result.slice(end);
+        totalFixed++;
+    }
 
     return { code: result, fixedCount: totalFixed };
 }
