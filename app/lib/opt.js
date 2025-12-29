@@ -297,6 +297,12 @@ function shouldSkipWrapping(expr) {
         return true;
     }
 
+    // Skip expressions containing raw() anywhere - raw() returns a special vnode
+    // marker that must be placed directly in the template, not wrapped
+    if (/\braw\s*\(/.test(trimmed)) {
+        return true;
+    }
+
     // Skip arrow functions: () => ..., x => ..., (a, b) => ...
     if (/^\([^)]*\)\s*=>/.test(trimmed) || /^\w+\s*=>/.test(trimmed)) {
         return true;

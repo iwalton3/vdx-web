@@ -1215,6 +1215,261 @@ function vlqEncode(value) {
 }
 
 /**
+ * Minify CSS by removing comments, collapsing whitespace, and removing unnecessary chars.
+ */
+function minifyCSS(css) {
+    let result = css;
+
+    // Remove CSS comments /* ... */
+    result = result.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    // Collapse whitespace around special chars
+    result = result.replace(/\s*([{};:,>+~])\s*/g, '$1');
+
+    // Collapse multiple whitespace to single space
+    result = result.replace(/\s+/g, ' ');
+
+    // Remove space after opening brace and before closing brace
+    result = result.replace(/\{\s+/g, '{');
+    result = result.replace(/\s+\}/g, '}');
+
+    // Remove trailing semicolons before closing braces
+    result = result.replace(/;}/g, '}');
+
+    // Remove leading/trailing whitespace
+    result = result.trim();
+
+    return result;
+}
+
+/**
+ * Minify HTML template content by collapsing whitespace.
+ * Preserves whitespace in <pre>, <code>, <script>, <style>, <textarea> tags.
+ */
+function minifyHTMLTemplate(html) {
+    // Tags where whitespace must be preserved
+    const preserveTags = ['pre', 'code', 'script', 'style', 'textarea'];
+    const preserved = [];
+    let result = html;
+
+    // Extract and preserve content from special tags
+    for (const tag of preserveTags) {
+        const regex = new RegExp(`(<${tag}[^>]*>)([\\s\\S]*?)(</${tag}>)`, 'gi');
+        result = result.replace(regex, (match, open, content, close) => {
+            const placeholder = `__PRESERVE_${preserved.length}__`;
+            preserved.push(match);
+            return placeholder;
+        });
+    }
+
+    // Collapse whitespace: multiple spaces/newlines -> single space
+    result = result.replace(/\s+/g, ' ');
+
+    // Remove space around tags (but keep at least one space between text nodes)
+    result = result.replace(/>\s+</g, '><');
+    result = result.replace(/>\s+\$/g, '>$');  // Before ${
+    result = result.replace(/\}\s+</g, '}<');  // After }
+
+    // Restore preserved content
+    for (let i = 0; i < preserved.length; i++) {
+        result = result.replace(`__PRESERVE_${i}__`, preserved[i]);
+    }
+
+    return result;
+}
+
+/**
+ * Minify a standalone HTML file.
+ * Minifies inline <style> and <script> content, and collapses HTML whitespace.
+ */
+function minifyHTMLFile(html) {
+    let result = html;
+
+    // Minify inline <style> content
+    result = result.replace(/(<style[^>]*>)([\s\S]*?)(<\/style>)/gi, (match, open, css, close) => {
+        return open + minifyCSS(css) + close;
+    });
+
+    // Minify inline <script> content (but not type="module" imports or complex scripts)
+    result = result.replace(/(<script[^>]*>)([\s\S]*?)(<\/script>)/gi, (match, open, js, close) => {
+        // Skip empty scripts or scripts with src attribute
+        if (!js.trim() || /\bsrc\s*=/.test(open)) {
+            return match;
+        }
+        // Use the JS minifier for inline scripts
+        try {
+            const minified = minifyCode(js);
+            return open + minified.code + close;
+        } catch (e) {
+            return match;  // Keep original on error
+        }
+    });
+
+    // Collapse whitespace in HTML (but preserve <pre>, <code>, etc.)
+    const preserveTags = ['pre', 'code', 'textarea', 'script', 'style'];
+    const preserved = [];
+
+    for (const tag of preserveTags) {
+        const regex = new RegExp(`(<${tag}[^>]*>[\\s\\S]*?</${tag}>)`, 'gi');
+        result = result.replace(regex, (match) => {
+            const placeholder = `__HTML_PRESERVE_${preserved.length}__`;
+            preserved.push(match);
+            return placeholder;
+        });
+    }
+
+    // Collapse whitespace
+    result = result.replace(/\s+/g, ' ');
+    result = result.replace(/>\s+</g, '><');
+
+    // Restore preserved content
+    for (let i = 0; i < preserved.length; i++) {
+        result = result.replace(`__HTML_PRESERVE_${i}__`, preserved[i]);
+    }
+
+    return result;
+}
+
+/**
+ * Minify a standalone CSS file.
+ */
+function minifyCSSFile(css) {
+    return minifyCSS(css);
+}
+
+/**
+ * Minify embedded CSS and HTML within JavaScript code.
+ * Finds styles: `...` blocks and html`...` templates and minifies their content.
+ */
+function minifyEmbeddedContent(code) {
+    let result = code;
+
+    // Minify styles: /*css*/`...` or styles: `...` blocks
+    // Match: styles: followed by optional /*css*/ and then a template literal
+    result = result.replace(
+        /(styles\s*:\s*(?:\/\*\s*css\s*\*\/)?\s*`)([^`]*?)(`)/g,
+        (match, prefix, css, suffix) => {
+            return prefix + minifyCSS(css) + suffix;
+        }
+    );
+
+    // Minify html`...` templates (but preserve ${...} expressions and their content)
+    // Process from end to start so indices don't shift
+    const templateStarts = [];
+    for (let i = 0; i < result.length - 4; i++) {
+        if (result.slice(i, i + 5) === 'html`') {
+            templateStarts.push(i);
+        }
+    }
+
+    // Process in reverse order
+    for (let t = templateStarts.length - 1; t >= 0; t--) {
+        const startIdx = templateStarts[t];
+        const templateStart = startIdx + 5;  // After 'html`'
+
+        // Find the end of this template, handling nested ${...} and strings
+        let i = templateStart;
+        let parts = [];  // Array of { type: 'text'|'expr', content: string }
+        let currentText = '';
+
+        while (i < result.length) {
+            const ch = result[i];
+
+            if (ch === '\\' && i + 1 < result.length) {
+                currentText += ch + result[i + 1];
+                i += 2;
+                continue;
+            }
+
+            if (ch === '$' && result[i + 1] === '{') {
+                // Start of expression
+                if (currentText) {
+                    parts.push({ type: 'text', content: currentText });
+                    currentText = '';
+                }
+
+                // Find matching closing brace, handling nested braces and strings
+                let exprStart = i;
+                i += 2;
+                let braceDepth = 1;
+                let inString = false;
+                let stringChar = '';
+                let inTemplateLiteral = false;
+
+                while (i < result.length && braceDepth > 0) {
+                    const c = result[i];
+
+                    // Handle escape in strings
+                    if ((inString || inTemplateLiteral) && c === '\\' && i + 1 < result.length) {
+                        i += 2;
+                        continue;
+                    }
+
+                    // Handle strings
+                    if (!inString && !inTemplateLiteral && (c === '"' || c === "'")) {
+                        inString = true;
+                        stringChar = c;
+                        i++;
+                        continue;
+                    }
+                    if (inString && c === stringChar) {
+                        inString = false;
+                        i++;
+                        continue;
+                    }
+
+                    // Handle template literals in expressions
+                    if (!inString && c === '`') {
+                        inTemplateLiteral = !inTemplateLiteral;
+                        i++;
+                        continue;
+                    }
+
+                    // Handle nested ${} in template literals
+                    if (inTemplateLiteral && c === '$' && result[i + 1] === '{') {
+                        braceDepth++;
+                        i += 2;
+                        continue;
+                    }
+
+                    if (!inString && !inTemplateLiteral) {
+                        if (c === '{') braceDepth++;
+                        else if (c === '}') braceDepth--;
+                    }
+                    i++;
+                }
+                parts.push({ type: 'expr', content: result.slice(exprStart, i) });
+                continue;
+            }
+
+            if (ch === '`') {
+                // End of template
+                if (currentText) {
+                    parts.push({ type: 'text', content: currentText });
+                }
+
+                // Minify text parts only
+                const minifiedParts = parts.map(part => {
+                    if (part.type === 'text') {
+                        return minifyHTMLTemplate(part.content);
+                    }
+                    return part.content;
+                });
+
+                const minifiedTemplate = 'html`' + minifiedParts.join('') + '`';
+                result = result.slice(0, startIdx) + minifiedTemplate + result.slice(i + 1);
+                break;
+            }
+
+            currentText += ch;
+            i++;
+        }
+    }
+
+    return result;
+}
+
+/**
  * Minify code and optionally generate source map.
  */
 function minifyCode(code, generateMap = false, filename = 'source.js') {
@@ -1389,10 +1644,23 @@ function minifyCode(code, generateMap = false, filename = 'source.js') {
 
             if (i < len) {
                 const nextChar = code[i];
+                // Check if result ends with 'import' or 'export' for special handling
+                const endsWithImport = result.length >= 6 && result.slice(-6) === 'import';
+                const endsWithExport = result.length >= 6 && result.slice(-6) === 'export';
+                // Check if next 4 chars are 'from' (for import/export from syntax)
+                const nextIsFrom = code.slice(i, i + 4) === 'from';
+                // Check if result ends with 'from' (for space before quote)
+                const endsWithFrom = result.length >= 4 && result.slice(-4) === 'from';
                 const needsSpace =
                     (/[a-zA-Z0-9_$]/.test(lastChar) && /[a-zA-Z0-9_$]/.test(nextChar)) ||
                     (lastChar === ')' && /[a-zA-Z_$]/.test(nextChar)) ||
-                    (/[a-zA-Z_$]/.test(lastChar) && nextChar === '(');
+                    (/[a-zA-Z_$]/.test(lastChar) && nextChar === '(') ||
+                    // Keep space before { and * after import/export (for regex-based parsers)
+                    ((endsWithImport || endsWithExport) && (nextChar === '{' || nextChar === '*')) ||
+                    // Keep space before 'from' after } or * (for import/export from syntax)
+                    ((lastChar === '}' || lastChar === '*') && nextIsFrom) ||
+                    // Keep space after 'from' before quote (for import/export from syntax)
+                    (endsWithFrom && (nextChar === '"' || nextChar === "'"));
 
                 if (needsSpace) {
                     emit(' ');
@@ -1478,6 +1746,16 @@ function processJsFile(inputPath, outputPath, options) {
     const filename = path.basename(inputPath);
     let fixedCount = 0;
 
+    // Extract shebang if present (e.g., #!/usr/bin/env node)
+    let shebang = '';
+    if (content.startsWith('#!')) {
+        const newlineIdx = content.indexOf('\n');
+        if (newlineIdx !== -1) {
+            shebang = content.slice(0, newlineIdx + 1);
+            content = content.slice(newlineIdx + 1);
+        }
+    }
+
     // Skip optimization for framework bundle files (they have internal templates that
     // were already optimized during bundling)
     const isFrameworkBundle = FRAMEWORK_BUNDLE_FILES.has(filename) &&
@@ -1497,6 +1775,10 @@ function processJsFile(inputPath, outputPath, options) {
     // Step 3: Minify if requested
     let sourceMap = null;
     if (options.minify) {
+        // First minify embedded CSS and HTML templates
+        content = minifyEmbeddedContent(content);
+
+        // Then minify the JS code
         const filename = path.basename(inputPath);
         const minified = minifyCode(content, options.sourcemap, filename);
         content = minified.code;
@@ -1506,6 +1788,11 @@ function processJsFile(inputPath, outputPath, options) {
             sourceMap.file = path.basename(outputPath);
             content += `\n//# sourceMappingURL=${path.basename(outputPath)}.map\n`;
         }
+    }
+
+    // Restore shebang if present
+    if (shebang) {
+        content = shebang + content;
     }
 
     if (!options.dryRun) {
@@ -1537,7 +1824,39 @@ function processHtmlFile2(inputPath, outputPath, options) {
     let content = fs.readFileSync(inputPath, 'utf-8');
     const originalSize = content.length;
 
+    // Process inline scripts for opt transformations
     content = processHtmlFile(content, options);
+
+    // Minify HTML if requested
+    if (options.minify) {
+        content = minifyHTMLFile(content);
+    }
+
+    if (!options.dryRun) {
+        const outputDir = path.dirname(outputPath);
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+        fs.writeFileSync(outputPath, content);
+    }
+
+    return {
+        originalSize,
+        outputSize: content.length,
+        hasSourceMap: false
+    };
+}
+
+/**
+ * Process a single CSS file.
+ */
+function processCssFile(inputPath, outputPath, options) {
+    let content = fs.readFileSync(inputPath, 'utf-8');
+    const originalSize = content.length;
+
+    if (options.minify) {
+        content = minifyCSSFile(content);
+    }
 
     if (!options.dryRun) {
         const outputDir = path.dirname(outputPath);
@@ -1961,6 +2280,15 @@ function main() {
             htmlCount++;
             if (options.verbose) {
                 console.log(`  HTML: ${relativePath}`);
+            }
+        } else if (ext === '.css') {
+            result = processCssFile(inputPath, outputPath, options);
+            // Count as "other" for now, could add cssCount if needed
+            otherCount++;
+            if (options.verbose) {
+                const saved = result.originalSize - result.outputSize;
+                const percent = result.originalSize > 0 ? Math.round((saved / result.originalSize) * 100) : 0;
+                console.log(`  CSS: ${relativePath} (${percent}% saved)`);
             }
         } else {
             result = copyFile(inputPath, outputPath, options);
