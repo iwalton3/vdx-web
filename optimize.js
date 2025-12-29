@@ -360,10 +360,10 @@ function extractExpressions(source) {
 function shouldSkipWrapping(expr) {
     const trimmed = expr.trim();
 
-    // Skip already-isolated helpers (contain/raw only)
-    // when/each/memoEach are NOT skipped - they need wrapping for fine-grained reactivity
-    // since the renderer no longer creates boundaries for them by default
-    if (/^(contain|raw|html\.contain)\s*\(/.test(trimmed)) {
+    // Skip already-isolated helpers and special vnodes
+    // - contain/raw: already isolated
+    // - memoEach: has its own caching mechanism, complex to wrap in contain
+    if (/^(contain|raw|html\.contain|memoEach)\s*\(/.test(trimmed)) {
         return true;
     }
 

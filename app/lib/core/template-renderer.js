@@ -985,8 +985,29 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 // Use containRenderFnRef to get the current renderFn (may be updated by parent)
                 // This creates the dependency tracking for just this boundary
                 setRenderContext(component);
-                const result = containRenderFnRef();
+
+                // Track props version - when props change, re-run this effect
+                // Without this, contain() effects that read this.props won't update
+                if (component._propsVersion) {
+                    const _ = component._propsVersion.v;
+                }
+
+                let result = containRenderFnRef();
                 setRenderContext(null);
+
+                // Handle when-vnodes inside contain - evaluate the condition and get the branch
+                // This happens when opt() wraps a when() call in contain()
+                if (isWhen(result)) {
+                    const { _condition, _thenValue, _elseValue } = result;
+                    const selectedBranch = _condition ? _thenValue : _elseValue;
+                    if (typeof selectedBranch === 'function') {
+                        setRenderContext(component);
+                        result = selectedBranch();
+                        setRenderContext(null);
+                    } else {
+                        result = selectedBranch;
+                    }
+                }
 
                 // Handle null/undefined/false - clean up and return
                 if (result == null || result === false) {
