@@ -707,12 +707,13 @@ function lintEarlyDereferences(source, filename = '') {
     }
 
     // Build patterns for all early-dereferenced variables (both fixable and unfixable)
+    // Pattern excludes: property access (.error), hyphenated names (error-message, my-error)
     const varPatterns = new Map();
     for (const [varName, path] of fixable) {
-        varPatterns.set(varName, { pattern: new RegExp(`(?<!\\.)\\b${varName}\\b(?!\\s*:)`), path, fixable: true });
+        varPatterns.set(varName, { pattern: new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`, 'g'), path, fixable: true });
     }
     for (const [varName, info] of unfixable) {
-        varPatterns.set(varName, { pattern: new RegExp(`(?<!\\.)\\b${varName}\\b(?!\\s*:)`), path: info.path, fixable: false, reason: info.reason });
+        varPatterns.set(varName, { pattern: new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`, 'g'), path: info.path, fixable: false, reason: info.reason });
     }
 
     // Check 1: Find eval(opt()) blocks and check for early derefs inside
@@ -748,14 +749,20 @@ function lintEarlyDereferences(source, filename = '') {
     // Check 2: Find deferred callbacks (when/each/contain with arrow/function callbacks)
     // These create reactive boundaries where captured variables lose reactivity
     // IMPORTANT: Only check INSIDE the callback body, not the array/condition arguments
+    //
+    // Collect callback regions first, then check if early-dereferenced variables are used in them
+    const callbackRegions = [];
     const deferredPattern = /\b(when|each|memoEach|contain)\s*\(/g;
     while ((match = deferredPattern.exec(source)) !== null) {
         const helperName = match[1];
         const callStart = match.index;
 
         // Parse to find arguments, tracking where each starts
+        // Track all bracket types to avoid false comma detection
         let i = match.index + match[0].length;
         let depth = 1;
+        let bracketDepth = 0;
+        let braceDepth = 0;
         const argStarts = [i];  // Track start of each argument
 
         while (i < source.length && depth > 0) {
@@ -785,7 +792,11 @@ function lintEarlyDereferences(source, filename = '') {
 
             if (ch === '(') { depth++; i++; continue; }
             if (ch === ')') { depth--; i++; continue; }
-            if (ch === ',' && depth === 1) {
+            if (ch === '[') { bracketDepth++; i++; continue; }
+            if (ch === ']') { bracketDepth--; i++; continue; }
+            if (ch === '{') { braceDepth++; i++; continue; }
+            if (ch === '}') { braceDepth--; i++; continue; }
+            if (ch === ',' && depth === 1 && bracketDepth === 0 && braceDepth === 0) {
                 argStarts.push(i + 1);  // Next arg starts after comma
             }
             i++;
@@ -807,7 +818,7 @@ function lintEarlyDereferences(source, filename = '') {
             callbackArgIndices = [1];  // each, memoEach
         }
 
-        // Extract callback bodies and check for early-dereferenced variables
+        // Find callback function bodies and record their regions
         for (const argIdx of callbackArgIndices) {
             if (argIdx >= argStarts.length) continue;
 
@@ -817,65 +828,69 @@ function lintEarlyDereferences(source, filename = '') {
                 : callEnd - 1;  // Before closing paren
 
             const argContent = source.slice(argStart, argEnd);
-
-            // Check if this argument is a callback (arrow function or function)
-            // Only match callbacks at the START of the argument, not nested ones
-            let callbackBody = null;
             const trimmedArg = argContent.trim();
 
+            let bodyStart = null;
+
             // Arrow function at start: () => body or name => body
-            // Must match BEFORE any html` to avoid matching nested each/when callbacks
             const arrowMatch = trimmedArg.match(/^(?:\([^)]*\)|[a-zA-Z_$][\w$]*)\s*=>\s*/);
             if (arrowMatch) {
-                callbackBody = trimmedArg.slice(arrowMatch[0].length);
+                const bodyOffset = argStart + argContent.indexOf(trimmedArg) + arrowMatch[0].length;
+                bodyStart = bodyOffset;
             }
 
             // Function expression at start: function(...) { body }
             const funcMatch = trimmedArg.match(/^function\s*\([^)]*\)\s*\{/);
             if (funcMatch) {
-                callbackBody = trimmedArg.slice(funcMatch[0].length);
+                const bodyOffset = argStart + argContent.indexOf(trimmedArg) + funcMatch[0].length;
+                bodyStart = bodyOffset;
             }
 
-            if (!callbackBody) continue;
-
-            // Extract ${} expressions from callback body to check for variable usage
-            // This avoids false positives from class names like "volume-slider"
-            const expressions = [];
-            const exprPattern = /\$\{([^}]+)\}/g;
-            let exprMatch;
-            while ((exprMatch = exprPattern.exec(callbackBody)) !== null) {
-                expressions.push(exprMatch[1]);
+            if (bodyStart !== null) {
+                callbackRegions.push({
+                    start: bodyStart,
+                    end: argEnd,
+                    helperName,
+                    callStart  // For line number calculation
+                });
             }
+        }
+    }
 
-            // Check if any early-dereferenced variable is used in the expressions
-            for (const [varName, info] of varPatterns) {
-                for (const expr of expressions) {
-                    if (info.pattern.test(expr)) {
-                        const beforeMatch = source.slice(0, callStart);
-                        const lineNumber = (beforeMatch.match(/\n/g) || []).length + 1;
+    // Now check if early-dereferenced variables are used inside callback regions
+    for (const [varName, info] of varPatterns) {
+        let varMatch;
+        while ((varMatch = info.pattern.exec(source)) !== null) {
+            const matchStart = varMatch.index;
+            const matchEnd = varMatch.index + varMatch[0].length;
 
-                        if (info.fixable) {
-                            issues.push({
-                                line: lineNumber,
-                                variable: varName,
-                                path: info.path,
-                                fixable: true,
-                                message: `${helperName}() callback captures early-dereferenced '${varName}' - callback creates reactive boundary`
-                            });
-                        } else {
-                            issues.push({
-                                line: lineNumber,
-                                variable: varName,
-                                path: info.path,
-                                fixable: false,
-                                message: `${helperName}() callback captures '${varName}' (${info.reason}) - UNFIXABLE`
-                            });
-                        }
-                        break;  // Only report once per variable per callback
-                    }
+            // Check if this match is inside a callback region
+            const region = callbackRegions.find(r => matchStart >= r.start && matchEnd <= r.end);
+            if (region) {
+                const beforeMatch = source.slice(0, region.callStart);
+                const lineNumber = (beforeMatch.match(/\n/g) || []).length + 1;
+
+                if (info.fixable) {
+                    issues.push({
+                        line: lineNumber,
+                        variable: varName,
+                        path: info.path,
+                        fixable: true,
+                        message: `${region.helperName}() callback captures early-dereferenced '${varName}' - callback creates reactive boundary`
+                    });
+                } else {
+                    issues.push({
+                        line: lineNumber,
+                        variable: varName,
+                        path: info.path,
+                        fixable: false,
+                        message: `${region.helperName}() callback captures '${varName}' (${info.reason}) - UNFIXABLE`
+                    });
                 }
             }
         }
+        // Reset regex lastIndex for next variable
+        info.pattern.lastIndex = 0;
     }
 
     // Deduplicate issues (same variable/line)
