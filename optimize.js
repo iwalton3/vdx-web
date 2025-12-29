@@ -121,9 +121,10 @@ Options:
   --sourcemap, -s   Generate source maps (implies --minify)
   --wrapped-only    Only optimize templates wrapped in eval(opt())
                     Default: optimize ALL html\`\` templates
-  --lint-only, -l   Check for early dereference issues without transforming
+  --lint-only, -l   Check ALL files for early dereference issues
+                    Finds when()/each()/contain() callbacks capturing dereferenced vars
                     Exit code 1 if fixable issues, 2 if unfixable issues
-  --auto-fix        Fix early dereferences in-place (replaces vars with paths)
+  --auto-fix        Fix early dereferences in-place (all files)
                     Only fixes simple patterns, not computed expressions
   --verbose, -v     Show detailed processing information
   --dry-run         Preview files that would be processed without writing
@@ -136,12 +137,18 @@ What the optimizer does:
   4. Optionally minifies with source maps
 
 Early Dereference Detection:
-  The optimizer warns about (and fixes) code patterns like:
-    const { count } = this.state;  // Early dereference
-    return html\`\${count}\`;          // Captures value, not reactive path
+  The linter warns about code patterns that break reactivity:
 
-  Without the optimizer, these patterns break reactivity. Run --lint-only
-  to check templates before deployment without the optimizer.
+  1. Variables captured in callbacks:
+    const { count } = this.state;
+    \${when(condition, () => html\`\${count}\`)}  // BREAKS - captured value
+
+  2. Early dereferences in templates:
+    const { count } = this.state;
+    return html\`\${count}\`;  // OK with optimizer, but breaks without it
+
+  Run --lint-only to find issues that would break the deployed codebase.
+  Run --auto-fix to automatically fix simple patterns.
 
 This eliminates the need for 'unsafe-eval' CSP and runtime eval().
 `);
@@ -2108,36 +2115,89 @@ function autoFixSource(source) {
         const { start, end } = expressions[idx];
         let expr = htmlPart.slice(start + 2, end - 1);  // Content between ${ and }
 
-        // Find regions to SKIP (inside strings and template literals)
+        // Find regions to SKIP (inside strings, and TEXT parts of template literals)
+        // For template literals, we want to replace vars in ${...} but not in text
+        // This handles nested templates by recursively scanning ${...} expressions
         const skipRegions = [];
-        let j = 0;
-        while (j < expr.length) {
-            const ch = expr[j];
-            if (ch === '"' || ch === "'" || ch === '`') {
-                const strStart = j;
-                const quote = ch;
-                j++;
-                while (j < expr.length) {
-                    if (expr[j] === '\\') { j += 2; continue; }
-                    if (expr[j] === quote) { j++; break; }
-                    // For template literals, skip nested ${...}
-                    if (quote === '`' && expr[j] === '$' && expr[j + 1] === '{') {
-                        j += 2;
-                        let tDepth = 1;
-                        while (j < expr.length && tDepth > 0) {
-                            if (expr[j] === '{') tDepth++;
-                            else if (expr[j] === '}') tDepth--;
-                            j++;
-                        }
-                        continue;
+
+        function scanForSkipRegions(str, offset = 0) {
+            let j = 0;
+            while (j < str.length) {
+                const ch = str[j];
+                if (ch === '"' || ch === "'") {
+                    // Regular strings - skip entirely
+                    const strStart = j;
+                    const quote = ch;
+                    j++;
+                    while (j < str.length) {
+                        if (str[j] === '\\') { j += 2; continue; }
+                        if (str[j] === quote) { j++; break; }
+                        j++;
                     }
+                    skipRegions.push({ start: offset + strStart, end: offset + j });
+                } else if (ch === '`') {
+                    // Template literals - skip TEXT parts only, not ${...} expressions
+                    j++;  // Skip opening backtick
+                    let textStart = j;
+                    while (j < str.length) {
+                        if (str[j] === '\\') { j += 2; continue; }
+                        if (str[j] === '`') {
+                            // End of template - add final text part
+                            if (j > textStart) {
+                                skipRegions.push({ start: offset + textStart, end: offset + j });
+                            }
+                            j++;
+                            break;
+                        }
+                        if (str[j] === '$' && str[j + 1] === '{') {
+                            // Expression starts - add text part before it
+                            if (j > textStart) {
+                                skipRegions.push({ start: offset + textStart, end: offset + j });
+                            }
+                            j += 2;  // Skip ${
+                            // Extract the expression content and recursively scan it
+                            let tDepth = 1;
+                            const exprStart = j;
+                            while (j < str.length && tDepth > 0) {
+                                if (str[j] === '{') tDepth++;
+                                else if (str[j] === '}') tDepth--;
+                                else if (str[j] === '"' || str[j] === "'" || str[j] === '`') {
+                                    // Skip strings/templates to avoid miscounting braces
+                                    const q = str[j];
+                                    j++;
+                                    while (j < str.length) {
+                                        if (str[j] === '\\') { j += 2; continue; }
+                                        if (str[j] === q) break;
+                                        if (q === '`' && str[j] === '$' && str[j + 1] === '{') {
+                                            j += 2;
+                                            let d = 1;
+                                            while (j < str.length && d > 0) {
+                                                if (str[j] === '{') d++;
+                                                else if (str[j] === '}') d--;
+                                                j++;
+                                            }
+                                            continue;
+                                        }
+                                        j++;
+                                    }
+                                }
+                                j++;
+                            }
+                            // Recursively scan the nested expression for more skip regions
+                            const nestedExpr = str.slice(exprStart, j - 1);
+                            scanForSkipRegions(nestedExpr, offset + exprStart);
+                            textStart = j;  // Text resumes after }
+                            continue;
+                        }
+                        j++;
+                    }
+                } else {
                     j++;
                 }
-                skipRegions.push({ start: strStart, end: j });
-            } else {
-                j++;
             }
         }
+
+        scanForSkipRegions(expr, 0);
 
         for (const [varName, path] of fixable) {
             // Match variable name not preceded by dot or followed by colon (object key)

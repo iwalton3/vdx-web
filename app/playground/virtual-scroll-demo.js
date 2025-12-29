@@ -66,7 +66,7 @@ export default defineComponent('virtual-scroll-demo', {
             <p>Efficiently renders large lists by only rendering visible items. Click "Add 1,000 Items" to see performance with thousands of items!</p>
 
             <div class="stats">
-                <div>Total items: <strong>${items.length.toLocaleString()}</strong></div>
+                <div>Total items: <strong>${this.state.items.length.toLocaleString()}</strong></div>
                 <div>Mode: <strong>${this.state.mode === 'virtual' ? 'Virtual (Fast)' : 'Regular (Slow)'}</strong></div>
             </div>
 
@@ -83,8 +83,8 @@ export default defineComponent('virtual-scroll-demo', {
                         <strong>Virtual Mode:</strong> Only renders ~20 visible items at a time. Smooth scrolling even with 100,000+ items!
                     </div>
                     <virtual-list
-                        items="${items}"
-                        itemHeight="${itemHeight}"
+                        items="${this.state.items}"
+                        itemHeight="${this.state.itemHeight}"
                         bufferSize="${5}"
                         renderItem="${this.renderItem}"
                         style="height: 400px; border: 1px solid var(--border-color, #ddd); border-radius: 8px;">
@@ -92,11 +92,11 @@ export default defineComponent('virtual-scroll-demo', {
                 `,
                 html`
                     <div class="demo-info warning">
-                        <strong>⚠️ Regular Mode:</strong> Renders ALL ${items.length.toLocaleString()} items at once. Notice the slower initial render and scrolling!
+                        <strong>⚠️ Regular Mode:</strong> Renders ALL ${this.state.items.length.toLocaleString()} items at once. Notice the slower initial render and scrolling!
                     </div>
                     <div class="regular-list">
-                        ${each(items, (item, index) => html`
-                            <div class="list-item" style="height: ${itemHeight}px;">
+                        ${each(this.state.items, (item, index) => html`
+                            <div class="list-item" style="height: ${this.state.itemHeight}px;">
                                 <div class="item-content">
                                     <div class="item-title">${item.title}</div>
                                     <div class="item-subtitle">${item.subtitle}</div>
@@ -112,7 +112,7 @@ export default defineComponent('virtual-scroll-demo', {
                 <h3>Performance Comparison</h3>
                 <ul>
                     <li><strong>Virtual Mode:</strong> Renders ~20-30 items (visible + buffer), O(1) complexity - smooth and fast!</li>
-                    <li><strong>Regular Mode:</strong> Renders all ${items.length.toLocaleString()} items, O(n) complexity - slower initial render and scrolling</li>
+                    <li><strong>Regular Mode:</strong> Renders all ${this.state.items.length.toLocaleString()} items, O(n) complexity - slower initial render and scrolling</li>
                     <li><strong>Memory:</strong> Virtual uses ~100x less memory for large lists</li>
                     <li><strong>Scroll Performance:</strong> Virtual maintains 60fps even with 100,000+ items</li>
                     <li><strong>Try it:</strong> Add more items and switch between modes to see the difference!</li>
