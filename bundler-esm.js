@@ -1141,6 +1141,198 @@ function vlqEncode(value) {
 }
 
 /**
+ * Minify CSS by removing comments, collapsing whitespace
+ */
+function minifyCSS(css) {
+    let result = css;
+    result = result.replace(/\/\*[\s\S]*?\*\//g, '');  // Remove comments
+    result = result.replace(/\s*([{};:,>+~])\s*/g, '$1');
+    result = result.replace(/\s+/g, ' ');
+    result = result.replace(/\{\s+/g, '{');
+    result = result.replace(/\s+\}/g, '}');
+    result = result.replace(/;}/g, '}');
+    return result.trim();
+}
+
+/**
+ * Minify HTML template content for html`` templates.
+ * Removes comments, collapses whitespace, preserves pre/code/script/style/textarea.
+ */
+function minifyHTMLTemplate(html) {
+    const preserveTags = ['pre', 'code', 'script', 'style', 'textarea'];
+    const preserved = [];
+    let result = html;
+
+    // Extract and preserve content from special tags
+    for (const tag of preserveTags) {
+        const regex = new RegExp(`(<${tag}[^>]*>)([\\s\\S]*?)(</${tag}>)`, 'gi');
+        result = result.replace(regex, (match) => {
+            const placeholder = `__PRESERVE_${preserved.length}__`;
+            preserved.push(match);
+            return placeholder;
+        });
+    }
+
+    // Remove HTML comments
+    result = result.replace(/<!--[\s\S]*?-->/g, '');
+
+    // Collapse whitespace
+    result = result.replace(/\s+/g, ' ');
+    result = result.replace(/>\s+</g, '><');
+    result = result.replace(/>\s+\$/g, '>$');
+    result = result.replace(/\}\s+</g, '}<');
+    result = result.replace(/\}\s+\$/g, '}$');
+    // NOTE: Do NOT trim - trailing space may be significant for expressions in attributes
+
+    // Squash whitespace within opening tags
+    result = result.replace(/<([a-zA-Z][\w-]*)((?:\s+[^>]*?)?)\s*>/g, (match, tag, attrs) => {
+        if (!attrs) return `<${tag}>`;
+        const squashedAttrs = attrs.replace(/\s+/g, ' ').trim();
+        return `<${tag}${squashedAttrs ? ' ' + squashedAttrs : ''}>`;
+    });
+
+    // Restore preserved content
+    for (let i = 0; i < preserved.length; i++) {
+        result = result.replace(`__PRESERVE_${i}__`, () => preserved[i]);
+    }
+
+    return result;
+}
+
+/**
+ * Minify embedded CSS and HTML within JavaScript code.
+ * Finds styles: `...` and html`...` templates and minifies their content.
+ */
+function minifyEmbeddedContent(code) {
+    let result = code;
+
+    // Minify styles: /*css*/`...` or styles: `...`
+    result = result.replace(
+        /(styles\s*:\s*(?:\/\*\s*css\s*\*\/)?\s*`)([^`]*?)(`)/g,
+        (match, prefix, css, suffix) => prefix + minifyCSS(css) + suffix
+    );
+
+    // Find and minify html`...` templates
+    const templateStarts = [];
+    for (let i = 0; i < result.length - 4; i++) {
+        if (result.slice(i, i + 5) === 'html`') {
+            templateStarts.push(i);
+        }
+    }
+
+    // Process in reverse order
+    for (let t = templateStarts.length - 1; t >= 0; t--) {
+        const startIdx = templateStarts[t];
+        const templateStart = startIdx + 5;
+
+        let i = templateStart;
+        let parts = [];
+        let currentText = '';
+
+        while (i < result.length) {
+            const ch = result[i];
+
+            if (ch === '\\' && i + 1 < result.length) {
+                currentText += ch + result[i + 1];
+                i += 2;
+                continue;
+            }
+
+            if (ch === '$' && result[i + 1] === '{') {
+                if (currentText) {
+                    parts.push({ type: 'text', content: currentText });
+                    currentText = '';
+                }
+
+                let exprStart = i;
+                i += 2;
+                let braceDepth = 1;
+                let inString = false;
+                let stringChar = '';
+                const templateStack = [];  // Track nested template literal depth
+
+                while (i < result.length && braceDepth > 0) {
+                    const c = result[i];
+                    const inTemplate = templateStack.length > 0;
+
+                    if ((inString || inTemplate) && c === '\\' && i + 1 < result.length) {
+                        i += 2;
+                        continue;
+                    }
+                    if (!inString && !inTemplate && (c === '"' || c === "'")) {
+                        inString = true;
+                        stringChar = c;
+                        i++;
+                        continue;
+                    }
+                    if (inString && c === stringChar) {
+                        inString = false;
+                        i++;
+                        continue;
+                    }
+                    if (!inString && c === '`') {
+                        if (inTemplate && braceDepth === templateStack[templateStack.length - 1]) {
+                            templateStack.pop();  // Closing current template
+                        } else {
+                            templateStack.push(braceDepth);  // Opening new template
+                        }
+                        i++;
+                        continue;
+                    }
+                    if (inTemplate && c === '$' && result[i + 1] === '{') {
+                        braceDepth++;
+                        i += 2;
+                        continue;
+                    }
+                    if (!inString && !inTemplate) {
+                        if (c === '{') braceDepth++;
+                        else if (c === '}') braceDepth--;
+                    }
+                    if (inTemplate && c === '}' && braceDepth > templateStack[templateStack.length - 1]) {
+                        braceDepth--;
+                    }
+                    i++;
+                }
+                parts.push({ type: 'expr', content: result.slice(exprStart, i) });
+                continue;
+            }
+
+            if (ch === '`') {
+                if (currentText) {
+                    parts.push({ type: 'text', content: currentText });
+                }
+
+                // Minify text parts, trimming only start of first and end of last
+                const minifiedParts = parts.map((part, idx) => {
+                    if (part.type === 'text') {
+                        let minified = minifyHTMLTemplate(part.content);
+                        // Trim leading whitespace from first part
+                        if (idx === 0) {
+                            minified = minified.trimStart();
+                        }
+                        // Trim trailing whitespace from last part
+                        if (idx === parts.length - 1) {
+                            minified = minified.trimEnd();
+                        }
+                        return minified;
+                    }
+                    return part.content;
+                });
+
+                const minifiedTemplate = 'html`' + minifiedParts.join('') + '`';
+                result = result.slice(0, startIdx) + minifiedTemplate + result.slice(i + 1);
+                break;
+            }
+
+            currentText += ch;
+            i++;
+        }
+    }
+
+    return result;
+}
+
+/**
  * Minify code and optionally generate source map
  * @param {string} code - Source code to minify
  * @param {boolean} generateMap - Whether to generate source map
@@ -1789,6 +1981,8 @@ function bundleSingleFile(options) {
     let sourceMap = null;
     if (options.compact) {
         console.log('Minifying...');
+        // First minify embedded CSS and HTML templates
+        bundleContent = minifyEmbeddedContent(bundleContent);
         // Pass fileMap for multi-file source maps
         const minified = minifyCode(bundleContent, options.sourcemap, options.sourcemap ? fileMap : null);
         bundleContent = minified.code;
@@ -1830,7 +2024,10 @@ function bundleSingleFile(options) {
  */
 function processSimpleFile(srcPath, destPath) {
     // Read source file (keep original formatting for source map)
-    const content = fs.readFileSync(srcPath, 'utf-8');
+    let content = fs.readFileSync(srcPath, 'utf-8');
+
+    // First minify embedded CSS and HTML templates
+    content = minifyEmbeddedContent(content);
 
     // Minify with source map (original content embedded in map)
     const minified = minifyCode(content, true);

@@ -1243,8 +1243,11 @@ function minifyCSS(css) {
 }
 
 /**
- * Minify HTML template content by collapsing whitespace.
- * Preserves whitespace in <pre>, <code>, <script>, <style>, <textarea> tags.
+ * Minify HTML template content for html`` templates.
+ * - Removes HTML comments (<!-- ... -->)
+ * - Removes whitespace between tags
+ * - Squashes whitespace within tags to single space
+ * - Preserves whitespace in <pre>, <code>, <script>, <style>, <textarea> tags
  */
 function minifyHTMLTemplate(html) {
     // Tags where whitespace must be preserved
@@ -1262,17 +1265,41 @@ function minifyHTMLTemplate(html) {
         });
     }
 
+    // Remove HTML comments (<!-- ... -->)
+    result = result.replace(/<!--[\s\S]*?-->/g, '');
+
     // Collapse whitespace: multiple spaces/newlines -> single space
     result = result.replace(/\s+/g, ' ');
 
-    // Remove space around tags (but keep at least one space between text nodes)
+    // Remove space between tags: >   < becomes ><
     result = result.replace(/>\s+</g, '><');
-    result = result.replace(/>\s+\$/g, '>$');  // Before ${
-    result = result.replace(/\}\s+</g, '}<');  // After }
 
-    // Restore preserved content
+    // Remove space between tag and expression: >   ${ becomes >${
+    result = result.replace(/>\s+\$/g, '>$');
+
+    // Remove space between expression and tag: }   < becomes }<
+    result = result.replace(/\}\s+</g, '}<');
+
+    // Remove space between adjacent expressions: }   ${ becomes }${
+    result = result.replace(/\}\s+\$/g, '}$');
+
+    // NOTE: Do NOT trim leading/trailing whitespace here - it may be significant
+    // when the text part is inside an attribute value with expressions
+    // e.g., class="tab ${condition}" needs the space before ${
+
+    // Squash whitespace within opening tags (between attributes)
+    // <div   class="foo"   id="bar"> becomes <div class="foo" id="bar">
+    // But be careful to preserve quoted attribute values
+    result = result.replace(/<([a-zA-Z][\w-]*)((?:\s+[^>]*?)?)\s*>/g, (match, tag, attrs) => {
+        if (!attrs) return `<${tag}>`;
+        // Squash whitespace between attributes to single space
+        const squashedAttrs = attrs.replace(/\s+/g, ' ').trim();
+        return `<${tag}${squashedAttrs ? ' ' + squashedAttrs : ''}>`;
+    });
+
+    // Restore preserved content (use function to avoid $-pattern issues)
     for (let i = 0; i < preserved.length; i++) {
-        result = result.replace(`__PRESERVE_${i}__`, preserved[i]);
+        result = result.replace(`__PRESERVE_${i}__`, () => preserved[i]);
     }
 
     return result;
@@ -1298,7 +1325,10 @@ function minifyHTMLFile(html) {
         }
         // Use the JS minifier for inline scripts
         try {
-            const minified = minifyCode(js);
+            // First minify embedded CSS and HTML templates inside the script
+            let minifiedJs = minifyEmbeddedContent(js);
+            // Then minify the JS code itself
+            const minified = minifyCode(minifiedJs);
             return open + minified.code + close;
         } catch (e) {
             return match;  // Keep original on error
@@ -1317,6 +1347,9 @@ function minifyHTMLFile(html) {
             return placeholder;
         });
     }
+
+    // Remove HTML comments (<!-- ... -->)
+    result = result.replace(/<!--[\s\S]*?-->/g, '');
 
     // Collapse whitespace
     result = result.replace(/\s+/g, ' ');
@@ -1355,17 +1388,23 @@ function minifyEmbeddedContent(code) {
     );
 
     // Minify html`...` templates (but preserve ${...} expressions and their content)
-    // Process from end to start so indices don't shift
-    const templateStarts = [];
-    for (let i = 0; i < result.length - 4; i++) {
-        if (result.slice(i, i + 5) === 'html`') {
-            templateStarts.push(i);
-        }
-    }
+    // Process templates from end to start so nested templates are handled first
+    // Track skipped positions (templates that couldn't be parsed, likely nested)
+    const skippedPositions = new Set();
+    let lastProcessedEnd = result.length;
 
-    // Process in reverse order
-    for (let t = templateStarts.length - 1; t >= 0; t--) {
-        const startIdx = templateStarts[t];
+    while (true) {
+        // Find the LAST html`` template before lastProcessedEnd
+        let startIdx = -1;
+
+        for (let j = lastProcessedEnd - 1; j >= 4; j--) {
+            if (result.slice(j, j + 5) === 'html`' && !skippedPositions.has(j)) {
+                startIdx = j;
+                break;
+            }
+        }
+
+        if (startIdx === -1) break;
         const templateStart = startIdx + 5;  // After 'html`'
 
         // Find the end of this template, handling nested ${...} and strings
@@ -1389,25 +1428,27 @@ function minifyEmbeddedContent(code) {
                     currentText = '';
                 }
 
-                // Find matching closing brace, handling nested braces and strings
+                // Find matching closing brace, handling nested braces, strings, and templates
                 let exprStart = i;
                 i += 2;
                 let braceDepth = 1;
                 let inString = false;
                 let stringChar = '';
-                let inTemplateLiteral = false;
+                // Track template depths: each entry is the braceDepth when template started
+                const templateStack = [];
 
                 while (i < result.length && braceDepth > 0) {
                     const c = result[i];
+                    const inTemplate = templateStack.length > 0;
 
-                    // Handle escape in strings
-                    if ((inString || inTemplateLiteral) && c === '\\' && i + 1 < result.length) {
+                    // Handle escape in strings/templates
+                    if ((inString || inTemplate) && c === '\\' && i + 1 < result.length) {
                         i += 2;
                         continue;
                     }
 
-                    // Handle strings
-                    if (!inString && !inTemplateLiteral && (c === '"' || c === "'")) {
+                    // Handle strings (only when not in template)
+                    if (!inString && !inTemplate && (c === '"' || c === "'")) {
                         inString = true;
                         stringChar = c;
                         i++;
@@ -1419,23 +1460,34 @@ function minifyEmbeddedContent(code) {
                         continue;
                     }
 
-                    // Handle template literals in expressions
+                    // Handle template literals
                     if (!inString && c === '`') {
-                        inTemplateLiteral = !inTemplateLiteral;
+                        if (inTemplate && braceDepth === templateStack[templateStack.length - 1]) {
+                            // Closing current template - we're at same brace depth as when it opened
+                            templateStack.pop();
+                        } else {
+                            // Opening a new template
+                            templateStack.push(braceDepth);
+                        }
                         i++;
                         continue;
                     }
 
-                    // Handle nested ${} in template literals
-                    if (inTemplateLiteral && c === '$' && result[i + 1] === '{') {
+                    // Handle ${} in template literals
+                    if (inTemplate && c === '$' && result[i + 1] === '{') {
                         braceDepth++;
                         i += 2;
                         continue;
                     }
 
-                    if (!inString && !inTemplateLiteral) {
+                    // Handle braces outside templates
+                    if (!inString && !inTemplate) {
                         if (c === '{') braceDepth++;
                         else if (c === '}') braceDepth--;
+                    }
+                    // Handle closing brace inside template's expression
+                    if (inTemplate && c === '}' && braceDepth > templateStack[templateStack.length - 1]) {
+                        braceDepth--;
                     }
                     i++;
                 }
@@ -1449,21 +1501,40 @@ function minifyEmbeddedContent(code) {
                     parts.push({ type: 'text', content: currentText });
                 }
 
-                // Minify text parts only
-                const minifiedParts = parts.map(part => {
+                // Minify text parts, trimming only start of first and end of last
+                const minifiedParts = parts.map((part, idx) => {
                     if (part.type === 'text') {
-                        return minifyHTMLTemplate(part.content);
+                        let minified = minifyHTMLTemplate(part.content);
+                        // Trim leading whitespace from first part
+                        if (idx === 0) {
+                            minified = minified.trimStart();
+                        }
+                        // Trim trailing whitespace from last part
+                        if (idx === parts.length - 1) {
+                            minified = minified.trimEnd();
+                        }
+                        return minified;
                     }
                     return part.content;
                 });
 
                 const minifiedTemplate = 'html`' + minifiedParts.join('') + '`';
                 result = result.slice(0, startIdx) + minifiedTemplate + result.slice(i + 1);
+                // Continue searching before this template (don't restart from end)
+                lastProcessedEnd = startIdx;
                 break;
             }
 
             currentText += ch;
             i++;
+        }
+
+        // If we exited the while loop without finding a closing backtick,
+        // this template couldn't be parsed (likely a nested template that
+        // was already processed as part of an expression). Skip it.
+        if (i >= result.length) {
+            skippedPositions.add(startIdx);
+            lastProcessedEnd = startIdx;
         }
     }
 
@@ -1775,13 +1846,13 @@ function processJsFile(inputPath, outputPath, options) {
     // If --wrapped-only, this also applies transformations to wrapped templates
     content = stripEvalOptCalls(content, options.wrappedOnly);
 
-    // Step 3: Minify if requested
+    // Step 3: Minify embedded CSS and HTML templates (always done)
+    content = minifyEmbeddedContent(content);
+
+    // Step 4: Minify JS if requested
     let sourceMap = null;
     if (options.minify) {
-        // First minify embedded CSS and HTML templates
-        content = minifyEmbeddedContent(content);
-
-        // Then minify the JS code
+        // Minify the JS code
         const filename = path.basename(inputPath);
         const minified = minifyCode(content, options.sourcemap, filename);
         content = minified.code;
