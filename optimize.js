@@ -16,10 +16,11 @@
  *
  * Options:
  *   --input, -i       Input directory (required)
- *   --output, -o      Output directory (required)
+ *   --output, -o      Output directory (required, except with --lint-only)
  *   --minify, -m      Minify JavaScript
  *   --sourcemap, -s   Generate source maps (implies --minify)
  *   --wrapped-only    Only optimize eval(opt()) wrapped templates (default: optimize all)
+ *   --lint-only       Check for early dereference issues without transforming (no output required)
  *   --verbose, -v     Show processing details
  *   --dry-run         Preview without writing files
  *   --help, -h        Show help
@@ -43,6 +44,8 @@ function parseArgs() {
         minify: false,
         sourcemap: false,
         wrappedOnly: false,
+        lintOnly: false,
+        autoFix: false,
         verbose: false,
         dryRun: false
     };
@@ -68,6 +71,14 @@ function parseArgs() {
                 break;
             case '--wrapped-only':
                 options.wrappedOnly = true;
+                break;
+            case '--lint-only':
+            case '-l':
+                options.lintOnly = true;
+                break;
+            case '--auto-fix':
+                options.autoFix = true;
+                options.lintOnly = true;  // Auto-fix implies lint mode
                 break;
             case '--verbose':
             case '-v':
@@ -95,27 +106,42 @@ By default, optimizes ALL html\`\` templates for Solid-style fine-grained reacti
 
 Usage:
   node optimize.js --input <dir> --output <dir> [options]
+  node optimize.js --input <dir> --lint-only
 
 Examples:
   node optimize.js -i ./app/componentlib -o ./app/componentlib-opt
   node optimize.js -i ./src -o ./dist --minify --sourcemap
   node optimize.js -i ./src -o ./dist --wrapped-only
+  node optimize.js -i ./src --lint-only              # Check for issues
 
 Options:
   --input, -i       Input directory (required)
-  --output, -o      Output directory (required)
+  --output, -o      Output directory (required, except with --lint-only)
   --minify, -m      Minify JavaScript output
   --sourcemap, -s   Generate source maps (implies --minify)
   --wrapped-only    Only optimize templates wrapped in eval(opt())
                     Default: optimize ALL html\`\` templates
+  --lint-only, -l   Check for early dereference issues without transforming
+                    Exit code 1 if fixable issues, 2 if unfixable issues
+  --auto-fix        Fix early dereferences in-place (replaces vars with paths)
+                    Only fixes simple patterns, not computed expressions
   --verbose, -v     Show detailed processing information
   --dry-run         Preview files that would be processed without writing
   --help, -h        Show this help message
 
 What the optimizer does:
   1. Transforms \${expr} in html\`\` templates to \${html.contain(() => expr)}
-  2. Strips eval(opt()) wrappers (they become redundant)
-  3. Optionally minifies with source maps
+  2. Fixes early dereferences (const x = this.state.y before template)
+  3. Strips eval(opt()) wrappers (they become redundant)
+  4. Optionally minifies with source maps
+
+Early Dereference Detection:
+  The optimizer warns about (and fixes) code patterns like:
+    const { count } = this.state;  // Early dereference
+    return html\`\${count}\`;          // Captures value, not reactive path
+
+  Without the optimizer, these patterns break reactivity. Run --lint-only
+  to check templates before deployment without the optimizer.
 
 This eliminates the need for 'unsafe-eval' CSP and runtime eval().
 `);
@@ -234,59 +260,91 @@ function parseExpression(source, startPos) {
 }
 
 /**
- * Extract all ${...} expressions from html`` template literals.
+ * Find all html`` template start positions in source (including nested ones).
  */
-function extractExpressions(source) {
+function findAllHtmlTemplateStarts(source) {
+    const starts = [];
+    for (let i = 0; i < source.length - 4; i++) {
+        if (source.slice(i, i + 5) === 'html`') {
+            starts.push(i);
+        }
+    }
+    return starts;
+}
+
+/**
+ * Extract expressions from a single html`` template starting at templateStart.
+ * Returns expressions with absolute positions in the source.
+ */
+function extractExpressionsFromTemplate(source, templateStart) {
     const expressions = [];
-    let i = 0;
+    let i = templateStart + 5;  // After 'html`'
+    let templateDepth = 1;
 
-    while (i < source.length) {
-        // Look for html` (start of html tagged template)
-        if (source.slice(i, i + 4) === 'html' && source[i + 4] === '`') {
+    while (i < source.length && templateDepth > 0) {
+        const ch = source[i];
+        const prev = i > 0 ? source[i - 1] : '';
+
+        if (prev === '\\' && !isEscaped(source, i - 1)) {
+            i++;
+            continue;
+        }
+
+        if (ch === '`') {
+            templateDepth--;
+            if (templateDepth === 0) break;
+            i++;
+            continue;
+        }
+
+        // Skip nested html`` templates (they'll be processed separately)
+        if (source.slice(i, i + 5) === 'html`') {
             i += 5;
-
-            let templateDepth = 1;
-
-            while (i < source.length && templateDepth > 0) {
-                const ch = source[i];
-                const prev = i > 0 ? source[i - 1] : '';
-
-                if (prev === '\\' && !isEscaped(source, i - 1)) {
-                    i++;
-                    continue;
-                }
-
-                if (ch === '`') {
-                    templateDepth--;
-                    if (templateDepth === 0) {
-                        i++;
-                        break;
-                    }
-                    i++;
-                    continue;
-                }
-
-                if (ch === '$' && source[i + 1] === '{') {
-                    const start = i;
-                    i += 2;
-                    const expr = parseExpression(source, i);
-                    i = expr.end;
-                    expressions.push({
-                        start,
-                        end: i,
-                        expr: expr.text
-                    });
-                    continue;
-                }
-
+            let nestedDepth = 1;
+            while (i < source.length && nestedDepth > 0) {
+                if (source[i] === '`' && source[i - 1] !== '\\') nestedDepth--;
+                else if (source.slice(i, i + 5) === 'html`') { nestedDepth++; i += 4; }
                 i++;
             }
-        } else {
-            i++;
+            continue;
         }
+
+        if (ch === '$' && source[i + 1] === '{') {
+            const start = i;
+            i += 2;
+            const expr = parseExpression(source, i);
+            i = expr.end;
+            expressions.push({
+                start,
+                end: i,
+                expr: expr.text
+            });
+            continue;
+        }
+
+        i++;
     }
 
     return expressions;
+}
+
+/**
+ * Extract all ${...} expressions from ALL html`` template literals in source.
+ * Handles nested templates (e.g., inside when/each callbacks).
+ */
+function extractExpressions(source) {
+    const templateStarts = findAllHtmlTemplateStarts(source);
+    const allExpressions = [];
+
+    for (const start of templateStarts) {
+        const exprs = extractExpressionsFromTemplate(source, start);
+        allExpressions.push(...exprs);
+    }
+
+    // Sort by position (for consistent processing order)
+    allExpressions.sort((a, b) => a.start - b.start);
+
+    return allExpressions;
 }
 
 /**
@@ -295,8 +353,14 @@ function extractExpressions(source) {
 function shouldSkipWrapping(expr) {
     const trimmed = expr.trim();
 
-    // Skip already-isolated helpers
+    // Skip already-isolated helpers (at start of expression)
     if (/^(contain|raw|html\.contain|when|each|memoEach)\s*\(/.test(trimmed)) {
+        return true;
+    }
+
+    // Skip expressions containing raw() anywhere - raw() returns a special vnode
+    // marker that must be placed directly in the template, not wrapped
+    if (/\braw\s*\(/.test(trimmed)) {
         return true;
     }
 
@@ -325,30 +389,613 @@ function shouldSkipWrapping(expr) {
         return true;
     }
 
+    // Skip expressions that have no reactive content
+    // If it doesn't reference this.state, this.stores, or this.props, there's nothing reactive to wrap
+    // This prevents wrapping function parameters like promiseOrValue in awaitThen()
+    if (!/\bthis\.(state|stores|props)\b/.test(trimmed)) {
+        return true;
+    }
+
+    return false;
+}
+
+// =============================================================================
+// Early Dereference Detection and Fixing (for optimize.js build-time)
+// =============================================================================
+
+/**
+ * Detect early dereference patterns in template() functions only.
+ *
+ * Returns an object with:
+ *   - fixable: Map of variable name -> reactive path (optimizer can fix)
+ *   - unfixable: Map of variable name -> { path, reason } (optimizer cannot fix)
+ *
+ * Fixable patterns (simple property access):
+ *   const x = this.state.y           → x -> this.state.y
+ *   const { x, y } = this.state      → x -> this.state.x, y -> this.state.y
+ *
+ * Unfixable patterns (computed/chained expressions):
+ *   const x = this.state.y + 2       → can't replace x with expression
+ *   const x = this.state.y || def    → can't replace x with expression
+ *   const x = fn(this.state.y)       → can't replace x with expression
+ */
+function detectEarlyDereferences(source) {
+    // Find template() function - look for template() { or template: function() {
+    const templateMatch = source.match(/\btemplate\s*\(\s*\)\s*\{|\btemplate\s*:\s*function\s*\(\s*\)\s*\{/);
+    if (!templateMatch) {
+        // No template function - check the whole source (for test files)
+        return detectDereferencesInSource(source);
+    }
+
+    // Extract template function body
+    const templateStart = templateMatch.index + templateMatch[0].length;
+
+    // Find the end of the template function (matching brace)
+    let depth = 1;
+    let i = templateStart;
+    while (i < source.length && depth > 0) {
+        if (source[i] === '{') depth++;
+        else if (source[i] === '}') depth--;
+        i++;
+    }
+    const templateBody = source.slice(templateMatch.index, i);
+
+    // Find first html`` in template body
+    const firstHtml = templateBody.indexOf('html`');
+    if (firstHtml === -1) return { fixable: new Map(), unfixable: new Map() };
+
+    // Only look for dereferences BEFORE the first html`` call
+    const preHtmlSection = templateBody.slice(0, firstHtml);
+
+    return detectDereferencesInSource(preHtmlSection);
+}
+
+/**
+ * Helper: detect dereferences in a source string.
+ * Returns { fixable: Map, unfixable: Map }
+ */
+function detectDereferencesInSource(source) {
+    const fixable = new Map();
+    const unfixable = new Map();
+
+    // Pattern 1: Direct assignment - const/let/var x = this.state.y...
+    // We need to check if it's a simple path or a computed expression
+    const directAssign = /\b(?:const|let|var)\s+(\w+)\s*=\s*(this\.(?:state|stores)(?:\.\w+)+)/g;
+    let match;
+    while ((match = directAssign.exec(source)) !== null) {
+        const [fullMatch, varName, path] = match;
+        const afterPath = source.slice(match.index + fullMatch.length);
+
+        // Look past whitespace/newlines for what comes next
+        const nextNonWhitespace = afterPath.match(/^\s*(\S)/);
+        const nextChar = nextNonWhitespace ? nextNonWhitespace[1] : '';
+
+        // If followed by operator or ternary, it's a computed expression (unfixable)
+        // Simple assignments end with ; or have nothing but whitespace/newline
+        const isComputed = nextChar && !/^[;\n]$/.test(nextChar) && nextChar !== '';
+
+        if (isComputed) {
+            // Has additional operations - unfixable
+            const snippet = afterPath.slice(0, 20).replace(/\s+/g, ' ');
+            unfixable.set(varName, {
+                path,
+                reason: `computed: ${path}${snippet}...`
+            });
+        } else {
+            // Simple path access - fixable
+            fixable.set(varName, path);
+        }
+    }
+
+    // Pattern 2: Destructuring - const { x, y } = this.state or this.stores.foo
+    // These are always fixable (simple property access)
+    const destructure = /\b(?:const|let|var)\s*\{([^}]+)\}\s*=\s*(this\.(?:state|stores)(?:\.\w+)*)/g;
+    while ((match = destructure.exec(source)) !== null) {
+        const [, vars, basePath] = match;
+
+        // Parse destructured variables (handles { a, b: c, d = default })
+        for (const part of vars.split(',')) {
+            const trimmed = part.trim();
+            if (!trimmed) continue;
+
+            let propName, varName;
+
+            if (trimmed.includes(':')) {
+                // Renamed: { prop: varName } or { prop: varName = default }
+                const [left, right] = trimmed.split(':').map(s => s.trim());
+                propName = left;
+                varName = right.split('=')[0].trim();
+            } else {
+                // Simple: { prop } or { prop = default }
+                propName = trimmed.split('=')[0].trim();
+                varName = propName;
+            }
+
+            if (varName && /^\w+$/.test(varName) && propName && /^\w+$/.test(propName)) {
+                fixable.set(varName, `${basePath}.${propName}`);
+            }
+        }
+    }
+
+    // Pattern 3: Variable assigned from function/method that uses state
+    // Examples:
+    //   const x = doSomething(this.state.y)
+    //   const x = this.doSomething()  (where doSomething might use state)
+    //   const x = someFunc(a, b, this.stores.foo)
+    // These are always unfixable
+    const funcWithState = /\b(?:const|let|var)\s+(\w+)\s*=\s*([^;\n]*?)\bthis\.(?:state|stores)\b/g;
+    while ((match = funcWithState.exec(source)) !== null) {
+        const [fullMatch, varName, prefix] = match;
+        // Skip if this is a simple assignment we already handled
+        if (fixable.has(varName) || unfixable.has(varName)) continue;
+
+        // Extract a snippet of the expression
+        const exprStart = source.indexOf('=', match.index) + 1;
+        let exprEnd = match.index + fullMatch.length + 30;
+        let expr = source.slice(exprStart, exprEnd).trim();
+        const semicolon = expr.indexOf(';');
+        const newline = expr.indexOf('\n');
+        if (semicolon > 0) expr = expr.slice(0, semicolon);
+        if (newline > 0 && newline < expr.length) expr = expr.slice(0, newline);
+
+        unfixable.set(varName, {
+            path: 'derived from state',
+            reason: `fn call: ${expr.slice(0, 25)}...`
+        });
+    }
+
+    // Pattern 4: Method call that accesses state internally
+    // const x = this.someMethod()
+    // Only flag if the method body actually accesses this.state or this.stores
+    const methodCall = /\b(?:const|let|var)\s+(\w+)\s*=\s*this\.(\w+)\s*\(/g;
+    while ((match = methodCall.exec(source)) !== null) {
+        const [, varName, methodName] = match;
+        // Skip if already handled
+        if (fixable.has(varName) || unfixable.has(varName)) continue;
+
+        // Find the method definition and check if it accesses state
+        // Look for: methodName() { ... } or methodName: function() { ... }
+        const methodDefPattern = new RegExp(
+            `\\b${methodName}\\s*\\([^)]*\\)\\s*\\{|` +
+            `\\b${methodName}\\s*:\\s*function\\s*\\([^)]*\\)\\s*\\{`,
+            'g'
+        );
+        const methodDefMatch = methodDefPattern.exec(source);
+
+        if (methodDefMatch) {
+            // Extract method body by counting braces
+            let braceDepth = 0;
+            let i = methodDefMatch.index + methodDefMatch[0].length - 1;  // Start at {
+            const bodyStart = i;
+
+            while (i < source.length) {
+                if (source[i] === '{') braceDepth++;
+                else if (source[i] === '}') {
+                    braceDepth--;
+                    if (braceDepth === 0) break;
+                }
+                i++;
+            }
+
+            const methodBody = source.slice(bodyStart, i + 1);
+
+            // Check if method body accesses this.state or this.stores
+            if (/\bthis\.(?:state|stores)\b/.test(methodBody)) {
+                unfixable.set(varName, {
+                    path: `this.${methodName}()`,
+                    reason: `method accesses state/stores internally`
+                });
+            }
+            // If method doesn't access state/stores, it's safe - don't flag it
+        }
+    }
+
+    return { fixable, unfixable };
+}
+
+/**
+ * Replace early-dereferenced variable usages with their reactive paths.
+ *
+ * Example: if fixableMap has { count: "this.state.count" }
+ *   "count + 1" → "this.state.count + 1"
+ *   "user.name" (where user → this.state.user) → "this.state.user.name"
+ */
+function fixTaintedReferences(expr, fixableMap) {
+    if (fixableMap.size === 0) return expr;
+
+    // Find regions to SKIP (inside strings and template literals)
+    // This prevents replacing variables in text like "No items found"
+    const skipRegions = [];
+    let j = 0;
+    while (j < expr.length) {
+        const ch = expr[j];
+        if (ch === '"' || ch === "'" || ch === '`') {
+            const strStart = j;
+            const quote = ch;
+            j++;
+            while (j < expr.length) {
+                if (expr[j] === '\\') { j += 2; continue; }
+                if (expr[j] === quote) { j++; break; }
+                // For template literals, skip nested ${...}
+                if (quote === '`' && expr[j] === '$' && expr[j + 1] === '{') {
+                    j += 2;
+                    let tDepth = 1;
+                    while (j < expr.length && tDepth > 0) {
+                        if (expr[j] === '{') tDepth++;
+                        else if (expr[j] === '}') tDepth--;
+                        j++;
+                    }
+                    continue;
+                }
+                j++;
+            }
+            skipRegions.push({ start: strStart, end: j });
+        } else {
+            j++;
+        }
+    }
+
+    let result = expr;
+
+    for (const [varName, path] of fixableMap) {
+        // Match as standalone identifier (not property access like obj.varName)
+        // Uses negative lookbehind for . and - (hyphenated class names)
+        // Uses negative lookahead for - and : (object literal key)
+        const pattern = new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`, 'g');
+
+        // Replace only if match is NOT inside a skip region
+        let lastIndex = 0;
+        let newResult = '';
+        let match;
+        while ((match = pattern.exec(result)) !== null) {
+            const matchStart = match.index;
+            const matchEnd = match.index + match[0].length;
+
+            // Check if this match is inside any skip region
+            const insideSkipRegion = skipRegions.some(r => matchStart >= r.start && matchEnd <= r.end);
+
+            newResult += result.slice(lastIndex, matchStart);
+            if (insideSkipRegion) {
+                newResult += match[0];  // Keep original
+            } else {
+                newResult += path;  // Replace
+            }
+            lastIndex = matchEnd;
+        }
+        newResult += result.slice(lastIndex);
+        result = newResult || result;
+    }
+
+    return result;
+}
+
+// =============================================================================
+// Simple Early Dereference Detection (for opt() runtime - just detect, don't fix)
+// =============================================================================
+
+/**
+ * Quick check if source has any early dereference patterns.
+ * Used by opt() to decide whether to skip transformation entirely.
+ */
+function hasEarlyDereferences(source) {
+    // Quick regex test - if no matches, definitely no early dereference
+    return /\b(?:const|let|var)\s+(?:\w+|\{[^}]+\})\s*=\s*this\.(?:state|stores)/.test(source);
+}
+
+/**
+ * Lint a source file for early dereference issues.
+ *
+ * Returns two types of issues:
+ * 1. Fixable (warning): Variables in deferred callbacks that optimizer will fix
+ * 2. Unfixable (error): Computed expressions that optimizer cannot fix
+ *
+ * Also detects eval(opt()) which runs at runtime.
+ */
+function lintEarlyDereferences(source, filename = '') {
+    const issues = [];
+    const { fixable, unfixable } = detectEarlyDereferences(source);
+
+    if (fixable.size === 0 && unfixable.size === 0) {
+        return issues;
+    }
+
+    // Build patterns for all early-dereferenced variables (both fixable and unfixable)
+    const varPatterns = new Map();
+    for (const [varName, path] of fixable) {
+        varPatterns.set(varName, { pattern: new RegExp(`(?<!\\.)\\b${varName}\\b(?!\\s*:)`), path, fixable: true });
+    }
+    for (const [varName, info] of unfixable) {
+        varPatterns.set(varName, { pattern: new RegExp(`(?<!\\.)\\b${varName}\\b(?!\\s*:)`), path: info.path, fixable: false, reason: info.reason });
+    }
+
+    // Check 1: Find eval(opt()) blocks and check for early derefs inside
+    const evalOptPattern = /eval\s*\(\s*opt\s*\(/g;
+    let match;
+    while ((match = evalOptPattern.exec(source)) !== null) {
+        const startPos = match.index;
+        // Find the matching closing ))
+        let depth = 2;  // After eval(opt(
+        let i = match.index + match[0].length;
+        while (i < source.length && depth > 0) {
+            if (source[i] === '(') depth++;
+            else if (source[i] === ')') depth--;
+            i++;
+        }
+        const evalOptContent = source.slice(startPos, i);
+
+        for (const [varName, info] of varPatterns) {
+            if (info.pattern.test(evalOptContent)) {
+                const beforeMatch = source.slice(0, startPos);
+                const lineNumber = (beforeMatch.match(/\n/g) || []).length + 1;
+                issues.push({
+                    line: lineNumber,
+                    variable: varName,
+                    path: info.path,
+                    fixable: false,  // eval(opt()) is always unfixable (runtime)
+                    message: `eval(opt()) uses early-dereferenced '${varName}' - opt() runs at runtime, optimizer can't fix`
+                });
+            }
+        }
+    }
+
+    // Check 2: Find deferred callbacks (when/each/contain with arrow/function callbacks)
+    // These create reactive boundaries where captured variables lose reactivity
+    // IMPORTANT: Only check INSIDE the callback body, not the array/condition arguments
+    const deferredPattern = /\b(when|each|memoEach|contain)\s*\(/g;
+    while ((match = deferredPattern.exec(source)) !== null) {
+        const helperName = match[1];
+        const callStart = match.index;
+
+        // Parse to find arguments, tracking where each starts
+        let i = match.index + match[0].length;
+        let depth = 1;
+        const argStarts = [i];  // Track start of each argument
+
+        while (i < source.length && depth > 0) {
+            const ch = source[i];
+
+            // Skip strings
+            if (ch === '"' || ch === "'" || ch === '`') {
+                const quote = ch;
+                i++;
+                while (i < source.length) {
+                    if (source[i] === '\\') { i += 2; continue; }
+                    if (source[i] === quote) { i++; break; }
+                    if (quote === '`' && source[i] === '$' && source[i+1] === '{') {
+                        i += 2;
+                        let tDepth = 1;
+                        while (i < source.length && tDepth > 0) {
+                            if (source[i] === '{') tDepth++;
+                            else if (source[i] === '}') tDepth--;
+                            i++;
+                        }
+                        continue;
+                    }
+                    i++;
+                }
+                continue;
+            }
+
+            if (ch === '(') { depth++; i++; continue; }
+            if (ch === ')') { depth--; i++; continue; }
+            if (ch === ',' && depth === 1) {
+                argStarts.push(i + 1);  // Next arg starts after comma
+            }
+            i++;
+        }
+
+        const callEnd = i;
+
+        // Determine which argument contains the callback
+        // contain(callback) - arg 0
+        // when(condition, ifTrue, ifFalse) - args 1, 2
+        // each(array, callback, key) - arg 1
+        // memoEach(array, callback, key, cache) - arg 1
+        let callbackArgIndices;
+        if (helperName === 'contain') {
+            callbackArgIndices = [0];
+        } else if (helperName === 'when') {
+            callbackArgIndices = [1, 2];  // Both ifTrue and ifFalse can be callbacks
+        } else {
+            callbackArgIndices = [1];  // each, memoEach
+        }
+
+        // Extract callback bodies and check for early-dereferenced variables
+        for (const argIdx of callbackArgIndices) {
+            if (argIdx >= argStarts.length) continue;
+
+            const argStart = argStarts[argIdx];
+            const argEnd = argIdx + 1 < argStarts.length
+                ? argStarts[argIdx + 1] - 1  // Before the comma
+                : callEnd - 1;  // Before closing paren
+
+            const argContent = source.slice(argStart, argEnd);
+
+            // Check if this argument is a callback (arrow function or function)
+            // Only match callbacks at the START of the argument, not nested ones
+            let callbackBody = null;
+            const trimmedArg = argContent.trim();
+
+            // Arrow function at start: () => body or name => body
+            // Must match BEFORE any html` to avoid matching nested each/when callbacks
+            const arrowMatch = trimmedArg.match(/^(?:\([^)]*\)|[a-zA-Z_$][\w$]*)\s*=>\s*/);
+            if (arrowMatch) {
+                callbackBody = trimmedArg.slice(arrowMatch[0].length);
+            }
+
+            // Function expression at start: function(...) { body }
+            const funcMatch = trimmedArg.match(/^function\s*\([^)]*\)\s*\{/);
+            if (funcMatch) {
+                callbackBody = trimmedArg.slice(funcMatch[0].length);
+            }
+
+            if (!callbackBody) continue;
+
+            // Extract ${} expressions from callback body to check for variable usage
+            // This avoids false positives from class names like "volume-slider"
+            const expressions = [];
+            const exprPattern = /\$\{([^}]+)\}/g;
+            let exprMatch;
+            while ((exprMatch = exprPattern.exec(callbackBody)) !== null) {
+                expressions.push(exprMatch[1]);
+            }
+
+            // Check if any early-dereferenced variable is used in the expressions
+            for (const [varName, info] of varPatterns) {
+                for (const expr of expressions) {
+                    if (info.pattern.test(expr)) {
+                        const beforeMatch = source.slice(0, callStart);
+                        const lineNumber = (beforeMatch.match(/\n/g) || []).length + 1;
+
+                        if (info.fixable) {
+                            issues.push({
+                                line: lineNumber,
+                                variable: varName,
+                                path: info.path,
+                                fixable: true,
+                                message: `${helperName}() callback captures early-dereferenced '${varName}' - callback creates reactive boundary`
+                            });
+                        } else {
+                            issues.push({
+                                line: lineNumber,
+                                variable: varName,
+                                path: info.path,
+                                fixable: false,
+                                message: `${helperName}() callback captures '${varName}' (${info.reason}) - UNFIXABLE`
+                            });
+                        }
+                        break;  // Only report once per variable per callback
+                    }
+                }
+            }
+        }
+    }
+
+    // Deduplicate issues (same variable/line)
+    const seen = new Set();
+    return issues.filter(issue => {
+        const key = `${issue.line}:${issue.variable}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+/**
+ * Check if an expression will be modified (either wrapped or fixed).
+ */
+function willBeModified(exprText, varToPath) {
+    // Will be wrapped if not skipped
+    if (!shouldSkipWrapping(exprText)) {
+        return true;
+    }
+    // Will be fixed if contains any early-dereferenced variable
+    for (const varName of varToPath.keys()) {
+        // Check if variable appears as standalone identifier (not in strings)
+        const pattern = new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`);
+        if (pattern.test(exprText)) {
+            return true;
+        }
+    }
     return false;
 }
 
 /**
- * Apply opt() transformations to html`` templates.
- * Wraps ${expr} in ${html.contain(() => (expr))}.
+ * Apply transformations to a single pass of expressions.
+ * Returns the transformed source and count of changes.
  */
-function applyOptTransformations(source) {
-    const expressions = extractExpressions(source);
+function applyOptPass(source, varToPath) {
+    const allExpressions = extractExpressions(source);
+
+    // Categorize expressions:
+    // - Wrappable: will be wrapped in contain()
+    // - Skipped: each/when/etc that won't be wrapped but may have fixes
+    // - Nested in wrappable: inside an expression that will be wrapped (defer)
+    const wrappable = [];
+    const skippedWithNestedProcessing = [];
+    const skippedNoNested = [];
+
+    for (const expr of allExpressions) {
+        const willBeSkipped = shouldSkipWrapping(expr.expr);
+
+        // Check if this expression CONTAINS nested expressions that will be MODIFIED
+        // (wrapped OR fixed - either causes position shifts)
+        // If so, we must defer this expression until the nested ones are processed,
+        // otherwise our end position will be stale after they're modified.
+        const containsModifiableNested = allExpressions.some(other =>
+            expr !== other &&
+            other.start > expr.start &&
+            other.end < expr.end &&
+            willBeModified(other.expr, varToPath)
+        );
+
+        if (containsModifiableNested) {
+            // Defer to next pass - nested expressions must be processed first
+            skippedWithNestedProcessing.push(expr);
+        } else if (willBeSkipped) {
+            skippedNoNested.push(expr);  // Process now (apply fixes, no wrapping)
+        } else {
+            wrappable.push(expr);  // Process now (apply fixes and wrapping)
+        }
+    }
+
+    // Process: wrappable + skipped-no-nested this pass
+    // Defer: skipped-with-nested to next pass (after nested are processed)
+    const toProcess = [...wrappable, ...skippedNoNested].sort((a, b) => a.start - b.start);
+
+    let result = source;
+    let fixedCount = 0;
 
     // Build new source, replacing from end to start
-    let result = source;
-    for (let i = expressions.length - 1; i >= 0; i--) {
-        const { start, end, expr } = expressions[i];
+    for (let i = toProcess.length - 1; i >= 0; i--) {
+        const { start, end, expr } = toProcess[i];
 
+        // Always fix early dereferences by replacing variables with reactive paths
+        const fixedExpr = fixTaintedReferences(expr, varToPath);
+        if (fixedExpr !== expr) {
+            fixedCount++;
+        }
+
+        // Skip contain() wrapping for certain patterns, but still apply the fix
         if (shouldSkipWrapping(expr)) {
+            if (fixedExpr !== expr) {
+                result = result.slice(0, start) + '${' + fixedExpr + '}' + result.slice(end);
+            }
             continue;
         }
 
-        const wrapped = '${html.contain(() => (' + expr + '))}';
+        const wrapped = '${html.contain(() => (' + fixedExpr + '))}';
         result = result.slice(0, start) + wrapped + result.slice(end);
     }
 
-    return result;
+    return { code: result, fixedCount };
+}
+
+function applyOptTransformations(source, filename = '', verbose = false) {
+    const { fixable, unfixable } = detectEarlyDereferences(source);
+    let totalFixed = 0;
+    let result = source;
+
+    // Apply passes until no more changes (handles nested templates)
+    // Max 10 passes to prevent infinite loops
+    for (let pass = 0; pass < 10; pass++) {
+        const { code, fixedCount } = applyOptPass(result, fixable);
+        if (code === result) break;  // No changes, done
+        result = code;
+        totalFixed += fixedCount;
+    }
+
+    // Report fixes in verbose mode
+    if (totalFixed > 0 && verbose) {
+        const filePrefix = filename ? `[${filename}] ` : '';
+        console.log(`${filePrefix}Fixed ${totalFixed} early dereference(s)`);
+    }
+
+    return {
+        code: result,
+        fixedCount: totalFixed,
+        unfixableCount: unfixable.size
+    };
 }
 
 // =============================================================================
@@ -508,7 +1155,7 @@ function stripEvalOptCalls(source, applyTransformations = false) {
 
         // Apply opt transformations if requested
         if (applyTransformations) {
-            transformedFn = applyOptTransformations(transformedFn);
+            transformedFn = applyOptTransformations(transformedFn).code;
         }
 
         replacements.push({
@@ -806,7 +1453,8 @@ function processHtmlFile(content, options) {
         let transformed = scriptContent;
 
         if (!options.wrappedOnly) {
-            transformed = applyOptTransformations(transformed);
+            const result = applyOptTransformations(transformed, '', options.verbose);
+            transformed = result.code;
         }
         transformed = stripEvalOptCalls(transformed, options.wrappedOnly);
 
@@ -818,16 +1466,28 @@ function processHtmlFile(content, options) {
 // File Processing
 // =============================================================================
 
+// Framework bundle files should never be optimized - they contain internal templates
+const FRAMEWORK_BUNDLE_FILES = new Set(['framework.js', 'router.js', 'utils.js']);
+
 /**
  * Process a single JavaScript file.
  */
 function processJsFile(inputPath, outputPath, options) {
     let content = fs.readFileSync(inputPath, 'utf-8');
     const originalSize = content.length;
+    const filename = path.basename(inputPath);
+    let fixedCount = 0;
+
+    // Skip optimization for framework bundle files (they have internal templates that
+    // were already optimized during bundling)
+    const isFrameworkBundle = FRAMEWORK_BUNDLE_FILES.has(filename) &&
+        (inputPath.includes('/lib/') || inputPath.includes('/dist/'));
 
     // Step 1: Apply opt() transformations to ALL html`` templates (unless --wrapped-only)
-    if (!options.wrappedOnly) {
-        content = applyOptTransformations(content);
+    if (!options.wrappedOnly && !isFrameworkBundle) {
+        const result = applyOptTransformations(content, filename, options.verbose);
+        content = result.code;
+        fixedCount = result.fixedCount;
     }
 
     // Step 2: Strip eval(opt()) calls
@@ -865,7 +1525,8 @@ function processJsFile(inputPath, outputPath, options) {
     return {
         originalSize,
         outputSize: content.length,
-        hasSourceMap: !!sourceMap
+        hasSourceMap: !!sourceMap,
+        fixedCount
     };
 }
 
@@ -942,9 +1603,301 @@ function walkDirectory(dir, baseDir = dir) {
 // Main Entry Point
 // =============================================================================
 
+/**
+ * Show a simple line-by-line diff between two strings.
+ */
+function showDiff(original, modified) {
+    const origLines = original.split('\n');
+    const modLines = modified.split('\n');
+
+    let inChange = false;
+    let changeStart = -1;
+
+    for (let i = 0; i < Math.max(origLines.length, modLines.length); i++) {
+        const orig = origLines[i] || '';
+        const mod = modLines[i] || '';
+
+        if (orig !== mod) {
+            if (!inChange) {
+                inChange = true;
+                changeStart = i;
+                console.log(`\x1b[90m@@ line ${i + 1} @@\x1b[0m`);
+            }
+            if (origLines[i] !== undefined && orig !== mod) {
+                console.log(`\x1b[31m-${orig}\x1b[0m`);
+            }
+            if (modLines[i] !== undefined && orig !== mod) {
+                console.log(`\x1b[32m+${mod}\x1b[0m`);
+            }
+        } else if (inChange) {
+            inChange = false;
+        }
+    }
+}
+
+/**
+ * Auto-fix early dereferences in a source file.
+ * Replaces variable usages with their reactive paths throughout the template.
+ */
+function autoFixSource(source) {
+    const { fixable } = detectEarlyDereferences(source);
+    if (fixable.size === 0) return { code: source, fixedCount: 0 };
+
+    let result = source;
+    let totalFixed = 0;
+
+    // Find template() function and replace variables within it
+    const templateMatch = result.match(/\btemplate\s*\(\s*\)\s*\{|\btemplate\s*:\s*function\s*\(\s*\)\s*\{/);
+    if (!templateMatch) return { code: source, fixedCount: 0 };
+
+    const templateStart = templateMatch.index;
+
+    // Find the end of template function
+    let depth = 0;
+    let i = templateStart;
+    while (i < result.length) {
+        if (result[i] === '{') depth++;
+        else if (result[i] === '}') {
+            depth--;
+            if (depth === 0) break;
+        }
+        i++;
+    }
+    const templateEnd = i + 1;
+
+    // Extract template function
+    const beforeTemplate = result.slice(0, templateStart);
+    const templateBody = result.slice(templateStart, templateEnd);
+    const afterTemplate = result.slice(templateEnd);
+
+    // Find first html`` in template body
+    const firstHtml = templateBody.indexOf('html`');
+    if (firstHtml === -1) return { code: source, fixedCount: 0 };
+
+    // Split template: declarations before html``, and the html`` part
+    const declarations = templateBody.slice(0, firstHtml);
+    let htmlPart = templateBody.slice(firstHtml);
+
+    // Find all ${...} expressions with proper brace depth tracking
+    // This handles nested braces like ${obj.method({ key: value })}
+    const expressions = [];
+    i = 0;
+    while (i < htmlPart.length) {
+        if (htmlPart[i] === '$' && htmlPart[i + 1] === '{') {
+            const exprStart = i;
+            i += 2;  // Skip ${
+            let braceDepth = 1;
+            while (i < htmlPart.length && braceDepth > 0) {
+                const ch = htmlPart[i];
+                if (ch === '{') braceDepth++;
+                else if (ch === '}') braceDepth--;
+                else if (ch === '"' || ch === "'" || ch === '`') {
+                    // Skip strings
+                    const quote = ch;
+                    i++;
+                    while (i < htmlPart.length) {
+                        if (htmlPart[i] === '\\') { i += 2; continue; }
+                        if (htmlPart[i] === quote) break;
+                        i++;
+                    }
+                }
+                i++;
+            }
+            expressions.push({ start: exprStart, end: i });
+        } else {
+            i++;
+        }
+    }
+
+    // Replace variables ONLY inside the ${...} expressions we found
+    // Process in reverse order so indices stay valid
+    for (let idx = expressions.length - 1; idx >= 0; idx--) {
+        const { start, end } = expressions[idx];
+        let expr = htmlPart.slice(start + 2, end - 1);  // Content between ${ and }
+
+        // Find regions to SKIP (inside strings and template literals)
+        const skipRegions = [];
+        let j = 0;
+        while (j < expr.length) {
+            const ch = expr[j];
+            if (ch === '"' || ch === "'" || ch === '`') {
+                const strStart = j;
+                const quote = ch;
+                j++;
+                while (j < expr.length) {
+                    if (expr[j] === '\\') { j += 2; continue; }
+                    if (expr[j] === quote) { j++; break; }
+                    // For template literals, skip nested ${...}
+                    if (quote === '`' && expr[j] === '$' && expr[j + 1] === '{') {
+                        j += 2;
+                        let tDepth = 1;
+                        while (j < expr.length && tDepth > 0) {
+                            if (expr[j] === '{') tDepth++;
+                            else if (expr[j] === '}') tDepth--;
+                            j++;
+                        }
+                        continue;
+                    }
+                    j++;
+                }
+                skipRegions.push({ start: strStart, end: j });
+            } else {
+                j++;
+            }
+        }
+
+        for (const [varName, path] of fixable) {
+            // Match variable name not preceded by dot or followed by colon (object key)
+            // Also not preceded/followed by hyphen (e.g., "mode-item" should not match "mode")
+            const pattern = new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`, 'g');
+
+            // Replace only if match is NOT inside a skip region
+            let lastIndex = 0;
+            let newExpr = '';
+            let match;
+            while ((match = pattern.exec(expr)) !== null) {
+                const matchStart = match.index;
+                const matchEnd = match.index + match[0].length;
+
+                // Check if this match is inside any skip region
+                const insideSkipRegion = skipRegions.some(r => matchStart >= r.start && matchEnd <= r.end);
+
+                newExpr += expr.slice(lastIndex, matchStart);
+                if (insideSkipRegion) {
+                    newExpr += match[0];  // Keep original
+                } else {
+                    newExpr += path;  // Replace
+                    totalFixed++;
+                }
+                lastIndex = matchEnd;
+            }
+            newExpr += expr.slice(lastIndex);
+            expr = newExpr || expr;
+        }
+
+        htmlPart = htmlPart.slice(0, start) + '${' + expr + '}' + htmlPart.slice(end);
+    }
+
+    // Reconstruct
+    result = beforeTemplate + declarations + htmlPart + afterTemplate;
+
+    return { code: result, fixedCount: totalFixed };
+}
+
+/**
+ * Lint-only mode: check files for issues without transforming.
+ */
+function runLintOnly(inputDir, options) {
+    const mode = options.autoFix ? 'Auto-Fix Mode' : 'Lint Mode';
+    console.log(`VDX Optimizer - ${mode}\n`);
+    console.log(`Checking: ${inputDir}\n`);
+
+    const files = walkDirectory(inputDir);
+    let fixableCount = 0;
+    let unfixableCount = 0;
+    let filesWithIssues = 0;
+    let filesFixed = 0;
+    let totalAutoFixed = 0;
+
+    for (const relativePath of files) {
+        const ext = path.extname(relativePath).toLowerCase();
+        if (ext !== '.js' && ext !== '.mjs') continue;
+
+        const inputPath = path.join(inputDir, relativePath);
+        let content = fs.readFileSync(inputPath, 'utf-8');
+
+        // Auto-fix if enabled
+        if (options.autoFix) {
+            const { code, fixedCount } = autoFixSource(content);
+            if (fixedCount > 0) {
+                if (options.dryRun) {
+                    // Show diff without writing
+                    console.log(`\x1b[36m--- ${relativePath}\x1b[0m`);
+                    console.log(`\x1b[36m+++ ${relativePath} (auto-fixed)\x1b[0m`);
+                    showDiff(content, code);
+                    console.log('');
+                } else {
+                    fs.writeFileSync(inputPath, code);
+                    console.log(`\x1b[32m✓ Fixed ${relativePath}\x1b[0m (${fixedCount} replacements)`);
+                }
+                filesFixed++;
+                totalAutoFixed += fixedCount;
+                content = code;  // Re-lint with fixed content
+            }
+        }
+
+        const issues = lintEarlyDereferences(content, relativePath);
+
+        if (issues.length > 0) {
+            filesWithIssues++;
+            console.log(`\x1b[33m${relativePath}\x1b[0m`);  // Yellow filename
+
+            // Show unfixable issues first (errors)
+            const unfixable = issues.filter(i => !i.fixable);
+            const fixable = issues.filter(i => i.fixable);
+
+            for (const issue of unfixable) {
+                console.log(`  \x1b[31m✗\x1b[0m Line ${issue.line}: ${issue.message}`);
+                console.log(`    \x1b[90mThis CANNOT be auto-fixed - refactor the code\x1b[0m`);
+            }
+            for (const issue of fixable) {
+                console.log(`  \x1b[33m⚠\x1b[0m Line ${issue.line}: ${issue.message}`);
+                console.log(`    \x1b[90mOptimizer will fix: use ${issue.path} directly\x1b[0m`);
+            }
+            console.log('');
+
+            fixableCount += fixable.length;
+            unfixableCount += unfixable.length;
+        }
+    }
+
+    const totalIssues = fixableCount + unfixableCount;
+
+    if (options.autoFix && filesFixed > 0) {
+        if (options.dryRun) {
+            console.log(`\x1b[36mDry run: would fix ${totalAutoFixed} replacement(s) in ${filesFixed} file(s)\x1b[0m\n`);
+        } else {
+            console.log(`\x1b[32m✓ Auto-fixed ${totalAutoFixed} replacement(s) in ${filesFixed} file(s)\x1b[0m\n`);
+        }
+    }
+
+    if (totalIssues === 0) {
+        console.log('\x1b[32m✓ No early dereference issues found\x1b[0m\n');
+        return 0;
+    } else {
+        if (unfixableCount > 0) {
+            console.log(`\x1b[31m✗ Found ${unfixableCount} UNFIXABLE issue(s) - these MUST be fixed manually\x1b[0m`);
+        }
+        if (fixableCount > 0) {
+            console.log(`\x1b[33m⚠ Found ${fixableCount} fixable issue(s) - optimizer will fix in output\x1b[0m`);
+        }
+        console.log(`\n  Total: ${totalIssues} issue(s) in ${filesWithIssues} file(s)\n`);
+        return unfixableCount > 0 ? 2 : 1;  // Exit 2 for unfixable errors
+    }
+}
+
 function main() {
     const options = parseArgs();
 
+    // Handle lint-only mode
+    if (options.lintOnly) {
+        if (!options.input) {
+            console.error('Error: --input is required');
+            console.error('Run with --help for usage information');
+            process.exit(1);
+        }
+
+        const inputDir = path.resolve(options.input);
+        if (!fs.existsSync(inputDir)) {
+            console.error(`Error: Input directory not found: ${inputDir}`);
+            process.exit(1);
+        }
+
+        const exitCode = runLintOnly(inputDir, options);
+        process.exit(exitCode);
+    }
+
+    // Normal optimization mode
     if (!options.input || !options.output) {
         console.error('Error: --input and --output are required');
         console.error('Run with --help for usage information');
@@ -980,6 +1933,8 @@ function main() {
 
     let jsCount = 0, htmlCount = 0, otherCount = 0;
     let totalOriginal = 0, totalOutput = 0;
+    let totalFixed = 0;
+    const warningFiles = [];
 
     for (const relativePath of files) {
         const inputPath = path.join(inputDir, relativePath);
@@ -991,10 +1946,15 @@ function main() {
         if (ext === '.js' || ext === '.mjs') {
             result = processJsFile(inputPath, outputPath, options);
             jsCount++;
+            totalFixed += result.fixedCount || 0;
+            if (result.fixedCount > 0) {
+                warningFiles.push({ path: relativePath, count: result.fixedCount });
+            }
             if (options.verbose) {
                 const saved = result.originalSize - result.outputSize;
                 const percent = result.originalSize > 0 ? Math.round((saved / result.originalSize) * 100) : 0;
-                console.log(`  JS: ${relativePath} (${percent}% saved${result.hasSourceMap ? ' +map' : ''})`);
+                const fixNote = result.fixedCount > 0 ? ` [${result.fixedCount} deref fixed]` : '';
+                console.log(`  JS: ${relativePath} (${percent}% saved${result.hasSourceMap ? ' +map' : ''}${fixNote})`);
             }
         } else if (ext === '.html' || ext === '.htm') {
             result = processHtmlFile2(inputPath, outputPath, options);
@@ -1025,6 +1985,17 @@ function main() {
         const percent = Math.round((saved / totalOriginal) * 100);
         console.log(`Size reduction: ${(saved / 1024).toFixed(2)} KB (${percent}%)`);
     }
+
+    // Show warning about fixed dereferences
+    if (totalFixed > 0) {
+        console.log(`\n\x1b[33m⚠ Fixed ${totalFixed} early dereference(s)\x1b[0m`);
+        console.log(`  These patterns would break reactivity without the optimizer:`);
+        for (const { path: filePath, count } of warningFiles) {
+            console.log(`    - ${filePath} (${count})`);
+        }
+        console.log(`  Run with --lint-only to see details.`);
+    }
+
     console.log(`\n${options.dryRun ? 'Dry run complete (no files written)' : 'Done!'}\n`);
 }
 

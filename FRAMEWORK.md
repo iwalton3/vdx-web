@@ -152,6 +152,34 @@ this.state.scores.setAll([['a', 1], ['b', 2]]);
 each(this.state.items, item => html`<div>${item.name}</div>`)
 ```
 
+**contain()/opt() require reactive access INSIDE the closure:**
+```javascript
+// ❌ BAD - Variable captured before template, won't update
+const count = this.state.count;
+return html`<p>${count}</p>`;  // contain(() => count) has no dependencies!
+
+// ✅ GOOD - Reactive access inside template
+return html`<p>${this.state.count}</p>`;  // contain(() => this.state.count) works
+
+// ✅ GOOD - Use getter methods for computed values
+methods: {
+    get doubled() { return this.state.count * 2; }
+},
+template() {
+    return html`<p>${this.doubled}</p>`;  // Getter called inside contain()
+}
+```
+
+**Same applies to when()/each() function callbacks** (they create reactive boundaries):
+```javascript
+// ❌ BAD - isAdmin captured before callback
+const isAdmin = this.stores.auth.isAdmin;
+${when(isAdmin, () => html`<admin-panel></admin-panel>`)}
+
+// ✅ GOOD - Access inside callback
+${when(this.stores.auth.isAdmin, () => html`<admin-panel></admin-panel>`)}
+```
+
 **Optional: untracked() to skip proxying entirely:**
 ```javascript
 import { untracked } from 'vdx/lib/framework.js';
@@ -259,6 +287,35 @@ template() {
 - Child components - Moving content to a child naturally isolates its updates
 
 **The rule:** If a template has both high-frequency updates AND expensive content (large lists, complex rendering), they must be separated by a reactive boundary.
+
+## Build-Time Optimizer
+
+The optimizer applies fine-grained reactivity transformations at build time:
+
+```bash
+# Optimize for production
+node optimize.js -i ./app -o ./dist
+
+# Check for issues the optimizer CAN'T fix (CI integration)
+node optimize.js -i ./app --lint-only
+```
+
+**Lint mode (`--lint-only`)** - Detects patterns that break reactivity even with the optimizer:
+```javascript
+// ❌ DETECTED: Deferred callback captures dead value
+const { items } = this.state;
+${each(items, item => html`...`)}  // each() callback is a reactive boundary!
+
+// ❌ DETECTED: eval(opt()) runs at runtime, optimizer can't help
+const count = this.state.count;
+template: eval(opt(() => html`<p>${count}</p>`))
+
+// ✅ SAFE: Plain template (optimizer fixes this)
+const count = this.state.count;
+return html`<p>${count}</p>`;  // Optimizer replaces with this.state.count
+```
+
+**Coding assistants should run lint mode to verify templates use deferred callbacks correctly.**
 
 ## Anti-Patterns
 

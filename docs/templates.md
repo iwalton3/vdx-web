@@ -807,10 +807,151 @@ ${html.contain(() => this.state.count)}
 For production builds, use the `optimize.js` script to apply opt() transformations at build time, eliminating the need for `eval()` in deployed code:
 
 ```bash
+# Basic usage - optimize all templates
 node optimize.js --input ./src --output ./dist
+
+# With minification and source maps
+node optimize.js -i ./src -o ./dist --minify --sourcemap
+
+# Only optimize templates wrapped in eval(opt())
+node optimize.js -i ./src -o ./dist --wrapped-only
 ```
 
 This transforms ALL `html`` ` templates to use fine-grained reactivity, and strips any existing `eval(opt())` calls since they become redundant.
+
+**Linting for Early Dereference Issues:**
+
+The optimizer can detect "early dereference" patterns that would break reactivity:
+
+```bash
+# Lint-only mode - check for issues without transforming
+node optimize.js --lint-only -i ./src
+
+# Auto-fix simple issues (replaces captured variables with reactive paths)
+node optimize.js --auto-fix -i ./src
+
+# Preview auto-fix changes without writing (dry-run)
+node optimize.js --auto-fix --dry-run -i ./src
+```
+
+The linter categorizes issues as:
+- **Fixable** - Simple dereferences like `const x = this.state.y` that the optimizer or `--auto-fix` can handle
+- **Unfixable** - Computed expressions like `const x = this.state.y + 2` that require manual refactoring
+
+### Important: Reactive Access Inside contain()
+
+A critical requirement for `contain()` and `opt()` to work correctly: **reactive state must be accessed INSIDE the closure, not before it**.
+
+```javascript
+// ❌ BAD - Early dereference defeats reactivity
+template() {
+    const count = this.state.count;           // Accessed HERE
+    const userName = this.stores.auth.name;   // Accessed HERE
+
+    return html`
+        <p>${count}</p>           <!-- contain() captures the VALUE, not the getter -->
+        <p>${userName}</p>        <!-- This will NEVER update! -->
+    `;
+}
+
+// ✅ GOOD - Reactive access inside template
+template() {
+    return html`
+        <p>${this.state.count}</p>           <!-- Reactive access inside contain() -->
+        <p>${this.stores.auth.name}</p>      <!-- Updates when store changes -->
+    `;
+}
+```
+
+**Why this matters:**
+
+When `opt()` or `optimize.js` transforms `${count}` to `${html.contain(() => count)}`, the closure captures the *variable* `count`, not the reactive path `this.state.count`. Since `count` was evaluated before the closure was created, the closure has no reactive dependencies - it just returns the captured value forever.
+
+**The same applies to function callbacks in when(), each(), and memoEach():**
+
+These callbacks also create reactive boundaries (similar to `contain()`), so early dereference defeats reactivity inside them too:
+
+```javascript
+// ❌ BAD - Variable captured before callback
+template() {
+    const isAdmin = this.stores.auth.isAdmin;
+
+    // The function form of when() creates a contain-like boundary
+    // isAdmin was captured BEFORE the callback, so it won't update
+    return html`
+        ${when(isAdmin, () => html`<admin-panel></admin-panel>`)}
+        ${each(this.state.items, item => html`
+            <div class="${isAdmin ? 'admin' : ''}">${item.name}</div>
+        `)}
+    `;
+}
+
+// ✅ GOOD - Access reactive state inside callbacks
+template() {
+    return html`
+        ${when(this.stores.auth.isAdmin, () => html`<admin-panel></admin-panel>`)}
+        ${each(this.state.items, item => html`
+            <div class="${this.stores.auth.isAdmin ? 'admin' : ''}">${item.name}</div>
+        `)}
+    `;
+}
+```
+
+**Note:** The function form `when(cond, () => html\`...\`)` is preferred for performance (it caches templates by condition), but this means the callback is a reactive boundary. Access `this.state`/`this.stores` directly inside the callback.
+
+**For computed values, use methods or inline expressions:**
+
+```javascript
+// ❌ BAD - Computed variable loses reactivity
+template() {
+    const doubled = this.state.count * 2;
+    const fullName = `${this.state.firstName} ${this.state.lastName}`;
+
+    return html`<p>${doubled}</p><p>${fullName}</p>`;
+}
+
+// ✅ GOOD Option 1 - Inline expressions
+template() {
+    return html`
+        <p>${this.state.count * 2}</p>
+        <p>${this.state.firstName} ${this.state.lastName}</p>
+    `;
+}
+
+// ✅ GOOD Option 2 - Getter methods
+methods: {
+    get doubled() {
+        return this.state.count * 2;
+    },
+    get fullName() {
+        return `${this.state.firstName} ${this.state.lastName}`;
+    }
+},
+template() {
+    return html`<p>${this.doubled}</p><p>${this.fullName}</p>`;
+}
+```
+
+**Exception - memoEach external state:**
+
+For `memoEach()`, external state that affects rendering SHOULD be captured outside the item callback. This ensures the memoEach re-evaluates when that state changes:
+
+```javascript
+template() {
+    // Capture external state OUTSIDE - this is correct for memoEach
+    const selectedId = this.state.selectedId;
+
+    return html`
+        ${memoEach(this.state.items, (item) => {
+            // Use captured value inside - memoEach handles the dependency
+            const isSelected = item.id === selectedId;
+            return html`<div class="${isSelected ? 'selected' : ''}">${item.name}</div>`;
+        }, item => item.id)}
+    `;
+}
+```
+
+See the [memoEach section](#memoeach---memoized-list-rendering) for more details on this pattern.
 
 ### raw() - Unsafe HTML
 

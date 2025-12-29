@@ -977,10 +977,23 @@ defineComponent('my-counter', {
 
 **Build-Time Alternative:**
 ```bash
+# Optimize all templates
 node optimize.js --input ./src --output ./dist
+
+# With minification
+node optimize.js -i ./src -o ./dist --minify --sourcemap
+
+# Lint for early dereference issues
+node optimize.js --lint-only -i ./src
+
+# Auto-fix issues (replaces captured variables with reactive paths)
+node optimize.js --auto-fix -i ./src
+
+# Preview auto-fix changes
+node optimize.js --auto-fix --dry-run -i ./src
 ```
 
-This applies opt() transformations at build time to ALL html`` templates, eliminating the need for eval().
+This applies opt() transformations at build time to ALL html`` templates, eliminating the need for eval(). The `--lint-only` mode detects early dereference patterns that would break reactivity, and `--auto-fix` can automatically fix simple cases.
 
 ## Event Attributes
 

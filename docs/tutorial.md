@@ -1763,6 +1763,94 @@ node optimize.js -i ./src -o ./dist --wrapped-only
 
 **The `--wrapped-only` option** only transforms templates explicitly wrapped in `eval(opt())`, leaving other templates unchanged. Useful for incremental adoption.
 
+### Linting and Auto-Fix
+
+The optimizer includes lint and auto-fix modes to detect and fix early dereference issues:
+
+```bash
+# Lint-only mode - check for issues without modifying files
+node optimize.js --lint-only -i ./src
+
+# Auto-fix simple issues in-place
+node optimize.js --auto-fix -i ./src
+
+# Preview auto-fix changes without writing (dry-run)
+node optimize.js --auto-fix --dry-run -i ./src
+```
+
+**Issue categories:**
+- **Fixable** - Simple dereferences like `const x = this.state.y` that the optimizer or `--auto-fix` can automatically replace with `this.state.y`
+- **Unfixable** - Computed expressions like `const x = this.state.y + 2` or method calls that access state - these require manual refactoring
+
+**Example auto-fix output:**
+```diff
+--- my-component.js
++++ my-component.js (auto-fixed)
+@@ line 42 @@
+-                ${when(count > 0, html`...`)}
++                ${when(this.state.count > 0, html`...`)}
+```
+
+### Critical: Avoid Early Dereference
+
+When using `contain()`, `opt()`, or the optimizer, reactive state **must be accessed inside the template**, not before it:
+
+```javascript
+// ❌ BAD - Variable evaluated before contain(), loses reactivity
+template() {
+    const count = this.state.count;        // Accessed HERE
+    const user = this.stores.auth.user;    // Accessed HERE
+
+    return html`
+        <p>Count: ${count}</p>             <!-- Won't update! -->
+        <p>User: ${user.name}</p>          <!-- Won't update! -->
+    `;
+}
+
+// ✅ GOOD - Reactive access inside template
+template() {
+    return html`
+        <p>Count: ${this.state.count}</p>  <!-- Updates correctly -->
+        <p>User: ${this.stores.auth.user.name}</p>
+    `;
+}
+```
+
+**For computed values, use getter methods:**
+
+```javascript
+methods: {
+    get doubled() {
+        return this.state.count * 2;
+    },
+    get fullName() {
+        return `${this.state.firstName} ${this.state.lastName}`;
+    }
+},
+template() {
+    // Getters are called inside contain(), maintaining reactivity
+    return html`
+        <p>${this.doubled}</p>
+        <p>${this.fullName}</p>
+    `;
+}
+```
+
+**Why this matters:** When `opt()` transforms `${count}` to `${html.contain(() => count)}`, the closure captures the variable's *value*, not the reactive path. With no reactive access inside the closure, it never re-runs.
+
+**Same applies to when()/each() function callbacks** (they also create reactive boundaries):
+
+```javascript
+// ❌ BAD - isAdmin captured before callback
+const isAdmin = this.stores.auth.isAdmin;
+${when(isAdmin, () => html`<admin-panel></admin-panel>`)}
+
+// ✅ GOOD - Access inside callback
+${when(this.stores.auth.isAdmin, () => html`<admin-panel></admin-panel>`)}
+```
+
+**Note:** This doesn't apply to `memoEach()`'s external state pattern, where capturing values outside is intentional. See [templates.md](templates.md) for details.
+
 ### Performance Tips Summary
 
 | Technique | Use When | Benefit |

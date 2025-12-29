@@ -121,14 +121,12 @@ export default defineComponent('shop-product-detail', {
     },
 
     template() {
-        const product = this.state.product;
-
         return html`
             <div class="product-detail-page">
                 ${when(this.state.loading, html`
                     <div class="loading">Loading product...</div>
                 `, () => html`
-                    ${when(!product, html`
+                    ${when(!this.state.product, html`
                         <div class="not-found">
                             <h2>Product Not Found</h2>
                             <p>The product you're looking for doesn't exist.</p>
@@ -149,52 +147,52 @@ export default defineComponent('shop-product-detail', {
                             <!-- Product Image -->
                             <div class="product-gallery">
                                 <div class="main-image">
-                                    ${when(product && product.badge, html`
-                                        <span class="product-badge badge-${product?.badge?.toLowerCase() || ''}">${product?.badge || ''}</span>
+                                    ${when(this.state.product?.badge, html`
+                                        <span class="product-badge badge-${this.state.product?.badge?.toLowerCase() || ''}">${this.state.product?.badge || ''}</span>
                                     `)}
-                                    <img src="${product?.image || ''}" alt="${product?.name || ''}">
+                                    <img src="${this.state.product?.image || ''}" alt="${this.state.product?.name || ''}">
                                 </div>
                             </div>
 
                             <!-- Product Info -->
                             <div class="product-info">
-                                <h1 class="product-name">${product.name}</h1>
+                                <h1 class="product-name">${this.state.product.name}</h1>
 
                                 <div class="product-rating">
-                                    ${'⭐'.repeat(Math.floor(product.rating))}
-                                    <span class="rating-value">${product.rating}</span>
-                                    <span class="rating-count">${product.reviews} reviews</span>
+                                    ${'⭐'.repeat(Math.floor(this.state.product.rating))}
+                                    <span class="rating-value">${this.state.product.rating}</span>
+                                    <span class="rating-count">${this.state.product.reviews} reviews</span>
                                 </div>
 
                                 <div class="product-price">
-                                    ${when(product && product.originalPrice, html`
-                                        <span class="original-price">$${product?.originalPrice?.toFixed(2) || '0.00'}</span>
+                                    ${when(this.state.product?.originalPrice, html`
+                                        <span class="original-price">$${this.state.product?.originalPrice?.toFixed(2) || '0.00'}</span>
                                         <span class="discount-badge">-${this.getDiscountPercent()}%</span>
                                     `)}
-                                    <span class="current-price">$${product?.price?.toFixed(2) || '0.00'}</span>
+                                    <span class="current-price">$${this.state.product?.price?.toFixed(2) || '0.00'}</span>
                                 </div>
 
                                 <div class="product-description">
-                                    <p>${product.description}</p>
+                                    <p>${this.state.product.description}</p>
                                 </div>
 
                                 <!-- Features -->
                                 <div class="product-features">
                                     <h3>Features</h3>
                                     <ul>
-                                        ${each(product.features, feature => html`
+                                        ${each(this.state.product.features, feature => html`
                                             <li>✓ ${feature}</li>
                                         `)}
                                     </ul>
                                 </div>
 
                                 <!-- Stock Status -->
-                                <div class="stock-status ${product.inStock ? 'in-stock' : 'out-of-stock'}">
-                                    ${product.inStock ? '✓ In Stock' : '✗ Out of Stock'}
+                                <div class="stock-status ${this.state.product.inStock ? 'in-stock' : 'out-of-stock'}">
+                                    ${this.state.product.inStock ? '✓ In Stock' : '✗ Out of Stock'}
                                 </div>
 
                                 <!-- Quantity & Add to Cart -->
-                                ${when(product.inStock, html`
+                                ${when(this.state.product.inStock, html`
                                     <div class="purchase-section">
                                         <div class="quantity-section">
                                             <label>Quantity:</label>
