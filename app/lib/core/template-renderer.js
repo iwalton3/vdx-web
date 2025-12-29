@@ -10,8 +10,8 @@
  * - Updates are O(1) per binding (no full-tree diffing)
  */
 
-import { createEffect, withoutTracking, reactive, registerEffectFlushHooks } from './reactivity.js';
-import { isHtml, isRaw, isContain, isMemoEach, isWhen, OP, sanitizeUrl, setRenderContext } from './template.js';
+import { createEffect, withoutTracking, reactive, registerEffectFlushHooks, pushEffectDepth, popEffectDepth } from './reactivity.js';
+import { isHtml, isRaw, isContain, isMemoEach, isWhen, OP, sanitizeUrl, setRenderContext, EMPTY_WHEN_RESULT } from './template.js';
 import { componentDefinitions } from './component.js';
 import { BOOLEAN_ATTRS } from './constants.js';
 
@@ -830,6 +830,7 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
     let memoPrevCache = null;     // Map<key, { item, result }> from previous render
     let memoCurrCache = null;     // Map<key, { item, result }> for current render
     let memoPrevDeps = null;      // Previous deps array for cache invalidation
+    let memoEachPrevChildren = null;  // Previous fromEach children for keyed diffing
 
     // contain() slot-level state - for DOM reuse across containEffect recreations
     let containPreviousCompiled = null;
@@ -839,12 +840,46 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
     let containEffectRef = null;      // The active containEffect
     let containRenderFnRef = null;    // Mutable ref to current renderFn (updated on each render)
 
+    // Slot effects run at depth 1+ so computeEffect (depth 0) runs first.
+    // This prevents race conditions where slot effect runs with stale cached values.
+    pushEffectDepth();
     const effect = createEffect(() => {
         // Get the value (may be a function for reactive access)
         let value = values[node.index];
         // Only call if marked as a value getter (not an actual function value)
         if (typeof value === 'function' && value[VALUE_GETTER]) {
             value = value();
+        }
+
+        // EARLY when() processing - evaluate branch BEFORE comparison
+        // This fixes the bug where when-vnodes have fresh _compiled each time,
+        // causing unnecessary re-instantiation. By processing early, we compare
+        // the actual branch results (which have cached _compiled).
+        // Use WHILE loop to handle nested when() - inner when() also needs processing
+        while (isWhen(value)) {
+            const { _condition, _thenValue, _elseValue } = value;
+            const selectedBranch = _condition ? _thenValue : _elseValue;
+
+            // Evaluate function form if needed
+            // NOTE: We track dependencies here (no withoutTracking) so that deps inside
+            // function-form branches (like visibleStart/visibleEnd) are tracked.
+            // Race conditions are prevented by depth tracking: computeEffect runs at
+            // depth 0 before slot effects at depth 1+, ensuring cached values are
+            // updated before slots re-run.
+            if (typeof selectedBranch === 'function') {
+                setRenderContext(component);
+                value = selectedBranch();
+                setRenderContext(null);
+            } else {
+                value = selectedBranch;
+            }
+
+            // Handle null/undefined/false from when() - use empty result for stable comparison
+            if (value == null || value === false) {
+                value = EMPTY_WHEN_RESULT;
+                break;  // Exit loop - we have our final value
+            }
+            // If value is another when(), loop continues to process it
         }
 
         // Skip re-render if value is the same
@@ -854,9 +889,9 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
             if (value === previousValue) {
                 return;
             }
-            // For html templates, check if _compiled is the same - the child effects
-            // will handle updating any changed values within
-            if (isHtml(value) && isHtml(previousValue) &&
+            // For html templates (but NOT contain), check if _compiled is the same - the child effects
+            // will handle updating any changed values within. Contain is handled specially below.
+            if (isHtml(value) && isHtml(previousValue) && !isContain(value) &&
                 value._compiled === previousValue._compiled) {
                 // Same template structure - update values reactively without re-instantiating
                 // This preserves DOM state (focus, scroll position, input values, etc.)
@@ -871,10 +906,135 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 // Fall through to re-instantiation if no valuesRef (shouldn't happen)
             }
 
+            // For contain() vnodes with same _compiled, skip to contain handler (updates renderFn ref)
+            // This is the fast path for contain() - no cleanup, just update renderFn
+            if (isContain(value) && isContain(previousValue) &&
+                value._compiled === previousValue._compiled && containEffectRef) {
+                containRenderFnRef = value._renderFn;
+                previousValue = value;
+                return;
+            }
+
+            // Debug: Log re-instantiation - enable with window.__SLOT_DEBUG__ = true
+            if (typeof window !== 'undefined' && window.__SLOT_DEBUG__) {
+                const vComp = value?._compiled;
+                const pComp = previousValue?._compiled;
+                console.log('[SLOT] RE-INSTANTIATE', {
+                    slotIndex: node.index,
+                    valueType: isHtml(value) ? 'html' : isContain(value) ? 'contain' : isMemoEach(value) ? 'memoEach' : typeof value,
+                    prevType: isHtml(previousValue) ? 'html' : isContain(previousValue) ? 'contain' : isMemoEach(previousValue) ? 'memoEach' : typeof previousValue,
+                    compiledSame: vComp === pComp,
+                    valueOp: vComp?.op,
+                    prevOp: pComp?.op,
+                });
+            }
+
             // For contain() boundaries, we always recreate the containEffect (cheap)
             // but reuse DOM when the compiled template structure matches.
             // State is maintained at the slot level, not inside the containEffect.
             // This removes the fragile toString() comparison for call-site identity.
+
+            // For memoEach() vnodes, convert to fromEach and do keyed diffing
+            // This preserves DOM for items that haven't changed
+            if (isMemoEach(value) && isMemoEach(previousValue) &&
+                value._compiled === previousValue._compiled &&
+                memoEachPrevChildren && currentItemMap) {
+
+                // Run memoEach logic to get new children (same as in memoEach handler)
+                const { _array: array, _mapFn: mapFn, _keyFn: keyFn, _explicitCache: explicitCache, _trustKey: trustKey, _deps: deps } = value;
+
+                // Check deps
+                let depsChanged = false;
+                if (deps) {
+                    if (!memoPrevDeps || memoPrevDeps.length !== deps.length) {
+                        depsChanged = true;
+                    } else {
+                        for (let i = 0; i < deps.length; i++) {
+                            if (deps[i] !== memoPrevDeps[i]) {
+                                depsChanged = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (depsChanged) {
+                        memoPrevCache = null;
+                        memoCurrCache = null;
+                    }
+                    memoPrevDeps = deps;
+                }
+
+                const useExplicitCache = explicitCache instanceof Map ? explicitCache :
+                                         explicitCache?.itemCache ? explicitCache.itemCache : null;
+                const newCurrCache = new Map();
+
+                const results = array.map((item, index) => {
+                    const key = keyFn(item, index);
+                    const cachedCurr = newCurrCache.get(key);
+                    if (cachedCurr && (trustKey || cachedCurr.item === item)) return cachedCurr.result;
+                    const cachedPrev = useExplicitCache ? useExplicitCache.get(key) :
+                                       (memoPrevCache?.get(key) || memoCurrCache?.get(key));
+                    if (cachedPrev && (trustKey || cachedPrev.item === item)) {
+                        newCurrCache.set(key, cachedPrev);
+                        if (useExplicitCache) useExplicitCache.set(key, cachedPrev);
+                        return cachedPrev.result;
+                    }
+                    setRenderContext(component);
+                    const result = mapFn(item, index);
+                    setRenderContext(null);
+                    if (result && result._compiled) {
+                        const keyedResult = { ...result, _compiled: { ...result._compiled, key } };
+                        const cacheEntry = { item, result: keyedResult };
+                        newCurrCache.set(key, cacheEntry);
+                        if (useExplicitCache) useExplicitCache.set(key, cacheEntry);
+                        return keyedResult;
+                    }
+                    const cacheEntry = { item, result };
+                    newCurrCache.set(key, cacheEntry);
+                    if (useExplicitCache) useExplicitCache.set(key, cacheEntry);
+                    return result;
+                });
+
+                memoPrevCache = memoCurrCache;
+                memoCurrCache = newCurrCache;
+
+                // Build new children array
+                const newChildren = results
+                    .map((r, itemIndex) => {
+                        if (!r || !r._compiled) return null;
+                        const child = r._compiled;
+                        const childValues = r._values;
+                        if (child.type === 'text' && child.value && /^\s*$/.test(child.value)) return null;
+                        if (child.type === 'fragment' && !child.wrapped && child.children.length === 1 && child.children[0].type === 'element') {
+                            const element = child.children[0];
+                            const key = keyFn(array[itemIndex], itemIndex);
+                            return {...element, key, _itemValues: childValues};
+                        }
+                        const key = keyFn(array[itemIndex], itemIndex);
+                        return {...child, key, _itemValues: childValues};
+                    })
+                    .filter(Boolean);
+
+                // Do keyed diffing with previous children
+                const result = updateKeyedList(
+                    newChildren,
+                    memoEachPrevChildren,
+                    currentItemMap,
+                    placeholder,
+                    component,
+                    slotInSvg,
+                    true  // hasExplicitKeys
+                );
+
+                if (result) {
+                    currentNodes = result.nodes;
+                    currentEffects = result.effects;
+                    currentItemMap = result.itemMap;
+                    memoEachPrevChildren = newChildren;
+                    previousValue = value;
+                    return;
+                }
+                // Fall through to full re-instantiation if keyed update failed
+            }
 
             // For each() fragments, do smart keyed diffing
             // This preserves DOM for items that haven't changed structure
@@ -933,35 +1093,10 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
             }
         };
 
-        // Handle different value types
+        // Handle different value types (when() is already processed above before comparison)
         if (value == null || value === false) {
             cleanupContain();
             return;
-        }
-
-        // Handle when() - evaluate immediately and fall through to html handling
-        // Both function and non-function forms are now evaluated inline (no isolated boundary)
-        // Use contain() explicitly if you need fine-grained reactivity isolation
-        if (isWhen(value)) {
-            const { _condition, _thenValue, _elseValue } = value;
-
-            // Select the branch based on condition
-            const selectedBranch = _condition ? _thenValue : _elseValue;
-
-            // Evaluate function form if needed
-            if (typeof selectedBranch === 'function') {
-                setRenderContext(component);
-                value = selectedBranch();
-                setRenderContext(null);
-            } else {
-                value = selectedBranch;
-            }
-
-            if (!value) {
-                cleanupContain();
-                return;
-            }
-            // Fall through to normal html/primitive handling
         }
 
         // Handle contain() - isolated reactive boundary
@@ -973,14 +1108,37 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
             // and let it call the updated renderFn via the mutable ref
             if (containEffectRef) {
                 containRenderFnRef = value._renderFn;
+                previousValue = value;  // Update for fast path on next render
                 return;
             }
 
             // Store the initial renderFn - will be updated via containRenderFnRef on parent re-renders
             containRenderFnRef = value._renderFn;
 
+            // Track if we've ever been mounted - used to distinguish "not yet mounted" from "unmounted"
+            let containWasMounted = false;
+
+            // Increment effect depth before creating - ensures child effects have higher depth
+            // than parent effects, enabling breadth-first execution order
+            pushEffectDepth();
+
             // Create an isolated effect for this boundary
             const newContainEffect = createEffect(() => {
+                // Push depth so any children created during this effect are at higher depth
+                // This ensures children run AFTER this effect during flush, allowing cleanup
+                pushEffectDepth();
+                const CONTAIN_DEBUG = typeof window !== 'undefined' && window.__SLOT_DEBUG__;
+
+                try {
+                // Check if we've been unmounted by parent (e.g., when() condition became false)
+                // Allow first run (not yet mounted), but skip if we were mounted and now disconnected
+                if (containWasMounted && !placeholder.isConnected) {
+                    return;
+                }
+                if (placeholder.isConnected) {
+                    containWasMounted = true;
+                }
+
                 // Evaluate the render function in this isolated effect
                 // Use containRenderFnRef to get the current renderFn (may be updated by parent)
                 // This creates the dependency tracking for just this boundary
@@ -997,16 +1155,26 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
 
                 // Handle when-vnodes inside contain - evaluate the condition and get the branch
                 // This happens when opt() wraps a when() call in contain()
-                if (isWhen(result)) {
+                // Use WHILE loop to handle nested when() - inner when() also needs processing
+                while (isWhen(result)) {
                     const { _condition, _thenValue, _elseValue } = result;
                     const selectedBranch = _condition ? _thenValue : _elseValue;
                     if (typeof selectedBranch === 'function') {
+                        // Track dependencies from when branch - contain effects run at higher
+                        // depth so parent effects (computeEffect) run first
                         setRenderContext(component);
                         result = selectedBranch();
                         setRenderContext(null);
                     } else {
                         result = selectedBranch;
                     }
+
+                    // Handle null/undefined/false from when() - use empty result for stable comparison
+                    if (result == null || result === false) {
+                        result = EMPTY_WHEN_RESULT;
+                        break;  // Exit loop - we have our final value
+                    }
+                    // If result is another when(), loop continues to process it
                 }
 
                 // Handle null/undefined/false - clean up and return
@@ -1111,6 +1279,14 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 }
 
                 // Different template structure - need to reinstantiate
+                if (CONTAIN_DEBUG) {
+                    console.log('[CONTAIN] RE-INSTANTIATE', {
+                        slotIndex: node.index,
+                        compiledSame: containPreviousCompiled === result._compiled,
+                        resultOp: result._compiled?.op,
+                        prevOp: containPreviousCompiled?.op,
+                    });
+                }
                 // Clean up old nodes first
                 for (const oldNode of containNodes) {
                     oldNode.remove();
@@ -1140,7 +1316,14 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 containNodes = nodes;
                 containEffects = childEffects;
                 containPreviousCompiled = result._compiled;
+                } finally {
+                    // Always restore depth, even on early return
+                    popEffectDepth();
+                }
             });
+
+            // Restore effect depth after creating the contain effect
+            popEffectDepth();
 
             // Track this containEffect (renderFn already stored above)
             containEffectRef = newContainEffect;
@@ -1282,6 +1465,8 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                     children: compiledChildren
                 }
             };
+            // Save children for keyed diffing on subsequent updates
+            memoEachPrevChildren = compiledChildren;
             // Fall through to html() handling which will process the each() fragment
         }
 
@@ -1447,6 +1632,9 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
         placeholder.after(textNode);  // Text nodes don't need paused tracking
         currentNodes = [textNode];
     });
+
+    // Restore effect depth after creating slot effect
+    popEffectDepth();
 
     // Wrap the effect to clean up DOM when disposed
     // This is critical: when a parent slot disposes child effects,

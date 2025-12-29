@@ -173,7 +173,7 @@ const EMPTY_COMPILED = {
     wrapped: false,
     children: []
 };
-const EMPTY_WHEN_RESULT = {
+export const EMPTY_WHEN_RESULT = {
     [HTML_MARKER]: true,
     _compiled: EMPTY_COMPILED,
     toString() {
@@ -248,6 +248,15 @@ export function when(condition, thenValue, elseValue = null) {
  *     `;
  * }
  */
+// Stable singleton for contain() _compiled - enables reference equality checks
+// Reactivity system excludes objects with _compiled + _renderFn from proxying
+const CONTAIN_COMPILED = Object.freeze({
+    op: OP.SLOT,
+    type: 'contain',
+    isContain: true,
+    _singletonId: Math.random()  // Debug: verify same instance across calls
+});
+
 export function contain(renderFn) {
     if (typeof renderFn !== 'function') {
         console.warn('[contain] Expected a function, got:', typeof renderFn);
@@ -260,11 +269,7 @@ export function contain(renderFn) {
         [CONTAIN_MARKER]: true,
         [HTML_MARKER]: true,  // Also mark as html so it's handled as a slot value
         _renderFn: renderFn,
-        _compiled: {
-            op: OP.SLOT,
-            type: 'contain',
-            isContain: true
-        },
+        _compiled: CONTAIN_COMPILED,  // Use singleton for stable reference
         toString() { return '[contain]'; }
     };
 }
@@ -412,6 +417,12 @@ export function createMemoCache() {
  *     return html`<div class="${isSelected ? 'selected' : ''}">${item.name}</div>`;
  * }, item => item.id, { deps: [this.state.selectedIndex] })}
  */
+// Stable singleton for memoEach() _compiled - enables reference equality checks
+const MEMO_EACH_COMPILED = Object.freeze({
+    op: OP.SLOT,
+    type: 'memoEach'
+});
+
 export function memoEach(array, mapFn, keyFn, options) {
     if (!array || !Array.isArray(array)) {
         return {
@@ -462,10 +473,7 @@ export function memoEach(array, mapFn, keyFn, options) {
         _explicitCache: cache,  // Optional explicit cache for backward compatibility
         _trustKey: trustKey,    // When true, skip item reference check - trust key alone
         _deps: deps,            // External deps array - when any value changes, bust all caches
-        _compiled: {
-            op: OP.SLOT,
-            type: 'memoEach'
-        },
+        _compiled: MEMO_EACH_COMPILED,  // Use singleton for stable reference
         toString() { return '[memoEach]'; }
     };
 }

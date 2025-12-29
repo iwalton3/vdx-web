@@ -680,6 +680,9 @@ export function defineComponent(name, options) {
 
                         // Single effect that watches ALL state and recomputes template once
                         // This prevents N slots from calling template() N times
+                        // computeEffect inherits current depth - for top-level components this is 0,
+                        // for nested components (inside contain()) this is parent's depth.
+                        // Slot effects use pushEffectDepth() so they're always at computeEffect's depth + 1.
                         const computeEffect = createEffect(() => {
                             // Track props version
                             if (component._propsVersion) {

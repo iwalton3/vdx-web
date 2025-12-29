@@ -82,8 +82,26 @@ export function withoutTracking(fn) {
  * dispose(); // Stop tracking
  * state.count = 10; // No longer logs
  */
+// Track effect nesting depth for breadth-first execution
+// Parent effects (lower depth) run before children (higher depth)
+let currentEffectDepth = 0;
+
+/** Increment effect depth when entering a reactive boundary (e.g., slot) */
+export function pushEffectDepth() { currentEffectDepth++; }
+
+/** Decrement effect depth when leaving a reactive boundary */
+export function popEffectDepth() { currentEffectDepth--; }
+
+/** Get current effect depth (for saving/restoring) */
+export function getEffectDepth() { return currentEffectDepth; }
+
+/** Set effect depth (for restoring after temporary reset) */
+export function setEffectDepth(depth) { currentEffectDepth = depth; }
+
 export function createEffect(fn) {
     let disposed = false;
+    // Capture depth at creation time - determines execution priority
+    const depth = currentEffectDepth;
 
     const effect = () => {
         // Don't run if disposed
@@ -105,6 +123,7 @@ export function createEffect(fn) {
     };
 
     effect.deps = new Set();
+    effect.depth = depth;
 
     const dispose = () => {
         if (disposed) return;
@@ -182,13 +201,34 @@ function track(target, key) {
 // Track currently running effects to prevent re-entrancy
 const runningEffects = new Set();
 
-// Pending effects to run (batched via microtask)
-const pendingEffects = new Set();
+// Pending effects organized by depth for breadth-first execution
+// Index = depth, value = Set of effects at that depth
+// Parent effects (lower depth) run before children (higher depth)
+const pendingEffectsByDepth = [];
+let pendingEffectsCount = 0;  // Track total count for quick empty check
 let flushScheduled = false;
 let isFlushing = false;  // Track if we're inside flushEffects
 
 /** Max iterations to prevent infinite effect loops */
 const MAX_FLUSH_ITERATIONS = 100;
+
+/** Add effect to pending queue at its depth level */
+function addPendingEffect(effect) {
+    const depth = effect.depth || 0;
+    // Ensure array is large enough
+    while (pendingEffectsByDepth.length <= depth) {
+        pendingEffectsByDepth.push(new Set());
+    }
+    if (!pendingEffectsByDepth[depth].has(effect)) {
+        pendingEffectsByDepth[depth].add(effect);
+        pendingEffectsCount++;
+    }
+}
+
+/** Check if any effects are pending */
+function hasPendingEffects() {
+    return pendingEffectsCount > 0;
+}
 
 /**
  * Schedule effect flush using microtask.
@@ -233,26 +273,37 @@ export function flushEffects() {
             // Begin deferred DOM updates mode (if registered)
             if (onBeforeEffectFlush) onBeforeEffectFlush();
 
-            // Inner loop: run all queued effects (effects can trigger more effects)
-            while (pendingEffects.size > 0) {
+            // Inner loop: run all queued effects in breadth-first order (by depth)
+            // Parent effects (lower depth) run before children (higher depth)
+            // This ensures when() cleans up before nested contain() tries to run
+            while (pendingEffectsCount > 0) {
                 iterations++;
                 if (iterations > MAX_FLUSH_ITERATIONS) {
                     console.error('[Reactivity] Max flush iterations exceeded - possible infinite effect loop');
-                    pendingEffects.clear();
+                    // Clear all pending effects
+                    for (const set of pendingEffectsByDepth) set.clear();
+                    pendingEffectsCount = 0;
                     break;
                 }
 
-                // Copy to array and clear pending set before running
-                const effects = [...pendingEffects];
-                pendingEffects.clear();
+                // Process each depth level in order (breadth-first)
+                for (let depth = 0; depth < pendingEffectsByDepth.length; depth++) {
+                    const effectsAtDepth = pendingEffectsByDepth[depth];
+                    if (effectsAtDepth.size === 0) continue;
 
-                for (const effect of effects) {
-                    if (!runningEffects.has(effect)) {
-                        runningEffects.add(effect);
-                        try {
-                            effect();
-                        } finally {
-                            runningEffects.delete(effect);
+                    // Copy and clear this depth's effects
+                    const effects = [...effectsAtDepth];
+                    pendingEffectsCount -= effectsAtDepth.size;
+                    effectsAtDepth.clear();
+
+                    for (const effect of effects) {
+                        if (!runningEffects.has(effect)) {
+                            runningEffects.add(effect);
+                            try {
+                                effect();
+                            } finally {
+                                runningEffects.delete(effect);
+                            }
                         }
                     }
                 }
@@ -262,7 +313,7 @@ export function flushEffects() {
             // This may trigger new effects (e.g., custom element props changed)
             if (onAfterEffectFlush) onAfterEffectFlush();
 
-        } while (pendingEffects.size > 0 && iterations < MAX_FLUSH_ITERATIONS);
+        } while (pendingEffectsCount > 0 && iterations < MAX_FLUSH_ITERATIONS);
 
     } finally {
         isFlushing = false;
@@ -280,9 +331,9 @@ function trigger(target, key) {
             debugReactivityHook(target, key, target[key], `trigger(${deps.size} effects)`);
         }
 
-        // Queue effects for batched execution
+        // Queue effects for batched execution (organized by depth)
         for (const effect of deps) {
-            pendingEffects.add(effect);
+            addPendingEffect(effect);
         }
 
         // Schedule flush via rAF (60fps) or microtask (fallback)
@@ -424,12 +475,14 @@ export function reactive(obj) {
 
             // Recursively make nested objects reactive
             // Sets/Maps are auto-wrapped by reactive() into reactiveSet/reactiveMap
-            // Skip: WeakSet/WeakMap/Promise/Error (can't proxy), DOM Nodes, html templates, untracked
+            // Skip: WeakSet/WeakMap/Promise/Error (can't proxy), DOM Nodes, template vnodes, untracked
             if (typeof value === 'object' && value !== null &&
                 !(value instanceof WeakSet) && !(value instanceof WeakMap) &&
                 !(value instanceof Promise) && !(value instanceof Error) &&
                 !(typeof Node !== 'undefined' && value instanceof Node) &&
-                !('_compiled' in value && '_values' in value) &&
+                !('_compiled' in value && '_values' in value) &&  // html vnodes
+                !('_compiled' in value && '_renderFn' in value) &&  // contain vnodes
+                !('_compiled' in value && '_array' in value) &&  // memoEach vnodes
                 !value[UNTRACKED]) {
                 return reactive(value);
             }

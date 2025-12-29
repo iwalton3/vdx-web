@@ -363,7 +363,8 @@ function shouldSkipWrapping(expr) {
     // Skip already-isolated helpers and special vnodes
     // - contain/raw: already isolated
     // - memoEach: has its own caching mechanism, complex to wrap in contain
-    if (/^(contain|raw|html\.contain|memoEach)\s*\(/.test(trimmed)) {
+    // - when/each: condition/array is evaluated before callback runs, captured vars won't update
+    if (/^(contain|raw|html\.contain|memoEach|when|each)\s*\(/.test(trimmed)) {
         return true;
     }
 
@@ -458,13 +459,12 @@ function detectEarlyDereferences(source) {
 
     const result = detectDereferencesInSource(preHtmlSection);
 
-    // Also look for dereferences inside callback bodies that contain nested html`` calls
-    // This handles patterns like:
-    //   ${when(..., () => {
-    //       const filterText = this.state.filterText;  // Early dereference
-    //       return html`...${filterText}...`;  // Used in nested template
-    //   })}
-    detectNestedCallbackDereferences(templateBody, result);
+    // Also look for dereferences inside callback bodies that contain nested html`` calls.
+    // These are problematic if used in a NESTED contain() (boundary between def and usage).
+    // We track positions so the linter can check if def is inside/outside usage region.
+    // Pass templateBodyOffset so positions are in SOURCE coordinates (not templateBody-relative)
+    const templateBodyOffset = templateMatch.index;
+    detectNestedCallbackDereferences(templateBody, result, templateBodyOffset);
 
     return result;
 }
@@ -472,8 +472,14 @@ function detectEarlyDereferences(source) {
 /**
  * Find early dereferences inside callback bodies that have nested html`` calls.
  * Modifies the result in place by adding to fixable/unfixable maps.
+ * Tracks the callback region (bodyStart, bodyEnd) so we can determine if a usage
+ * is in the same region as its definition (which is fine) or a nested region (problematic).
+ *
+ * @param templateBody - The template function body text
+ * @param result - Object with fixable/unfixable Maps to update
+ * @param sourceOffset - Offset to add to positions to convert from templateBody coords to source coords
  */
-function detectNestedCallbackDereferences(templateBody, result) {
+function detectNestedCallbackDereferences(templateBody, result, sourceOffset = 0) {
     // Find arrow function callbacks: () => { ... } or (args) => { ... }
     // that contain html`` calls
     const callbackPattern = /(?:\([^)]*\)|[a-zA-Z_$][\w$]*)\s*=>\s*\{/g;
@@ -537,15 +543,26 @@ function detectNestedCallbackDereferences(templateBody, result) {
         const preNestedHtml = callbackBody.slice(0, nestedHtmlIdx);
         const nestedResult = detectDereferencesInSource(preNestedHtml);
 
-        // Merge into main result
-        for (const [varName, path] of nestedResult.fixable) {
+        // Merge into main result, tracking the callback region for each dereference
+        // The region info lets us determine if usage is in same callback (fine) or nested (problematic)
+        // Add sourceOffset to convert from templateBody coordinates to source coordinates
+        for (const [varName, pathOrInfo] of nestedResult.fixable) {
             if (!result.fixable.has(varName)) {
-                result.fixable.set(varName, path);
+                // Store path with region info (in source coordinates)
+                result.fixable.set(varName, {
+                    path: typeof pathOrInfo === 'string' ? pathOrInfo : pathOrInfo.path,
+                    defRegionStart: bodyStart + sourceOffset,
+                    defRegionEnd: bodyEnd + sourceOffset
+                });
             }
         }
         for (const [varName, info] of nestedResult.unfixable) {
             if (!result.unfixable.has(varName)) {
-                result.unfixable.set(varName, info);
+                result.unfixable.set(varName, {
+                    ...info,
+                    defRegionStart: bodyStart + sourceOffset,
+                    defRegionEnd: bodyEnd + sourceOffset
+                });
             }
         }
     }
@@ -811,12 +828,28 @@ function lintEarlyDereferences(source, filename = '') {
 
     // Build patterns for all early-dereferenced variables (both fixable and unfixable)
     // Pattern excludes: property access (.error), hyphenated names (error-message, my-error)
+    // Also track defRegion info to determine if usage is in same callback (fine) or nested (problematic)
     const varPatterns = new Map();
-    for (const [varName, path] of fixable) {
-        varPatterns.set(varName, { pattern: new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`, 'g'), path, fixable: true });
+    for (const [varName, pathOrInfo] of fixable) {
+        // pathOrInfo can be a string (template-level) or object with path and region info (inside callback)
+        const isObj = typeof pathOrInfo === 'object';
+        varPatterns.set(varName, {
+            pattern: new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`, 'g'),
+            path: isObj ? pathOrInfo.path : pathOrInfo,
+            fixable: true,
+            defRegionStart: isObj ? pathOrInfo.defRegionStart : undefined,
+            defRegionEnd: isObj ? pathOrInfo.defRegionEnd : undefined
+        });
     }
     for (const [varName, info] of unfixable) {
-        varPatterns.set(varName, { pattern: new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`, 'g'), path: info.path, fixable: false, reason: info.reason });
+        varPatterns.set(varName, {
+            pattern: new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`, 'g'),
+            path: info.path,
+            fixable: false,
+            reason: info.reason,
+            defRegionStart: info.defRegionStart,
+            defRegionEnd: info.defRegionEnd
+        });
     }
 
     // Check 1: Find eval(opt()) blocks and check for early derefs inside
@@ -934,8 +967,9 @@ function lintEarlyDereferences(source, filename = '') {
 
             let bodyStart = null;
 
-            // Arrow function at start: () => body or name => body
-            const arrowMatch = trimmedArg.match(/^(?:\([^)]*\)|[a-zA-Z_$][\w$]*)\s*=>\s*/);
+            // Arrow function at start: () => body or () => { body }
+            // Include optional { to match detectNestedCallbackDereferences positioning
+            const arrowMatch = trimmedArg.match(/^(?:\([^)]*\)|[a-zA-Z_$][\w$]*)\s*=>\s*\{?/);
             if (arrowMatch) {
                 const bodyOffset = argStart + argContent.indexOf(trimmedArg) + arrowMatch[0].length;
                 bodyStart = bodyOffset;
@@ -960,6 +994,9 @@ function lintEarlyDereferences(source, filename = '') {
     }
 
     // Now check if early-dereferenced variables are used inside callback regions
+    // Only flag if there's a contain() BOUNDARY between definition and usage:
+    // - Template-level def (defRegionStart undefined): any contain() usage has a boundary
+    // - Def inside callback: only flag if usage is in a DIFFERENT contain() callback
     for (const [varName, info] of varPatterns) {
         let varMatch;
         while ((varMatch = info.pattern.exec(source)) !== null) {
@@ -967,8 +1004,23 @@ function lintEarlyDereferences(source, filename = '') {
             const matchEnd = varMatch.index + varMatch[0].length;
 
             // Check if this match is inside a callback region
-            const region = callbackRegions.find(r => matchStart >= r.start && matchEnd <= r.end);
+            // Find the INNERMOST region (smallest range) that contains the match
+            // This handles nested callbacks correctly
+            const matchingRegions = callbackRegions.filter(r => matchStart >= r.start && matchEnd <= r.end);
+            const region = matchingRegions.length > 0
+                ? matchingRegions.reduce((a, b) => (b.end - b.start) < (a.end - a.start) ? b : a)
+                : null;
             if (region) {
+                // Check if def and usage are in the SAME callback
+                // If defRegionStart === region.start, they're in the same callback body → FINE
+                // If defRegionStart is undefined or different, there's a boundary → BAD
+                const sameCallback = info.defRegionStart !== undefined && info.defRegionStart === region.start;
+                if (sameCallback) {
+                    // Variable defined and used in same contain() callback - this is fine
+                    // because the callback re-runs and re-captures the value
+                    continue;
+                }
+
                 const beforeMatch = source.slice(0, region.callStart);
                 const lineNumber = (beforeMatch.match(/\n/g) || []).length + 1;
 
@@ -1029,6 +1081,14 @@ function willBeModified(exprText, varToPath) {
  * Returns the transformed source and count of changes.
  */
 function applyOptPass(source, varToPath) {
+    // Normalize varToPath - values can be strings or objects with {path, defRegionStart, defRegionEnd}
+    // fixTaintedReferences expects string values, so extract just the paths
+    const normalizedVarToPath = new Map();
+    for (const [varName, pathOrInfo] of varToPath) {
+        const path = typeof pathOrInfo === 'string' ? pathOrInfo : pathOrInfo.path;
+        normalizedVarToPath.set(varName, path);
+    }
+
     const allExpressions = extractExpressions(source);
 
     // Categorize expressions:
@@ -1050,7 +1110,7 @@ function applyOptPass(source, varToPath) {
             expr !== other &&
             other.start > expr.start &&
             other.end < expr.end &&
-            willBeModified(other.expr, varToPath)
+            willBeModified(other.expr, normalizedVarToPath)
         );
 
         if (containsModifiableNested) {
@@ -1075,7 +1135,7 @@ function applyOptPass(source, varToPath) {
         const { start, end, expr } = toProcess[i];
 
         // Always fix early dereferences by replacing variables with reactive paths
-        const fixedExpr = fixTaintedReferences(expr, varToPath);
+        const fixedExpr = fixTaintedReferences(expr, normalizedVarToPath);
         if (fixedExpr !== expr) {
             fixedCount++;
         }
@@ -2539,7 +2599,12 @@ function runLintOnly(inputDir, options) {
             }
             for (const issue of fixable) {
                 console.log(`  \x1b[33m⚠\x1b[0m Line ${issue.line}: ${issue.message}`);
-                console.log(`    \x1b[90mOptimizer will fix: use ${issue.path} directly\x1b[0m`);
+                if (options.autoFix) {
+                    // Auto-fix ran but couldn't fix this - needs manual fix
+                    console.log(`    \x1b[90mCould not auto-fix - manually change to: ${issue.path}\x1b[0m`);
+                } else {
+                    console.log(`    \x1b[90mFix: use ${issue.path} directly (or run --auto-fix)\x1b[0m`);
+                }
             }
             console.log('');
 
@@ -2566,7 +2631,11 @@ function runLintOnly(inputDir, options) {
             console.log(`\x1b[31m✗ Found ${unfixableCount} UNFIXABLE issue(s) - these MUST be fixed manually\x1b[0m`);
         }
         if (fixableCount > 0) {
-            console.log(`\x1b[33m⚠ Found ${fixableCount} fixable issue(s) - optimizer will fix in output\x1b[0m`);
+            if (options.autoFix) {
+                console.log(`\x1b[33m⚠ Found ${fixableCount} issue(s) that could not be auto-fixed - manual fix needed\x1b[0m`);
+            } else {
+                console.log(`\x1b[33m⚠ Found ${fixableCount} issue(s) - run with --auto-fix or fix manually\x1b[0m`);
+            }
         }
         console.log(`\n  Total: ${totalIssues} issue(s) in ${filesWithIssues} file(s)\n`);
         return unfixableCount > 0 ? 2 : 1;  // Exit 2 for unfixable errors

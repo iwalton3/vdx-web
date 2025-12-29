@@ -132,8 +132,14 @@ describe('opt() - Skip Wrapping Rules', function(it) {
     it('does NOT skip simple expressions', async () => {
         assert.equal(shouldSkipWrapping('this.state.count'), false);
         assert.equal(shouldSkipWrapping('this.state.a + this.state.b'), false);
-        assert.equal(shouldSkipWrapping('when(this.state.loading, html`...`)'), false);
-        assert.equal(shouldSkipWrapping('each(this.state.items, item => html`...`)'), false);
+    });
+
+    it('DOES skip when/each/memoEach (evaluated before callback)', async () => {
+        // These return vnodes that are processed specially by the renderer
+        // Wrapping them in contain() breaks because condition/array is evaluated early
+        assert.equal(shouldSkipWrapping('when(this.state.loading, html`...`)'), true);
+        assert.equal(shouldSkipWrapping('each(this.state.items, item => html`...`)'), true);
+        assert.equal(shouldSkipWrapping('memoEach(this.state.items, item => html`...`)'), true);
     });
 
 });
@@ -153,16 +159,18 @@ describe('opt() - Source Mangling', function(it) {
         assert.ok(result.includes('html.contain(() => (this.state.b))'));
     });
 
-    it('wraps when() for isolation', async () => {
+    it('does NOT wrap when() (condition evaluated early)', async () => {
         const source = 'function() { return html`<div>${when(this.state.loading, html`...`)}</div>`; }';
         const result = mangleTemplateSource(source);
-        assert.ok(result.includes('html.contain(() => (when(this.state.loading'));
+        // when() should NOT be wrapped - condition is evaluated before callback runs
+        assert.ok(!result.includes('html.contain(() => (when('));
     });
 
-    it('wraps each() for isolation', async () => {
+    it('does NOT wrap each() (array evaluated early)', async () => {
         const source = 'function() { return html`<div>${each(this.state.items, item => html`...`)}</div>`; }';
         const result = mangleTemplateSource(source);
-        assert.ok(result.includes('html.contain(() => (each(this.state.items'));
+        // each() should NOT be wrapped - array is evaluated before callback runs
+        assert.ok(!result.includes('html.contain(() => (each('));
     });
 
     it('does NOT wrap contain()', async () => {

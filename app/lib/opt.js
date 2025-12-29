@@ -293,7 +293,8 @@ function shouldSkipWrapping(expr) {
     // Skip already-isolated helpers and special vnodes
     // - contain/raw: already isolated
     // - memoEach: has its own caching mechanism, complex to wrap in contain
-    if (/^(contain|raw|html\.contain|memoEach)\s*\(/.test(trimmed)) {
+    // - when/each: condition/array is evaluated before callback runs, captured vars won't update
+    if (/^(contain|raw|html\.contain|memoEach|when|each)\s*\(/.test(trimmed)) {
         return true;
     }
 

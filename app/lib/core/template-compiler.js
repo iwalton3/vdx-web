@@ -32,11 +32,17 @@ const cacheAccessTimes = new Map();
  * @returns {Object} Compiled template with ops and pre-built statics
  */
 export function compileTemplate(strings) {
+    // Debug logging - enable with window.__TEMPLATE_DEBUG__ = true
+    const DEBUG = typeof window !== 'undefined' && window.__TEMPLATE_DEBUG__;
+
     // HTM-style cache lookup using array reference
     if (templateCache.has(strings)) {
         cacheAccessTimes.set(strings, Date.now());
+        if (DEBUG) console.log('[TEMPLATE] cache HIT', { stringsId: strings[0]?.slice(0, 50), cacheSize: templateCache.size });
         return templateCache.get(strings);
     }
+
+    if (DEBUG) console.log('[TEMPLATE] cache MISS - compiling', { stringsId: strings[0]?.slice(0, 50), strings: [...strings], cacheSize: templateCache.size });
 
     // Parse directly using custom HTML parser (single pass, no markers needed)
     const parsed = htmlParse(strings);
