@@ -454,7 +454,99 @@ function detectEarlyDereferences(source) {
     // Only look for dereferences BEFORE the first html`` call
     const preHtmlSection = templateBody.slice(0, firstHtml);
 
-    return detectDereferencesInSource(preHtmlSection);
+    const result = detectDereferencesInSource(preHtmlSection);
+
+    // Also look for dereferences inside callback bodies that contain nested html`` calls
+    // This handles patterns like:
+    //   ${when(..., () => {
+    //       const filterText = this.state.filterText;  // Early dereference
+    //       return html`...${filterText}...`;  // Used in nested template
+    //   })}
+    detectNestedCallbackDereferences(templateBody, result);
+
+    return result;
+}
+
+/**
+ * Find early dereferences inside callback bodies that have nested html`` calls.
+ * Modifies the result in place by adding to fixable/unfixable maps.
+ */
+function detectNestedCallbackDereferences(templateBody, result) {
+    // Find arrow function callbacks: () => { ... } or (args) => { ... }
+    // that contain html`` calls
+    const callbackPattern = /(?:\([^)]*\)|[a-zA-Z_$][\w$]*)\s*=>\s*\{/g;
+    let match;
+
+    while ((match = callbackPattern.exec(templateBody)) !== null) {
+        const bodyStart = match.index + match[0].length;
+
+        // Find the matching closing brace for this callback body
+        let depth = 1;
+        let i = bodyStart;
+        let inString = false;
+        let stringChar = '';
+
+        while (i < templateBody.length && depth > 0) {
+            const ch = templateBody[i];
+
+            // Handle strings (skip their contents)
+            if (!inString && (ch === '"' || ch === "'" || ch === '`')) {
+                inString = true;
+                stringChar = ch;
+                i++;
+                continue;
+            }
+            if (inString) {
+                if (ch === '\\' && i + 1 < templateBody.length) {
+                    i += 2; // Skip escape sequence
+                    continue;
+                }
+                if (ch === stringChar) {
+                    inString = false;
+                }
+                // Handle ${} in template literals
+                if (stringChar === '`' && ch === '$' && templateBody[i + 1] === '{') {
+                    i += 2;
+                    let tDepth = 1;
+                    while (i < templateBody.length && tDepth > 0) {
+                        if (templateBody[i] === '{') tDepth++;
+                        else if (templateBody[i] === '}') tDepth--;
+                        i++;
+                    }
+                    continue;
+                }
+                i++;
+                continue;
+            }
+
+            if (ch === '{') depth++;
+            else if (ch === '}') depth--;
+            i++;
+        }
+
+        const bodyEnd = i - 1; // Position of closing brace
+        const callbackBody = templateBody.slice(bodyStart, bodyEnd);
+
+        // Check if this callback body contains a html`` call
+        const nestedHtmlIdx = callbackBody.indexOf('html`');
+        if (nestedHtmlIdx === -1) continue;
+
+        // Look for dereferences BEFORE the nested html`` call
+        const preNestedHtml = callbackBody.slice(0, nestedHtmlIdx);
+        const nestedResult = detectDereferencesInSource(preNestedHtml);
+
+        // Merge into main result
+        for (const [varName, path] of nestedResult.fixable) {
+            if (!result.fixable.has(varName)) {
+                result.fixable.set(varName, path);
+            }
+        }
+        for (const [varName, info] of nestedResult.unfixable) {
+            if (!result.unfixable.has(varName)) {
+                result.unfixable.set(varName, info);
+            }
+        }
+    }
 }
 
 /**
@@ -650,7 +742,7 @@ function fixTaintedReferences(expr, fixableMap) {
         // Uses negative lookahead for - and : (object literal key)
         const pattern = new RegExp(`(?<![.\\-])\\b${varName}\\b(?![\\-]|\\s*:)`, 'g');
 
-        // Replace only if match is NOT inside a skip region
+        // Replace only if match is NOT inside a skip region and NOT a declaration
         let lastIndex = 0;
         let newResult = '';
         let match;
@@ -661,8 +753,17 @@ function fixTaintedReferences(expr, fixableMap) {
             // Check if this match is inside any skip region
             const insideSkipRegion = skipRegions.some(r => matchStart >= r.start && matchEnd <= r.end);
 
+            // Check if this is a declaration (const/let/var varName = ...)
+            // Also check for destructuring: const { a, b } = ... (any position in the pattern)
+            const beforeMatch = result.slice(Math.max(0, matchStart - 100), matchStart);
+            const isSimpleDecl = /\b(?:const|let|var)\s+$/.test(beforeMatch);
+            // For destructuring, check if we're inside { } that follows const/let/var
+            // Look for const/let/var { ... without a closing } before our position
+            const isDestructuring = /\b(?:const|let|var)\s*\{(?:[^{}])*$/.test(beforeMatch);
+            const isDeclaration = isSimpleDecl || isDestructuring;
+
             newResult += result.slice(lastIndex, matchStart);
-            if (insideSkipRegion) {
+            if (insideSkipRegion || isDeclaration) {
                 newResult += match[0];  // Keep original
             } else {
                 newResult += path;  // Replace
@@ -1712,14 +1813,161 @@ function minifyCode(code, generateMap = false, filename = 'source.js') {
                     break;
                 }
                 if (quote === '`' && code[i] === '$' && code[i + 1] === '{') {
-                    emit(code[i]); advance();
-                    emit(code[i]); advance();
-                    let depth = 1;
-                    while (i < len && depth > 0) {
-                        if (code[i] === '{') depth++;
-                        if (code[i] === '}') depth--;
-                        emit(code[i]); advance();
-                    }
+                    // Use helper functions for recursive template/expression parsing
+                    // These handle arbitrary nesting depth correctly
+
+                    // Skip a string literal, emitting all content
+                    const skipString = (q) => {
+                        emit(code[i]); advance(); // opening quote
+                        while (i < len) {
+                            if (code[i] === '\\' && i + 1 < len) {
+                                emit(code[i]); advance();
+                                emit(code[i]); advance();
+                            } else if (code[i] === q) {
+                                emit(code[i]); advance();
+                                break;
+                            } else {
+                                emit(code[i]); advance();
+                            }
+                        }
+                    };
+
+                    // Skip a template literal, emitting all content (recursive for ${})
+                    const skipTemplateLiteral = () => {
+                        emit(code[i]); advance(); // opening backtick
+                        while (i < len) {
+                            if (code[i] === '\\' && i + 1 < len) {
+                                emit(code[i]); advance();
+                                emit(code[i]); advance();
+                            } else if (code[i] === '$' && code[i + 1] === '{') {
+                                emit(code[i]); advance(); // $
+                                emit(code[i]); advance(); // {
+                                skipExpression(); // recursive!
+                            } else if (code[i] === '`') {
+                                emit(code[i]); advance();
+                                break;
+                            } else {
+                                emit(code[i]); advance();
+                            }
+                        }
+                    };
+
+                    // Skip an expression inside ${}, emitting content with minification
+                    const skipExpression = () => {
+                        let depth = 1;
+                        let exprLast = '';
+                        while (i < len && depth > 0) {
+                            const c = code[i];
+
+                            // Handle / - could be comment, regex, or division
+                            if (c === '/') {
+                                // Check for comments first
+                                if (code[i + 1] === '/') {
+                                    // Single-line comment - skip to newline
+                                    while (i < len && code[i] !== '\n') advance();
+                                    if (i < len) advance();
+                                    continue;
+                                }
+                                if (code[i + 1] === '*') {
+                                    // Block comment
+                                    const isLicense = code[i + 2] === '!';
+                                    if (isLicense) {
+                                        while (i < len && !(code[i] === '*' && code[i + 1] === '/')) {
+                                            emit(code[i]); advance();
+                                        }
+                                        if (i < len) { emit('*'); advance(); emit('/'); advance(); }
+                                    } else {
+                                        advance(); advance();
+                                        while (i < len && !(code[i] === '*' && code[i + 1] === '/')) advance();
+                                        if (i < len) { advance(); advance(); }
+                                    }
+                                    continue;
+                                }
+                                // Check if this is a regex literal (based on preceding token)
+                                // Regex can follow: = ( , ; ! & | ? { } [ < > + - * % ^ ~ : return
+                                const isLikelyRegex = /[=(:,;!&|?{}\[\]<>+\-*%^~:]/.test(exprLast) ||
+                                    exprLast === '' || exprLast === ' ';
+                                if (isLikelyRegex) {
+                                    // Parse regex literal
+                                    emit(code[i]); advance(); // opening /
+                                    let inCharClass = false;
+                                    while (i < len) {
+                                        if (code[i] === '\\' && i + 1 < len) {
+                                            // Escape sequence - emit both chars
+                                            emit(code[i]); advance();
+                                            emit(code[i]); advance();
+                                        } else if (code[i] === '[' && !inCharClass) {
+                                            inCharClass = true;
+                                            emit(code[i]); advance();
+                                        } else if (code[i] === ']' && inCharClass) {
+                                            inCharClass = false;
+                                            emit(code[i]); advance();
+                                        } else if (code[i] === '/' && !inCharClass) {
+                                            // End of regex
+                                            emit(code[i]); advance();
+                                            // Emit flags
+                                            while (i < len && /[gimsuy]/.test(code[i])) {
+                                                emit(code[i]); advance();
+                                            }
+                                            break;
+                                        } else {
+                                            emit(code[i]); advance();
+                                        }
+                                    }
+                                    exprLast = '/';
+                                    continue;
+                                }
+                                // Otherwise it's division - fall through to emit
+                            }
+
+                            // Skip strings
+                            if (c === '"' || c === "'") {
+                                skipString(c);
+                                exprLast = c;
+                                continue;
+                            }
+
+                            // Skip nested templates (recursive)
+                            if (c === '`') {
+                                skipTemplateLiteral();
+                                exprLast = '`';
+                                continue;
+                            }
+
+                            // Collapse whitespace
+                            if (/\s/.test(c)) {
+                                while (i < len && /\s/.test(code[i])) advance();
+                                if (i < len && depth > 0) {
+                                    const nextC = code[i];
+                                    const needsSpace =
+                                        (/[a-zA-Z0-9_$]/.test(exprLast) && /[a-zA-Z0-9_$]/.test(nextC)) ||
+                                        (exprLast === ')' && /[a-zA-Z_$]/.test(nextC)) ||
+                                        (/[a-zA-Z_$]/.test(exprLast) && nextC === '(');
+                                    if (needsSpace) {
+                                        emit(' ');
+                                        exprLast = ' ';
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // Track braces
+                            if (c === '{') depth++;
+                            if (c === '}') depth--;
+
+                            if (depth > 0) {
+                                emit(c);
+                                exprLast = c;
+                            }
+                            advance();
+                        }
+                        // Emit final closing brace
+                        emit('}');
+                    };
+
+                    emit(code[i]); advance(); // $
+                    emit(code[i]); advance(); // {
+                    skipExpression();
                     continue;
                 }
                 if (quote === '`' && code[i] === '`') {
@@ -2202,6 +2450,15 @@ function autoFixSource(source) {
         while ((varMatch = pattern.exec(source)) !== null) {
             const matchStart = varMatch.index;
             const matchEnd = varMatch.index + varMatch[0].length;
+
+            // Skip if this is the variable's own declaration (const/let/var varName = ...)
+            const beforeMatch = source.slice(Math.max(0, matchStart - 100), matchStart);
+            const isSimpleDecl = /\b(?:const|let|var)\s+$/.test(beforeMatch);
+            // For destructuring, check if we're inside { } that follows const/let/var
+            const isDestructuring = /\b(?:const|let|var)\s*\{(?:[^{}])*$/.test(beforeMatch);
+            if (isSimpleDecl || isDestructuring) {
+                continue;
+            }
 
             // Check if inside a fix-all region (eval(opt()))
             const insideFixAll = fixAllRegions.some(r => matchStart >= r.start && matchEnd <= r.end);

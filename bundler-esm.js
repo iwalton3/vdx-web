@@ -1534,14 +1534,161 @@ function minifyCode(code, generateMap = false, fileMap = null) {
                     break;
                 }
                 if (quote === '`' && code[i] === '$' && code[i + 1] === '{') {
-                    emit(code[i]); advance();
-                    emit(code[i]); advance();
-                    let depth = 1;
-                    while (i < len && depth > 0) {
-                        if (code[i] === '{') depth++;
-                        if (code[i] === '}') depth--;
-                        emit(code[i]); advance();
-                    }
+                    // Use helper functions for recursive template/expression parsing
+                    // These handle arbitrary nesting depth correctly
+
+                    // Skip a string literal, emitting all content
+                    const skipString = (q) => {
+                        emit(code[i]); advance(); // opening quote
+                        while (i < len) {
+                            if (code[i] === '\\' && i + 1 < len) {
+                                emit(code[i]); advance();
+                                emit(code[i]); advance();
+                            } else if (code[i] === q) {
+                                emit(code[i]); advance();
+                                break;
+                            } else {
+                                emit(code[i]); advance();
+                            }
+                        }
+                    };
+
+                    // Skip a template literal, emitting all content (recursive for ${})
+                    const skipTemplateLiteral = () => {
+                        emit(code[i]); advance(); // opening backtick
+                        while (i < len) {
+                            if (code[i] === '\\' && i + 1 < len) {
+                                emit(code[i]); advance();
+                                emit(code[i]); advance();
+                            } else if (code[i] === '$' && code[i + 1] === '{') {
+                                emit(code[i]); advance(); // $
+                                emit(code[i]); advance(); // {
+                                skipExpression(); // recursive!
+                            } else if (code[i] === '`') {
+                                emit(code[i]); advance();
+                                break;
+                            } else {
+                                emit(code[i]); advance();
+                            }
+                        }
+                    };
+
+                    // Skip an expression inside ${}, emitting content with minification
+                    const skipExpression = () => {
+                        let depth = 1;
+                        let exprLast = '';
+                        while (i < len && depth > 0) {
+                            const c = code[i];
+
+                            // Handle / - could be comment, regex, or division
+                            if (c === '/') {
+                                // Check for comments first
+                                if (code[i + 1] === '/') {
+                                    // Single-line comment - skip to newline
+                                    while (i < len && code[i] !== '\n') advance();
+                                    if (i < len) advance();
+                                    continue;
+                                }
+                                if (code[i + 1] === '*') {
+                                    // Block comment
+                                    const isLicense = code[i + 2] === '!';
+                                    if (isLicense) {
+                                        while (i < len && !(code[i] === '*' && code[i + 1] === '/')) {
+                                            emit(code[i]); advance();
+                                        }
+                                        if (i < len) { emit('*'); advance(); emit('/'); advance(); }
+                                    } else {
+                                        advance(); advance();
+                                        while (i < len && !(code[i] === '*' && code[i + 1] === '/')) advance();
+                                        if (i < len) { advance(); advance(); }
+                                    }
+                                    continue;
+                                }
+                                // Check if this is a regex literal (based on preceding token)
+                                // Regex can follow: = ( , ; ! & | ? { } [ < > + - * % ^ ~ : return
+                                const isLikelyRegex = /[=(:,;!&|?{}\[\]<>+\-*%^~:]/.test(exprLast) ||
+                                    exprLast === '' || exprLast === ' ';
+                                if (isLikelyRegex) {
+                                    // Parse regex literal
+                                    emit(code[i]); advance(); // opening /
+                                    let inCharClass = false;
+                                    while (i < len) {
+                                        if (code[i] === '\\' && i + 1 < len) {
+                                            // Escape sequence - emit both chars
+                                            emit(code[i]); advance();
+                                            emit(code[i]); advance();
+                                        } else if (code[i] === '[' && !inCharClass) {
+                                            inCharClass = true;
+                                            emit(code[i]); advance();
+                                        } else if (code[i] === ']' && inCharClass) {
+                                            inCharClass = false;
+                                            emit(code[i]); advance();
+                                        } else if (code[i] === '/' && !inCharClass) {
+                                            // End of regex
+                                            emit(code[i]); advance();
+                                            // Emit flags
+                                            while (i < len && /[gimsuy]/.test(code[i])) {
+                                                emit(code[i]); advance();
+                                            }
+                                            break;
+                                        } else {
+                                            emit(code[i]); advance();
+                                        }
+                                    }
+                                    exprLast = '/';
+                                    continue;
+                                }
+                                // Otherwise it's division - fall through to emit
+                            }
+
+                            // Skip strings
+                            if (c === '"' || c === "'") {
+                                skipString(c);
+                                exprLast = c;
+                                continue;
+                            }
+
+                            // Skip nested templates (recursive)
+                            if (c === '`') {
+                                skipTemplateLiteral();
+                                exprLast = '`';
+                                continue;
+                            }
+
+                            // Collapse whitespace
+                            if (/\s/.test(c)) {
+                                while (i < len && /\s/.test(code[i])) advance();
+                                if (i < len && depth > 0) {
+                                    const nextC = code[i];
+                                    const needsSpace =
+                                        (/[a-zA-Z0-9_$]/.test(exprLast) && /[a-zA-Z0-9_$]/.test(nextC)) ||
+                                        (exprLast === ')' && /[a-zA-Z_$]/.test(nextC)) ||
+                                        (/[a-zA-Z_$]/.test(exprLast) && nextC === '(');
+                                    if (needsSpace) {
+                                        emit(' ');
+                                        exprLast = ' ';
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // Track braces
+                            if (c === '{') depth++;
+                            if (c === '}') depth--;
+
+                            if (depth > 0) {
+                                emit(c);
+                                exprLast = c;
+                            }
+                            advance();
+                        }
+                        // Emit final closing brace
+                        emit('}');
+                    };
+
+                    emit(code[i]); advance(); // $
+                    emit(code[i]); advance(); // {
+                    skipExpression();
                     continue;
                 }
                 if (quote === '`' && code[i] === '`') {

@@ -1965,5 +1965,61 @@ describe('Fine-Grained Renderer - memoEach() Per-Item Caching', function(it) {
     });
 });
 
+describe('When callback with early return cleanup', function(it) {
+    it('cleans up nested content when callback returns different template', async () => {
+        const state = reactive({
+            useWindowed: false,
+            hasMore: true
+        });
+
+        // Mimics browse-page.js pattern:
+        // - Callback with early return
+        // - Non-windowed mode has nested when() with sentinel
+        // - Windowed mode doesn't have sentinel
+        const container = document.createElement('div');
+        const { fragment, cleanup } = instantiateTemplate(
+            compile`<div>${'slot0'}</div>`.compiled,
+            [createValueGetter(() => {
+                if (state.useWindowed) {
+                    return html`<div class="windowed">WINDOWED</div>`;
+                }
+                return html`
+                    <div class="non-windowed">NON-WINDOWED</div>
+                    ${when(state.hasMore, html`<div class="sentinel">SENTINEL</div>`)}
+                `;
+            })],
+            null
+        );
+        container.appendChild(fragment);
+
+        await waitForEffects();
+
+        // Initial: non-windowed with sentinel
+        assert.equal(container.querySelector('.non-windowed')?.textContent, 'NON-WINDOWED');
+        assert.equal(container.querySelector('.sentinel')?.textContent, 'SENTINEL');
+        assert.equal(container.querySelector('.windowed'), null);
+
+        // Switch to windowed mode
+        state.useWindowed = true;
+        await waitForEffects();
+
+        // Should show windowed, sentinel should be GONE
+        assert.equal(container.querySelector('.windowed')?.textContent, 'WINDOWED');
+        assert.equal(container.querySelector('.non-windowed'), null, 'non-windowed should be removed');
+        assert.equal(container.querySelector('.sentinel'), null, 'SENTINEL SHOULD BE REMOVED');
+
+        // Switch back to non-windowed
+        state.useWindowed = false;
+        await waitForEffects();
+
+        // Should show non-windowed with sentinel again
+        assert.equal(container.querySelector('.non-windowed')?.textContent, 'NON-WINDOWED');
+        assert.equal(container.querySelector('.sentinel')?.textContent, 'SENTINEL');
+        assert.equal(container.querySelector('.windowed'), null);
+
+        cleanup();
+    });
+});
+
 // Run test marker
 console.log('=== Fine-Grained Renderer Tests ===');
