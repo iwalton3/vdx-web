@@ -867,17 +867,17 @@ template() {
 
 When `opt()` or `optimize.js` transforms `${count}` to `${html.contain(() => count)}`, the closure captures the *variable* `count`, not the reactive path `this.state.count`. Since `count` was evaluated before the closure was created, the closure has no reactive dependencies - it just returns the captured value forever.
 
-**The same applies to function callbacks in when(), each(), and memoEach():**
+**Note about when(), each(), and memoEach():**
 
-These callbacks also create reactive boundaries (similar to `contain()`), so early dereference defeats reactivity inside them too:
+These helpers do NOT create isolated reactive boundaries by default. They work like regular JavaScript - captured variables are fine because the parent template re-renders when state changes:
 
 ```javascript
-// ❌ BAD - Variable captured before callback
+// ✅ Both patterns work - captured variables are fine
 template() {
     const isAdmin = this.stores.auth.isAdmin;
 
-    // The function form of when() creates a contain-like boundary
-    // isAdmin was captured BEFORE the callback, so it won't update
+    // when() and each() do NOT create reactive boundaries by default
+    // They re-evaluate when the parent template re-renders
     return html`
         ${when(isAdmin, () => html`<admin-panel></admin-panel>`)}
         ${each(this.state.items, item => html`
@@ -885,19 +885,9 @@ template() {
         `)}
     `;
 }
-
-// ✅ GOOD - Access reactive state inside callbacks
-template() {
-    return html`
-        ${when(this.stores.auth.isAdmin, () => html`<admin-panel></admin-panel>`)}
-        ${each(this.state.items, item => html`
-            <div class="${this.stores.auth.isAdmin ? 'admin' : ''}">${item.name}</div>
-        `)}
-    `;
-}
 ```
 
-**Note:** The function form `when(cond, () => html\`...\`)` is preferred for performance (it caches templates by condition), but this means the callback is a reactive boundary. Access `this.state`/`this.stores` directly inside the callback.
+**Note:** `when()` and `each()` do not create isolated reactive boundaries. They work like regular JavaScript - captured variables are fine. Use `contain()` explicitly if you need fine-grained isolation, or use `optimize.js` to automatically wrap expressions for optimal performance.
 
 **For computed values, use methods or inline expressions:**
 

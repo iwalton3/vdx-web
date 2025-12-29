@@ -122,7 +122,7 @@ Options:
   --wrapped-only    Only optimize templates wrapped in eval(opt())
                     Default: optimize ALL html\`\` templates
   --lint-only, -l   Check ALL files for early dereference issues
-                    Finds when()/each()/contain() callbacks capturing dereferenced vars
+                    Finds contain() callbacks capturing dereferenced vars
                     Exit code 1 if fixable issues, 2 if unfixable issues
   --auto-fix        Fix early dereferences in-place (all files)
                     Only fixes simple patterns, not computed expressions
@@ -360,8 +360,10 @@ function extractExpressions(source) {
 function shouldSkipWrapping(expr) {
     const trimmed = expr.trim();
 
-    // Skip already-isolated helpers (at start of expression)
-    if (/^(contain|raw|html\.contain|when|each|memoEach)\s*\(/.test(trimmed)) {
+    // Skip already-isolated helpers (contain/raw only)
+    // when/each/memoEach are NOT skipped - they need wrapping for fine-grained reactivity
+    // since the renderer no longer creates boundaries for them by default
+    if (/^(contain|raw|html\.contain)\s*\(/.test(trimmed)) {
         return true;
     }
 
@@ -906,17 +908,16 @@ function lintEarlyDereferences(source, filename = '') {
         const callEnd = i;
 
         // Determine which argument contains the callback
+        // Only contain() creates boundaries now - when/each/memoEach no longer do by default
+        // The optimizer wraps when/each in contain(), so their callbacks don't need checking
         // contain(callback) - arg 0
-        // when(condition, ifTrue, ifFalse) - args 1, 2
-        // each(array, callback, key) - arg 1
-        // memoEach(array, callback, key, cache) - arg 1
         let callbackArgIndices;
         if (helperName === 'contain') {
             callbackArgIndices = [0];
-        } else if (helperName === 'when') {
-            callbackArgIndices = [1, 2];  // Both ifTrue and ifFalse can be callbacks
         } else {
-            callbackArgIndices = [1];  // each, memoEach
+            // Skip when, each, memoEach - they no longer create boundaries by default
+            // and the optimizer wraps the WHOLE expression in contain()
+            continue;
         }
 
         // Find callback function bodies and record their regions
@@ -2335,16 +2336,16 @@ function autoFixSource(source) {
         fixAllRegions.push({ start: startPos, end: i });
     }
 
-    // Find callback bodies in when/each/memoEach/contain calls (outside eval(opt()))
-    const deferredPattern = /\b(when|each|memoEach|contain)\s*\(/g;
+    // Find callback bodies in contain() calls only (outside eval(opt()))
+    // when/each/memoEach no longer create boundaries, so their callbacks don't need fixing
+    // The optimizer wraps the WHOLE when/each expression in contain()
+    const deferredPattern = /\bcontain\s*\(/g;
     while ((match = deferredPattern.exec(source)) !== null) {
         const helperStart = match.index;
 
         // Skip if inside an eval(opt()) region - those are handled by fixAllRegions
         const insideEvalOpt = fixAllRegions.some(r => helperStart >= r.start && helperStart < r.end);
         if (insideEvalOpt) continue;
-
-        const helperName = match[1];
 
         // Parse to find arguments, tracking all bracket types
         let i = match.index + match[0].length;
@@ -2392,15 +2393,8 @@ function autoFixSource(source) {
 
         const callEnd = i;
 
-        // Determine which arguments can be callbacks
-        let callbackArgIndices;
-        if (helperName === 'contain') {
-            callbackArgIndices = [0];
-        } else if (helperName === 'when') {
-            callbackArgIndices = [1, 2];
-        } else {
-            callbackArgIndices = [1];  // each, memoEach
-        }
+        // contain(callback) - arg 0 is the callback
+        const callbackArgIndices = [0];
 
         // Find callback function bodies
         for (const argIdx of callbackArgIndices) {

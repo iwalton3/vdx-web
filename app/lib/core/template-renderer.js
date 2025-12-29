@@ -831,15 +831,6 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
     let memoCurrCache = null;     // Map<key, { item, result }> for current render
     let memoPrevDeps = null;      // Previous deps array for cache invalidation
 
-    // when() slot-level state - for function form reactive boundaries
-    let whenLastCondition = undefined;
-    let whenEffectRef = null;
-    let whenMarkerRef = null;       // reactive({ marker }) - triggers whenEffect on update
-    let whenPreviousCompiled = null;
-    let whenValuesRef = null;
-    let whenNodes = [];
-    let whenChildEffects = [];
-
     // contain() slot-level state - for DOM reuse across containEffect recreations
     let containPreviousCompiled = null;
     let containValuesRef = null;
@@ -942,127 +933,35 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
             }
         };
 
-        // Helper to clean up when state
-        const cleanupWhen = () => {
-            if (whenEffectRef) {
-                whenEffectRef.dispose();
-                for (const oldNode of whenNodes) oldNode.remove();
-                for (const oldEffect of whenChildEffects) if (oldEffect.dispose) oldEffect.dispose();
-                whenNodes = [];
-                whenChildEffects = [];
-                whenPreviousCompiled = null;
-                whenValuesRef = null;
-                whenEffectRef = null;
-                whenMarkerRef = null;
-                whenLastCondition = undefined;
-            }
-        };
-
         // Handle different value types
         if (value == null || value === false) {
-            cleanupWhen();
             cleanupContain();
             return;
         }
 
-        // Handle when() with function form - creates isolated reactive boundary like contain()
-        // Non-function forms are evaluated immediately and fall through
+        // Handle when() - evaluate immediately and fall through to html handling
+        // Both function and non-function forms are now evaluated inline (no isolated boundary)
+        // Use contain() explicitly if you need fine-grained reactivity isolation
         if (isWhen(value)) {
             const { _condition, _thenValue, _elseValue } = value;
-            const isFunctionForm = typeof _thenValue === 'function' || typeof _elseValue === 'function';
 
-            // Non-function form: evaluate immediately and fall through to html handling
-            if (!isFunctionForm) {
-                cleanupWhen();
-                value = _condition ? _thenValue : _elseValue;
-                if (!value) {
-                    cleanupContain();
-                    return;
-                }
-                // Fall through to normal html/primitive handling
+            // Select the branch based on condition
+            const selectedBranch = _condition ? _thenValue : _elseValue;
+
+            // Evaluate function form if needed
+            if (typeof selectedBranch === 'function') {
+                setRenderContext(component);
+                value = selectedBranch();
+                setRenderContext(null);
             } else {
-                // Function form: create reactive boundary like contain()
+                value = selectedBranch;
+            }
+
+            if (!value) {
                 cleanupContain();
-
-                // If condition changed, cleanup and recreate
-                if (whenLastCondition !== _condition && whenEffectRef) {
-                    cleanupWhen();
-                }
-                whenLastCondition = _condition;
-
-                // Create or update the marker ref - this triggers whenEffect to re-run
-                if (!whenMarkerRef) {
-                    whenMarkerRef = reactive({ marker: value });
-                } else {
-                    whenMarkerRef.marker = value;
-                }
-
-                // If we already have an effect, it will re-run due to marker update
-                if (whenEffectRef) {
-                    return;
-                }
-
-                // Create an isolated effect for this boundary
-                const newWhenEffect = createEffect(() => {
-                    // Read the marker to establish dependency
-                    const currentMarker = whenMarkerRef.marker;
-                    const renderFn = currentMarker._condition
-                        ? currentMarker._thenValue
-                        : currentMarker._elseValue;
-
-                    setRenderContext(component);
-                    const result = typeof renderFn === 'function' ? renderFn() : renderFn;
-                    setRenderContext(null);
-
-                    if (!result || !isHtml(result) || !result._compiled) {
-                        for (const oldNode of whenNodes) oldNode.remove();
-                        for (const oldEffect of whenChildEffects) if (oldEffect.dispose) oldEffect.dispose();
-                        whenNodes = [];
-                        whenChildEffects = [];
-                        whenPreviousCompiled = null;
-                        whenValuesRef = null;
-                        return;
-                    }
-
-                    const rawValues = result._values || [];
-
-                    // Same template structure - update values reactively
-                    if (whenPreviousCompiled === result._compiled && whenValuesRef) {
-                        whenValuesRef.current = rawValues;
-                        return;
-                    }
-
-                    // Different structure - reinstantiate
-                    for (const oldNode of whenNodes) oldNode.remove();
-                    for (const oldEffect of whenChildEffects) if (oldEffect.dispose) oldEffect.dispose();
-
-                    // Create reactive container for values
-                    whenValuesRef = reactive({ current: rawValues });
-                    const wrappedValues = rawValues.map((_, index) => {
-                        const getter = () => whenValuesRef.current[index];
-                        getter[VALUE_GETTER] = true;
-                        return getter;
-                    });
-
-                    const { fragment, effects: childEffects } = instantiateTemplate(
-                        result._compiled,
-                        wrappedValues,
-                        component,
-                        slotInSvg
-                    );
-                    const nodes = [...fragment.childNodes];
-                    insertWithoutParentTracking(placeholder, fragment);
-                    whenNodes = nodes;
-                    whenChildEffects = childEffects;
-                    whenPreviousCompiled = result._compiled;
-                });
-
-                whenEffectRef = newWhenEffect;
-                effects.push(newWhenEffect);
                 return;
             }
-        } else {
-            cleanupWhen();
+            // Fall through to normal html/primitive handling
         }
 
         // Handle contain() - isolated reactive boundary

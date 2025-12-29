@@ -1683,18 +1683,14 @@ Now `currentTime` updates only run the small `contain()` callback, not the entir
 **Other reactive boundary options:**
 
 ```javascript
-// Function-form when() also creates a boundary
-${when(this.state.isPlaying,
-    () => html`<playing-animation></playing-animation>`,  // Own boundary
-    () => html`<paused-icon></paused-icon>`               // Own boundary
-)}
-
 // Child components naturally isolate updates
 <player-time store="${this.stores.player}"></player-time>  // Isolated
 ${memoEach(this.state.songs, ...)}  // Not affected by player-time's updates
 ```
 
-**The Rule:** If a template has both high-frequency updates AND expensive content (large lists, complex rendering), they must be separated by a reactive boundary.
+**Note:** `when()` and `each()` do NOT create boundaries by default - they work like regular JavaScript. Use `contain()` explicitly when you need isolation, or use `opt()`/`optimize.js` to wrap expressions automatically.
+
+**The Rule:** If a template has both high-frequency updates AND expensive content, use `contain()` to isolate the high-frequency part.
 
 ### Automatic Fine-Grained Reactivity with opt()
 

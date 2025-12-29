@@ -283,10 +283,11 @@ template() {
 
 **When to use reactive boundaries:**
 - `contain()` - Isolate frequently updating values (timers, progress, animations)
-- `when(() => html\`...\`)` - Function form creates boundary for conditional content
 - Child components - Moving content to a child naturally isolates its updates
 
-**The rule:** If a template has both high-frequency updates AND expensive content (large lists, complex rendering), they must be separated by a reactive boundary.
+**Note:** `when()` and `each()` do NOT create boundaries by default - they work like regular JavaScript.
+
+**The rule:** If a template has both high-frequency updates AND expensive content (large lists, complex rendering), use `contain()` or move content to child components.
 
 ## Build-Time Optimizer
 
@@ -300,22 +301,21 @@ node optimize.js -i ./app -o ./dist
 node optimize.js -i ./app --lint-only
 ```
 
-**Lint mode (`--lint-only`)** - Detects patterns that break reactivity even with the optimizer:
+**Lint mode (`--lint-only`)** - Detects patterns that break reactivity inside `contain()`:
 ```javascript
-// ❌ DETECTED: Deferred callback captures dead value
+// ❌ DETECTED: contain() callback captures dead value
+const { count } = this.state;
+${contain(() => html`<p>${count}</p>`)}  // count never updates!
+
+// ✅ SAFE: Access state inside contain()
+${contain(() => html`<p>${this.state.count}</p>`)}
+
+// ✅ SAFE: when/each work fine with captured variables (no boundaries)
 const { items } = this.state;
-${each(items, item => html`...`)}  // each() callback is a reactive boundary!
-
-// ❌ DETECTED: eval(opt()) runs at runtime, optimizer can't help
-const count = this.state.count;
-template: eval(opt(() => html`<p>${count}</p>`))
-
-// ✅ SAFE: Plain template (optimizer fixes this)
-const count = this.state.count;
-return html`<p>${count}</p>`;  // Optimizer replaces with this.state.count
+${each(items, item => html`...`)}  // works - parent re-renders when items change
 ```
 
-**Coding assistants should run lint mode to verify templates use deferred callbacks correctly.**
+**Coding assistants should run lint mode to verify contain() callbacks access state correctly.**
 
 ## Anti-Patterns
 

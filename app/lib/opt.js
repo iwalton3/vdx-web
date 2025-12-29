@@ -290,10 +290,10 @@ function isEscaped(source, pos) {
 function shouldSkipWrapping(expr) {
     const trimmed = expr.trim();
 
-    // Skip already-isolated helpers and template helpers
-    // when/each/memoEach are handled by the renderer and wrapping them breaks
-    // reactivity when their conditions use local variables
-    if (/^(contain|raw|html\.contain|when|each|memoEach)\s*\(/.test(trimmed)) {
+    // Skip already-isolated helpers (contain/raw only)
+    // when/each/memoEach are NOT skipped - they need wrapping for fine-grained reactivity
+    // since the renderer no longer creates boundaries for them by default
+    if (/^(contain|raw|html\.contain)\s*\(/.test(trimmed)) {
         return true;
     }
 
