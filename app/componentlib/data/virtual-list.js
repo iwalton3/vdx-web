@@ -351,12 +351,6 @@ export default defineComponent('cl-virtual-list', {
         const totalHeight = items.length * itemHeight;
         const isSelfScroll = this.props.scrollContainer === 'self';
 
-        // Safeguard: if dimensions not yet calculated, limit visible items
-        const safeEnd = this.state.containerHeight > 0
-            ? this.state.visibleEnd
-            : Math.min(this.state.visibleEnd, this.props.bufferSize * 2);
-
-        const visibleItems = items.slice(this.state.visibleStart, safeEnd);
         const offsetY = this.state.visibleStart * itemHeight;
 
         // Use provided keyFn or default
@@ -390,7 +384,7 @@ export default defineComponent('cl-virtual-list', {
                 <div class="virtual-list-spacer" style="height: ${totalHeight}px;"></div>
 
                 <div class="virtual-list-items" style="transform: translateY(${offsetY}px);">
-                    ${memoEach(visibleItems, (item) => {
+                    ${memoEach(items.slice(this.state.visibleStart, this.state.visibleEnd), (item) => {
                         // Position is handled by parent's translateY.
                         // Selection is included in key so only affected items re-render.
                         const itemKey = keyFn(item);

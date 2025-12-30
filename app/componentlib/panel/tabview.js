@@ -29,7 +29,6 @@ export default defineComponent('cl-tabview', {
 
     template() {
         const tabs = this.props.tabs || [];
-        const activeTab = tabs[this.state.activeTab];
 
         return html`
             <div class="cl-tabview">
@@ -43,7 +42,7 @@ export default defineComponent('cl-tabview', {
                     `)}
                 </div>
                 <div class="tab-content">
-                    ${when(activeTab, () => raw(activeTab.content))}
+                    ${when(tabs[this.state.activeTab], () => raw(tabs[this.state.activeTab].content))}
                 </div>
             </div>
         `;

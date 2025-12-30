@@ -83,8 +83,6 @@ export default defineComponent('cl-fileupload', {
     },
 
     template() {
-        const hasFiles = this.state.files.length > 0;
-
         return html`
             <div class="cl-fileupload">
                 <div class="upload-header">
@@ -97,12 +95,12 @@ export default defineComponent('cl-fileupload', {
                             on-change="handleFileSelect">
                         ${this.props.label}
                     </label>
-                    ${when(hasFiles && !this.props.auto, html`
+                    ${when(this.state.files.length > 0 && !this.props.auto, html`
                         <button class="upload-button" on-click="upload">Upload</button>
                         <button class="cancel-button" on-click="clear">Cancel</button>
                     `)}
                 </div>
-                ${when(hasFiles, html`
+                ${when(this.state.files.length > 0, html`
                     <div class="files-list">
                         ${each(this.state.files, (fileInfo, index) => html`
                             <div class="file-item">
