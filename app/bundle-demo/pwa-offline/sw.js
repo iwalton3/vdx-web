@@ -50,6 +50,9 @@ const CONFIG = {
 
 let currentCacheName = null;
 let currentVersion = null;
+let isOfflineMode = false;
+let retryIntervalId = null;
+const RETRY_INTERVAL_MS = 30000; // Check every 30 seconds when offline
 
 // =============================================================================
 // Utility Functions
@@ -58,18 +61,89 @@ let currentVersion = null;
 /**
  * Fetch and parse the cache manifest
  * Uses cache-busting to ensure fresh manifest
+ * Includes timeout to prevent hanging when server is unresponsive
  */
-async function fetchManifest() {
+async function fetchManifest(timeoutMs = 10000) {
     try {
         const cacheBuster = `?_=${Date.now()}`;
-        const response = await fetch(CONFIG.manifestUrl + cacheBuster, { cache: 'no-store' });
-        if (!response.ok) {
-            throw new Error(`Manifest fetch failed: ${response.status}`);
+
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            const response = await fetch(CONFIG.manifestUrl + cacheBuster, {
+                cache: 'no-store',
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`Manifest fetch failed: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            clearTimeout(timeoutId);
+            throw error;
         }
-        return await response.json();
     } catch (error) {
-        console.error('[SW] Failed to fetch manifest:', error);
+        if (error.name === 'AbortError') {
+            console.warn('[SW] Manifest fetch timed out after', timeoutMs, 'ms');
+        } else {
+            console.error('[SW] Failed to fetch manifest:', error);
+        }
         return null;
+    }
+}
+
+/**
+ * Start periodic retry when in offline mode
+ */
+function startRetryInterval() {
+    if (retryIntervalId) return; // Already running
+
+    console.log('[SW] Starting periodic connectivity check');
+    retryIntervalId = setInterval(tryReconnect, RETRY_INTERVAL_MS);
+}
+
+/**
+ * Stop periodic retry (when back online)
+ */
+function stopRetryInterval() {
+    if (retryIntervalId) {
+        console.log('[SW] Stopping periodic connectivity check');
+        clearInterval(retryIntervalId);
+        retryIntervalId = null;
+    }
+}
+
+/**
+ * Try to reconnect to server and switch back to online mode
+ */
+async function tryReconnect() {
+    if (!isOfflineMode) {
+        stopRetryInterval();
+        return;
+    }
+
+    console.log('[SW] Checking if server is back online...');
+    const manifest = await fetchManifest(5000); // Shorter timeout for retry
+
+    if (manifest) {
+        console.log('[SW] Server is back online!');
+        isOfflineMode = false;
+        stopRetryInterval();
+
+        // Notify clients we're back online
+        await postMessageToClients({
+            type: 'cache-status',
+            status: 'online',
+            version: manifest.version,
+            message: 'Server connection restored'
+        });
+
+        // Check if we need to update the cache
+        await updateCacheIfNeeded();
     }
 }
 
@@ -230,15 +304,19 @@ async function updateCacheIfNeeded() {
         // Manifest fetch failed - check if we have a cached version (offline mode)
         const { cacheName, version } = await findCurrentCache();
         if (cacheName) {
+            console.log('[SW] Server unavailable, using existing cache for offline mode:', version);
             currentCacheName = cacheName;
             currentVersion = version;
+            isOfflineMode = true;
+            startRetryInterval();
             const cache = await caches.open(cacheName);
             const keys = await cache.keys();
             await postMessageToClients({
                 type: 'cache-status',
                 status: 'offline',
                 version: version,
-                fileCount: keys.length
+                fileCount: keys.length,
+                message: 'Server unavailable - using cached version'
             });
             return false;
         }
@@ -246,9 +324,15 @@ async function updateCacheIfNeeded() {
         await postMessageToClients({
             type: 'cache-status',
             status: 'error',
-            error: 'Failed to fetch manifest'
+            error: 'Failed to fetch manifest and no cached version available'
         });
         return false;
+    }
+
+    // Server is reachable - ensure we're not in offline mode
+    if (isOfflineMode) {
+        isOfflineMode = false;
+        stopRetryInterval();
     }
 
     const { cacheName: existingCacheName, version: existingVersion } = await findCurrentCache();
