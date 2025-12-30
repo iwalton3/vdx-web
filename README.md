@@ -315,12 +315,66 @@ Requires modern browsers with ES6+ support:
 
 ## Deployment
 
-Since there's no build step, deployment is simple:
+Since there's no build step required, deployment is simple:
 
 1. Copy the `app/` directory to your web server
 2. Configure server routing if using HTML5 mode (see [docs/routing.md](docs/routing.md))
 
 That's it!
+
+## Optional Build Step
+
+While VDX runs directly in the browser with no build step, there's an **optional** optimizer and bundler for production deployments. Unlike typical JavaScript tooling, these tools have **zero npm dependencies** - they're pure Node.js scripts.
+
+### Benefits
+
+| Feature | Benefit |
+|---------|---------|
+| **Linting** | Catch reactivity issues before deployment |
+| **Optimization** | Automatic fine-grained reactivity (wrap expressions in `contain()`) |
+| **Minification** | Smaller file sizes with accurate source maps |
+| **Bundling** | Combine framework files with tree-shaking |
+
+### Quick Start
+
+```bash
+# Lint for reactivity issues (catches bugs that break fine-grained updates)
+node optimize.js -i ./src -l
+
+# Lint in strict mode (for CI - fail on unfixable issues)
+node optimize.js -i ./src -l --strict
+
+# Build with minification and source maps
+node optimize.js -i ./src -o ./dist -m -s
+
+# Bundle framework files
+node bundler-esm.js
+```
+
+### What the Optimizer Does
+
+1. **Wraps reactive expressions** - Transforms `${this.state.x}` in templates to use fine-grained reactivity automatically
+2. **Fixes early dereferences** - Inlines `const { x } = this.state` patterns that would break reactivity
+3. **Strips runtime wrappers** - Removes `eval(opt())` calls (they become redundant after build-time optimization)
+4. **Minifies with source maps** - Full JavaScript minification with accurate debugging support
+
+### Why No Dependencies?
+
+The optimizer and bundler are ~3000 lines of vanilla JavaScript each. They:
+- Parse and transform code using custom parsers
+- Generate source maps with VLQ encoding
+- Perform tree-shaking and dead code elimination
+
+No Babel, no Terser, no webpack, no esbuild. Just Node.js.
+
+### Completely Optional
+
+You can:
+- **Never use the build tools** - Everything works directly in the browser
+- **Use only the linter** - Catch bugs without changing your workflow
+- **Use full optimization** - For production deployments with smaller files
+
+See **[docs/optimization.md](docs/optimization.md)** for the complete guide.
 
 ## PWA Offline Support
 
