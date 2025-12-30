@@ -919,6 +919,13 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
             if (typeof window !== 'undefined' && window.__SLOT_DEBUG__) {
                 const vComp = value?._compiled;
                 const pComp = previousValue?._compiled;
+                // Get template hint from tag or first child for identification
+                const getHint = (compiled) => {
+                    if (!compiled) return 'null';
+                    if (compiled.tag) return compiled.tag;
+                    if (compiled.children?.[0]?.tag) return 'frag:' + compiled.children[0].tag;
+                    return compiled.op;
+                };
                 console.log('[SLOT] RE-INSTANTIATE', {
                     slotIndex: node.index,
                     valueType: isHtml(value) ? 'html' : isContain(value) ? 'contain' : isMemoEach(value) ? 'memoEach' : typeof value,
@@ -926,6 +933,8 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                     compiledSame: vComp === pComp,
                     valueOp: vComp?.op,
                     prevOp: pComp?.op,
+                    valueHint: getHint(vComp),
+                    prevHint: getHint(pComp),
                 });
             }
 
@@ -1280,11 +1289,19 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
 
                 // Different template structure - need to reinstantiate
                 if (CONTAIN_DEBUG) {
+                    const getHint = (compiled) => {
+                        if (!compiled) return 'null';
+                        if (compiled.tag) return compiled.tag;
+                        if (compiled.children?.[0]?.tag) return 'frag:' + compiled.children[0].tag;
+                        return compiled.op;
+                    };
                     console.log('[CONTAIN] RE-INSTANTIATE', {
                         slotIndex: node.index,
                         compiledSame: containPreviousCompiled === result._compiled,
                         resultOp: result._compiled?.op,
                         prevOp: containPreviousCompiled?.op,
+                        resultHint: getHint(result._compiled),
+                        prevHint: getHint(containPreviousCompiled),
                     });
                 }
                 // Clean up old nodes first

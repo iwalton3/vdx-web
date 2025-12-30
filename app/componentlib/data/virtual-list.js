@@ -7,7 +7,7 @@
  * - Parent scrolling - tracks a parent scrollable container
  * - Window scrolling - tracks the window/document scroll
  */
-import { defineComponent, html, memoEach, when } from '../../lib/framework.js';
+import { defineComponent, html, memoEach, when, flushSync } from '../../lib/framework.js';
 import { rafThrottle } from '../../lib/utils.js';
 
 export default defineComponent('cl-virtual-list', {
@@ -231,12 +231,20 @@ export default defineComponent('cl-virtual-list', {
             const visibleCount = Math.ceil(this.state.containerHeight / itemHeight);
             const visibleEnd = visibleStart + visibleCount;
 
-            const newStart = Math.max(0, visibleStart - bufferSize);
-            const newEnd = Math.min(totalItems, visibleEnd + bufferSize);
+            let newStart = Math.max(0, visibleStart - bufferSize);
+            let newEnd = Math.min(totalItems, visibleEnd + bufferSize);
+
+            // Bottom locking: ensure visibleStart doesn't cause content to extend past container
+            const renderCount = newEnd - newStart;
+            const maxVisibleStart = Math.max(0, totalItems - renderCount);
+            newStart = Math.min(newStart, maxVisibleStart);
 
             if (this.state.visibleStart !== newStart || this.state.visibleEnd !== newEnd) {
-                this.state.visibleStart = newStart;
-                this.state.visibleEnd = newEnd;
+                // Use flushSync to ensure translateY and item slice update atomically
+                flushSync(() => {
+                    this.state.visibleStart = newStart;
+                    this.state.visibleEnd = newEnd;
+                });
             }
         },
 

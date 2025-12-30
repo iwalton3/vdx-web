@@ -47,7 +47,8 @@ function parseArgs() {
         lintOnly: false,
         autoFix: false,
         verbose: false,
-        dryRun: false
+        dryRun: false,
+        strict: false
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -87,6 +88,9 @@ function parseArgs() {
             case '--dry-run':
                 options.dryRun = true;
                 break;
+            case '--strict':
+                options.strict = true;
+                break;
             case '--help':
             case '-h':
                 showHelp();
@@ -113,6 +117,7 @@ Examples:
   node optimize.js -i ./src -o ./dist --minify --sourcemap
   node optimize.js -i ./src -o ./dist --wrapped-only
   node optimize.js -i ./src --lint-only              # Check for issues
+  node optimize.js -i ./src --lint-only --strict     # Fail CI on unfixable
 
 Options:
   --input, -i       Input directory (required)
@@ -122,8 +127,11 @@ Options:
   --wrapped-only    Only optimize templates wrapped in eval(opt())
                     Default: optimize ALL html\`\` templates
   --lint-only, -l   Check ALL files for early dereference issues
-                    Finds contain() callbacks capturing dereferenced vars
+                    Shows both fixable (auto-fixed by optimizer) and unfixable issues
                     Exit code 1 if fixable issues, 2 if unfixable issues
+  --strict          With --lint-only: only show UNFIXABLE issues (optimizer can't fix)
+                    Use to check code before running optimizer
+                    Exit code 1 if unfixable issues found (for CI)
   --auto-fix        Fix early dereferences in-place (all files)
                     Only fixes simple patterns, not computed expressions
   --verbose, -v     Show detailed processing information
@@ -147,8 +155,13 @@ Early Dereference Detection:
     const { count } = this.state;
     return html\`\${count}\`;  // OK with optimizer, but breaks without it
 
+  3. Stale arguments to helpers (UNFIXABLE - optimizer skips these files):
+    const items = data.slice(start, end);  // Computed from state
+    \${memoEach(items, ...)}                // STALE after contain() updates
+
   Run --lint-only to find issues that would break the deployed codebase.
   Run --auto-fix to automatically fix simple patterns.
+  Run --lint-only --strict in CI to fail on unfixable patterns.
 
 This eliminates the need for 'unsafe-eval' CSP and runtime eval().
 `);
@@ -712,6 +725,113 @@ function detectDereferencesInSource(source) {
 }
 
 /**
+ * Detect "stale argument" patterns where a computed local variable
+ * (derived from state) is passed as an argument to memoEach/each/when.
+ *
+ * This pattern is UNFIXABLE because:
+ * 1. The variable is computed ONCE when the template renders
+ * 2. When optimizer wraps other expressions in contain(), the parent template
+ *    no longer re-renders on state changes
+ * 3. The helper receives the OLD stale value
+ *
+ * Example:
+ *   const visibleItems = items.slice(visibleStart, visibleEnd);  // computed from state
+ *   ${memoEach(visibleItems, ...)}  // STALE when contain() effects update
+ *
+ * Returns { taintedArgs: Map<varName, { line, helper, expression }> }
+ */
+function detectStaleArgumentPatterns(source) {
+    const taintedArgs = new Map();
+
+    // First, find template() function to scope our search
+    const templateMatch = source.match(/\btemplate\s*\(\s*\)\s*\{|\btemplate\s*:\s*function\s*\(\s*\)\s*\{/);
+    if (!templateMatch) {
+        return { taintedArgs };
+    }
+
+    // Extract template function body
+    const templateStart = templateMatch.index + templateMatch[0].length;
+    let depth = 1;
+    let i = templateStart;
+    while (i < source.length && depth > 0) {
+        if (source[i] === '{') depth++;
+        else if (source[i] === '}') depth--;
+        i++;
+    }
+    const templateBody = source.slice(templateMatch.index, i);
+
+    // Find first html`` in template body
+    const firstHtml = templateBody.indexOf('html`');
+    if (firstHtml === -1) return { taintedArgs };
+
+    // Get section before html`` - this is where computed locals are defined
+    const preHtmlSection = templateBody.slice(0, firstHtml);
+
+    // Find all local variables computed from state (not simple assignments)
+    // Pattern: const x = <expression> where expression involves state
+    const computedVars = new Map(); // varName -> { expression, line }
+
+    // Get early dereferences first (to know which vars are state-derived)
+    const { fixable, unfixable } = detectDereferencesInSource(preHtmlSection);
+    const stateVars = new Set([...fixable.keys(), ...unfixable.keys()]);
+
+    // Find computed assignments that use state-derived vars or direct state access
+    // Pattern: const x = <anything involving state or state-derived vars>
+    const computedPattern = /\b(?:const|let|var)\s+(\w+)\s*=\s*([^;]+);/g;
+    let match;
+    while ((match = computedPattern.exec(preHtmlSection)) !== null) {
+        const [, varName, expression] = match;
+
+        // Skip if this is a simple state assignment (handled by fixable)
+        if (fixable.has(varName)) continue;
+
+        // Check if expression uses any state-derived vars OR direct state access
+        const usesState = stateVars.size > 0 && Array.from(stateVars).some(sv =>
+            new RegExp(`(?<![.\\-])\\b${sv}\\b(?![\\-]|\\s*:)`).test(expression)
+        );
+        const usesDirectState = /\bthis\.(state|stores)\b/.test(expression);
+
+        if (usesState || usesDirectState) {
+            const linesBefore = preHtmlSection.slice(0, match.index).split('\n').length;
+            // Add templateMatch.index offset for global line number
+            const templateLineOffset = source.slice(0, templateMatch.index).split('\n').length - 1;
+            computedVars.set(varName, {
+                expression: expression.trim().slice(0, 50) + (expression.length > 50 ? '...' : ''),
+                line: templateLineOffset + linesBefore
+            });
+        }
+    }
+
+    if (computedVars.size === 0) {
+        return { taintedArgs };
+    }
+
+    // Now find usages as first argument to memoEach/each/when in the html section
+    const htmlSection = templateBody.slice(firstHtml);
+    const helperPattern = /\b(memoEach|each|when)\s*\(\s*(\w+)\s*[,)]/g;
+
+    while ((match = helperPattern.exec(htmlSection)) !== null) {
+        const [, helper, varName] = match;
+
+        if (computedVars.has(varName)) {
+            const info = computedVars.get(varName);
+            // Avoid duplicates
+            const key = `${varName}:${helper}`;
+            if (!taintedArgs.has(key)) {
+                taintedArgs.set(key, {
+                    variable: varName,
+                    helper,
+                    expression: info.expression,
+                    line: info.line
+                });
+            }
+        }
+    }
+
+    return { taintedArgs };
+}
+
+/**
  * Replace early-dereferenced variable usages with their reactive paths.
  *
  * Example: if fixableMap has { count: "this.state.count" }
@@ -1058,6 +1178,27 @@ function lintEarlyDereferences(source, filename = '') {
 }
 
 /**
+ * Lint for stale argument patterns only (issues that break AFTER optimization).
+ * Used in --strict mode to check if code is ready for optimization.
+ */
+function lintStaleArgumentPatterns(source, filename = '') {
+    const issues = [];
+    const { taintedArgs } = detectStaleArgumentPatterns(source);
+
+    for (const [key, info] of taintedArgs) {
+        issues.push({
+            line: info.line,
+            variable: info.variable,
+            path: info.expression,
+            fixable: false,
+            message: `${info.helper}() receives computed '${info.variable}' - will be stale after contain() optimization`
+        });
+    }
+
+    return issues;
+}
+
+/**
  * Check if an expression will be modified (either wrapped or fixed).
  */
 function willBeModified(exprText, varToPath) {
@@ -1157,6 +1298,19 @@ function applyOptPass(source, varToPath) {
 
 function applyOptTransformations(source, filename = '', verbose = false) {
     const { fixable, unfixable } = detectEarlyDereferences(source);
+
+    // Check for stale argument patterns - warn but continue optimization
+    // The when/each/memoEach helper calls are already skipped from contain() wrapping
+    // by shouldSkipWrapping(), so we can safely optimize other expressions
+    const { taintedArgs } = detectStaleArgumentPatterns(source);
+    if (taintedArgs.size > 0 && verbose) {
+        const filePrefix = filename ? `[${filename}] ` : '';
+        console.log(`${filePrefix}Note: Found stale argument pattern(s) (skipped from wrapping):`);
+        for (const [, info] of taintedArgs) {
+            console.log(`  - ${info.helper}(${info.variable}) at line ${info.line}`);
+        }
+    }
+
     let totalFixed = 0;
     let result = source;
 
@@ -2167,22 +2321,24 @@ function processJsFile(inputPath, outputPath, options) {
         (inputPath.includes('/lib/') || inputPath.includes('/dist/'));
 
     // Step 1: Apply opt() transformations to ALL html`` templates (unless --wrapped-only)
+    let unfixableCount = 0;
     if (!options.wrappedOnly && !isFrameworkBundle) {
         const result = applyOptTransformations(content, filename, options.verbose);
         content = result.code;
         fixedCount = result.fixedCount;
+        unfixableCount = result.unfixableCount || 0;
     }
 
     // Step 2: Strip eval(opt()) calls
     // If --wrapped-only, this also applies transformations to wrapped templates
     content = stripEvalOptCalls(content, options.wrappedOnly);
 
-    // Step 3: Minify embedded CSS and HTML templates (always done)
-    content = minifyEmbeddedContent(content);
-
-    // Step 4: Minify JS if requested
+    // Step 3: Minify if requested (CSS/HTML embedded content + JS)
     let sourceMap = null;
     if (options.minify) {
+        // Minify embedded CSS and HTML templates
+        content = minifyEmbeddedContent(content);
+
         // Minify the JS code
         const filename = path.basename(inputPath);
         const minified = minifyCode(content, options.sourcemap, filename);
@@ -2218,7 +2374,8 @@ function processJsFile(inputPath, outputPath, options) {
         originalSize,
         outputSize: content.length,
         hasSourceMap: !!sourceMap,
-        fixedCount
+        fixedCount,
+        unfixableCount
     };
 }
 
@@ -2583,24 +2740,30 @@ function runLintOnly(inputDir, options) {
             }
         }
 
-        const issues = lintEarlyDereferences(content, relativePath);
+        // --strict mode: Check for issues that break AFTER optimization (stale arguments)
+        // Normal mode: Check for issues that break deployed code AS-IS (early derefs in callbacks)
+        let issues;
+        if (options.strict) {
+            issues = lintStaleArgumentPatterns(content, relativePath);
+        } else {
+            issues = lintEarlyDereferences(content, relativePath);
+        }
+
+        const unfixable = issues.filter(i => !i.fixable);
+        const fixable = issues.filter(i => i.fixable);
 
         if (issues.length > 0) {
             filesWithIssues++;
             console.log(`\x1b[33m${relativePath}\x1b[0m`);  // Yellow filename
 
-            // Show unfixable issues first (errors)
-            const unfixable = issues.filter(i => !i.fixable);
-            const fixable = issues.filter(i => i.fixable);
-
             for (const issue of unfixable) {
                 console.log(`  \x1b[31m✗\x1b[0m Line ${issue.line}: ${issue.message}`);
                 console.log(`    \x1b[90mThis CANNOT be auto-fixed - refactor the code\x1b[0m`);
             }
+
             for (const issue of fixable) {
                 console.log(`  \x1b[33m⚠\x1b[0m Line ${issue.line}: ${issue.message}`);
                 if (options.autoFix) {
-                    // Auto-fix ran but couldn't fix this - needs manual fix
                     console.log(`    \x1b[90mCould not auto-fix - manually change to: ${issue.path}\x1b[0m`);
                 } else {
                     console.log(`    \x1b[90mFix: use ${issue.path} directly (or run --auto-fix)\x1b[0m`);
@@ -2624,21 +2787,34 @@ function runLintOnly(inputDir, options) {
     }
 
     if (totalIssues === 0) {
-        console.log('\x1b[32m✓ No early dereference issues found\x1b[0m\n');
+        if (options.strict) {
+            console.log('\x1b[32m✓ No stale argument patterns found (ready for optimization)\x1b[0m\n');
+        } else {
+            console.log('\x1b[32m✓ No early dereference issues found (deployed code is safe)\x1b[0m\n');
+        }
         return 0;
     } else {
-        if (unfixableCount > 0) {
-            console.log(`\x1b[31m✗ Found ${unfixableCount} UNFIXABLE issue(s) - these MUST be fixed manually\x1b[0m`);
-        }
-        if (fixableCount > 0) {
-            if (options.autoFix) {
-                console.log(`\x1b[33m⚠ Found ${fixableCount} issue(s) that could not be auto-fixed - manual fix needed\x1b[0m`);
-            } else {
-                console.log(`\x1b[33m⚠ Found ${fixableCount} issue(s) - run with --auto-fix or fix manually\x1b[0m`);
+        if (options.strict) {
+            // --strict mode: stale argument patterns
+            console.log(`\x1b[31m✗ Found ${totalIssues} stale argument pattern(s)\x1b[0m`);
+            console.log('   These will break AFTER optimization - fix before running optimizer.');
+            console.log(`\n  Total: ${totalIssues} issue(s) in ${filesWithIssues} file(s)\n`);
+            return 1;  // Exit with error for CI
+        } else {
+            // Normal mode: early dereferences
+            if (unfixableCount > 0) {
+                console.log(`\x1b[31m✗ Found ${unfixableCount} UNFIXABLE issue(s) - these MUST be fixed manually\x1b[0m`);
             }
+            if (fixableCount > 0) {
+                if (options.autoFix) {
+                    console.log(`\x1b[33m⚠ Found ${fixableCount} issue(s) that could not be auto-fixed - manual fix needed\x1b[0m`);
+                } else {
+                    console.log(`\x1b[33m⚠ Found ${fixableCount} issue(s) - run with --auto-fix or fix manually\x1b[0m`);
+                }
+            }
+            console.log(`\n  Total: ${totalIssues} issue(s) in ${filesWithIssues} file(s)\n`);
+            return unfixableCount > 0 ? 2 : 1;  // Exit 2 for unfixable errors
         }
-        console.log(`\n  Total: ${totalIssues} issue(s) in ${filesWithIssues} file(s)\n`);
-        return unfixableCount > 0 ? 2 : 1;  // Exit 2 for unfixable errors
     }
 }
 
@@ -2700,6 +2876,7 @@ function main() {
     let jsCount = 0, htmlCount = 0, otherCount = 0;
     let totalOriginal = 0, totalOutput = 0;
     let totalFixed = 0;
+    let totalUnfixable = 0;
     const warningFiles = [];
 
     for (const relativePath of files) {
@@ -2713,6 +2890,7 @@ function main() {
             result = processJsFile(inputPath, outputPath, options);
             jsCount++;
             totalFixed += result.fixedCount || 0;
+            totalUnfixable += result.unfixableCount || 0;
             if (result.fixedCount > 0) {
                 warningFiles.push({ path: relativePath, count: result.fixedCount });
             }
@@ -2769,6 +2947,13 @@ function main() {
             console.log(`    - ${filePath} (${count})`);
         }
         console.log(`  Run with --lint-only to see details.`);
+    }
+
+    // In --strict mode, fail if there are any unfixable issues
+    if (options.strict && totalUnfixable > 0) {
+        console.log(`\n\x1b[31m❌ --strict mode: ${totalUnfixable} unfixable issue(s) found\x1b[0m`);
+        console.log('   Fix these patterns manually before deploying.\n');
+        process.exit(1);
     }
 
     console.log(`\n${options.dryRun ? 'Dry run complete (no files written)' : 'Done!'}\n`);

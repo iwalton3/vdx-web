@@ -220,6 +220,52 @@ describe('Reactivity System', function(it) {
         assert.equal(effectRuns, 2, 'Effect should not run after disposal');
     });
 
+    it('removes disposed effects from pending queue', () => {
+        // This test validates that when an effect is disposed, it's removed from
+        // the pending effects queue. This prevents errors when parent effects
+        // dispose child effects that were already queued to run.
+        const state = reactive({ show: true, value: 'initial' });
+        let parentRan = 0;
+        let childRan = 0;
+        let childDispose = null;
+
+        // Parent effect that disposes child when show becomes false
+        createEffect(() => {
+            parentRan++;
+            state.show; // Track show
+            if (!state.show && childDispose) {
+                childDispose();
+                childDispose = null;
+            }
+        });
+
+        // Child effect that accesses value (would throw if value is null)
+        const result = createEffect(() => {
+            childRan++;
+            // This would throw if value is null and this effect runs after disposal
+            const _ = state.value.length;
+        });
+        childDispose = result.dispose;
+
+        flushEffects();
+        assert.equal(parentRan, 1, 'Parent should run initially');
+        assert.equal(childRan, 1, 'Child should run initially');
+
+        // Now trigger both: set show=false AND value=null
+        // Without the fix, child would run and throw when accessing null.length
+        // With the fix, parent runs first, disposes child, child is removed from queue
+        state.show = false;
+        state.value = null;
+
+        // This should NOT throw - child effect should be removed from queue
+        flushEffects();
+
+        // Parent should have run twice (initial + update)
+        assert.equal(parentRan, 2, `Parent should run twice, ran ${parentRan}`);
+        // Child should have run only once (initial), not after disposal
+        assert.equal(childRan, 1, `Child should run once (initial only), ran ${childRan}`);
+    });
+
     it('tracks all dependencies efficiently', () => {
         const obj = reactive({
             a: 1,

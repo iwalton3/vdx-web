@@ -137,6 +137,17 @@ export function createEffect(fn) {
         // Clear the deps set
         effect.deps.clear();
 
+        // Remove from pending effect queue to prevent running after dispose
+        // This is critical: when a parent disposes children, they may already
+        // be queued to run. By removing them, we prevent errors from effects
+        // trying to access now-invalid state.
+        const effectDepth = effect.depth || 0;
+        if (effectDepth < pendingEffectsByDepth.length &&
+            pendingEffectsByDepth[effectDepth].has(effect)) {
+            pendingEffectsByDepth[effectDepth].delete(effect);
+            pendingEffectsCount--;
+        }
+
         // Remove from effect stack if currently running
         const index = effectStack.indexOf(effect);
         if (index !== -1) {
