@@ -1892,17 +1892,41 @@ function minifyCode(code, generateMap = false, filename = 'source.js') {
     let srcLine = 0, srcCol = 0;
     let outLine = 0, outCol = 0;
     let prevSrcLine = 0, prevSrcCol = 0, prevOutCol = 0;
+    let prevNameIdx = 0;
     const mappings = [];
     let currentLineMappings = [];
 
-    function addMapping() {
+    // Names array for source map (identifier names)
+    const namesArray = [];
+    const nameToIndex = new Map();
+
+    function getNameIndex(name) {
+        if (nameToIndex.has(name)) {
+            return nameToIndex.get(name);
+        }
+        const idx = namesArray.length;
+        namesArray.push(name);
+        nameToIndex.set(name, idx);
+        return idx;
+    }
+
+    function addMapping(name = null) {
         if (!generateMap) return;
-        currentLineMappings.push(
-            vlqEncode(outCol - prevOutCol) +
+
+        // Build VLQ mapping - 4 segments without name, 5 segments with name
+        let mapping = vlqEncode(outCol - prevOutCol) +
             vlqEncode(0) +  // source index always 0
             vlqEncode(srcLine - prevSrcLine) +
-            vlqEncode(srcCol - prevSrcCol)
-        );
+            vlqEncode(srcCol - prevSrcCol);
+
+        // Add 5th segment for identifier name
+        if (name !== null) {
+            const nameIdx = getNameIndex(name);
+            mapping += vlqEncode(nameIdx - prevNameIdx);
+            prevNameIdx = nameIdx;
+        }
+
+        currentLineMappings.push(mapping);
         prevOutCol = outCol;
         prevSrcLine = srcLine;
         prevSrcCol = srcCol;
@@ -2010,12 +2034,17 @@ function minifyCode(code, generateMap = false, filename = 'source.js') {
             }
         }
 
-        // Preserve string literals
+        // Preserve string literals (with whitespace collapsing for html``)
         if (char === '"' || char === "'" || char === '`') {
             addMapping();
             emit(char);
             advance();
             const quote = char;
+
+            // Check if this is an html`` template (look back for "html")
+            const isHtmlTemplate = quote === '`' &&
+                result.length >= 4 &&
+                result.slice(-5, -1) === 'html';
 
             while (i < len) {
                 if (code[i] === '\\' && i + 1 < len) {
@@ -2027,6 +2056,23 @@ function minifyCode(code, generateMap = false, filename = 'source.js') {
                     emit(code[i]); advance();
                     break;
                 }
+
+                // Collapse whitespace in html`` templates (static parts only)
+                if (isHtmlTemplate && /\s/.test(code[i])) {
+                    // Skip all consecutive whitespace, emit single space
+                    addMapping();
+                    while (i < len && /\s/.test(code[i]) && code[i] !== '`') {
+                        // Stop at ${
+                        if (code[i] === '$' && code[i + 1] === '{') break;
+                        advance();
+                    }
+                    // Only emit space if not at end of template or before ${
+                    if (i < len && code[i] !== '`') {
+                        emit(' ');
+                    }
+                    continue;
+                }
+
                 if (quote === '`' && code[i] === '$' && code[i + 1] === '{') {
                     // Use helper functions for recursive template/expression parsing
                     // These handle arbitrary nesting depth correctly
@@ -2229,7 +2275,29 @@ function minifyCode(code, generateMap = false, filename = 'source.js') {
             continue;
         }
 
-        // Regular character
+        // Identifier - collect full identifier and add to names array
+        if (/[a-zA-Z_$]/.test(char)) {
+            // Read ahead to get full identifier
+            let identifier = char;
+            let j = i + 1;
+            while (j < len && /[a-zA-Z0-9_$]/.test(code[j])) {
+                identifier += code[j];
+                j++;
+            }
+
+            // Add mapping with identifier name
+            addMapping(identifier);
+
+            // Emit all identifier characters
+            for (const c of identifier) {
+                emit(c);
+                advance();
+            }
+            lastChar = identifier[identifier.length - 1];
+            continue;
+        }
+
+        // Regular character (operators, punctuation, etc.)
         addMapping();
         emit(char);
         lastChar = char;
@@ -2247,7 +2315,7 @@ function minifyCode(code, generateMap = false, filename = 'source.js') {
             version: 3,
             sources: [filename],
             sourcesContent: [code],
-            names: [],
+            names: namesArray,
             mappings: mappings.join(';')
         };
     }
@@ -2336,18 +2404,21 @@ function processJsFile(inputPath, outputPath, options) {
     // Step 3: Minify if requested (CSS/HTML embedded content + JS)
     let sourceMap = null;
     if (options.minify) {
-        // Minify embedded CSS and HTML templates
-        content = minifyEmbeddedContent(content);
-
-        // Minify the JS code
         const filename = path.basename(inputPath);
-        const minified = minifyCode(content, options.sourcemap, filename);
-        content = minified.code;
-        sourceMap = minified.map;
 
-        if (options.sourcemap && sourceMap) {
+        if (options.sourcemap) {
+            // When generating source maps, skip embedded content minification
+            // to ensure accurate position mapping to the original source.
+            const minified = minifyCode(content, true, filename);
+            content = minified.code;
+            sourceMap = minified.map;
             sourceMap.file = path.basename(outputPath);
             content += `\n//# sourceMappingURL=${path.basename(outputPath)}.map\n`;
+        } else {
+            // Without source maps, minify everything for smallest size
+            content = minifyEmbeddedContent(content);
+            const minified = minifyCode(content, false, filename);
+            content = minified.code;
         }
     }
 

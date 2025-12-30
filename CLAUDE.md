@@ -673,6 +673,7 @@ For detailed information, see:
 - **[docs/routing.md](docs/routing.md)** - Router setup, lazy loading, navigation
 - **[docs/security.md](docs/security.md)** - XSS protection, input validation, CSRF, CSP
 - **[docs/testing.md](docs/testing.md)** - Running tests, writing tests, test structure
+- **[docs/optimization.md](docs/optimization.md)** - Build-time optimization, linting, source maps
 - **[docs/bundles.md](docs/bundles.md)** - Using pre-bundled framework versions
 - **[docs/componentlib.md](docs/componentlib.md)** - Professional UI component library (cl-* components)
 - **[docs/api-reference.md](docs/api-reference.md)** - Complete API reference

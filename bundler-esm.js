@@ -1350,8 +1350,23 @@ function minifyCode(code, generateMap = false, fileMap = null) {
     let outLine = 0, outCol = 0;
     let prevSrcLine = 0, prevSrcCol = 0, prevOutCol = 0;
     let prevSrcIndex = 0;
+    let prevNameIdx = 0;
     const mappings = [];
     let currentLineMappings = [];
+
+    // Names array for source map (identifier names)
+    const namesArray = [];
+    const nameToIndex = new Map();
+
+    function getNameIndex(name) {
+        if (nameToIndex.has(name)) {
+            return nameToIndex.get(name);
+        }
+        const idx = namesArray.length;
+        namesArray.push(name);
+        nameToIndex.set(name, idx);
+        return idx;
+    }
 
     // Multi-file tracking
     let currentFileIndex = -1;
@@ -1375,7 +1390,7 @@ function minifyCode(code, generateMap = false, fileMap = null) {
         return -1;  // Not in any tracked file
     }
 
-    function addMapping() {
+    function addMapping(name = null) {
         if (!generateMap) return;
 
         const srcIndex = fileMap ? getSourceIndex(srcLine) : 0;
@@ -1386,12 +1401,20 @@ function minifyCode(code, generateMap = false, fileMap = null) {
         // Calculate line relative to current file's start
         const relativeLine = srcLine - currentFileStartLine;
 
-        currentLineMappings.push(
-            vlqEncode(outCol - prevOutCol) +
+        // Build VLQ mapping - 4 segments without name, 5 segments with name
+        let mapping = vlqEncode(outCol - prevOutCol) +
             vlqEncode(srcIndex - prevSrcIndex) +
             vlqEncode(relativeLine - prevSrcLine) +
-            vlqEncode(srcCol - prevSrcCol)
-        );
+            vlqEncode(srcCol - prevSrcCol);
+
+        // Add 5th segment for identifier name
+        if (name !== null) {
+            const nameIdx = getNameIndex(name);
+            mapping += vlqEncode(nameIdx - prevNameIdx);
+            prevNameIdx = nameIdx;
+        }
+
+        currentLineMappings.push(mapping);
         prevOutCol = outCol;
         prevSrcIndex = srcIndex;
         prevSrcLine = relativeLine;
@@ -1516,12 +1539,17 @@ function minifyCode(code, generateMap = false, fileMap = null) {
             }
         }
 
-        // Preserve string literals exactly
+        // Preserve string literals exactly (with whitespace collapsing for html``)
         if (char === '"' || char === "'" || char === '`') {
             addMapping();
             emit(char);
             advance();
             const quote = char;
+
+            // Check if this is an html`` template (look back for "html")
+            const isHtmlTemplate = quote === '`' &&
+                result.length >= 4 &&
+                result.slice(-5, -1) === 'html';
 
             while (i < len) {
                 if (code[i] === '\\' && i + 1 < len) {
@@ -1533,6 +1561,23 @@ function minifyCode(code, generateMap = false, fileMap = null) {
                     emit(code[i]); advance();
                     break;
                 }
+
+                // Collapse whitespace in html`` templates (static parts only)
+                if (isHtmlTemplate && /\s/.test(code[i])) {
+                    // Skip all consecutive whitespace, emit single space
+                    addMapping();
+                    while (i < len && /\s/.test(code[i]) && code[i] !== '`') {
+                        // Stop at ${
+                        if (code[i] === '$' && code[i + 1] === '{') break;
+                        advance();
+                    }
+                    // Only emit space if not at end of template or before ${
+                    if (i < len && code[i] !== '`') {
+                        emit(' ');
+                    }
+                    continue;
+                }
+
                 if (quote === '`' && code[i] === '$' && code[i + 1] === '{') {
                     // Use helper functions for recursive template/expression parsing
                     // These handle arbitrary nesting depth correctly
@@ -1720,7 +1765,29 @@ function minifyCode(code, generateMap = false, fileMap = null) {
             continue;
         }
 
-        // Regular character
+        // Identifier - collect full identifier and add to names array
+        if (/[a-zA-Z_$]/.test(char)) {
+            // Read ahead to get full identifier
+            let identifier = char;
+            let j = i + 1;
+            while (j < len && /[a-zA-Z0-9_$]/.test(code[j])) {
+                identifier += code[j];
+                j++;
+            }
+
+            // Add mapping with identifier name
+            addMapping(identifier);
+
+            // Emit all identifier characters
+            for (const c of identifier) {
+                emit(c);
+                advance();
+            }
+            lastChar = identifier[identifier.length - 1];
+            continue;
+        }
+
+        // Regular character (operators, punctuation, etc.)
         addMapping();
         emit(char);
         lastChar = char;
@@ -1741,7 +1808,7 @@ function minifyCode(code, generateMap = false, fileMap = null) {
                 version: 3,
                 sources: fileMap.map(f => f.file),
                 sourcesContent: fileMap.map(f => f.content),
-                names: [],
+                names: namesArray,
                 mappings: mappings.join(';')
             };
         } else {
@@ -1750,7 +1817,7 @@ function minifyCode(code, generateMap = false, fileMap = null) {
                 version: 3,
                 sources: [],
                 sourcesContent: [code],
-                names: [],
+                names: namesArray,
                 mappings: mappings.join(';')
             };
         }
@@ -2128,18 +2195,21 @@ function bundleSingleFile(options) {
     let sourceMap = null;
     if (options.compact) {
         console.log('Minifying...');
-        // First minify embedded CSS and HTML templates
-        bundleContent = minifyEmbeddedContent(bundleContent);
-        // Pass fileMap for multi-file source maps
-        const minified = minifyCode(bundleContent, options.sourcemap, options.sourcemap ? fileMap : null);
-        bundleContent = minified.code;
 
-        if (options.sourcemap && minified.map) {
+        if (options.sourcemap) {
+            // When generating source maps, skip embedded content minification
+            // to ensure accurate position mapping. The source map's sourcesContent
+            // contains original source, so mappings must point to original positions.
+            const minified = minifyCode(bundleContent, true, fileMap);
+            bundleContent = minified.code;
             sourceMap = minified.map;
             sourceMap.file = path.basename(outputFile);
-
-            // Add sourceMappingURL to bundle
             bundleContent += `\n//# sourceMappingURL=${path.basename(outputFile)}.map\n`;
+        } else {
+            // Without source maps, minify everything for smallest size
+            bundleContent = minifyEmbeddedContent(bundleContent);
+            const minified = minifyCode(bundleContent, false, null);
+            bundleContent = minified.code;
         }
     }
 
@@ -2171,13 +2241,12 @@ function bundleSingleFile(options) {
  */
 function processSimpleFile(srcPath, destPath) {
     // Read source file (keep original formatting for source map)
-    let content = fs.readFileSync(srcPath, 'utf-8');
+    const originalContent = fs.readFileSync(srcPath, 'utf-8');
 
-    // First minify embedded CSS and HTML templates
-    content = minifyEmbeddedContent(content);
-
-    // Minify with source map (original content embedded in map)
-    const minified = minifyCode(content, true);
+    // Minify JS with source map, skipping embedded content minification
+    // to ensure accurate position mapping. The source map will contain
+    // the original source for debugging.
+    const minified = minifyCode(originalContent, true);
     let minContent = minified.code;
 
     // Setup source map - sources points to a virtual readable file
@@ -2185,6 +2254,7 @@ function processSimpleFile(srcPath, destPath) {
     const baseName = path.basename(destPath);
     sourceMap.file = baseName;
     sourceMap.sources = [baseName];  // Source map references same filename (content embedded)
+    sourceMap.sourcesContent = [originalContent];  // Embed original source
 
     // Add sourceMappingURL
     minContent += `\n//# sourceMappingURL=${baseName}.map\n`;
@@ -2196,7 +2266,7 @@ function processSimpleFile(srcPath, destPath) {
     fs.writeFileSync(destPath + '.map', JSON.stringify(sourceMap));
 
     return {
-        readable: content.length,
+        readable: originalContent.length,
         minified: minContent.length
     };
 }
