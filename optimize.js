@@ -2094,7 +2094,11 @@ function minifyCode(code, generateMap = false, filename = 'source.js') {
                     };
 
                     // Skip a template literal, emitting all content (recursive for ${})
+                    // Also collapses whitespace if this is an html`` template
                     const skipTemplateLiteral = () => {
+                        // Check if this is an html`` template
+                        const isNestedHtml = result.length >= 4 && result.slice(-4) === 'html';
+
                         emit(code[i]); advance(); // opening backtick
                         while (i < len) {
                             if (code[i] === '\\' && i + 1 < len) {
@@ -2107,6 +2111,16 @@ function minifyCode(code, generateMap = false, filename = 'source.js') {
                             } else if (code[i] === '`') {
                                 emit(code[i]); advance();
                                 break;
+                            } else if (isNestedHtml && /\s/.test(code[i])) {
+                                // Collapse whitespace in nested html`` templates
+                                addMapping();
+                                while (i < len && /\s/.test(code[i]) && code[i] !== '`') {
+                                    if (code[i] === '$' && code[i + 1] === '{') break;
+                                    advance();
+                                }
+                                if (i < len && code[i] !== '`') {
+                                    emit(' ');
+                                }
                             } else {
                                 emit(code[i]); advance();
                             }
@@ -2383,6 +2397,9 @@ function processJsFile(inputPath, outputPath, options) {
         }
     }
 
+    // Save original content for source map (before opt transformations)
+    const originalContent = content;
+
     // Skip optimization for framework bundle files (they have internal templates that
     // were already optimized during bundling)
     const isFrameworkBundle = FRAMEWORK_BUNDLE_FILES.has(filename) &&
@@ -2413,6 +2430,8 @@ function processJsFile(inputPath, outputPath, options) {
             content = minified.code;
             sourceMap = minified.map;
             sourceMap.file = path.basename(outputPath);
+            // Use original source (before opt transformations) for debugger display
+            sourceMap.sourcesContent = [originalContent];
             content += `\n//# sourceMappingURL=${path.basename(outputPath)}.map\n`;
         } else {
             // Without source maps, minify everything for smallest size

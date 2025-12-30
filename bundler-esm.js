@@ -1599,7 +1599,11 @@ function minifyCode(code, generateMap = false, fileMap = null) {
                     };
 
                     // Skip a template literal, emitting all content (recursive for ${})
+                    // Also collapses whitespace if this is an html`` template
                     const skipTemplateLiteral = () => {
+                        // Check if this is an html`` template
+                        const isNestedHtml = result.length >= 4 && result.slice(-4) === 'html';
+
                         emit(code[i]); advance(); // opening backtick
                         while (i < len) {
                             if (code[i] === '\\' && i + 1 < len) {
@@ -1612,6 +1616,16 @@ function minifyCode(code, generateMap = false, fileMap = null) {
                             } else if (code[i] === '`') {
                                 emit(code[i]); advance();
                                 break;
+                            } else if (isNestedHtml && /\s/.test(code[i])) {
+                                // Collapse whitespace in nested html`` templates
+                                addMapping();
+                                while (i < len && /\s/.test(code[i]) && code[i] !== '`') {
+                                    if (code[i] === '$' && code[i + 1] === '{') break;
+                                    advance();
+                                }
+                                if (i < len && code[i] !== '`') {
+                                    emit(' ');
+                                }
                             } else {
                                 emit(code[i]); advance();
                             }
