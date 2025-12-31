@@ -3,7 +3,7 @@
  * Web Components-based system with fine-grained reactive rendering
  */
 
-import { reactive, createEffect, trackMutations, flushEffects } from './reactivity.js';
+import { reactive, createEffect, createRoot, trackMutations, flushEffects, runAsEffect } from './reactivity.js';
 import { compileTemplate } from './template-compiler.js';
 import { setRenderContext } from './template.js';
 import { instantiateTemplate, createDeferredChild, VALUE_GETTER, flushDOMUpdates } from './template-renderer.js';
@@ -678,11 +678,13 @@ export function defineComponent(name, options) {
                         // Non-reactive counter to avoid self-tracking loop (v++ reads then writes)
                         let versionCounter = 0;
 
+                        // Reference to the compute effect (set after creation for access in effect body)
+                        let computeEffectRef = null;
+
                         // Single effect that watches ALL state and recomputes template once
                         // This prevents N slots from calling template() N times
-                        // computeEffect inherits current depth - for top-level components this is 0,
-                        // for nested components (inside contain()) this is parent's depth.
-                        // Slot effects use pushEffectDepth() so they're always at computeEffect's depth + 1.
+                        // Slot effects created during instantiation become children of computeEffect
+                        // via the ownership system, ensuring cascading disposal on unmount.
                         const computeEffect = createEffect(() => {
                             // Track props version
                             if (component._propsVersion) {
@@ -696,6 +698,16 @@ export function defineComponent(name, options) {
 
                                 // If template structure changed, schedule re-instantiation
                                 if (result._compiled !== currentCompiled) {
+                                    // Dispose all child effects immediately to prevent them from
+                                    // running with stale state before re-instantiation
+                                    // (They were triggered by the same state change that triggered us)
+                                    const eff = computeEffectRef;
+                                    if (eff && eff.children) {
+                                        for (const child of eff.children) {
+                                            if (child.dispose) child.dispose();
+                                        }
+                                        eff.children.clear();
+                                    }
                                     queueMicrotask(() => {
                                         if (!component._isDestroyed && component._isMounted) {
                                             instantiate(result);
@@ -730,7 +742,13 @@ export function defineComponent(name, options) {
                                     }
                                 }
                             }
-                        });
+                        }, { label: `compute:${name}` });
+
+                        // Set ref so effect body can access it on subsequent runs
+                        computeEffectRef = computeEffect.effect;
+
+                        // Store on component so children can use it for ownership
+                        component._computeEffect = computeEffectRef;
 
                         // Convert initial values to getters that read from cached result
                         const values = templateResult._values || [];
@@ -750,11 +768,11 @@ export function defineComponent(name, options) {
                             return getter;
                         });
 
-                        // Instantiate template
-                        const { fragment, cleanup: templateCleanup } = instantiateTemplate(
-                            templateResult._compiled,
-                            valueGetters,
-                            component
+                        // Instantiate template - run with computeEffect as owner so
+                        // slot effects become its children (for cascading disposal)
+                        const { fragment, cleanup: templateCleanup } = runAsEffect(
+                            computeEffectRef,
+                            () => instantiateTemplate(templateResult._compiled, valueGetters, component)
                         );
 
                         component.appendChild(fragment);

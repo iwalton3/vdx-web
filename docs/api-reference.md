@@ -467,29 +467,92 @@ const state = reactive({ count: 0 });
 state.count++; // Triggers reactivity
 ```
 
-### createEffect(fn)
+### createEffect(fn, options?)
 
-Runs a function when its reactive dependencies change.
+Runs a function when its reactive dependencies change. Supports cleanup callbacks and error handling.
 
 **Parameters:**
-- `fn` (function) - Function to run
+- `fn` (function) - Function to run. May return a cleanup function.
+- `options` (object, optional) - Configuration options
+  - `onError` (function) - Per-effect error handler `(error, context) => void`
 
-**Returns:** Cleanup function
+**Returns:** Object with:
+- `effect` (function) - The effect function
+- `dispose` (function) - Cleanup function to stop tracking
 
 **Example:**
 ```javascript
-import { createEffect } from './lib/framework.js';
+import { createEffect, reactive } from './lib/framework.js';
 
 const state = reactive({ count: 0 });
 
-const cleanup = createEffect(() => {
+// Basic usage
+const { dispose } = createEffect(() => {
     console.log('Count:', state.count);
 });
 
 state.count++; // Logs: Count: 1
+dispose();     // Stop tracking
 
-// Later: cleanup
-cleanup();
+// With cleanup callback
+const { dispose: disposeTimer } = createEffect(() => {
+    const timer = setInterval(() => console.log('tick'), 1000);
+    // Return cleanup function - called on re-run or dispose
+    return () => clearInterval(timer);
+});
+
+// With error handling
+createEffect(() => {
+    riskyOperation();
+}, {
+    onError: (error, context) => {
+        console.warn(`Effect ${context} failed:`, error);
+    }
+});
+```
+
+### createRoot(fn)
+
+Creates a scope for effects. All effects created inside the callback become children of the root and are disposed together.
+
+**Parameters:**
+- `fn` (function) - Function to run within the scope
+
+**Returns:** Dispose function that disposes all child effects
+
+**Example:**
+```javascript
+import { createRoot, createEffect, reactive } from './lib/framework.js';
+
+const state = reactive({ count: 0 });
+
+const disposeAll = createRoot(() => {
+    createEffect(() => console.log('Effect 1:', state.count));
+    createEffect(() => console.log('Effect 2:', state.count * 2));
+});
+
+state.count = 5;  // Both effects run
+
+disposeAll();     // Both effects disposed
+```
+
+### setEffectErrorHandler(handler)
+
+Sets a global error handler for all effects.
+
+**Parameters:**
+- `handler` (function) - Error handler `(error, context) => void`
+  - `error` - The error that occurred
+  - `context` - Either `'effect'` or `'cleanup'`
+
+**Example:**
+```javascript
+import { setEffectErrorHandler } from './lib/framework.js';
+
+setEffectErrorHandler((error, context) => {
+    console.error(`Effect ${context} failed:`, error);
+    errorReportingService.report(error);
+});
 ```
 
 ### computed(fn)

@@ -8,6 +8,11 @@ Complete guide to the reactivity system, stores, and computed properties.
   - [Automatic Render Batching](#automatic-render-batching)
   - [flushSync() - Synchronous Rendering](#flushsync---synchronous-rendering)
   - [flushRenders() - For Testing](#flushrenders---for-testing)
+- [Effect System](#effect-system)
+  - [createEffect with Cleanup](#createeffect-with-cleanup)
+  - [Effect Ownership](#effect-ownership)
+  - [createRoot for Scopes](#createroot-for-scopes)
+  - [Error Handling](#error-handling)
 - [Critical Gotchas](#critical-gotchas)
   - [Large Arrays - untracked()](#-large-arrays-cause-performance-issues)
 - [Stores](#stores)
@@ -147,6 +152,142 @@ expect(component.textContent).toBe('5');
 ```
 
 In normal application code, you don't need `flushRenders()` - use `flushSync()` instead when you need synchronous DOM updates.
+
+## Effect System
+
+The framework uses a fine-grained effect system for reactive updates. Effects track dependencies and re-run when those dependencies change.
+
+### createEffect with Cleanup
+
+Effects can return a cleanup function that runs before the effect re-runs or when it's disposed:
+
+```javascript
+import { createEffect, reactive } from './lib/framework.js';
+
+const state = reactive({ count: 0 });
+
+const { dispose } = createEffect(() => {
+    // Setup
+    const timer = setInterval(() => console.log(state.count), 1000);
+
+    // Return cleanup function (optional)
+    return () => {
+        clearInterval(timer);
+        console.log('Cleaned up!');
+    };
+});
+
+state.count = 5;  // Cleanup runs, then effect runs again with new interval
+
+dispose();  // Final cleanup runs, effect stops tracking
+```
+
+**When to use cleanup:**
+- Clearing timers and intervals
+- Removing event listeners
+- Canceling network requests
+- Cleaning up subscriptions
+
+**In components**, cleanup in `unmounted()` is still recommended for most cases. Effect cleanup is useful for effects that need to reset when their dependencies change.
+
+### Effect Ownership
+
+Effects form a parent-child tree. When a parent effect is disposed, all its children are automatically disposed:
+
+```javascript
+const { dispose: disposeParent } = createEffect(() => {
+    console.log('Parent running');
+
+    // Child effect - automatically becomes a child of the parent
+    createEffect(() => {
+        console.log('Child running');
+    });
+});
+
+// Disposing parent also disposes child
+disposeParent();  // Both effects are cleaned up
+```
+
+**This is automatic** - effects created while another effect is running become children of that effect. Component effects use this to ensure all template effects are cleaned up when the component unmounts.
+
+### createRoot for Scopes
+
+Use `createRoot()` to create an isolated scope for effects. All effects created inside the callback become children of the root and are disposed together:
+
+```javascript
+import { createRoot, createEffect, reactive } from './lib/framework.js';
+
+const state = reactive({ count: 0 });
+
+// Create a scope for multiple effects
+const disposeAll = createRoot(() => {
+    createEffect(() => {
+        console.log('Effect 1:', state.count);
+    });
+
+    createEffect(() => {
+        console.log('Effect 2:', state.count * 2);
+    });
+});
+
+state.count = 5;  // Both effects run
+
+// Dispose all effects in the scope at once
+disposeAll();
+```
+
+**Use cases:**
+- Grouping related effects for batch disposal
+- Creating isolated effect scopes in modules
+- Testing - easily clean up all effects after each test
+
+### Error Handling
+
+Effects catch errors and report them without breaking other effects. You can set a global error handler:
+
+```javascript
+import { setEffectErrorHandler, createEffect, reactive } from './lib/framework.js';
+
+// Set global error handler
+setEffectErrorHandler((error, context) => {
+    console.error(`Effect ${context} failed:`, error);
+    // context is 'effect' or 'cleanup'
+    errorReportingService.report(error);
+});
+
+const state = reactive({ value: 0 });
+
+// This effect will error but won't break other effects
+createEffect(() => {
+    if (state.value > 0) {
+        throw new Error('Something went wrong');
+    }
+});
+
+// This effect continues to work normally
+createEffect(() => {
+    console.log('Value:', state.value);
+});
+
+state.value = 1;
+// Error is logged, but second effect still runs
+```
+
+**Per-effect error handling:**
+
+```javascript
+createEffect(() => {
+    // Effect code that might throw
+    riskyOperation();
+}, {
+    onError: (error, context) => {
+        // Handle error for just this effect
+        console.warn('Expected error:', error);
+    }
+});
+```
+
+**Note:** Errors are caught and reported, but the effect continues tracking dependencies. This prevents one broken effect from cascading failures to unrelated effects.
 
 ## Critical Gotchas
 

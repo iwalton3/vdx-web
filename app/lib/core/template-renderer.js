@@ -10,7 +10,7 @@
  * - Updates are O(1) per binding (no full-tree diffing)
  */
 
-import { createEffect, withoutTracking, reactive, registerEffectFlushHooks, pushEffectDepth, popEffectDepth } from './reactivity.js';
+import { createEffect, withoutTracking, reactive, registerEffectFlushHooks, runAsEffect } from './reactivity.js';
 import { isHtml, isRaw, isContain, isMemoEach, isWhen, OP, sanitizeUrl, setRenderContext, EMPTY_WHEN_RESULT } from './template.js';
 import { componentDefinitions } from './component.js';
 import { BOOLEAN_ATTRS } from './constants.js';
@@ -840,9 +840,9 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
     let containEffectRef = null;      // The active containEffect
     let containRenderFnRef = null;    // Mutable ref to current renderFn (updated on each render)
 
-    // Slot effects run at depth 1+ so computeEffect (depth 0) runs first.
-    // This prevents race conditions where slot effect runs with stale cached values.
-    pushEffectDepth();
+    // Slot effects are created while computeEffect is running, so they become
+    // children of computeEffect via the ownership system. This ensures proper
+    // cascading disposal when components unmount.
     const effect = createEffect(() => {
         // Get the value (may be a function for reactive access)
         let value = values[node.index];
@@ -1127,18 +1127,11 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
             // Track if we've ever been mounted - used to distinguish "not yet mounted" from "unmounted"
             let containWasMounted = false;
 
-            // Increment effect depth before creating - ensures child effects have higher depth
-            // than parent effects, enabling breadth-first execution order
-            pushEffectDepth();
-
             // Create an isolated effect for this boundary
+            // Via ownership, this becomes a child of the slot effect, ensuring cascading disposal
             const newContainEffect = createEffect(() => {
-                // Push depth so any children created during this effect are at higher depth
-                // This ensures children run AFTER this effect during flush, allowing cleanup
-                pushEffectDepth();
                 const CONTAIN_DEBUG = typeof window !== 'undefined' && window.__SLOT_DEBUG__;
 
-                try {
                 // Check if we've been unmounted by parent (e.g., when() condition became false)
                 // Allow first run (not yet mounted), but skip if we were mounted and now disconnected
                 if (containWasMounted && !placeholder.isConnected) {
@@ -1333,14 +1326,7 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 containNodes = nodes;
                 containEffects = childEffects;
                 containPreviousCompiled = result._compiled;
-                } finally {
-                    // Always restore depth, even on early return
-                    popEffectDepth();
-                }
-            });
-
-            // Restore effect depth after creating the contain effect
-            popEffectDepth();
+            }, { label: `contain:slot${node.index}` });
 
             // Track this containEffect (renderFn already stored above)
             containEffectRef = newContainEffect;
@@ -1568,12 +1554,18 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
         // Handle deferred child (from children/slots system)
         if (isDeferredChild(value)) {
             const { compiled, values: childValues, parentComponent } = value;
-            const { fragment, effects: childEffects } = instantiateTemplate(
+            // Use parent component's computeEffect as owner so effects are properly
+            // disposed when the parent re-renders (not orphaned in child component's tree)
+            const parentEffect = parentComponent?._computeEffect;
+            const instantiate = () => instantiateTemplate(
                 compiled,
                 childValues,
                 parentComponent,  // Use PARENT's component for reactive context
                 slotInSvg
             );
+            const { fragment, effects: childEffects } = parentEffect
+                ? runAsEffect(parentEffect, instantiate)
+                : instantiate();
             currentEffects = childEffects;
             const nodes = [...fragment.childNodes];
             // Pause tracking during DOM insertion to isolate child component effects
@@ -1605,12 +1597,17 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
 
                 if (isDeferredChild(item)) {
                     const { compiled, values: childValues, parentComponent } = item;
-                    const { fragment, effects: childEffects } = instantiateTemplate(
+                    // Use parent component's computeEffect as owner
+                    const parentEffect = parentComponent?._computeEffect;
+                    const doInstantiate = () => instantiateTemplate(
                         compiled,
                         childValues,
                         parentComponent,
                         slotInSvg
                     );
+                    const { fragment, effects: childEffects } = parentEffect
+                        ? runAsEffect(parentEffect, doInstantiate)
+                        : doInstantiate();
                     currentEffects.push(...childEffects);
                     const nodes = [...fragment.childNodes];
                     insertWithoutParentTracking(insertPoint, fragment);
@@ -1648,10 +1645,7 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
         const textNode = document.createTextNode(String(value));
         placeholder.after(textNode);  // Text nodes don't need paused tracking
         currentNodes = [textNode];
-    });
-
-    // Restore effect depth after creating slot effect
-    popEffectDepth();
+    }, { label: `slot:${node.index}` });
 
     // Wrap the effect to clean up DOM when disposed
     // This is critical: when a parent slot disposes child effects,
@@ -1733,7 +1727,7 @@ function instantiateElement(node, values, component, parent, effects, inheritedS
             } else {
                 applyAttribute(el, name, value, isCustomElement);
             }
-        });
+        }, { label: `prop:${name}@${node.tag || 'el'}` });
         effects.push(effect);
     }
 

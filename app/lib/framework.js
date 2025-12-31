@@ -194,7 +194,7 @@ export { defineComponent, flushRenders, flushSync } from './core/component.js';
  * flushEffects(); // Effects run now, not on next microtask
  * console.log(document.querySelector('.count').textContent); // "5"
  */
-export { reactive, createEffect, trackAllDependencies, trackMutations, isReactive, watch, computed, memo, untracked, isUntracked, withoutTracking, flushEffects, reactiveSet, reactiveMap, isReactiveCollection } from './core/reactivity.js';
+export { reactive, createEffect, createRoot, setEffectErrorHandler, trackAllDependencies, trackMutations, isReactive, watch, computed, memo, untracked, isUntracked, withoutTracking, flushEffects, reactiveSet, reactiveMap, isReactiveCollection } from './core/reactivity.js';
 
 /**
  * Tagged template literal for creating XSS-safe HTML templates
