@@ -3,7 +3,7 @@
  * Uses rw.php backend for encrypted note storage
  * Supports real-time collaboration via polling
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, flushSync } from '../../lib/framework.js';
 import { notify } from '../../lib/utils.js';
 import { getRouter } from '../../lib/router.js';
 import login from '../../auth/auth.js';
@@ -107,8 +107,8 @@ export default defineComponent('qnote-page', {
     },
 
     afterRender() {
-        // Auto-expand textarea
-        const textarea = this.querySelector('#content');
+        // Auto-expand textarea on re-renders
+        const textarea = this.refs.content;
         if (textarea) {
             this.autoExpand(textarea);
         }
@@ -313,21 +313,31 @@ export default defineComponent('qnote-page', {
 
                 if (draft && this.normalizeNoteText(draft) !== serverContent) {
                     // We have a draft that differs from server
-                    this.state.content = serverContent;
-                    this.state.savedContent = serverContent;
-                    this.state.serverContent = serverContent;
-                    this.state.hasDraft = true;
-                    this.state.isUnsaved = false;
+                    flushSync(() => {
+                        this.state.content = serverContent;
+                        this.state.savedContent = serverContent;
+                        this.state.serverContent = serverContent;
+                        this.state.hasDraft = true;
+                        this.state.isUnsaved = false;
+                    });
                 } else {
                     // No draft or draft matches server
-                    this.state.content = serverContent;
-                    this.state.savedContent = serverContent;
-                    this.state.serverContent = serverContent;
-                    this.state.isUnsaved = false;
-                    this.state.hasDraft = false;
+                    flushSync(() => {
+                        this.state.content = serverContent;
+                        this.state.savedContent = serverContent;
+                        this.state.serverContent = serverContent;
+                        this.state.isUnsaved = false;
+                        this.state.hasDraft = false;
+                    });
                     if (draft) {
                         localStorage.removeItem(getDraftKey(cleanName));
                     }
+                }
+
+                // Auto-expand textarea after content is loaded
+                const textarea = this.refs.content;
+                if (textarea) {
+                    this.autoExpand(textarea);
                 }
 
                 // Check lock status (API returns: public, authorized, readonly)
@@ -403,7 +413,7 @@ export default defineComponent('qnote-page', {
 
         // Update content while preserving cursor position and scroll
         updateContentPreservingCursor(newContent) {
-            const textarea = this.querySelector('#content');
+            const textarea = this.refs.content;
             if (!textarea) {
                 this.state.content = newContent;
                 return;
@@ -424,7 +434,7 @@ export default defineComponent('qnote-page', {
 
             // Restore after render
             requestAnimationFrame(() => {
-                const ta = this.querySelector('#content');
+                const ta = this.refs.content;
                 if (ta) {
                     const maxPos = ta.value.length;
                     ta.selectionStart = Math.min(Math.max(0, newCursorStart), maxPos);
@@ -523,7 +533,7 @@ export default defineComponent('qnote-page', {
                 navigator.clipboard.writeText(this.state.content)
                     .then(() => notify('Copied to clipboard!'))
                     .catch(() => {
-                        const textarea = this.querySelector('#content');
+                        const textarea = this.refs.content;
                         textarea.select();
                         document.execCommand('copy');
                         notify('Copied to clipboard!');
@@ -610,7 +620,7 @@ export default defineComponent('qnote-page', {
             }
 
             // Auto-expand textarea
-            const textarea = this.querySelector('#content');
+            const textarea = this.refs.content;
             if (textarea) {
                 this.autoExpand(textarea);
             }
@@ -732,7 +742,7 @@ export default defineComponent('qnote-page', {
                     `)}
 
                     <textarea
-                        id="content"
+                        ref="content"
                         x-model="content"
                         on-input="handleContentInput"
                         placeholder="Note content..."
