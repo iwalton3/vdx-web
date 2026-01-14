@@ -28,8 +28,7 @@ class Login {
      */
     async send_otp(user) {
         await api.send_otp(user);
-        this.partialLogin = user;
-        if (this.updated) this.updated(this);
+        if (this.updated) this.updated({ partialLogin: user });
     }
 
     /**
@@ -41,13 +40,13 @@ class Login {
         if (!this.partialLogin) return false;
 
         const { success } = await api.login(this.partialLogin, otp);
-        this.partialLogin = null;
 
         if (success) {
+            if (this.updated) this.updated({ partialLogin: null });
             await this.upd();
             return true;
         } else {
-            if (this.updated) this.updated(this);
+            if (this.updated) this.updated({ partialLogin: null });
             return false;
         }
     }
@@ -74,9 +73,9 @@ class Login {
     async upd() {
         const response = await api.getDetails();
         const { capabilities, user } = response;
-        this.capabilities = capabilities;  // Store as array for reactivity
-        this.user = user;
-        if (this.updated) this.updated(this);
+        // Pass new values directly to trigger reactivity
+        // (Don't set this.user/this.capabilities first - that bypasses the proxy)
+        if (this.updated) this.updated({ capabilities, user });
     }
 }
 
@@ -93,9 +92,7 @@ function loginStore() {
     login.upd().catch(error => {
         console.error('[Auth] Failed to initialize auth state:', error);
         // Set default unauthenticated state on error
-        login.user = null;
-        login.capabilities = [];
-        store.set(login);
+        store.set({ user: null, capabilities: [] });
     });
 
     return store;
