@@ -311,6 +311,95 @@ If using runtime `eval(opt())`, you need:
 
 To avoid this, use build-time optimization instead.
 
+## Framework Internals
+
+These notes are for framework development and maintenance.
+
+### Bundler Implementation Notes
+
+**Source Map Line Counts Must Match Output:**
+Any transformation that changes line counts must happen BEFORE position tracking:
+```javascript
+// ✅ Safe - removes trailing whitespace, preserves line count
+code = code.replace(/^[ \t]+$/gm, '');
+
+// ❌ Unsafe before source map generation - changes line count
+code = code.replace(/\n{3,}/g, '\n\n');
+```
+
+**Arrow Function End Detection:**
+Arrow functions with implicit returns spanning multiple lines need special handling:
+```javascript
+const foo = x =>
+  x + 1;  // Don't stop parsing here!
+```
+Track `sawArrow` state and look for proper terminators (`;`, `}`), not newlines.
+
+**Re-Export Chain Resolution:**
+When file A re-exports from B which re-exports from C, trace the chain to find the actual binding:
+```javascript
+// framework.js: export { h } from './preact/index.js'
+// preact/index.js: export { createElement as h }
+// Actual binding is: createElement
+```
+
+**Import Alias Generation:**
+When stripping imports during bundling, generate alias declarations:
+```javascript
+// Original: import { render as preactRender } from './render.js';
+// Bundle needs: const preactRender = render;
+```
+
+**Regex Literal Detection in Minifiers:**
+Detect regex vs division by checking the previous token:
+- After `=`, `(`, `[`, `,`, `return`, `{` → likely regex
+- After identifier, `)`, `]`, `}` → likely division
+
+### Template Compiler Internals
+
+**Custom Elements Cannot Be Static:**
+Custom elements must NEVER be marked as fully static, even with no slots or events. They use special `_vdxChildren` property for children handling that requires dynamic rendering.
+
+**Elements with Events Cannot Be Static:**
+Any event binding (including method-based handlers) prevents static marking. Check for `eventDef.slot`, `eventDef.xModel`, AND `eventDef.method`.
+
+**Template Literal Array Reference Identity:**
+Each call site of a tagged template literal produces the SAME array reference every call. This enables O(1) cache lookup using the array itself as the WeakMap key.
+
+**HTML Entity Decoding Must Precede URL Sanitization:**
+Malicious URLs can hide schemes with entities: `javascript&#58;alert(1)`. Decode entities during parsing, then sanitize URLs.
+
+**Boolean Attributes Have Complex Rules:**
+- `undefined`/`null`/`false` → Remove attribute
+- `true` → Set to `true`
+- String `"false"` → Coerces to `true` (non-empty string!)
+- Number `0` → `false`
+
+### Component System Internals
+
+**Synchronous Renders in Effects Prevent Infinite Loops:**
+Async renders (`queueMicrotask`) from reactive effects can cause infinite loops. Keep renders synchronous within the effect context.
+
+**Property Name Collisions:**
+Before adding internal properties, check for existing usage:
+- `_vdxChildren` is used for props.children
+- `_vdxDomChildren` is for parent-child component tracking
+
+**Parent-Child Component Tracking Pattern:**
+Track hierarchy in `connectedCallback`, clean up in `disconnectedCallback`:
+```javascript
+let parent = this.parentElement;
+while (parent) {
+    if (parent._isVdxComponent) {
+        this._vdxParent = parent;
+        parent._vdxDomChildren ??= new Set();
+        parent._vdxDomChildren.add(this);
+        break;
+    }
+    parent = parent.parentElement;
+}
+```
+
 ## See Also
 
 - [docs/reactivity.md](reactivity.md) - Reactive state patterns

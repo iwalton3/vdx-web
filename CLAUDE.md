@@ -570,6 +570,17 @@ defineComponent('user-profile', {
 
 **Hash Mode Query Strings** work too: `#/search?q=hello&page=2`
 
+**Redirects:**
+```javascript
+const router = enableRouting(outlet, {
+    '/old-path/:path*/': { redirect: '/:path*' },  // Wildcard redirect
+    '/legacy/': { redirect: '/new/' }              // Simple redirect
+});
+```
+- Redirects use `replace: true` (no history pollution)
+- Parameter substitution via `:paramName` in redirect string
+- Wildcard params (`:path*`) match multiple path segments
+
 **Navigation:**
 ```javascript
 <router-link to="/about/">About</router-link>
@@ -680,6 +691,74 @@ For detailed information, see:
 - **[docs/typescript.md](docs/typescript.md)** - TypeScript support, types, and demo app
 
 For project overview and quickstart, see [README.md](README.md).
+
+## Common Gotchas
+
+### Reactive Proxies Break Object Reference Equality
+State objects are wrapped in reactive proxies. This breaks `===` reference comparison:
+```javascript
+// ❌ Won't work - reactive proxy wraps the object
+if (this.state.config === CONSTANT_CONFIG) { ... }
+
+// ✅ Compare primitive properties instead
+if (this.state.config.max === CONSTANT_CONFIG.max) { ... }
+```
+
+### Reactive Proxies Can't Be Stored in IndexedDB
+IndexedDB uses structured clone which can't handle Proxy objects:
+```javascript
+// ❌ Error: "proxy object could not be cloned"
+await offlineDb.save(this.state.myData);
+
+// ✅ Clone to strip proxy wrapper first
+const cleanData = JSON.parse(JSON.stringify(this.state.myData));
+await offlineDb.save(cleanData);
+```
+
+### Props Not Fully Applied During renderError
+When a component throws during `template()`, props may be `null` in `renderError()`:
+```javascript
+// ❌ Props may not be available in error state
+renderError(error) {
+    this.props.onRetry?.();  // May be null!
+}
+
+// ✅ Use CustomEvents for error recovery
+renderError(error) {
+    return html`<button on-click="${() =>
+        this.dispatchEvent(new CustomEvent('retry', {bubbles: true}))}">
+        Retry
+    </button>`;
+}
+```
+
+### propsChanged Receives newValue Before this.props Updates
+In `propsChanged(prop, newValue)`, use `newValue` directly, not `this.props`:
+```javascript
+// ❌ this.props might have old value
+propsChanged(prop, newValue) {
+    if (prop === 'bands') this._process(this.props.bands);
+}
+
+// ✅ Use newValue parameter directly
+propsChanged(prop, newValue) {
+    if (prop === 'bands') this._process(newValue);
+}
+```
+
+### setOutlet() Needed for Component-Level Router Outlets
+`enableRouting()` sets the page-level outlet, but if a component has its own `<router-outlet>`, call `setOutlet()` in `mounted()`:
+```javascript
+mounted() {
+    router.setOutlet(this.querySelector('router-outlet'));
+}
+```
+
+### memoEach Uses Array Reference as Cache Key
+`memoEach()` uses a WeakMap keyed by the array reference. Safe to use conditionally (no call-order dependency like React hooks).
+
+### Store Notification Depth Limit
+Store subscribers that modify store state trigger re-notification. After 10 recursive notifications, an error is thrown to surface circular dependencies.
 
 ## Common Anti-Patterns to Avoid
 
