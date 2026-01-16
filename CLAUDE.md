@@ -45,7 +45,7 @@ app/
 │   ├── utils.js             # Utilities (notify, darkTheme, localStore, etc.)
 │   ├── utils.d.ts           # TypeScript definitions for utils
 │   ├── componentlib.d.ts    # TypeScript definitions for UI components
-│   └── core/                # Framework internals (~3000 lines)
+│   └── core/                # Framework internals (~6800 lines)
 ├── dist/                    # Pre-bundled versions for embedding
 ├── componentlib/            # vdx-ui: Professional UI component library (cl-* prefix)
 ├── components/              # Reusable UI components
@@ -666,9 +666,9 @@ export default defineComponent('my-form', {
 1. **Use `x-model` for form inputs** - One attribute for two-way binding
 2. **Use `on-*` for ALL event binding** - Never use inline handlers or addEventListener
 3. **Use `when()` and `each()`** - Not ternaries or manual loops
-4. **Never mutate reactive arrays** - Use `[...array].sort()`, not `array.sort()`
+4. **`.sort()` and `.reverse()` are safe** - Made atomic automatically
 5. **Call store methods on `.state`** - `store.state.method()`, not `store.method()`
-6. **Reassign Sets/Maps** - They're not reactive otherwise
+6. **Sets/Maps are reactive** - Mutations trigger updates automatically
 7. **Clean up in `unmounted()`** - Unsubscribe from stores, clear timers
 8. **Validate user input** - Always validate before API calls
 9. **Handle errors properly** - Don't let errors fail silently
@@ -801,6 +801,33 @@ template() {
 
 // ✅ CORRECT - Just pass the object
 <x-select-box options="${this.state.options}">
+```
+
+### ❌ Don't capture computed values before reactive helpers
+
+```javascript
+// ❌ WRONG - Variable captures value before reactive scope (optimizer can't fix)
+const isOffline = this.stores.offline.workOfflineMode || !this.stores.offline.isOnline;
+${when(isOffline, () => html`<p>Offline</p>`)}
+
+// ✅ CORRECT - Inline expression stays reactive
+${when(this.stores.offline.workOfflineMode || !this.stores.offline.isOnline,
+    () => html`<p>Offline</p>`)}
+```
+
+### ❌ Don't use findIndex when position matters with duplicates
+
+```javascript
+// ❌ WRONG - Always finds first occurrence, not the one you're tracking
+const idx = queue.findIndex(s => s.uuid === currentUuid);
+
+// ✅ CORRECT - Validate expected position first
+if (queue[expectedIdx]?.uuid === currentUuid) {
+    idx = expectedIdx;  // Position still valid
+} else {
+    // Find nearest occurrence
+    idx = findNearestMatch(queue, currentUuid, expectedIdx);
+}
 ```
 
 ## Running Tests

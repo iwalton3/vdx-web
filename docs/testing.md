@@ -314,7 +314,7 @@ describe('Component', function(it) {
         const el = document.createElement('test-component');
         document.body.appendChild(el);
 
-        assert.ok(el.shadowRoot, 'Should have shadow root');
+        assert.ok(el.textContent === 'Hello', 'Should render template');
         document.body.removeChild(el);
     });
 });
