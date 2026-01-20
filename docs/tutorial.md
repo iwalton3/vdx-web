@@ -1377,7 +1377,7 @@ For static site generators, you can pass complex data using `json-*` attributes 
 Use `computed()` for expensive calculations:
 
 ```javascript
-import { computed } from './lib/utils.js';
+import { computed } from './lib/framework.js';
 
 defineComponent('product-list', {
     data() {

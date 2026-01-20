@@ -294,11 +294,11 @@ npx tsc
 
 ### Using the TypeScript Dev Server
 
-The included `dev-server-ts.py` provides automatic TypeScript compilation with file watching:
+The included `dev-server.py` (in ts-demo) provides automatic TypeScript compilation with file watching:
 
 ```bash
-cd app
-python3 dev-server-ts.py
+cd app/ts-demo
+python3 dev-server.py
 ```
 
 This server:
@@ -434,11 +434,10 @@ template() {
 
 ### Computed Properties
 
-Use `computed()` from utils for memoized calculations:
+Use `computed()` from framework for memoized calculations:
 
 ```typescript
-import { defineComponent, html } from './lib/framework.js';
-import { computed } from './lib/utils.js';
+import { defineComponent, html, computed } from './lib/framework.js';
 
 interface Item {
   id: string;
