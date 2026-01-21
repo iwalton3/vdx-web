@@ -10,865 +10,102 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The framework requires **no build step** - it runs directly in the browser using ES6 modules.
 
-> **For projects using VDX**: See [FRAMEWORK.md](FRAMEWORK.md) for a compact reference (73% smaller) optimized for app development rather than framework development.
-
 ## Quick Start
 
 ```bash
-cd app
-python3 test-server.py
-```
-
-Then open: http://localhost:9000/
-
-## Framework Architecture
-
-- **Zero npm dependencies** - Pure vanilla JavaScript, no npm packages
-- **No build step** - Runs directly in the browser using ES6 modules
-- **TypeScript support** - Optional `.d.ts` files for type checking (see [docs/typescript.md](docs/typescript.md))
-- **Reactive state management** - Vue 3-style proxy-based reactivity
-- **Web Components** - Built on native Custom Elements API
-- **Fine-grained rendering** - Direct DOM updates without virtual DOM overhead
-- **Template compilation** - Compile-once system: `html`` → compile → DOM template → render`
-- **Router** - Hash-based and HTML5 routing with capability checks
-- **Stores** - Reactive stores with pub/sub pattern (use `localStore()` from utils.js for localStorage persistence)
-
-## Project Structure
-
-```
-app/
-├── lib/                     # vdx-web: Core framework
-│   ├── framework.js         # Main barrel export (defineComponent, html, reactive, etc.)
-│   ├── framework.d.ts       # TypeScript definitions for framework
-│   ├── router.js            # Router system
-│   ├── router.d.ts          # TypeScript definitions for router
-│   ├── utils.js             # Utilities (notify, darkTheme, localStore, etc.)
-│   ├── utils.d.ts           # TypeScript definitions for utils
-│   ├── componentlib.d.ts    # TypeScript definitions for UI components
-│   └── core/                # Framework internals (~6800 lines)
-├── dist/                    # Pre-bundled versions for embedding
-├── componentlib/            # vdx-ui: Professional UI component library (cl-* prefix)
-├── components/              # Reusable UI components
-├── apps/                    # Application modules
-├── tests/                   # Comprehensive unit tests (187 tests)
-├── ts-demo/                 # TypeScript demo application
-└── index.html               # Entry point
-```
-
-## Core Framework Concepts
-
-### 1. Component Pattern
-
-```javascript
-import { defineComponent, html, when, each } from './lib/framework.js';
-
-export default defineComponent('my-component', {
-    // Props (attributes) - automatically observed
-    props: {
-        title: 'Default Title',
-        count: 0
-    },
-
-    // Local reactive state
-    data() {
-        return {
-            message: 'Hello',
-            items: []
-        };
-    },
-
-    // Lifecycle hooks
-    mounted() {
-        // Called after component is added to DOM
-    },
-
-    unmounted() {
-        // Called before component is removed - cleanup subscriptions/timers
-    },
-
-    propsChanged(prop, newValue, oldValue) {
-        // Called when a prop changes - see docs/components.md for details
-    },
-
-    // Error boundary (optional) - gracefully handle render errors
-    renderError(error) {
-        console.error('Render failed:', error);
-        return html`<div class="error">Something went wrong</div>`;
-    },
-
-    // Methods
-    methods: {
-        handleClick(e) {
-            this.state.message = 'Clicked!';
-        }
-    },
-
-    // Template using tagged template literals
-    template() {
-        return html`
-            <div>
-                <h1>${this.props.title}</h1>
-                <p>${this.state.message}</p>
-                <button on-click="handleClick">Click Me</button>
-            </div>
-        `;
-    },
-
-    // Scoped styles
-    styles: /*css*/`
-        button {
-            background: #007bff;
-            color: white;
-        }
-    `
-});
-```
-
-**See [docs/components.md](docs/components.md) for complete component patterns.**
-
-### 2. Event Binding - CRITICAL
-
-✅ **ALWAYS use `on-*` attributes** - Never use inline onclick or addEventListener in templates:
-
-```javascript
-// ✅ CORRECT
-<button on-click="handleClick">Click</button>
-<form on-submit-prevent="handleSubmit">...</form>
-<input type="text" on-change="handleChange">
-
-// ❌ WRONG
-<button onclick="handleClick()">Click</button>
-```
-
-**Common events:** `on-click`, `on-change`, `on-submit`, `on-submit-prevent`, `on-input`, `on-mouseenter`, `on-mouseleave`
-
-**Custom events:** Any event name works: `on-my-event`, `on-status-change`, etc. Modifiers (`prevent`, `stop`) go at the end: `on-custom-event-prevent`
-
-### 3. Two-Way Data Binding with `x-model`
-
-**Automatic two-way binding** - a feature even React doesn't have:
-
-```javascript
-data() {
-    return {
-        username: '',
-        age: 0,
-        agreed: false
-    };
-},
-
-template() {
-    return html`
-        <input type="text" x-model="username">
-        <input type="number" x-model="age">      <!-- Auto number conversion -->
-        <input type="checkbox" x-model="agreed">  <!-- Auto boolean -->
-    `;
-}
-```
-
-**Chain with custom handlers:**
-```javascript
-<input type="text" x-model="username" on-input="${() => this.clearError()}">
-```
-
-**See [docs/templates.md](docs/templates.md) for complete x-model documentation.**
-
-### 4. Template Helpers
-
-```javascript
-// html`` - Auto-escaped, XSS-safe
-html`<div>${this.state.userInput}</div>`
-
-// when() - Conditional rendering (use instead of ternaries)
-${when(this.state.isLoggedIn,
-    html`<p>Welcome!</p>`,
-    html`<p>Please log in</p>`
-)}
-
-// Can also accept function - preferred for performance (caches by condition)
-${when(this.state.isLoggedIn,
-    () => html`<p>Welcome!</p>`,
-    () => html`<p>Please log in</p>`
-)}
-
-// each() - List rendering
-${each(this.state.items, item => html`
-    <li>${item.name}</li>
-`)}
-
-// each() with key function - preserves DOM state on reorder
-${each(this.state.items, item => html`
-    <li><input type="text" x-model="items[${item.id}].name"></li>
-`, item => item.id)}
-
-// memoEach() - Memoized list rendering for performance
-// Only re-renders items that changed (by reference)
-// Uses array reference for cache - safe to use conditionally
-${memoEach(this.state.songs, song => html`
-    <div class="song">${song.title}</div>
-`, song => song.uuid)}
-
-// memoEach() with explicit cache - for same array rendered differently
-${memoEach(this.state.songs, song => html`<div>${song.a}</div>`, s => s.uuid, this._cacheA)}
-${memoEach(this.state.songs, song => html`<span>${song.b}</span>`, s => s.uuid, this._cacheB)}
-
-// memoEach() with external state - read OUTSIDE closure to track dependencies
-const selectedIdx = this.state.selectedIndex;  // Read here to create dependency
-${memoEach(this.state.items, (item, idx) => {
-    const isSelected = idx === selectedIdx;  // Use captured value, not this.state
-    return html`<div class="${isSelected ? 'selected' : ''}">${item.name}</div>`;
-}, item => item.id)}
-
-// contain() - Isolate high-frequency updates from parent template
-// Prevents expensive sibling re-renders (e.g., list doesn't re-render on timer tick)
-${contain(() => html`
-    <div class="time">${this.stores.player.currentTime}</div>
-`)}
-
-// awaitThen() - Async data loading with loading/error states
-${awaitThen(
-    this.state.userPromise,  // Promise stored in state
-    user => html`<div>${user.name}</div>`,  // render when resolved
-    html`<loading-spinner></loading-spinner>`,  // loading content
-    error => html`<error-msg>${error.message}</error-msg>`  // error content
-)}
-
-// raw() - Only for trusted, sanitized content
-${raw(this.state.trustedHtmlContent)}
-```
-
-**Async Data with `awaitThen`:**
-```javascript
-import { defineComponent, html, awaitThen } from './lib/framework.js';
-
-defineComponent('user-profile', {
-    data() {
-        return {
-            userPromise: null  // Store promise in state to control when it's created
-        };
-    },
-
-    mounted() {
-        this.state.userPromise = fetchUser(123);  // Create promise on mount
-    },
-
-    methods: {
-        reload() {
-            this.state.userPromise = fetchUser(123);  // New promise triggers re-render
-        }
-    },
-
-    template() {
-        return html`
-            ${awaitThen(
-                this.state.userPromise,
-                user => html`<h1>${user.name}</h1>`,
-                html`<p>Loading...</p>`,
-                error => html`<p class="error">${error.message}</p>`
-            )}
-        `;
-    }
-});
-```
-
-**Lazy Loading Components with `lazy()`:**
-```javascript
-import { defineComponent, html, awaitThen } from './lib/framework.js';
-import { lazy, preloadLazy } from './lib/utils.js';
-
-// Define lazy component at module level (cached)
-const LazyChart = lazy(() => import('./chart-component.js'));
-
-defineComponent('dashboard', {
-    template() {
-        return html`
-            <h1>Dashboard</h1>
-            ${awaitThen(LazyChart,
-                () => html`<chart-component data="${this.state.chartData}"></chart-component>`,
-                html`<cl-spinner></cl-spinner>`
-            )}
-        `;
-    }
-});
-
-// Preload on hover (for better UX)
-// <button on-mouseenter="${() => preloadLazy(() => import('./heavy-dialog.js'))}">
-```
-
-### 5. Passing Props to Child Components
-
-The framework **automatically** passes objects, arrays, and functions to custom elements without stringification:
-
-```javascript
-template() {
-    return html`
-        <!-- ✅ Arrays/objects/functions passed automatically -->
-        <x-select-box
-            options="${this.state.lengthOptions}"
-            value="${this.state.length}"
-            on-change="handleChange">
-        </x-select-box>
-
-        <!-- Methods are auto-bound - just pass them directly -->
-        <virtual-list
-            items="${this.state.items}"
-            renderItem="${this.handleItemRender}">
-        </virtual-list>
-    `;
-}
-```
-
-**See [docs/components.md](docs/components.md) for prop passing details.**
-
-### 6. Children Props (React-style Composition)
-
-The framework supports **React-style children** for component composition:
-
-```javascript
-// ✅ Basic children - always available as this.props.children
-defineComponent('wrapper', {
-    template() {
-        return html`
-            <div class="wrapper">
-                ${this.props.children}
-            </div>
-        `;
-    }
-});
-
-// Usage
-<wrapper>
-    <p>Hello, World!</p>
-</wrapper>
-```
-
-**Named slots:**
-
-```javascript
-// ✅ Named slots using slot attribute
-defineComponent('dialog', {
-    template() {
-        // children is always an array, slots has named slots
-        const footerSlot = this.props.slots.footer || [];
-
-        return html`
-            <div class="dialog">
-                <div class="content">${this.props.children}</div>
-                ${when(footerSlot.length > 0, html`
-                    <div class="footer">${footerSlot}</div>
-                `)}
-            </div>
-        `;
-    }
-});
-
-// Usage
-<dialog>
-    <p>Main content</p>
-    <div slot="footer">
-        <button>OK</button>
-    </div>
-</dialog>
-```
-
-**API:**
-- `this.props.children` - Always an array of default slot children
-- `this.props.slots` - Object with named slot children (e.g., `this.props.slots.footer`)
-
-**⚠️ State Preservation:** When conditionally rendering children with `when()`, child components will **unmount and lose state**. To preserve state, use CSS hiding instead:
-
-```javascript
-// ✅ PRESERVES STATE - Use CSS display:none
-template() {
-    return html`
-        <div class="tab1 ${this.state.activeTab === 'tab1' ? '' : 'hidden'}">
-            ${this.props.slots.tab1}
-        </div>
-    `;
-},
-styles: /*css*/`
-    .hidden { display: none; }
-`
-
-// ❌ LOSES STATE - Unmounts component
-${when(this.state.activeTab === 'tab1', html`
-    <div>${this.props.slots.tab1}</div>
-`)}
-```
-
-**Using `raw()` with children:**
-
-```javascript
-// For password generators, markdown renderers, etc.
-defineComponent('result-display', {
-    data() {
-        return {
-            generatedHtml: '<code>aB3$xY9!</code>' // Your generated HTML
-        };
-    },
-    template() {
-        return html`
-            <password-card>
-                <h3>Generated:</h3>
-                ${raw(this.state.generatedHtml)}  <!-- Creates vnode with dangerouslySetInnerHTML -->
-                <button>Copy</button>
-            </password-card>
-        `;
-    }
-});
-```
-
-**See [docs/components.md](docs/components.md) for complete children documentation.**
-
-### 7. Reactive State - CRITICAL
-
-✅ **`.sort()` and `.reverse()` are now safe** - they're made atomic automatically:
-
-```javascript
-// ✅ Both work correctly
-this.state.items.sort((a, b) => a.time - b.time);  // Atomic - one update
-this.state.items.reverse();  // Atomic - one update
-
-// ✅ Creating a copy also still works
-const sorted = [...this.state.items].sort((a, b) => a.time - b.time);
-```
-
-**Safe methods** (return new arrays): `.filter()`, `.map()`, `.slice()`
-**Mutating methods** (trigger updates): `.sort()`, `.reverse()`, `.push()`, `.pop()`, `.splice()`
-
-✅ **Sets and Maps are automatically reactive** - just use them normally:
-
-```javascript
-data() {
-    return {
-        selectedIds: new Set(),  // ✅ Auto-wrapped as reactive!
-        userScores: new Map()    // ✅ Auto-wrapped as reactive!
-    };
-},
-
-methods: {
-    toggleSelection(id) {
-        // ✅ Automatically triggers re-render!
-        if (this.state.selectedIds.has(id)) {
-            this.state.selectedIds.delete(id);
-        } else {
-            this.state.selectedIds.add(id);
-        }
-    }
-}
-```
-
-Use `untracked()` to opt-out for large Set/Map that don't need reactivity.
-
-**Batch operations** (single trigger for multiple items):
-```javascript
-this.state.selectedIds.addAll([1, 2, 3]);     // ✅ One trigger, not 3
-this.state.selectedIds.deleteAll([1, 2]);     // ✅ One trigger, not 2
-this.state.userScores.setAll([['a', 1], ['b', 2]]);  // ✅ One trigger
-this.state.userScores.deleteAll(['a', 'b']);  // ✅ One trigger
-```
-
-✅ **Array iteration is O(1)** - Large arrays work efficiently by default:
-
-```javascript
-// Iterating 2000 items creates 1 dependency (on 'length'), not 2000
-each(this.state.items, item => html`<div>${item.name}</div>`)
-```
-
-**Optional: `untracked()` to skip deep proxying entirely:**
-
-```javascript
-data() {
-    return {
-        // Skip proxying: 2000 items × 50 properties = skip reactive wrapping
-        songs: untracked([]),
-    };
-}
-```
-
-Use `untracked()` when items have many properties you never read individually, or for third-party objects with custom proxies. Reassign the whole array to trigger updates.
-
-#### Automatic Render Batching
-
-Multiple state changes in the same function are **automatically batched** into a single render:
-
-```javascript
-methods: {
-    updateMultiple() {
-        // All these changes result in ONE render, not three
-        this.state.a = 1;
-        this.state.b = 2;
-        this.state.c = 3;
-        // Render happens after this function completes (via queueMicrotask)
-    }
-}
-```
-
-#### flushSync() - When You Need Immediate DOM Updates
-
-Use `flushSync()` when you need to interact with the DOM immediately after state changes (e.g., focus, scroll, measure):
-
-```javascript
-import { defineComponent, html, flushSync } from './lib/framework.js';
-
-methods: {
-    showAndFocus() {
-        flushSync(() => {
-            this.state.showInput = true;
-        });
-        // DOM is now updated, safe to focus
-        this.refs.input.focus();
-    }
-}
-```
-
-**See [docs/reactivity.md](docs/reactivity.md) for complete reactivity guide.**
-
-### 8. Router
-
-```javascript
-import { enableRouting } from './lib/router.js';
-
-const outlet = document.getElementsByTagName('router-outlet')[0];
-const router = enableRouting(outlet, {
-    '/': {
-        component: 'home-page',
-        load: () => import('./home.js')  // Optional lazy loading
-    },
-    '/users/:id/': {
-        component: 'user-profile'  // URL parameters
-    },
-    '/products/:category/:sku/': {
-        component: 'product-detail'  // Multiple params
-    },
-    '/admin/': {
-        component: 'admin-page',
-        require: 'admin'  // Capability check
-    }
-});
-```
-
-**URL Parameters and Query Strings** - passed automatically as props:
-```javascript
-defineComponent('user-profile', {
-    props: {
-        params: {},  // { id: '123' } from /users/123/
-        query: {}    // { tab: 'settings' } from ?tab=settings
-    },
-
-    mounted() {
-        this.loadUser(this.props.params.id);
-    }
-});
-```
-
-**Reactive Navigation** - same-component navigation updates props without remounting:
-```javascript
-// Navigating from /users/1/ to /users/2/ updates params.id reactively
-<router-link to="/users/${user.id}/">${user.name}</router-link>
-```
-
-**Hash Mode Query Strings** work too: `#/search?q=hello&page=2`
-
-**Redirects:**
-```javascript
-const router = enableRouting(outlet, {
-    '/old-path/:path*/': { redirect: '/:path*' },  // Wildcard redirect
-    '/legacy/': { redirect: '/new/' }              // Simple redirect
-});
-```
-- Redirects use `replace: true` (no history pollution)
-- Parameter substitution via `:paramName` in redirect string
-- Wildcard params (`:path*`) match multiple path segments
-
-**Navigation:**
-```javascript
-<router-link to="/about/">About</router-link>
-```
-
-**See [docs/routing.md](docs/routing.md) for complete router documentation.**
-
-### 9. Stores
-
-**Automatic subscription** (recommended) - use `stores` option for auto-subscribe/unsubscribe:
-
-```javascript
-import login from './auth/auth.js';
-
-export default defineComponent('my-component', {
-    stores: { login },  // Auto-subscribes on mount, unsubscribes on unmount
-
-    template() {
-        return html`
-            <p>User: ${this.stores.login.user?.name || 'Guest'}</p>
-            <button on-click="logoff">Log out</button>
-        `;
-    },
-
-    methods: {
-        async logoff() {
-            await login.state.logoff();  // Call methods on store.state
-        }
-    }
-});
-```
-
-**Manual subscription** (when you need custom logic):
-
-```javascript
-import login from './auth/auth.js';
-
-async mounted() {
-    this.unsubscribe = login.subscribe(state => {
-        this.state.user = state.user;
-    });
-}
-
-unmounted() {
-    if (this.unsubscribe) this.unsubscribe();
-}
-```
-
-**Important:** Always call store methods on `.state`, not the store directly: `login.state.logoff()`
-
-### 10. Refs
-
-Get direct DOM references using the `ref` attribute:
-
-```javascript
-export default defineComponent('my-form', {
-    methods: {
-        focusInput() {
-            this.refs.nameInput.focus();
-        },
-
-        handleSubmit() {
-            console.log('Value:', this.refs.nameInput.value);
-        }
-    },
-
-    template() {
-        return html`
-            <input ref="nameInput" type="text">
-            <button on-click="focusInput">Focus</button>
-            <button on-click="handleSubmit">Submit</button>
-        `;
-    }
-});
-```
-
-- Refs are available after first render
-- Automatically cleaned up when element is removed
-- Access via `this.refs.refName`
-
-## Key Conventions
-
-1. **Use `x-model` for form inputs** - One attribute for two-way binding
-2. **Use `on-*` for ALL event binding** - Never use inline handlers or addEventListener
-3. **Use `when()` and `each()`** - Not ternaries or manual loops
-4. **`.sort()` and `.reverse()` are safe** - Made atomic automatically
-5. **Call store methods on `.state`** - `store.state.method()`, not `store.method()`
-6. **Sets/Maps are reactive** - Mutations trigger updates automatically
-7. **Clean up in `unmounted()`** - Unsubscribe from stores, clear timers
-8. **Validate user input** - Always validate before API calls
-9. **Handle errors properly** - Don't let errors fail silently
-10. **Use descriptive names** - No abbreviations or single letters
-
-## Documentation
-
-For detailed information, see:
-
-- **[docs/components.md](docs/components.md)** - Component development patterns, props, children, lifecycle
-- **[docs/templates.md](docs/templates.md)** - Template system, x-model, helpers, event binding
-- **[docs/reactivity.md](docs/reactivity.md)** - Reactive state, stores, computed properties
-- **[docs/routing.md](docs/routing.md)** - Router setup, lazy loading, navigation
-- **[docs/security.md](docs/security.md)** - XSS protection, input validation, CSRF, CSP
-- **[docs/testing.md](docs/testing.md)** - Running tests, writing tests, test structure
-- **[docs/optimization.md](docs/optimization.md)** - Build-time optimization, linting, source maps
-- **[docs/bundles.md](docs/bundles.md)** - Using pre-bundled framework versions
-- **[docs/componentlib.md](docs/componentlib.md)** - Professional UI component library (cl-* components)
-- **[docs/api-reference.md](docs/api-reference.md)** - Complete API reference
-- **[docs/typescript.md](docs/typescript.md)** - TypeScript support, types, and demo app
-
-For project overview and quickstart, see [README.md](README.md).
-
-## Common Gotchas
-
-### Reactive Proxies Break Object Reference Equality
-State objects are wrapped in reactive proxies. This breaks `===` reference comparison:
-```javascript
-// ❌ Won't work - reactive proxy wraps the object
-if (this.state.config === CONSTANT_CONFIG) { ... }
-
-// ✅ Compare primitive properties instead
-if (this.state.config.max === CONSTANT_CONFIG.max) { ... }
-```
-
-### Reactive Proxies Can't Be Stored in IndexedDB
-IndexedDB uses structured clone which can't handle Proxy objects:
-```javascript
-// ❌ Error: "proxy object could not be cloned"
-await offlineDb.save(this.state.myData);
-
-// ✅ Clone to strip proxy wrapper first
-const cleanData = JSON.parse(JSON.stringify(this.state.myData));
-await offlineDb.save(cleanData);
-```
-
-### Props Not Fully Applied During renderError
-When a component throws during `template()`, props may be `null` in `renderError()`:
-```javascript
-// ❌ Props may not be available in error state
-renderError(error) {
-    this.props.onRetry?.();  // May be null!
-}
-
-// ✅ Use CustomEvents for error recovery
-renderError(error) {
-    return html`<button on-click="${() =>
-        this.dispatchEvent(new CustomEvent('retry', {bubbles: true}))}">
-        Retry
-    </button>`;
-}
-```
-
-### propsChanged Receives newValue Before this.props Updates
-In `propsChanged(prop, newValue)`, use `newValue` directly, not `this.props`:
-```javascript
-// ❌ this.props might have old value
-propsChanged(prop, newValue) {
-    if (prop === 'bands') this._process(this.props.bands);
-}
-
-// ✅ Use newValue parameter directly
-propsChanged(prop, newValue) {
-    if (prop === 'bands') this._process(newValue);
-}
-```
-
-### setOutlet() Needed for Component-Level Router Outlets
-`enableRouting()` sets the page-level outlet, but if a component has its own `<router-outlet>`, call `setOutlet()` in `mounted()`:
-```javascript
-mounted() {
-    router.setOutlet(this.querySelector('router-outlet'));
-}
-```
-
-### memoEach Uses Array Reference as Cache Key
-`memoEach()` uses a WeakMap keyed by the array reference. Safe to use conditionally (no call-order dependency like React hooks).
-
-### Store Notification Depth Limit
-Store subscribers that modify store state trigger re-notification. After 10 recursive notifications, an error is thrown to surface circular dependencies.
-
-## Common Anti-Patterns to Avoid
-
-### ❌ Don't use afterRender() for value syncing or event binding
-
-```javascript
-// ❌ WRONG - Framework handles value syncing automatically
-afterRender() {
-    const select = this.querySelector('select');
-    select.value = this.state.selected;
-}
-
-// ❌ WRONG - Use on-* attributes instead
-afterRender() {
-    this.querySelector('button').addEventListener('click', this.handleClick);
-}
-```
-
-### ❌ Don't manually bind methods
-
-```javascript
-// ❌ WRONG - Methods are already auto-bound
-mounted() {
-    this._boundRender = this.handleRender.bind(this);
-}
-
-// ✅ CORRECT - Just pass the method directly
-template() {
-    return html`
-        <virtual-list renderItem="${this.handleRender}">
-    `;
-}
-```
-
-### ❌ Don't stringify objects for custom components
-
-```javascript
-// ❌ WRONG - Framework passes by reference
-<x-select-box options="${JSON.stringify(this.state.options)}">
-
-// ✅ CORRECT - Just pass the object
-<x-select-box options="${this.state.options}">
-```
-
-### ❌ Don't capture computed values before reactive helpers
-
-```javascript
-// ❌ WRONG - Variable captures value before reactive scope (optimizer can't fix)
-const isOffline = this.stores.offline.workOfflineMode || !this.stores.offline.isOnline;
-${when(isOffline, () => html`<p>Offline</p>`)}
-
-// ✅ CORRECT - Inline expression stays reactive
-${when(this.stores.offline.workOfflineMode || !this.stores.offline.isOnline,
-    () => html`<p>Offline</p>`)}
-```
-
-### ❌ Don't use findIndex when position matters with duplicates
-
-```javascript
-// ❌ WRONG - Always finds first occurrence, not the one you're tracking
-const idx = queue.findIndex(s => s.uuid === currentUuid);
-
-// ✅ CORRECT - Validate expected position first
-if (queue[expectedIdx]?.uuid === currentUuid) {
-    idx = expectedIdx;  // Position still valid
-} else {
-    // Find nearest occurrence
-    idx = findNearestMatch(queue, currentUuid, expectedIdx);
-}
+cd app && python3 test-server.py
+# Open http://localhost:9000/
 ```
 
 ## Running Tests
 
-Both test suites require the test server running first:
+Both test suites require the test server running first.
 
 ```bash
-cd app
-source ~/.venv/bin/activate
-python3 test-server.py
-```
+# Framework unit tests (~187 tests)
+cd componentlib-e2e && node run-framework-tests.js
+# Or open http://localhost:9000/tests/
 
-### Framework Unit Tests (~187 tests)
-
-Tests the core framework: reactivity, templates, components, router, etc.
-
-```bash
-# From project root (with server running)
-cd componentlib-e2e
-node run-framework-tests.js
-```
-
-Or open http://localhost:9000/tests/ in a browser.
-
-### Component Library E2E Tests (~150 tests)
-
-Tests the component library using Puppeteer.
-
-```bash
-# From project root (with server running)
-cd componentlib-e2e
-node test-runner.js
+# Component library E2E tests (~150 tests)
+cd componentlib-e2e && node test-runner.js
 
 # Only show output from failing tests (quieter for CI or quick checks)
 node test-runner.js --only-errors
 ```
 
+## Required Reading (VERY IMPORTANT)
+
+**You MUST read these docs before starting work** - this CLAUDE.md is a summary only:
+
+| Before doing... | Read this first |
+|-----------------|-----------------|
+| Writing/modifying ANY VDX component | [FRAMEWORK.md](FRAMEWORK.md) |
+| Working on componentlib (cl-*) | [docs/componentlib.md](docs/componentlib.md) |
+
+**FRAMEWORK.md is essential** - it contains component construction, event binding, templates, reactivity, stores, and router patterns that are NOT in this file. Do not attempt component work without reading it first.
+
+## Documentation Reference
+
+| Doc File | When to Read |
+|----------|--------------|
+| [docs/components.md](docs/components.md) | Component lifecycle, props, children, slots |
+| [docs/templates.md](docs/templates.md) | html\`\`, x-model, event binding, helpers |
+| [docs/reactivity.md](docs/reactivity.md) | Reactive state, stores, computed properties |
+| [docs/routing.md](docs/routing.md) | Router setup, redirects, params, navigation |
+| [docs/security.md](docs/security.md) | XSS protection, input validation, CSRF |
+| [docs/testing.md](docs/testing.md) | Writing and running tests |
+| [docs/optimization.md](docs/optimization.md) | Build-time optimizer, linting, source maps |
+| [docs/componentlib.md](docs/componentlib.md) | cl-* UI components |
+| [docs/typescript.md](docs/typescript.md) | TypeScript support and type checking |
+| [docs/api-reference.md](docs/api-reference.md) | Complete API reference |
+| [docs/tutorial.md](docs/tutorial.md) | Learning VDX from scratch |
+
+## Key Framework Conventions
+
+1. **Use `on-*` for ALL events** - Never use inline `onclick` or `addEventListener`
+2. **Use `x-model` for form inputs** - Two-way binding
+3. **Use `when()` and `each()`** - Not ternaries or manual loops
+4. **Call store methods on `.state`** - `store.state.method()`, not `store.method()`
+5. **Clean up in `unmounted()`** - Unsubscribe from stores, clear timers
+
+## Common Gotchas
+
+### Reactive Proxies
+- **Break `===` comparison**: Compare primitive properties, not object references
+- **Can't be stored in IndexedDB**: Use `JSON.parse(JSON.stringify(data))` to strip proxy
+
+### propsChanged Timing
+Use `newValue` parameter directly, not `this.props` (may have old value):
+```javascript
+propsChanged(prop, newValue) {
+    if (prop === 'data') this._process(newValue);  // ✅ not this.props.data
+}
+```
+
+### Reactive Boundaries
+Variables captured outside `contain()` won't update:
+```javascript
+// ❌ count captured before contain, won't react
+const count = this.state.count;
+${contain(() => html`<p>${count}</p>`)}
+
+// ✅ Access state inside contain
+${contain(() => html`<p>${this.state.count}</p>`)}
+```
+
+### Component-Level Router Outlets
+Call `router.setOutlet()` in `mounted()` if component has its own `<router-outlet>`.
+
+### Error Boundary Prop Availability
+Props may be `null` in `renderError()` - use CustomEvents for recovery actions.
+
+### No Shadow DOM
+This framework does not use shadow DOM. Children are handled via preact virtual dom rendering.
+
 ## Getting Help
 
-- Check `/app/tests/` for working examples
-- Review `/app/lib/core/` for framework APIs
-- See `/app/components/` for component patterns
+- `/app/tests/` - Working examples
+- `/app/lib/core/` - Framework internals (~6800 lines)
+- `/app/components/` - Component patterns
+- `/app/componentlib/` - UI component library source
 - Read the docs/ folder for detailed information
-- VERY IMPORTANT: This framework does not use shadow dom for anything, children are handled via template rendering.
