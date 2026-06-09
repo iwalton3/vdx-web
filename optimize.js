@@ -48,7 +48,8 @@ function parseArgs() {
         autoFix: false,
         verbose: false,
         dryRun: false,
-        strict: false
+        strict: false,
+        exclude: []
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -91,6 +92,12 @@ function parseArgs() {
             case '--strict':
                 options.strict = true;
                 break;
+            case '--exclude':
+            case '-x':
+                // Comma-separated path prefixes (relative to input) to copy verbatim,
+                // skipping optimization and minification.
+                options.exclude.push(...args[++i].split(',').map(s => s.trim()).filter(Boolean));
+                break;
             case '--help':
             case '-h':
                 showHelp();
@@ -132,6 +139,9 @@ Options:
   --strict          With --lint-only: only show UNFIXABLE issues (optimizer can't fix)
                     Use to check code before running optimizer
                     Exit code 1 if unfixable issues found (for CI)
+  --exclude, -x     Comma-separated path prefixes (relative to input) to copy
+                    verbatim, skipping optimization and minification
+                    e.g. --exclude bundle-demo,tests
   --auto-fix        Fix early dereferences in-place (all files)
                     Only fixes simple patterns, not computed expressions
   --verbose, -v     Show detailed processing information
@@ -3209,6 +3219,20 @@ function main() {
         const ext = path.extname(relativePath).toLowerCase();
 
         let result;
+
+        // Excluded paths are copied verbatim (no optimization, no minification)
+        const isExcluded = options.exclude.some(prefix =>
+            relativePath === prefix || relativePath.startsWith(prefix + path.sep));
+        if (isExcluded) {
+            result = copyFile(inputPath, outputPath, options);
+            otherCount++;
+            if (options.verbose) {
+                console.log(`  Copy (excluded): ${relativePath}`);
+            }
+            totalOriginal += result.originalSize;
+            totalOutput += result.outputSize;
+            continue;
+        }
 
         if (ext === '.js' || ext === '.mjs') {
             result = processJsFile(inputPath, outputPath, options);
