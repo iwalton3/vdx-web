@@ -3,7 +3,7 @@
  * Web Components-based system with fine-grained reactive rendering
  */
 
-import { reactive, createEffect, createRoot, trackMutations, flushEffects, runAsEffect } from './reactivity.js';
+import { reactive, createEffect, trackMutations, flushEffects, runAsEffect } from './reactivity.js';
 import { compileTemplate } from './template-compiler.js';
 import { setRenderContext } from './template.js';
 import { instantiateTemplate, createDeferredChild, VALUE_GETTER, flushDOMUpdates } from './template-renderer.js';
@@ -16,83 +16,24 @@ let debugVNodeHook = null;
 export const componentDefinitions = new Map();
 
 // ============================================================================
-// Coordinated Root Rendering System with Automatic Batching
+// Batched Rendering
 // ============================================================================
-// This system ensures that all VDX components render efficiently,
-// preventing cascading re-render issues through fine-grained reactivity.
+// All rendering is driven by fine-grained reactive effects (see the
+// computeEffect / slot effects created in connectedCallback). Coordination
+// across components happens through effect ownership and depth-sorted
+// flushing in reactivity.js, not through DOM-tree walking:
 //
-// BATCHING: Multiple state changes within the same synchronous execution
-// are automatically batched into a single render. For example:
-//
-//   this.state.a = 1;  // Schedules render
+//   this.state.a = 1;  // Queues effects
 //   this.state.b = 2;  // Same batch
 //   this.state.c = 3;  // Same batch
-//   // Only ONE render happens (via queueMicrotask)
+//   // Effects flush once (microtask), DOM commits batch via rAF
 
-/** Flag to indicate if we're in the middle of a coordinated tree render */
-let isRenderingTree = false;
-
-/** Set of root components pending render (for batching) */
-let pendingRoots = null;
-
-/**
- * Schedule a render for a root component.
- * Multiple calls within the same microtask are batched into a single render.
- * If we're already inside a render cycle, the request is ignored since the tree
- * is already being rendered.
- * @param {HTMLElement} root - The root VDX component to render
- */
-function scheduleRootRender(root) {
-    // Don't schedule if we're already rendering - the tree is being updated
-    if (isRenderingTree) {
-        return;
-    }
-
-    if (!pendingRoots) {
-        pendingRoots = new Set();
-        queueMicrotask(flushPendingRenders);
-    }
-    pendingRoots.add(root);
-}
-
-/**
- * Flush all pending renders. Called via queueMicrotask.
- * This runs after the current synchronous code completes, batching
- * all state changes into a single render pass.
- */
-function flushPendingRenders() {
-    if (!pendingRoots) return;
-
-    const roots = pendingRoots;
-    pendingRoots = null;
-
-    for (const root of roots) {
-        // Only render if component is still mounted
-        if (root._isMounted && !root._isDestroyed) {
-            performTreeRender(root);
-        }
-    }
-}
-
-/**
- * Flush any pending renders synchronously.
- * Useful for tests that need to verify DOM state immediately after state changes.
- * In normal application code, you don't need to call this - renders are batched
- * automatically via queueMicrotask.
- *
- * @example
- * // In a test:
- * component.state.count = 5;
- * flushRenders();  // Force render to happen now
- * expect(component.textContent).toBe('5');
- */
 /**
  * Internal function to flush all pending updates synchronously.
- * Flushes: reactive effects -> component renders -> DOM updates
+ * Flushes: reactive effects -> DOM updates
  */
 function flushAll() {
     flushEffects();
-    flushPendingRenders();
     flushDOMUpdates();
 }
 
@@ -139,54 +80,6 @@ export function flushSync(fn) {
     const result = fn();
     flushAll();
     return result;
-}
-
-/**
- * Perform a SYNCHRONOUS coordinated tree render starting from root.
- * This is called from flushPendingRenders after batching, or directly
- * when immediate rendering is needed (e.g., during tests).
- * @param {HTMLElement} root - The root VDX component to render
- */
-function performTreeRender(root) {
-    // Prevent re-entry - if we're already rendering, skip
-    if (isRenderingTree) {
-        return;
-    }
-
-    isRenderingTree = true;
-
-    try {
-        // Render the tree depth-first
-        renderComponentTree(root);
-    } finally {
-        isRenderingTree = false;
-    }
-}
-
-/**
- * Recursively render component tree depth-first
- * Catches errors to ensure sibling components still render
- */
-function renderComponentTree(component) {
-    if (!component._isMounted || component._isDestroyed) {
-        return;
-    }
-
-    // Render this component with error isolation
-    try {
-        component._doRender();
-    } catch (error) {
-        // _doRender has its own error handling, but catch any uncaught errors
-        // to ensure tree continues rendering
-        console.error(`[${component.tagName}] Unhandled render error:`, error);
-    }
-
-    // Continue rendering child VDX components even if parent had errors
-    if (component._vdxChildComponents) {
-        for (const child of component._vdxChildComponents) {
-            renderComponentTree(child);
-        }
-    }
 }
 
 export function setDebugComponentHooks(hooks) {
@@ -514,12 +407,6 @@ export function defineComponent(name, options) {
             this._isDestroyed = false;
             this._suppressAttributeChange = false;
 
-            // VDX component hierarchy tracking for coordinated rendering
-            this._isVdxComponent = true;
-            this._vdxParent = null;
-            this._vdxChildComponents = null;  // Set<Component>, created lazily - tracks child VDX components
-            this._isVdxRoot = false;   // Will be set in connectedCallback
-
             // Cleanup functions
             this._cleanups = [];
         }
@@ -567,24 +454,6 @@ export function defineComponent(name, options) {
 
             // Mark as mounted BEFORE initial render to prevent double-render
             this._isMounted = true;
-
-            // Track VDX component hierarchy
-            // Find nearest VDX parent by walking up DOM tree
-            let parent = this.parentElement;
-            while (parent) {
-                if (parent._isVdxComponent) {
-                    this._vdxParent = parent;
-                    // Register with parent
-                    if (!(parent._vdxChildComponents instanceof Set)) {
-                        parent._vdxChildComponents = new Set();
-                    }
-                    parent._vdxChildComponents.add(this);
-                    break;
-                }
-                parent = parent.parentElement;
-            }
-            // If no VDX parent found, this is a root component
-            this._isVdxRoot = !this._vdxParent;
 
             // Capture light DOM children before first render
             // All components capture children as real DOM nodes
@@ -915,13 +784,6 @@ export function defineComponent(name, options) {
             this._isDestroyed = true;
             this._isMounted = false;
 
-            // Clean up VDX component hierarchy
-            if (this._vdxParent && this._vdxParent._vdxChildComponents) {
-                this._vdxParent._vdxChildComponents.delete(this);
-            }
-            this._vdxParent = null;
-            // Note: child components are cleaned up by their own disconnectedCallback
-
             // Dispose reactive effects IMMEDIATELY to stop state updates from triggering renders
             // This must happen before calling unmounted() hook
             if (this._cleanups && this._cleanups.length > 0) {
@@ -954,18 +816,6 @@ export function defineComponent(name, options) {
             if (options.props && name in options.props) {
                 this.props[name] = newValue;
             }
-        }
-
-        /**
-         * Get the root VDX component in this component's hierarchy
-         * Root is the topmost VDX component (has no VDX parent)
-         */
-        _getVdxRoot() {
-            let current = this;
-            while (current._vdxParent) {
-                current = current._vdxParent;
-            }
-            return current;
         }
 
         static get observedAttributes() {
