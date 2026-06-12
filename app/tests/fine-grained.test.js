@@ -2053,5 +2053,92 @@ describe('When callback with early return cleanup', function(it) {
     });
 });
 
+describe('Fine-Grained Renderer - Keyed List Shape Switching', function(it) {
+    const wait = () => new Promise(r => setTimeout(r, 100));
+
+    it('re-instantiates an item whose template branch changes (same tag/child count)', async () => {
+        // The two branches have the same tag and child count - a shallow
+        // structure comparison cannot tell them apart, so the renderer must
+        // compare template provenance to know the item needs re-instantiation
+        defineComponent('test-shape-switch', {
+            data() {
+                return {
+                    items: [
+                        { id: 1, name: 'Alpha', editing: false },
+                        { id: 2, name: 'Beta', editing: false }
+                    ]
+                };
+            },
+            template() {
+                return html`<ul>${each(this.state.items, item =>
+                    item.editing
+                        ? html`<li class="edit"><input value="${item.name}"></li>`
+                        : html`<li class="view"><span>${item.name}</span></li>`,
+                    item => item.id)}</ul>`;
+            }
+        });
+
+        const el = document.createElement('test-shape-switch');
+        document.body.appendChild(el);
+        await wait();
+
+        assert.equal(el.querySelectorAll('li.view').length, 2, 'Both items render the view template');
+
+        el.state.items[0].editing = true;
+        await wait();
+
+        const items = el.querySelectorAll('ul li');
+        assert.ok(items[0].classList.contains('edit'), 'First item switched to edit template');
+        assert.ok(items[0].querySelector('input'), 'Edit template DOM (input) is present');
+        assert.equal(items[0].querySelector('input').value, 'Alpha', 'Input carries the item value');
+        assert.ok(items[1].classList.contains('view'), 'Second item keeps view template');
+        assert.equal(items[1].querySelector('span').textContent, 'Beta', 'Second item content intact');
+
+        document.body.removeChild(el);
+    });
+
+    it('handles a shape switch combined with a reorder', async () => {
+        defineComponent('test-shape-reorder', {
+            data() {
+                return {
+                    items: [
+                        { id: 'a', label: 'A', big: false },
+                        { id: 'b', label: 'B', big: false },
+                        { id: 'c', label: 'C', big: false }
+                    ]
+                };
+            },
+            template() {
+                return html`<div class="list">${each(this.state.items, item =>
+                    item.big
+                        ? html`<section class="big"><h2>${item.label}</h2></section>`
+                        : html`<section class="small"><p>${item.label}</p></section>`,
+                    item => item.id)}</div>`;
+            }
+        });
+
+        const el = document.createElement('test-shape-reorder');
+        document.body.appendChild(el);
+        await wait();
+
+        assert.equal(el.querySelectorAll('section.small').length, 3, 'All items render small template');
+
+        // Move c to the front AND switch its template shape in one update
+        const [a, b, c] = el.state.items;
+        c.big = true;
+        el.state.items = [c, a, b];
+        await wait();
+
+        const sections = el.querySelectorAll('.list section');
+        assert.equal(sections.length, 3, 'Still three items');
+        assert.ok(sections[0].classList.contains('big'), 'Moved item uses big template');
+        assert.equal(sections[0].querySelector('h2')?.textContent, 'C', 'Big template renders heading');
+        assert.equal(sections[1].querySelector('p')?.textContent, 'A', 'Second item intact');
+        assert.equal(sections[2].querySelector('p')?.textContent, 'B', 'Third item intact');
+
+        document.body.removeChild(el);
+    });
+});
+
 // Run test marker
 console.log('=== Fine-Grained Renderer Tests ===');

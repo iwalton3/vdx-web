@@ -245,72 +245,6 @@ export function instantiateTemplate(compiled, values, component, inSvg = false) 
 }
 
 /**
- * Update template values in place when structure is same but values changed.
- * This preserves DOM elements (important for form inputs) while updating content.
- */
-function updateTemplateValues(compiled, newValues, oldValues, domNodes, effects, component) {
-    // Walk the DOM to find slot placeholders and update their content
-    // Also update custom element props
-    // Returns true if all updates succeeded, false if re-instantiation is needed
-
-    // Build a map of slot index -> slot content nodes
-    const slotMap = new Map();
-    collectSlotNodes(domNodes, slotMap);
-
-    let needsReinstantiation = false;
-
-    // Update each changed slot
-    for (const [slotIndex, info] of slotMap) {
-        if (slotIndex >= newValues.length) continue;
-
-        let newValue = newValues[slotIndex];
-        let oldValue = oldValues[slotIndex];
-
-        // Unwrap VALUE_GETTERs
-        if (typeof newValue === 'function' && newValue[VALUE_GETTER]) {
-            newValue = newValue();
-        }
-        if (typeof oldValue === 'function' && oldValue[VALUE_GETTER]) {
-            oldValue = oldValue();
-        }
-
-        if (newValue === oldValue) continue;
-
-        // For html templates, check if _compiled is the same (same template structure)
-        // This happens when when() returns the same template but as a new object
-        if (isHtml(newValue) && isHtml(oldValue) &&
-            newValue._compiled === oldValue._compiled) {
-            // Same template structure - the slot effect handles value updates via
-            // reactive container (currentValuesRef). Child effects automatically re-run
-            // when the container is updated. No reinstantiation needed.
-            continue;
-        }
-
-        // Update based on value type
-        if (info.nodes.length === 1 && info.nodes[0].nodeType === Node.TEXT_NODE) {
-            // Simple text update - use deferred update system
-            if (newValue == null || newValue === false) {
-                applyTextContent(info.nodes[0], '');
-            } else if (typeof newValue !== 'object') {
-                applyTextContent(info.nodes[0], String(newValue));
-            } else {
-                // Object/html value in a text slot - need re-instantiation
-                needsReinstantiation = true;
-            }
-        } else if (isHtml(newValue) || isRaw(newValue) || Array.isArray(newValue)) {
-            // Complex slot content changed - need re-instantiation
-            needsReinstantiation = true;
-        }
-        // Slots with elements (like custom elements) are handled by prop updates below
-    }
-
-    // Update custom element props
-    updateCustomElementProps(compiled, newValues, oldValues, domNodes, component);
-
-    return !needsReinstantiation;
-}
-
-/**
  * Update a keyed list (from each()) by diffing items and only updating changed ones.
  * This preserves DOM nodes for unchanged items, avoiding puppeteer element handle issues.
  *
@@ -387,54 +321,9 @@ function updateKeyedList(newChildren, oldChildren, oldItemMap, placeholder, comp
                 allNodes.push(...oldItem.nodes);
                 allEffects.push(...oldItem.effects);
                 if (oldItem.nodes.length > 0) insertPoint = oldItem.nodes[oldItem.nodes.length - 1];
-            } else if (sameStructure) {
-                // Same structure but no valuesRef - try updateTemplateValues
-                const newValues = newChild._itemValues || [];
-                const oldValues = oldChild._itemValues || [];
-                const success = updateTemplateValues(
-                    newChild,
-                    newValues,
-                    oldValues,
-                    oldItem.nodes,
-                    oldItem.effects,
-                    component
-                );
-                if (!success) {
-                    // Value update failed - need to reinstantiate this item
-                    // Clean up old item
-                    for (const node of oldItem.nodes) node.remove();
-                    for (const eff of oldItem.effects) if (eff.dispose) eff.dispose();
-
-                    // Create new item with reactive values
-                    const valuesRef = reactive({ current: newValues });
-                    const wrappedValues = newValues.map((_, index) => {
-                        const getter = () => valuesRef.current[index];
-                        getter[VALUE_GETTER] = true;
-                        return getter;
-                    });
-
-                    const { fragment, effects: childEffects } = instantiateTemplate(
-                        newChild,
-                        wrappedValues,
-                        component,
-                        slotInSvg
-                    );
-                    const nodes = [...fragment.childNodes];
-                    insertPoint.after(fragment);
-                    if (nodes.length > 0) insertPoint = nodes[nodes.length - 1];
-
-                    newItemMap.set(key, { nodes, effects: childEffects, compiled: newChild, valuesRef, slotInSvg });
-                    allNodes.push(...nodes);
-                    allEffects.push(...childEffects);
-                } else {
-                    // Keep old nodes
-                    newItemMap.set(key, { nodes: oldItem.nodes, effects: oldItem.effects, compiled: newChild, slotInSvg: oldItem.slotInSvg });
-                    allNodes.push(...oldItem.nodes);
-                    allEffects.push(...oldItem.effects);
-                    if (oldItem.nodes.length > 0) insertPoint = oldItem.nodes[oldItem.nodes.length - 1];
-                }
             } else {
-                // Structure changed - reinstantiate this item
+                // Structure changed (or item has no reactive values container,
+                // which shouldn't happen) - reinstantiate this item
                 // Clean up old item
                 for (const node of oldItem.nodes) node.remove();
                 for (const eff of oldItem.effects) if (eff.dispose) eff.dispose();
@@ -499,7 +388,20 @@ function updateKeyedList(newChildren, oldChildren, oldItemMap, placeholder, comp
     for (let i = 0; i < newChildren.length; i++) {
         const newChild = newChildren[i];
         const key = newChild?.key;
-        const existingItem = oldItemMap.get(key);
+        let existingItem = oldItemMap.get(key);
+
+        // Only reuse DOM if the item still renders the same template -
+        // a key can keep its identity while switching template shape
+        if (existingItem && !isSameStructure(newChild, existingItem.compiled)) {
+            // Dispose the stale item and rebuild below
+            for (const eff of existingItem.effects) {
+                if (eff.dispose) eff.dispose();
+            }
+            for (const node of existingItem.nodes) {
+                if (node.parentNode) node.remove();
+            }
+            existingItem = null;
+        }
 
         if (existingItem) {
             // Reuse existing item - update values if needed
@@ -575,151 +477,17 @@ function updateKeyedList(newChildren, oldChildren, oldItemMap, placeholder, comp
  */
 function isSameStructure(a, b) {
     if (!a || !b) return a === b;
-    // For each() items, compare the underlying structure
-    // If both are elements with same tag and children structure, consider same
+    // Keyed children carry _src: the compiled template node they were derived
+    // from, which has stable identity via the template cache. This catches
+    // items switching between different templates that happen to share the
+    // same tag/child-count (a shallow shape comparison cannot tell them apart).
+    if (a._src && b._src) return a._src === b._src;
+    // Fallback shape comparison for children without provenance
     if (a.op !== b.op) return false;
     if (a.tag !== b.tag) return false;
     // For fragments, check children count
     if (a.children?.length !== b.children?.length) return false;
     return true;
-}
-
-/**
- * Build initial item map when first instantiating an each() result
- */
-function buildItemMapFromChildren(children, nodes, effects, component) {
-    // This is complex because we need to map which DOM nodes belong to which child
-    // For now, return null to fall back to non-keyed mode
-    // The initial render will create currentItemMap correctly in the each() handler
-    return null;
-}
-
-/**
- * Collect slot placeholder comments and their content nodes from DOM
- */
-function collectSlotNodes(domNodes, slotMap) {
-    for (const node of domNodes) {
-        collectSlotNodesRecursive(node, slotMap);
-    }
-}
-
-function collectSlotNodesRecursive(node, slotMap) {
-    if (!node) return;
-
-    // Don't recurse into custom elements - they have their own template slots
-    if (node.nodeType === Node.ELEMENT_NODE && node.tagName && node.tagName.includes('-')) {
-        return;
-    }
-
-    // Recurse into children, but handle slots specially
-    if (node.childNodes && node.childNodes.length > 0) {
-        const children = Array.from(node.childNodes);
-        let i = 0;
-        while (i < children.length) {
-            const child = children[i];
-
-            // Check if this child is a slot placeholder comment
-            if (child.nodeType === Node.COMMENT_NODE &&
-                child.textContent &&
-                child.textContent.startsWith('slot:')) {
-                const slotIndex = parseInt(child.textContent.slice(5), 10);
-
-                // Collect nodes that belong to this slot (between this comment and next slot comment)
-                const contentNodes = [];
-                let j = i + 1;
-                while (j < children.length) {
-                    const sibling = children[j];
-                    // Stop at next slot comment
-                    if (sibling.nodeType === Node.COMMENT_NODE &&
-                        sibling.textContent &&
-                        sibling.textContent.startsWith('slot:')) {
-                        break;
-                    }
-                    contentNodes.push(sibling);
-                    j++;
-                }
-
-                slotMap.set(slotIndex, { placeholder: child, nodes: contentNodes });
-
-                // Skip past the slot content - DON'T recurse into it
-                // It's managed by its own slot effect with its own updateTemplateValues
-                i = j;
-                continue;
-            }
-
-            // Regular node - recurse into it
-            collectSlotNodesRecursive(child, slotMap);
-            i++;
-        }
-    }
-}
-
-/**
- * Update custom element props when template values change but structure is same
- * This is a targeted update that avoids re-instantiation
- */
-function updateCustomElementProps(compiled, newValues, oldValues, domNodes, component) {
-    // Find custom elements in the compiled template and update their props
-    updatePropsInNode(compiled, newValues, oldValues, domNodes, 0, component);
-}
-
-/**
- * Recursively find and update custom element props
- * Returns the next DOM node index to check
- */
-function updatePropsInNode(node, newValues, oldValues, domNodes, nodeIndex, component) {
-    if (!node) return nodeIndex;
-
-    switch (node.op) {
-        case OP.STATIC:
-            // Static nodes produce one DOM node (text or pre-built element)
-            return nodeIndex + 1;
-
-        case OP.TEXT:
-            // Text nodes produce one DOM node
-            return nodeIndex + 1;
-
-        case OP.SLOT:
-            // Slots produce one or more nodes, but we can't know how many
-            // For simplicity, assume slots produce one placeholder comment
-            return nodeIndex + 1;
-
-        case OP.ELEMENT:
-            // Element node - check if custom element and update props
-            if (node.isCustomElement) {
-                const el = domNodes[nodeIndex];
-                if (el && el.nodeType === Node.ELEMENT_NODE) {
-                    // Update dynamic props that have changed
-                    for (const { name, def } of node.dynamicProps || []) {
-                        if (def.slot !== undefined) {
-                            const newValue = newValues[def.slot];
-                            const oldValue = oldValues[def.slot];
-                            if (newValue !== oldValue) {
-                                // Get actual value (handle VALUE_GETTER)
-                                let value = newValue;
-                                if (typeof value === 'function' && value[VALUE_GETTER]) {
-                                    value = value();
-                                }
-                                // Apply the new value
-                                applyAttribute(el, name, value, true);
-                            }
-                        }
-                    }
-                }
-            }
-            // Element produces one DOM node
-            return nodeIndex + 1;
-
-        case OP.FRAGMENT:
-            // Fragment - recurse into children
-            for (const child of node.children || []) {
-                nodeIndex = updatePropsInNode(child, newValues, oldValues, domNodes, nodeIndex, component);
-            }
-            return nodeIndex;
-
-        default:
-            return nodeIndex;
-    }
 }
 
 /**
@@ -1004,7 +772,7 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                     const result = mapFn(item, index);
                     setRenderContext(null);
                     if (result && result._compiled) {
-                        const keyedResult = { ...result, _compiled: { ...result._compiled, key } };
+                        const keyedResult = { ...result, _compiled: { ...result._compiled, key, _src: result._compiled._src || result._compiled } };
                         const cacheEntry = { item, result: keyedResult };
                         newCurrCache.set(key, cacheEntry);
                         if (useExplicitCache) useExplicitCache.set(key, cacheEntry);
@@ -1019,7 +787,7 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 memoPrevCache = memoCurrCache;
                 memoCurrCache = newCurrCache;
 
-                // Build new children array
+                // Build new children array (with _src provenance for shape detection)
                 const newChildren = results
                     .map((r, itemIndex) => {
                         if (!r || !r._compiled) return null;
@@ -1029,10 +797,10 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                         if (child.type === 'fragment' && !child.wrapped && child.children.length === 1 && child.children[0].type === 'element') {
                             const element = child.children[0];
                             const key = keyFn(array[itemIndex], itemIndex);
-                            return {...element, key, _itemValues: childValues};
+                            return {...element, key, _itemValues: childValues, _src: element._src || element};
                         }
                         const key = keyFn(array[itemIndex], itemIndex);
-                        return {...child, key, _itemValues: childValues};
+                        return {...child, key, _itemValues: childValues, _src: child._src || child};
                     })
                     .filter(Boolean);
 
@@ -1420,13 +1188,14 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                 const result = mapFn(item, index);
                 setRenderContext(null);
 
-                // Add key to the compiled result
+                // Add key to the compiled result (with _src provenance)
                 if (result && result._compiled) {
                     const keyedResult = {
                         ...result,
                         _compiled: {
                             ...result._compiled,
-                            key: key
+                            key: key,
+                            _src: result._compiled._src || result._compiled
                         }
                     };
                     const cacheEntry = { item, result: keyedResult };
@@ -1451,6 +1220,7 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
             memoCurrCache = newCurrCache;
 
             // Build each()-like fragment structure for the keyed list handling
+            // (_src records template provenance for shape-change detection)
             const compiledChildren = results
                 .map((r, itemIndex) => {
                     if (!r || !r._compiled) return null;
@@ -1465,11 +1235,11 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                     if (child.type === 'fragment' && !child.wrapped && child.children.length === 1 && child.children[0].type === 'element') {
                         const element = child.children[0];
                         const key = keyFn(array[itemIndex], itemIndex);
-                        return {...element, key, _itemValues: childValues};
+                        return {...element, key, _itemValues: childValues, _src: element._src || element};
                     }
 
                     const key = keyFn(array[itemIndex], itemIndex);
-                    return {...child, key, _itemValues: childValues};
+                    return {...child, key, _itemValues: childValues, _src: child._src || child};
                 })
                 .filter(Boolean);
 

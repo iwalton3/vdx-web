@@ -311,12 +311,14 @@ export function each(array, mapFn, keyFn = null) {
         // If keyFn provided and result has compiled template, add key to the node
         if (keyFn && result && result._compiled) {
             const key = keyFn(item, index);
-            // Attach key to the compiled node
+            // Attach key to the compiled node; record provenance (_src) so the
+            // renderer can tell which compiled template this copy came from
             return {
                 ...result,
                 _compiled: {
                     ...result._compiled,
-                    key: key
+                    key: key,
+                    _src: result._compiled._src || result._compiled
                 }
             };
         }
@@ -340,16 +342,18 @@ export function each(array, mapFn, keyFn = null) {
 
             // If unwrapped fragment with single element child, unwrap and move key to element
             // This is needed for keyed reconciliation (keys must be on elements, not fragments)
+            // _src records the stable compiled template node these copies derive from,
+            // so keyed diffing can detect when an item switches to a different template
             if (child.type === 'fragment' && !child.wrapped && child.children.length === 1 && child.children[0].type === 'element') {
                 const element = child.children[0];
                 const key = keyFn ? keyFn(array[itemIndex], itemIndex) : itemIndex;
-                return {...element, key, _itemValues: childValues};
+                return {...element, key, _itemValues: childValues, _src: element._src || element};
             }
 
             // For multi-child fragments or other nodes, keep as-is
             // Set key for list reconciliation
             const key = keyFn ? keyFn(array[itemIndex], itemIndex) : itemIndex;
-            return {...child, key, _itemValues: childValues};
+            return {...child, key, _itemValues: childValues, _src: child._src || child};
         })
         .filter(Boolean);
 
