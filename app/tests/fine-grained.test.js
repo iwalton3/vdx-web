@@ -2140,5 +2140,104 @@ describe('Fine-Grained Renderer - Keyed List Shape Switching', function(it) {
     });
 });
 
+describe('Fine-Grained Renderer - Keyed Reconciliation Moves', function(it) {
+    const wait = () => new Promise(r => setTimeout(r, 100));
+
+    it('preserves DOM node identity across reorder with adds and removes', async () => {
+        defineComponent('test-reorder-identity', {
+            data() {
+                return { items: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }, { id: 'e' }] };
+            },
+            template() {
+                return html`<ul>${each(this.state.items, item =>
+                    html`<li>${item.id}</li>`, item => item.id)}</ul>`;
+            }
+        });
+
+        const el = document.createElement('test-reorder-identity');
+        document.body.appendChild(el);
+        await wait();
+
+        const before = {};
+        for (const li of el.querySelectorAll('li')) before[li.textContent] = li;
+
+        // Remove b and d, add f, reorder the rest
+        el.state.items = [{ id: 'e' }, { id: 'c' }, { id: 'f' }, { id: 'a' }];
+        await wait();
+
+        const lis = [...el.querySelectorAll('li')];
+        assert.deepEqual(lis.map(li => li.textContent), ['e', 'c', 'f', 'a'], 'Order is correct');
+        assert.ok(lis[0] === before.e, 'Item e keeps its DOM node');
+        assert.ok(lis[1] === before.c, 'Item c keeps its DOM node');
+        assert.ok(lis[3] === before.a, 'Item a keeps its DOM node');
+        assert.ok(!document.contains(before.b), 'Removed item b is gone from the DOM');
+        assert.ok(!document.contains(before.d), 'Removed item d is gone from the DOM');
+
+        document.body.removeChild(el);
+    });
+
+    it('moves only the minimal number of items on reorder (LIS)', async () => {
+        defineComponent('test-reorder-moves', {
+            data() {
+                return { items: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }, { id: 'e' }] };
+            },
+            template() {
+                return html`<ul>${each(this.state.items, item =>
+                    html`<li>${item.id}</li>`, item => item.id)}</ul>`;
+            }
+        });
+
+        const el = document.createElement('test-reorder-moves');
+        document.body.appendChild(el);
+        await wait();
+
+        const ul = el.querySelector('ul');
+        const added = new Set();
+        const observer = new MutationObserver(records => {
+            for (const r of records) for (const n of r.addedNodes) added.add(n);
+        });
+        observer.observe(ul, { childList: true });
+
+        // Rotate: move the first item to the end. Naive reconciliation moves
+        // every other item forward (n-1 moves); LIS-based moves exactly one.
+        const [first, ...rest] = el.state.items;
+        el.state.items = [...rest, first];
+        await wait();
+
+        for (const r of observer.takeRecords()) for (const n of r.addedNodes) added.add(n);
+        observer.disconnect();
+
+        assert.deepEqual([...el.querySelectorAll('li')].map(li => li.textContent),
+            ['b', 'c', 'd', 'e', 'a'], 'Order is correct after rotate');
+        assert.equal(added.size, 1, `Exactly one item should move, but ${added.size} were re-inserted`);
+
+        document.body.removeChild(el);
+    });
+
+    it('reverses a list correctly', async () => {
+        defineComponent('test-reorder-reverse', {
+            data() {
+                return { items: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }] };
+            },
+            template() {
+                return html`<ol>${each(this.state.items, item =>
+                    html`<li>${item.id}</li>`, item => item.id)}</ol>`;
+            }
+        });
+
+        const el = document.createElement('test-reorder-reverse');
+        document.body.appendChild(el);
+        await wait();
+
+        el.state.items = [...el.state.items].reverse();
+        await wait();
+
+        assert.deepEqual([...el.querySelectorAll('li')].map(li => li.textContent),
+            ['4', '3', '2', '1'], 'Reversed order rendered correctly');
+
+        document.body.removeChild(el);
+    });
+});
+
 // Run test marker
 console.log('=== Fine-Grained Renderer Tests ===');

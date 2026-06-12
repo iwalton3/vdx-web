@@ -382,26 +382,50 @@ function updateKeyedList(newChildren, oldChildren, oldItemMap, placeholder, comp
         }
     }
 
-    // Step 2: Build new list, reusing existing items where possible
+    // Step 2: Decide reuse per new child (same key AND same template shape -
+    // a key can keep its identity while switching template shape)
+    const reuse = new Array(newChildren.length).fill(null);
+    for (let i = 0; i < newChildren.length; i++) {
+        const newChild = newChildren[i];
+        const existing = newChild ? oldItemMap.get(newChild.key) : null;
+        if (existing && isSameStructure(newChild, existing.compiled)) {
+            reuse[i] = existing;
+        } else if (existing) {
+            // Same key, different template - dispose the stale item, rebuild below
+            for (const eff of existing.effects) {
+                if (eff.dispose) eff.dispose();
+            }
+            for (const node of existing.nodes) {
+                if (node.parentNode) node.remove();
+            }
+        }
+    }
+
+    // Step 3: Find which reused items keep their DOM position. Items whose old
+    // positions form the longest increasing subsequence are already in correct
+    // relative order - only the rest move. This minimizes DOM moves (e.g.
+    // moving one item to the end moves 1 item, not n-1).
+    const oldIndexByKey = new Map();
+    for (let i = 0; i < oldKeys.length; i++) {
+        if (!oldIndexByKey.has(oldKeys[i])) {
+            oldIndexByKey.set(oldKeys[i], i);
+        }
+    }
+    const reusedPositions = [];
+    for (let i = 0; i < newChildren.length; i++) {
+        if (reuse[i]) {
+            reusedPositions.push({ i, v: oldIndexByKey.get(newChildren[i].key) });
+        }
+    }
+    const stableIndices = longestIncreasingIndices(reusedPositions);
+
+    // Step 4: Build new list, moving/creating only what's needed
     let insertPoint = placeholder;
 
     for (let i = 0; i < newChildren.length; i++) {
         const newChild = newChildren[i];
         const key = newChild?.key;
-        let existingItem = oldItemMap.get(key);
-
-        // Only reuse DOM if the item still renders the same template -
-        // a key can keep its identity while switching template shape
-        if (existingItem && !isSameStructure(newChild, existingItem.compiled)) {
-            // Dispose the stale item and rebuild below
-            for (const eff of existingItem.effects) {
-                if (eff.dispose) eff.dispose();
-            }
-            for (const node of existingItem.nodes) {
-                if (node.parentNode) node.remove();
-            }
-            existingItem = null;
-        }
+        const existingItem = reuse[i];
 
         if (existingItem) {
             // Reuse existing item - update values if needed
@@ -410,20 +434,16 @@ function updateKeyedList(newChildren, oldChildren, oldItemMap, placeholder, comp
                 existingItem.valuesRef.current = newValues;
             }
 
-            // Move nodes to correct position if needed
-            // Check if nodes are already in the right place
-            const firstNode = existingItem.nodes[0];
-            if (firstNode && firstNode.previousSibling !== insertPoint) {
-                // Need to move - insert after current insertPoint
+            if (!stableIndices.has(i) && existingItem.nodes[0] &&
+                existingItem.nodes[0].previousSibling !== insertPoint) {
+                // Not part of the stable subsequence - move after insertPoint
                 for (const node of existingItem.nodes) {
                     insertPoint.after(node);
                     insertPoint = node;
                 }
-            } else {
-                // Already in place, just update insertPoint
-                if (existingItem.nodes.length > 0) {
-                    insertPoint = existingItem.nodes[existingItem.nodes.length - 1];
-                }
+            } else if (existingItem.nodes.length > 0) {
+                // Stable (or already in place) - just advance insertPoint
+                insertPoint = existingItem.nodes[existingItem.nodes.length - 1];
             }
 
             newItemMap.set(key, {
@@ -470,6 +490,47 @@ function updateKeyedList(newChildren, oldChildren, oldItemMap, placeholder, comp
     }
 
     return { nodes: allNodes, effects: allEffects, itemMap: newItemMap };
+}
+
+/**
+ * Find the longest increasing subsequence of position values.
+ * Used by keyed reconciliation: reused items whose old positions form an
+ * increasing subsequence are already in correct relative order and don't
+ * need to move. O(n log n) patience sorting with predecessor links.
+ *
+ * @param {Array<{i: number, v: number}>} positions - new-list index (i) and old position (v)
+ * @returns {Set<number>} Set of new-list indices (i) that are part of the LIS
+ */
+function longestIncreasingIndices(positions) {
+    const tails = [];  // tails[len-1] = index into positions[] of smallest tail value for an LIS of that length
+    const prev = new Array(positions.length).fill(-1);
+
+    for (let k = 0; k < positions.length; k++) {
+        const v = positions[k].v;
+        // Binary search: first tail with value >= v
+        let lo = 0, hi = tails.length;
+        while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (positions[tails[mid]].v < v) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        if (lo > 0) {
+            prev[k] = tails[lo - 1];
+        }
+        tails[lo] = k;
+    }
+
+    // Walk back from the end of the longest subsequence
+    const result = new Set();
+    let k = tails.length > 0 ? tails[tails.length - 1] : -1;
+    while (k >= 0) {
+        result.add(positions[k].i);
+        k = prev[k];
+    }
+    return result;
 }
 
 /**
