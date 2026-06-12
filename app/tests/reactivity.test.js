@@ -322,6 +322,25 @@ describe('Reactivity System', function(it) {
         assert.equal(proxy1, proxy2, 'Should return same proxy');
     });
 
+    it('returns same proxy when wrapping the same raw object twice', () => {
+        const obj = { count: 0 };
+        const proxy1 = reactive(obj);
+        const proxy2 = reactive(obj);
+
+        assert.equal(proxy1, proxy2, 'Wrapping same raw object should return cached proxy');
+    });
+
+    it('nested property access returns a stable proxy (=== works)', () => {
+        const state = reactive({ items: [1, 2, 3], user: { name: 'Alice' } });
+
+        assert.ok(state.items === state.items, 'Array proxy is stable across accesses');
+        assert.ok(state.user === state.user, 'Object proxy is stable across accesses');
+
+        const captured = state.items;
+        state.items.push(4);
+        assert.ok(captured === state.items, 'Proxy stays stable after mutation');
+    });
+
     it('handles primitive values', () => {
         const num = reactive(5);
         const str = reactive('hello');
@@ -446,6 +465,43 @@ describe('Reactivity System', function(it) {
         const result2 = expensiveCompute();
         assert.equal(result2, 42, 'Should return same value');
         assert.equal(computeCount, 1, 'Should not recompute if deps unchanged');
+    });
+
+    it('memo with function deps recomputes when deps change', () => {
+        let computeCount = 0;
+        const state = reactive({ items: [1, 2, 3] });
+
+        const render = memo(() => {
+            computeCount++;
+            return state.items.length;
+        }, () => [state.items]);
+
+        assert.equal(render(), 3, 'Initial compute');
+        assert.equal(computeCount, 1, 'Computed once');
+
+        render();
+        assert.equal(computeCount, 1, 'Cached while deps unchanged');
+
+        // Reassign the array - the documented invalidation pattern
+        state.items = [1, 2, 3, 4];
+        assert.equal(render(), 4, 'Recomputes with new deps');
+        assert.equal(computeCount, 2, 'Computed exactly twice');
+
+        render();
+        assert.equal(computeCount, 2, 'Cached again after recompute');
+    });
+
+    it('memo with function deps detects length changes', () => {
+        let deps = [1];
+        let computeCount = 0;
+        const fn = memo(() => ++computeCount, () => deps);
+
+        fn();
+        assert.equal(computeCount, 1, 'Initial compute');
+
+        deps = [1, 2];  // Same leading values, different length
+        fn();
+        assert.equal(computeCount, 2, 'Recomputes when deps array grows');
     });
 
     it('uses computed for reactive memoization', () => {

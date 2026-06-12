@@ -751,7 +751,7 @@ defineComponent('counter-sum', {
 
 ## Memo
 
-The `memo()` function memoizes a function result based on an explicit dependency array:
+The `memo()` function memoizes a function result based on explicit dependencies. Pass a **function returning the dependency array** - it is re-evaluated on every call, so current state is compared each time:
 
 ```javascript
 import { memo } from './lib/framework.js';
@@ -760,13 +760,17 @@ import { memo } from './lib/framework.js';
 const expensiveRender = memo(() => {
     console.log('Computing...');
     return someExpensiveOperation();
-}, [dep1, dep2]);
+}, () => [this.state.items, this.state.filter]);
 
 expensiveRender(); // Logs "Computing..."
 expensiveRender(); // No log - uses cached result
+// After this.state.items is reassigned:
+expensiveRender(); // Logs "Computing..." - dependency changed
 ```
 
 **Use case:** When you need explicit control over what triggers recomputation.
+
+> **Note:** Passing a plain array (`memo(fn, [dep1, dep2])`) snapshots the values once at creation and never sees later changes. Use the function form for anything reactive.
 
 ## Memoize (Argument-Based)
 

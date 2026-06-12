@@ -563,6 +563,11 @@ const MUTATION_VERSION = Symbol('mutationVersion');
 /** WeakMap to cache reactive collection wrappers (Set/Map -> reactiveSet/reactiveMap) */
 const reactiveCollectionCache = new WeakMap();
 
+/** WeakMap to cache proxies (raw object -> proxy) so repeated access returns the same proxy.
+ *  Keeps === comparisons stable (state.items === state.items) and avoids
+ *  allocating a new Proxy on every nested property access. */
+const reactiveProxyCache = new WeakMap();
+
 /**
  * Makes an object reactive using JavaScript Proxy.
  * All property access and mutations are tracked, triggering effects automatically.
@@ -618,6 +623,11 @@ export function reactive(obj) {
     // Don't wrap html template objects - they're immutable data structures
     if ('_compiled' in obj && '_values' in obj) {
         return obj;
+    }
+
+    // Return the cached proxy if this object was already wrapped
+    if (reactiveProxyCache.has(obj)) {
+        return reactiveProxyCache.get(obj);
     }
 
     // Check if object is a Date - needs special handling for method binding
@@ -755,6 +765,7 @@ export function reactive(obj) {
         }
     });
 
+    reactiveProxyCache.set(obj, proxy);
     return proxy;
 }
 
@@ -939,13 +950,15 @@ export function isUntracked(obj) {
  * Much more efficient than recomputing templates on every render.
  *
  * @param {Function} fn - The function to memoize
- * @param {Array} [deps] - Optional explicit dependencies to track
+ * @param {Function|Array} [deps] - Dependencies: a function returning an array
+ *     (re-evaluated on every call - use this for reactive state), or a static
+ *     array (snapshot taken once at creation - only useful for fixed values).
  * @returns {Function} Memoized function that returns cached value when possible
  * @example
- * // In component:
+ * // In component - deps MUST be a function so current state is read each call:
  * this._memoizedTemplate = memo(() => {
  *     return html`<div>${this.state.items.length} items</div>`;
- * }, [this.state.items]);
+ * }, () => [this.state.items]);
  *
  * template() {
  *     return this._memoizedTemplate();  // Only recomputes if items changed
@@ -959,10 +972,14 @@ export function memo(fn, deps) {
     return (...args) => {
         // Check if dependencies changed
         if (deps) {
-            const depsChanged = !lastDeps || deps.some((dep, i) => dep !== lastDeps[i]);
+            // Function form is re-evaluated per call; array form is a fixed snapshot
+            const currentDeps = typeof deps === 'function' ? deps() : deps;
+            const depsChanged = !lastDeps ||
+                currentDeps.length !== lastDeps.length ||
+                currentDeps.some((dep, i) => dep !== lastDeps[i]);
             if (depsChanged) {
                 dirty = true;
-                lastDeps = [...deps];
+                lastDeps = [...currentDeps];
             }
         }
 

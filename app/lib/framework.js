@@ -123,17 +123,19 @@ export { defineComponent, flushRenders, flushSync } from './core/component.js';
  * sum.dispose(); // Clean up when done
  */
 /**
- * Memoize a function result based on an explicit dependency array.
+ * Memoize a function result based on explicit dependencies.
  * Re-runs the function only when dependencies change.
  *
  * @param {Function} fn - Function to memoize
- * @param {any[]} [deps] - Dependency array (when any value changes, function re-runs)
+ * @param {Function|any[]} [deps] - Function returning a dependency array,
+ *     re-evaluated on every call (use this for reactive state). A static
+ *     array is snapshotted once and only useful for fixed values.
  * @returns {Function} Memoized function
  *
  * @example
  * const expensiveRender = memo(() => {
  *   return html`<div>${this.state.items.length} items</div>`;
- * }, [this.state.items]);
+ * }, () => [this.state.items]);
  *
  * template() {
  *   return this.expensiveRender(); // Only recomputes if items changed

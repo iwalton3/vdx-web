@@ -547,21 +547,23 @@ export interface ComputedResult<T> {
 export function computed<T>(getter: () => T): ComputedResult<T>;
 
 /**
- * Memoize a function result based on an explicit dependency array.
+ * Memoize a function result based on explicit dependencies.
  * Re-runs the function only when dependencies change.
  *
  * @param fn - Function to memoize
- * @param deps - Dependency array (when any value changes, function re-runs)
+ * @param deps - Function returning a dependency array, re-evaluated on every
+ *   call (use this for reactive state). A static array is snapshotted once
+ *   and only useful for fixed values.
  * @returns Memoized function
  *
  * @example
  * const expensiveRender = memo(() => {
  *   return html`<div>${this.state.items.length} items</div>`;
- * }, [this.state.items]);
+ * }, () => [this.state.items]);
  */
 export function memo<T extends (...args: any[]) => any>(
   fn: T,
-  deps?: unknown[]
+  deps?: (() => unknown[]) | unknown[]
 ): T;
 
 // =============================================================================
