@@ -45,6 +45,21 @@ export function getRouter() {
 }
 
 /**
+ * Decode a URI component, falling back to the raw string on malformed
+ * input (e.g. a stray '%') instead of throwing mid-navigation.
+ * @private
+ * @param {string} str - String to decode
+ * @returns {string} Decoded string, or the input if decoding fails
+ */
+function safeDecodeURIComponent(str) {
+    try {
+        return decodeURIComponent(str);
+    } catch {
+        return str;
+    }
+}
+
+/**
  * Parse query string into object
  * @private
  * @param {string} queryString - Query string to parse
@@ -59,7 +74,7 @@ function parseQuery(queryString) {
     for (const pair of pairs) {
         const [key, value] = pair.split('=');
         if (key) {
-            params[decodeURIComponent(key)] = decodeURIComponent(value || '');
+            params[safeDecodeURIComponent(key)] = safeDecodeURIComponent(value || '');
         }
     }
 
@@ -187,7 +202,7 @@ function matchRoute(path, compiledPattern) {
 
     const params = {};
     for (let i = 0; i < compiledPattern.paramNames.length; i++) {
-        params[compiledPattern.paramNames[i]] = decodeURIComponent(match[i + 1]);
+        params[compiledPattern.paramNames[i]] = safeDecodeURIComponent(match[i + 1]);
     }
 
     return { match: true, params };

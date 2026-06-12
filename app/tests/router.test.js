@@ -179,6 +179,43 @@ describe('Router URL Parameters', function(it) {
         assert.equal(currentRoute.params.term, 'hello world', 'Should decode URL-encoded parameter');
     });
 
+    it('does not throw on malformed percent-encoding in URL params', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/search/:term/': { component: 'search-page' }
+        });
+
+        // '%E0%A4%A' is truncated UTF-8 - decodeURIComponent() throws on it
+        router.navigate('/search/100%/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        let currentRoute = router.currentRoute.state;
+        assert.equal(currentRoute.component, 'search-page', 'Should still match the route');
+        assert.equal(currentRoute.params.term, '100%', 'Should fall back to raw value');
+
+        router.navigate('/search/%E0%A4%A/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        currentRoute = router.currentRoute.state;
+        assert.equal(currentRoute.params.term, '%E0%A4%A', 'Truncated encoding falls back to raw value');
+    });
+
+    it('does not throw on malformed percent-encoding in query params', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/search/': { component: 'search-page' }
+        });
+
+        // Navigate with a raw malformed query string (bypasses stringifyQuery encoding)
+        router.navigate('/search/?q=100%&ok=1');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const currentRoute = router.currentRoute.state;
+        assert.equal(currentRoute.component, 'search-page', 'Should still match the route');
+        assert.equal(currentRoute.query.q, '100%', 'Malformed value falls back to raw string');
+        assert.equal(currentRoute.query.ok, '1', 'Other params still parse');
+    });
+
     it('handles routes without parameters', async () => {
         const router = new Router({
             '/': { component: 'home-page' },
