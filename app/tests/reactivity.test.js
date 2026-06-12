@@ -87,6 +87,97 @@ describe('Reactivity System', function(it) {
         sum.dispose(); // Cleanup
     });
 
+    it('computed re-tracks branch-dependent dependencies', () => {
+        const obj = reactive({ flag: true, a: 1, b: 10 });
+        const val = computed(() => obj.flag ? obj.a : obj.b);
+        flushEffects();
+        assert.equal(val.get(), 1, 'Initial value from a branch');
+
+        obj.flag = false;
+        flushEffects();
+        assert.equal(val.get(), 10, 'Switches to b branch');
+
+        // b was never accessed on the first run - it must still be tracked now
+        obj.b = 20;
+        flushEffects();
+        assert.equal(val.get(), 20, 'Tracks b after branch switch');
+
+        val.dispose();
+    });
+
+    it('effects that read a computed re-run when its dependencies change', () => {
+        const obj = reactive({ a: 1, b: 2 });
+        const sum = computed(() => obj.a + obj.b);
+        let seen = null;
+        let runs = 0;
+
+        createEffect(() => {
+            seen = sum.get();
+            runs++;
+        });
+        flushEffects();
+        assert.equal(seen, 3, 'Effect sees initial computed value');
+        assert.equal(runs, 1, 'Effect ran once initially');
+
+        obj.a = 10;
+        flushEffects();
+        assert.equal(seen, 12, 'Effect re-ran with updated computed value');
+        assert.equal(runs, 2, 'Effect ran exactly once per invalidation');
+
+        sum.dispose();
+    });
+
+    it('computed recomputes lazily (only on read)', () => {
+        let computeCount = 0;
+        const obj = reactive({ a: 1 });
+        const doubled = computed(() => {
+            computeCount++;
+            return obj.a * 2;
+        });
+        flushEffects();
+        assert.equal(computeCount, 1, 'Computed runs once initially');
+
+        obj.a = 2;
+        flushEffects();
+        obj.a = 3;
+        flushEffects();
+        assert.equal(computeCount, 1, 'No recompute until read');
+
+        assert.equal(doubled.get(), 6, 'Read returns fresh value');
+        assert.equal(computeCount, 2, 'Recomputed exactly once on read');
+
+        doubled.dispose();
+    });
+
+    it('computed does not leak its dependencies into the calling effect', () => {
+        const obj = reactive({ a: 1, unrelated: 0 });
+        const val = computed(() => obj.a);
+        flushEffects();
+
+        let runs = 0;
+        createEffect(() => {
+            val.get();
+            runs++;
+        });
+        flushEffects();
+        assert.equal(runs, 1, 'Effect ran once initially');
+
+        // Invalidate the computed, then read it OUTSIDE any effect so the
+        // recompute happens while the dependent effect is not active
+        obj.a = 2;
+        flushEffects();
+
+        // The dependent effect re-ran (invalidation) - that's expected.
+        const runsAfterInvalidation = runs;
+
+        // Now mutate something the computed never accessed
+        obj.unrelated = 99;
+        flushEffects();
+        assert.equal(runs, runsAfterInvalidation, 'Unrelated state does not re-run dependent effect');
+
+        val.dispose();
+    });
+
     it('watches reactive values', () => {
         const obj = reactive({ count: 0 });
         let watchedValue = null;

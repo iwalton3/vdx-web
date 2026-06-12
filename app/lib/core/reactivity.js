@@ -785,22 +785,36 @@ export function computed(getter) {
     let dirty = true;
     let firstRun = true;
 
-    // Create effect that tracks dependencies and marks dirty on changes
-    const { dispose } = createEffect(() => {
+    // Dedicated dependency target so effects that read this computed
+    // re-run when it invalidates (without tracking the getter's own deps).
+    const depTarget = {};
+
+    // The effect tracks the getter's dependencies. When any of them change,
+    // it marks the computed dirty and notifies dependents - it does NOT
+    // recompute (recomputation stays lazy, in get()).
+    const { effect, dispose } = createEffect(() => {
         if (firstRun) {
             // First run: compute value and track dependencies
             value = getter();
             dirty = false;
             firstRun = false;
-        } else {
-            // Subsequent runs: mark as dirty (recompute on next get)
+        } else if (!dirty) {
+            // Invalidate and wake up any effects that read this computed
             dirty = true;
+            trigger(depTarget, 'value');
         }
     });
 
     const get = () => {
+        // Register the calling effect as a dependent of this computed
+        track(depTarget, 'value');
         if (dirty) {
-            value = getter();
+            // Recompute inside the computed's own effect context so newly
+            // accessed dependencies (e.g. after a branch switch) are tracked
+            // by the computed, not leaked into the calling effect.
+            runAsEffect(effect, () => {
+                value = getter();
+            });
             dirty = false;
         }
         return value;
