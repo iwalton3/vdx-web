@@ -1841,7 +1841,9 @@ function applyAttributeDirect(el, name, value, isCustomElement) {
     }
 
     if (name === 'class' || name === 'className') {
-        el.className = value;
+        // Use setAttribute, not el.className: SVG elements have a readonly
+        // className (SVGAnimatedString) and assignment throws in strict mode
+        el.setAttribute('class', value);
     } else if (name === 'style') {
         if (typeof value === 'object') {
             Object.assign(el.style, value);

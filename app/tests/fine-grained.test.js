@@ -1480,6 +1480,38 @@ describe('Fine-Grained Renderer - SVG Namespace', function(it) {
         cleanup();
     });
 
+    it('applies dynamic class to SVG elements', async () => {
+        // SVG className is a readonly SVGAnimatedString - the renderer must
+        // use setAttribute, otherwise the assignment throws and class is never set
+        const state = reactive({ cls: 'icon active' });
+
+        const { compiled } = compile`
+            <svg viewBox="0 0 24 24" class="${'x'}">
+                <circle class="${'y'}" cx="12" cy="12" r="10"/>
+            </svg>
+        `;
+        const values = [
+            createValueGetter(() => state.cls),
+            createValueGetter(() => state.cls + '-circle')
+        ];
+
+        const container = document.createElement('div');
+        const { fragment, cleanup } = instantiateTemplate(compiled, values, null);
+        container.appendChild(fragment);
+
+        const svg = container.querySelector('svg');
+        const circle = container.querySelector('circle');
+        assert.equal(svg.getAttribute('class'), 'icon active', 'Initial class applied to <svg>');
+        assert.equal(circle.getAttribute('class'), 'icon active-circle', 'Initial class applied to <circle>');
+
+        state.cls = 'icon';
+        waitForEffects();
+        assert.equal(svg.getAttribute('class'), 'icon', 'Class update applied to <svg>');
+        assert.equal(circle.getAttribute('class'), 'icon-circle', 'Class update applied to <circle>');
+
+        cleanup();
+    });
+
     it('renders SVG inside button with event handler', async () => {
         let clicked = false;
         const handleClick = () => { clicked = true; };
