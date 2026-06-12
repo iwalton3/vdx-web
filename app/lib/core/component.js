@@ -812,9 +812,25 @@ export function defineComponent(name, options) {
                 return;
             }
 
-            // Update props (prop changes are tracked by fine-grained effects automatically)
+            // Update props, mirroring the property-setter path so attribute
+            // changes also notify propsChanged and trigger re-renders
             if (options.props && name in options.props) {
+                const previous = this.props[name];
+                if (previous === newValue) {
+                    return;
+                }
                 this.props[name] = newValue;
+
+                if (typeof this.propsChanged === 'function') {
+                    this.propsChanged(name, newValue, previous);
+                }
+                if (this._propsVersion) {
+                    this._propsVersion.v++;
+                    // Error fallbacks have no reactive effects watching _propsVersion
+                    if (this._hasRenderError) {
+                        scheduleRender(this);
+                    }
+                }
             }
         }
 

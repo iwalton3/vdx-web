@@ -241,6 +241,42 @@ describe('Component Re-rendering', function(it) {
             }, 100);
         }, 100);
     });
+
+    it('re-renders when an attribute changes after mount', (done) => {
+        let propsChangedCalls = [];
+
+        defineComponent('test-attr-change', {
+            props: { label: 'default' },
+            propsChanged(prop, newValue, oldValue) {
+                propsChangedCalls.push({ prop, newValue, oldValue });
+            },
+            template() {
+                return html`<span id="label">${this.props.label}</span>`;
+            }
+        });
+
+        const el = document.createElement('test-attr-change');
+        el.setAttribute('label', 'initial');
+        document.body.appendChild(el);
+
+        setTimeout(() => {
+            assert.equal(el.querySelector('#label').textContent, 'initial', 'Initial attribute rendered');
+
+            // Change via setAttribute (not the property setter)
+            el.setAttribute('label', 'updated');
+
+            setTimeout(() => {
+                assert.equal(el.querySelector('#label').textContent, 'updated', 'Attribute change re-renders');
+                assert.equal(propsChangedCalls.length, 1, 'propsChanged called once for the update');
+                assert.equal(propsChangedCalls[0].prop, 'label', 'propsChanged receives prop name');
+                assert.equal(propsChangedCalls[0].newValue, 'updated', 'propsChanged receives new value');
+                assert.equal(propsChangedCalls[0].oldValue, 'initial', 'propsChanged receives old value');
+
+                document.body.removeChild(el);
+                done();
+            }, 100);
+        }, 100);
+    });
 });
 
 describe('Component Event Isolation', function(it) {
