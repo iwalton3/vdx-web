@@ -969,6 +969,33 @@ ${raw(this.state.passwordGeneratorResponse)}
 ${raw(this.state.userComment)}  // XSS!
 ```
 
+Raw content is parsed via a `<template>` element, so context-sensitive fragments like `<tr>`, `<td>`, and `<li>` work correctly, and no wrapper element is added around the content.
+
+## Template Parser Limitations
+
+VDX parses `html\`\`` templates with its own lightweight parser. It matches browser behavior for normal markup, but intentionally omits some HTML parsing modes:
+
+**No `<script>` or `<style>` support (RAWTEXT modes).** The parser has no raw-text mode, so a `<` inside inline script or style content is treated as a tag start and will corrupt the template:
+
+```javascript
+// ❌ NOT SUPPORTED - inline script/style in templates
+html`<style>div > p { color: red; }</style>`   // may misparse
+html`<script>if (a < b) { ... }</script>`      // will misparse
+
+// ✅ Instead: use the component's `styles` option for CSS,
+// and component methods/lifecycle hooks for behavior
+```
+
+**No implicit tag closing.** Browsers auto-close some elements (`<li>`, `<p>`, `<option>`, table sections); the VDX parser nests them instead. Always close these tags explicitly:
+
+```javascript
+// ❌ Relies on implicit closing - second <li> nests inside the first
+html`<ul><li>One<li>Two</ul>`
+
+// ✅ Explicit closing tags
+html`<ul><li>One</li><li>Two</li></ul>`
+```
+
 ## Boolean Attributes
 
 Use `true`/`undefined` in attribute values for clean conditional rendering:

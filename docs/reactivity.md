@@ -504,6 +504,8 @@ defineComponent('playlist-view', {
 3. Items aren't wrapped in reactive proxies
 4. Must reassign the whole array/object to trigger updates
 
+> **Frozen objects:** auto-untracking works by defining a hidden marker property on the assigned value, which throws for `Object.freeze()`d objects. If you assign frozen data to an untracked key, call `untracked(obj)` on it *before* freezing (already-marked objects are skipped).
+
 ### memoEach() for Cached Rendering
 
 For large lists, use `memoEach()` to cache rendered items:
