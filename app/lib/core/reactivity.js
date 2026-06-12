@@ -845,13 +845,22 @@ export function computed(getter) {
  */
 export function watch(fn, callback) {
     let oldValue;
+    let firstRun = true;
 
     const { dispose } = createEffect(() => {
         const newValue = fn();
-        if (callback && oldValue !== undefined) {
-            callback(newValue, oldValue);
+        // Skip the initial run; afterwards only fire when the value actually
+        // changed (the effect may re-run when a tracked-but-unreturned dep changes)
+        if (!firstRun && callback && newValue !== oldValue) {
+            const prev = oldValue;
+            oldValue = newValue;
+            // Run the callback untracked: state it reads must not become
+            // a dependency of the watcher (would cause spurious re-fires)
+            withoutTracking(() => callback(newValue, prev));
+        } else {
+            oldValue = newValue;
         }
-        oldValue = newValue;
+        firstRun = false;
     });
 
     return dispose;

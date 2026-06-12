@@ -254,6 +254,50 @@ describe('Reactivity System', function(it) {
         assert.equal(callCount, 1, 'Watch should fire when value changes');
     });
 
+    it('watch fires when value changes from undefined', () => {
+        const obj = reactive({ count: undefined });
+        let newVal = null;
+        let oldVal = 'sentinel';
+
+        watch(
+            () => obj.count,
+            (n, o) => { newVal = n; oldVal = o; }
+        );
+        flushEffects();
+
+        obj.count = 5;
+        flushEffects();
+        assert.equal(newVal, 5, 'Callback fires on undefined -> value change');
+        assert.equal(oldVal, undefined, 'Old value is undefined');
+    });
+
+    it('watch callback does not track state it reads', () => {
+        const obj = reactive({ watched: 0, other: 0 });
+        let callCount = 0;
+
+        watch(
+            () => obj.watched,
+            () => {
+                // Reading other state in the callback must NOT subscribe the watcher to it
+                const _ = obj.other;
+                callCount++;
+            }
+        );
+        flushEffects();
+
+        obj.watched = 1;
+        flushEffects();
+        assert.equal(callCount, 1, 'Callback fires on watched change');
+
+        obj.other = 99;
+        flushEffects();
+        assert.equal(callCount, 1, 'Callback does NOT fire when callback-read state changes');
+
+        obj.watched = 2;
+        flushEffects();
+        assert.equal(callCount, 2, 'Watcher still works after unrelated change');
+    });
+
     it('handles array mutations', () => {
         const arr = reactive({ items: [1, 2, 3] });
         let sum = 0;
