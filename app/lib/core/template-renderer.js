@@ -167,6 +167,19 @@ const DANGEROUS_KEYS = new Set([
 ]);
 
 /**
+ * Parse raw() HTML into a DocumentFragment via a <template> element.
+ * Template content has no parsing-context restrictions, so fragments like
+ * <tr>/<td>/<li> parse correctly (div/span.innerHTML would drop them),
+ * and no wrapper element is introduced around the content.
+ * Scripts parsed via innerHTML are inert in both approaches.
+ */
+function parseRawHTML(rawValue) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = rawValue.toString();
+    return tpl.content;
+}
+
+/**
  * Insert content into DOM without current effect context.
  * This prevents child component state from becoming dependencies of parent effects,
  * while still allowing child components to establish their own effect tracking.
@@ -1544,10 +1557,10 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
 
         // Handle raw() HTML
         if (isRaw(value)) {
-            const span = document.createElement('span');
-            span.innerHTML = value.toString();
-            insertWithoutParentTracking(placeholder, span);
-            currentNodes = [span];
+            const content = parseRawHTML(value);
+            const nodes = [...content.childNodes];
+            insertWithoutParentTracking(placeholder, content);
+            currentNodes = nodes;
             return;
         }
 
@@ -1626,6 +1639,14 @@ function instantiateSlot(node, values, component, parent, effects, inSvg = false
                     currentEffects.push(...childEffects);
                     const nodes = [...fragment.childNodes];
                     insertWithoutParentTracking(insertPoint, fragment);
+                    if (nodes.length > 0) {
+                        insertPoint = nodes[nodes.length - 1];
+                    }
+                    currentNodes.push(...nodes);
+                } else if (isRaw(item)) {
+                    const content = parseRawHTML(item);
+                    const nodes = [...content.childNodes];
+                    insertWithoutParentTracking(insertPoint, content);
                     if (nodes.length > 0) {
                         insertPoint = nodes[nodes.length - 1];
                     }

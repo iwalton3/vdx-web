@@ -187,4 +187,80 @@ describe('raw() HTML in Children', function(it) {
 
         document.body.removeChild(el);
     });
+
+    it('renders raw table fragments without dropping rows', async () => {
+        defineComponent('test-raw-table', {
+            data() {
+                return {
+                    rowsHtml: '<tr class="r1"><td>One</td></tr><tr class="r2"><td>Two</td></tr>'
+                };
+            },
+            template() {
+                return html`
+                    <table>
+                        <tbody>${raw(this.state.rowsHtml)}</tbody>
+                    </table>
+                `;
+            }
+        });
+
+        const el = document.createElement('test-raw-table');
+        document.body.appendChild(el);
+
+        await waitForRender();
+
+        const rows = el.querySelectorAll('tbody tr');
+        assert.equal(rows.length, 2, 'Both <tr> fragments should survive parsing');
+        assert.equal(el.querySelector('.r1 td')?.textContent, 'One', 'First row content rendered');
+        assert.equal(el.querySelector('.r2 td')?.textContent, 'Two', 'Second row content rendered');
+
+        document.body.removeChild(el);
+    });
+
+    it('does not wrap raw content in an extra element', async () => {
+        defineComponent('test-raw-nowrap', {
+            data() {
+                return { itemHtml: '<li class="raw-item">Item</li>' };
+            },
+            template() {
+                return html`<ul class="list">${raw(this.state.itemHtml)}</ul>`;
+            }
+        });
+
+        const el = document.createElement('test-raw-nowrap');
+        document.body.appendChild(el);
+
+        await waitForRender();
+
+        const li = el.querySelector('.list > .raw-item');
+        assert.ok(li, 'Raw content should be a direct child of its container (no wrapper span)');
+
+        document.body.removeChild(el);
+    });
+
+    it('renders raw() items inside arrays as HTML, not text', async () => {
+        defineComponent('test-raw-in-array', {
+            data() {
+                return {
+                    parts: [raw('<b class="p1">bold</b>'), ' and ', raw('<i class="p2">italic</i>')]
+                };
+            },
+            template() {
+                return html`<div class="parts">${this.state.parts}</div>`;
+            }
+        });
+
+        const el = document.createElement('test-raw-in-array');
+        document.body.appendChild(el);
+
+        await waitForRender();
+
+        const container = el.querySelector('.parts');
+        assert.ok(container?.querySelector('.p1'), 'First raw item rendered as element');
+        assert.ok(container?.querySelector('.p2'), 'Second raw item rendered as element');
+        assert.ok(!container?.textContent.includes('<b'), 'Markup should not appear as literal text');
+        assert.ok(container?.textContent.includes('and'), 'Plain text items still render');
+
+        document.body.removeChild(el);
+    });
 });
