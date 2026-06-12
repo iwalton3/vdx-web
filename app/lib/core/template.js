@@ -107,8 +107,22 @@ export function sanitizeUrl(url) {
 
     const scheme = schemeMatch[1].toLowerCase();
 
-    // Allowlist of safe schemes
-    const safeSchemes = ['http', 'https', 'mailto', 'tel', 'sms', 'ftp', 'ftps'];
+    // data: URLs are allowed only for non-scriptable media types.
+    // data:text/html and data:image/svg+xml can execute script when navigated.
+    if (scheme === 'data') {
+        const mimeMatch = decoded.match(/^data:([^;,]*)[;,]/i);
+        const mime = (mimeMatch?.[1] || '').toLowerCase();
+        if (/^(image\/(?!svg)|audio\/|video\/|font\/)/.test(mime)) {
+            return normalized;
+        }
+        console.warn('[Security] Blocked data: URL with unsafe media type:', url);
+        return '';
+    }
+
+    // Allowlist of safe schemes.
+    // blob: URLs can only be created by same-origin code via createObjectURL,
+    // so they are safe to bind (needed for media from IndexedDB/streams).
+    const safeSchemes = ['http', 'https', 'mailto', 'tel', 'sms', 'ftp', 'ftps', 'blob'];
 
     if (!safeSchemes.includes(scheme)) {
         console.warn('[Security] Blocked dangerous URL scheme:', url);

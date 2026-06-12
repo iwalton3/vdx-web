@@ -69,6 +69,32 @@ describe('Template Security', function(it) {
         assert.ok(!str.includes('data:'), 'Should block data: URLs');
     });
 
+    it('blocks data: URLs with scriptable media types', () => {
+        const svgUrl = 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=';
+        const result = html`<a href="${svgUrl}">Link</a>`;
+        const str = renderToString(result);
+        assert.ok(!str.includes('data:image/svg'), 'Should block data:image/svg+xml (can script on navigation)');
+    });
+
+    it('allows blob: URLs', () => {
+        const blobUrl = 'blob:https://example.com/4f3b2a1c-0000-1111-2222-333344445555';
+        const result = html`<img src="${blobUrl}">`;
+        const str = renderToString(result);
+        assert.ok(str.includes('blob:'), 'Should allow blob: URLs (same-origin createObjectURL only)');
+    });
+
+    it('allows data: URLs for safe media types', () => {
+        const pngUrl = 'data:image/png;base64,iVBORw0KGgo=';
+        const result = html`<img src="${pngUrl}">`;
+        const str = renderToString(result);
+        assert.ok(str.includes('data:image/png'), 'Should allow data:image/png');
+
+        const audioUrl = 'data:audio/mpeg;base64,AAAA';
+        const result2 = html`<audio src="${audioUrl}"></audio>`;
+        const str2 = renderToString(result2);
+        assert.ok(str2.includes('data:audio/mpeg'), 'Should allow data:audio/*');
+    });
+
     it('allows safe URL schemes', () => {
         const httpUrl = 'https://example.com';
         const result = html`<a href="${httpUrl}">Link</a>`;
