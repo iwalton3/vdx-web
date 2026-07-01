@@ -467,6 +467,93 @@ describe('Router Pattern Compilation', function(it) {
     });
 });
 
+describe('Router Wildcard Parameters', function(it) {
+    it('matches multi-segment :param* wildcard', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/files/:path*/': { component: 'files-page' }
+        });
+
+        router.navigate('/files/music/rock/album/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const currentRoute = router.currentRoute.state;
+        assert.equal(currentRoute.component, 'files-page', 'Should match multi-segment path');
+        assert.equal(currentRoute.params.path, 'music/rock/album', 'Should capture all segments without trailing slash');
+        router.destroy();
+    });
+
+    it('matches single-segment :param* wildcard', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/files/:path*/': { component: 'files-page' }
+        });
+
+        router.navigate('/files/music/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const currentRoute = router.currentRoute.state;
+        assert.equal(currentRoute.component, 'files-page', 'Should match single segment');
+        assert.equal(currentRoute.params.path, 'music', 'Should capture single segment');
+        router.destroy();
+    });
+
+    it('prefers earlier-registered specific pattern over wildcard', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/files/special/:name/': { component: 'special-page' },
+            '/files/:path*/': { component: 'files-page' }
+        });
+
+        router.navigate('/files/special/thing/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        assert.equal(router.currentRoute.state.component, 'special-page',
+            'Specific route registered first should win over wildcard');
+
+        router.navigate('/files/a/b/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        assert.equal(router.currentRoute.state.component, 'files-page',
+            'Wildcard should still match other paths');
+        router.destroy();
+    });
+
+    it('substitutes multi-segment capture into redirect $1', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/new/:path*/': { component: 'new-page' },
+            '/old/:path*/': { redirect: '/new/$1/' }
+        });
+
+        router.navigate('/old/a/b/c/');
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const currentRoute = router.currentRoute.state;
+        assert.equal(currentRoute.component, 'new-page', 'Should follow redirect');
+        assert.equal(currentRoute.params.path, 'a/b/c', 'Should carry full multi-segment capture through redirect');
+        router.destroy();
+    });
+
+    it('does not interpret $ sequences in redirect param values', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/new/:name/': { component: 'new-page' },
+            '/old/:name/': { redirect: '/new/$1/' }
+        });
+
+        // '$&' in a captured value must be inserted literally, not as a
+        // string.replace replacement pattern
+        router.navigate('/old/pre%24%26post/');
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const currentRoute = router.currentRoute.state;
+        assert.equal(currentRoute.component, 'new-page', 'Should follow redirect');
+        assert.equal(currentRoute.params.name, 'pre$&post', 'Should insert $ sequences literally');
+        router.destroy();
+    });
+});
+
 describe('Router Component Name Security', function(it) {
     it('accepts valid custom element names', () => {
         // Valid names should be accepted - just test route configuration, not rendering

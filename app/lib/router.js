@@ -160,12 +160,16 @@ function compileRoutePattern(pattern) {
     const paramNames = [];
 
     // Escape regex special chars except for our param syntax
+    // NOTE: '*' must be in this class — the wildcard replace below looks for
+    // the escaped form ':name\*'. Without it, ':path*' compiles to '([^/]+)*',
+    // which never matches multi-segment paths and backtracks catastrophically.
     let regexStr = pattern
-        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-        // Replace :paramName* with greedy capture group (matches multiple path segments)
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        // Replace :paramName* with a multi-segment capture group.
+        // Lazy (.+?) so the optional trailing slash isn't swallowed into the param.
         .replace(/:([a-zA-Z_][a-zA-Z0-9_]*)\\\*/g, (_, paramName) => {
             paramNames.push(paramName);
-            return '(.+)';
+            return '(.+?)';
         })
         // Replace :paramName with capture group (single segment)
         .replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, (_, paramName) => {
@@ -568,14 +572,16 @@ export class Router {
         // Handle redirects
         if (route.redirect) {
             let redirectPath = route.redirect;
-            // Substitute captured params ($1, $2, etc. or named params)
+            // Substitute captured params ($1, $2, etc. or named params).
+            // Function replacements so '$' sequences in param values aren't
+            // interpreted as replacement patterns.
             const paramValues = Object.values(params);
             for (let i = 0; i < paramValues.length; i++) {
-                redirectPath = redirectPath.replace(`$${i + 1}`, paramValues[i]);
+                redirectPath = redirectPath.replace(`$${i + 1}`, () => paramValues[i]);
             }
             // Also support named params like :paramName
             for (const [name, value] of Object.entries(params)) {
-                redirectPath = redirectPath.replace(`:${name}`, value);
+                redirectPath = redirectPath.replace(`:${name}`, () => value);
             }
             this.replace(redirectPath, query);
             return;
