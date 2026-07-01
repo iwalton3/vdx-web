@@ -710,11 +710,22 @@ export class Router {
         if (existingElement && existingElement.tagName.toLowerCase() === component) {
             // Same component - update props only if changed (shallow compare)
             // This prevents unnecessary propsChanged calls
+            const next = {};
             if (!shallowEqual(existingElement.params, params)) {
-                existingElement.params = params;
+                next.params = params;
             }
             if (!shallowEqual(existingElement.query, query)) {
-                existingElement.query = query;
+                next.query = query;
+            }
+            if (typeof existingElement.setProps === 'function') {
+                // Batched: both backing values update before either
+                // propsChanged fires, so handlers see a consistent route
+                if (next.params || next.query) {
+                    existingElement.setProps(next);
+                }
+            } else {
+                if (next.params) existingElement.params = next.params;
+                if (next.query) existingElement.query = next.query;
             }
             this._currentElement = existingElement;
         } else {

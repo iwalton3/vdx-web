@@ -127,6 +127,13 @@ export interface ComponentInstance<
    */
   $method<T extends (...args: any[]) => any>(name: string): T | undefined;
 
+  /**
+   * Batched prop assignment: updates all backing values before firing any
+   * propsChanged callback, so handlers can read this.props for sibling
+   * props delivered in the same batch. Fires one re-render for the batch.
+   */
+  setProps(newProps: Partial<P>): void;
+
   /** Allow any other properties for flexibility */
   [key: string]: any;
 }

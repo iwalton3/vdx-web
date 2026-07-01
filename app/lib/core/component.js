@@ -1132,6 +1132,77 @@ export function defineComponent(name, options) {
         configurable: true
     });
 
+    // Batched prop assignment: updates ALL backing values before firing any
+    // propsChanged callback, so a handler can safely read this.props for
+    // sibling props delivered in the same batch. The router uses this for
+    // params+query — with individual setters, the params handler runs while
+    // this.props.query is still stale (and vice versa).
+    Object.defineProperty(Component.prototype, 'setProps', {
+        value: function setProps(newProps) {
+            if (!newProps || typeof newProps !== 'object') return;
+
+            // Called before constructor: stash for later application
+            if (!this.props) {
+                if (!this._pendingProps) this._pendingProps = {};
+                Object.assign(this._pendingProps, newProps);
+                return;
+            }
+
+            const changes = [];
+            for (const [propName, value] of Object.entries(newProps)) {
+                // Only declared props with generated accessors participate in
+                // batching; special/undeclared props fall back to plain
+                // assignment (identical to setting the property directly)
+                const declared = options.props &&
+                    Object.prototype.hasOwnProperty.call(options.props, propName) &&
+                    !reservedNames.has(propName) &&
+                    propName !== 'style' && propName !== 'children' && propName !== 'slots';
+                if (!declared) {
+                    this[propName] = value;
+                    continue;
+                }
+
+                if (debugPropSetHook) {
+                    debugPropSetHook(this.tagName || name, propName, value, value, this._isMounted);
+                }
+
+                const oldValue = this.props[propName];
+                if (value === oldValue) continue;
+
+                this.props[propName] = value;
+
+                // Mirror the attribute handling in createPropSetter
+                this._suppressAttributeChange = true;
+                if (typeof value === 'string') {
+                    this.setAttribute(propName, value);
+                } else if (this.hasAttribute(propName)) {
+                    this.removeAttribute(propName);
+                }
+                this._suppressAttributeChange = false;
+
+                changes.push([propName, value, oldValue]);
+            }
+
+            if (changes.length === 0 || !this._isMounted) return;
+
+            // All backing values are current — now notify
+            if (typeof this.propsChanged === 'function') {
+                for (const [propName, value, oldValue] of changes) {
+                    this.propsChanged(propName, value, oldValue);
+                }
+            }
+            // Single version bump for the whole batch (one re-render)
+            if (this._propsVersion) {
+                this._propsVersion.v++;
+                if (this._hasRenderError) {
+                    scheduleRender(this);
+                }
+            }
+        },
+        writable: true,
+        configurable: true
+    });
+
     // Define accessors for all declared props
     if (options.props) {
         for (const propName of Object.keys(options.props)) {

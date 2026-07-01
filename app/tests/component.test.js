@@ -277,6 +277,54 @@ describe('Component Re-rendering', function(it) {
             }, 100);
         }, 100);
     });
+
+    it('setProps batches: sibling props are current inside propsChanged', (done) => {
+        const observed = [];
+
+        defineComponent('test-batched-props', {
+            props: { params: null, query: null },
+            propsChanged(prop, newValue) {
+                // Record what the SIBLING prop looks like when this fires —
+                // with batched delivery both backing values must already be set
+                observed.push({
+                    prop,
+                    params: this.props.params,
+                    query: this.props.query
+                });
+            },
+            template() {
+                return html`<span>batched</span>`;
+            }
+        });
+
+        const el = document.createElement('test-batched-props');
+        el.params = { id: 'old' };
+        el.query = { q: 'old' };
+        document.body.appendChild(el);
+
+        setTimeout(() => {
+            observed.length = 0;
+
+            const newParams = { id: 'new' };
+            const newQuery = { q: 'new' };
+            el.setProps({ params: newParams, query: newQuery });
+
+            assert.equal(observed.length, 2, 'propsChanged fires for both props');
+            for (const o of observed) {
+                assert.equal(o.params, newParams, `sibling params current when ${o.prop} fired`);
+                assert.equal(o.query, newQuery, `sibling query current when ${o.prop} fired`);
+            }
+
+            // Unchanged values are skipped
+            observed.length = 0;
+            el.setProps({ params: newParams, query: { q: 'newer' } });
+            assert.equal(observed.length, 1, 'unchanged prop skipped in batch');
+            assert.equal(observed[0].prop, 'query', 'only changed prop fires');
+
+            document.body.removeChild(el);
+            done();
+        }, 100);
+    });
 });
 
 describe('Component Event Isolation', function(it) {
