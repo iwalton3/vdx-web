@@ -467,6 +467,68 @@ describe('Router Pattern Compilation', function(it) {
     });
 });
 
+describe('Router Navigation Races', function(it) {
+    it('slower lazy-load cannot override a newer navigation', async () => {
+        let resolveSlowLoad;
+        const slowLoad = () => new Promise(resolve => { resolveSlowLoad = resolve; });
+
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/slow/': { component: 'slow-lazy-page', load: slowLoad },
+            '/fast/': { component: 'fast-page' }
+        });
+
+        // Start navigation to the slow lazy route, then immediately navigate
+        // to the fast route before the lazy import resolves
+        router.navigate('/slow/');
+        await new Promise(resolve => setTimeout(resolve, 30));
+        router.navigate('/fast/');
+        await new Promise(resolve => setTimeout(resolve, 30));
+
+        assert.equal(router.currentRoute.state.component, 'fast-page',
+            'Fast route should render first');
+
+        // Now the slow load finishes — the stale navigation must NOT win
+        resolveSlowLoad();
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        assert.equal(router.currentRoute.state.component, 'fast-page',
+            'Stale navigation must not override the newer route');
+        assert.equal(router.currentRoute.state.path, '/fast/',
+            'Path must remain the newer route');
+        router.destroy();
+    });
+
+    it('slow beforeEach hook cannot override a newer navigation', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/a/': { component: 'a-page' },
+            '/b/': { component: 'b-page' }
+        });
+
+        let resolveHook;
+        router.beforeEach(async ({ path }) => {
+            if (path === '/a/') {
+                await new Promise(resolve => { resolveHook = resolve; });
+            }
+        });
+
+        router.navigate('/a/');
+        await new Promise(resolve => setTimeout(resolve, 30));
+        router.navigate('/b/');
+        await new Promise(resolve => setTimeout(resolve, 30));
+
+        assert.equal(router.currentRoute.state.component, 'b-page', 'B should render');
+
+        resolveHook();
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        assert.equal(router.currentRoute.state.component, 'b-page',
+            'Stale hook continuation must not override the newer route');
+        router.destroy();
+    });
+});
+
 describe('Router Wildcard Parameters', function(it) {
     it('matches multi-segment :param* wildcard', async () => {
         const router = new Router({

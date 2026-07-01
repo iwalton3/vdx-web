@@ -250,6 +250,7 @@ export class Router {
         this.afterHooks = [];
         this.outletElement = null;
         this.loadedComponents = new Set(); // Track loaded components
+        this._navToken = 0; // Monotonic navigation counter (stale handleRoute guard)
 
         // Detect routing mode: HTML5 (with base tag) or hash
         this.useHTML5 = this._detectRoutingMode();
@@ -537,6 +538,12 @@ export class Router {
      * @returns {Promise<void>}
      */
     async handleRoute() {
+        // Each invocation claims a token; after any await, a newer token means
+        // another navigation superseded this one and it must not touch state.
+        // Without this, a slow lazy-load can render its (older) destination
+        // over a navigation that already completed.
+        const navToken = ++this._navToken;
+
         let path, queryString;
 
         if (this.useHTML5) {
@@ -590,6 +597,7 @@ export class Router {
         // Run before hooks
         for (const hook of this.beforeHooks) {
             const result = await hook({ path, query, params, route });
+            if (navToken !== this._navToken) return; // Superseded during hook
             if (result === false) {
                 // Navigation cancelled
                 return;
@@ -603,6 +611,7 @@ export class Router {
                 this.loadedComponents.add(route.component);
             } catch (error) {
                 console.error(`Failed to load component for route ${path}:`, error);
+                if (navToken !== this._navToken) return; // Superseded during load
                 // Fallback to 404 on load error
                 const fallback = this.routes['/404'] || { component: 'page-not-found' };
                 this.currentRoute.set({
@@ -615,6 +624,7 @@ export class Router {
                 this._renderOutlet();
                 return;
             }
+            if (navToken !== this._navToken) return; // Superseded during load
         }
 
         // Update current route
