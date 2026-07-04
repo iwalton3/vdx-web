@@ -14,8 +14,8 @@ Complete guide to running and writing tests for the framework.
 ## Running Tests
 
 The framework has two test suites:
-1. **Framework Unit Tests** (~190 tests) - Core framework functionality
-2. **Component Library E2E Tests** (~175 tests) - UI component testing with Puppeteer
+1. **Framework Unit Tests** (~420 tests) - Core framework functionality
+2. **Component Library E2E Tests** (~260 tests) - UI component testing with Puppeteer
 
 Both require the test server running first:
 
@@ -57,7 +57,7 @@ E2E tests include:
 
 ## Test Coverage
 
-All 125 tests pass, covering:
+All framework unit tests pass, covering:
 
 ### Reactivity System (`reactivity.test.js`)
 - ✅ Creates reactive proxies

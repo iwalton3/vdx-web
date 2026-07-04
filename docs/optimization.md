@@ -267,8 +267,8 @@ When using `--sourcemap`:
 **Validation:** Use the included validation tool to check source maps:
 
 ```bash
-node validate-sourcemaps.js                    # Validate all dist/ files
-node validate-sourcemaps.js --verbose file.js  # Detailed validation
+node componentlib-e2e/validate-sourcemaps.js                    # Validate all dist/ files
+node componentlib-e2e/validate-sourcemaps.js --verbose file.js  # Detailed validation
 ```
 
 **To use source maps in the browser:**

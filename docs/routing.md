@@ -8,6 +8,7 @@ Complete guide to client-side routing with the framework.
 - [Defining Routes](#defining-routes)
 - [Nested Routes](#nested-routes)
 - [Route Parameters](#route-parameters)
+- [Redirects](#redirects)
 - [Query Parameters](#query-parameters)
 - [Reactive Navigation](#reactive-navigation)
 - [Lazy Loading](#lazy-loading)
@@ -165,6 +166,35 @@ defineComponent('product-detail', {
     }
 });
 ```
+
+### Wildcard Parameters
+
+Use `:param*` to capture multiple path segments in a single parameter:
+
+```javascript
+const router = enableRouting(outlet, {
+    '/files/:path*/': { component: 'file-browser' }
+});
+
+// URL: /files/docs/reports/2024/
+// this.props.params.path === 'docs/reports/2024'
+```
+
+A wildcard matches one or more segments (the trailing slash is not included in the captured value).
+
+## Redirects
+
+Routes can redirect to another path with the `redirect` option. Captured params can be substituted using `$1`, `$2`, ... (positional) or `:name` (named):
+
+```javascript
+const router = enableRouting(outlet, {
+    '/home/': { redirect: '/' },
+    '/user/:id/': { redirect: '/users/$1/' },      // positional
+    '/profile/:id/': { redirect: '/users/:id/' }   // named
+});
+```
+
+Redirects use `replace()`, so they don't add a history entry. Query parameters are preserved across the redirect.
 
 ## Query Parameters
 
@@ -429,13 +459,10 @@ const router = enableRouting(outlet, {
 ```
 
 **How it works:**
-- Router checks if user has required capability before rendering route
-- If user lacks capability, router may redirect or show access denied
-- Capabilities are checked via your authentication system
+- `require` is metadata only - the router stores it on the route but does not enforce it
+- You enforce it yourself in a `beforeEach` hook, which receives the matched route config
 
-**Setting up capabilities:**
-
-The capability check integrates with your authentication store:
+**Enforcing capabilities:**
 
 ```javascript
 // In auth/auth.js
@@ -446,10 +473,13 @@ const login = createStore({
     // ... auth methods
 });
 
-// Router uses this to check capabilities
-router.checkCapability = (required) => {
-    return login.state.capabilities.includes(required);
-};
+// Enforce route.require in a guard
+router.beforeEach(({ route }) => {
+    if (route.require && !login.state.capabilities.includes(route.require)) {
+        router.navigate('/unauthorized/');
+        return false;  // Cancel navigation
+    }
+});
 ```
 
 ### Custom Route Guards
@@ -517,15 +547,15 @@ Be consistent with trailing slashes:
 
 ## Debugging
 
-Enable router debugging:
+Log route changes with an `afterEach` hook:
 
 ```javascript
-const router = enableRouting(outlet, {
-    // ... routes
-}, {
-    debug: true  // Logs route changes
+router.afterEach(({ path, query, params }) => {
+    console.log('[Router] Navigated to:', path, { query, params });
 });
 ```
+
+(The third `options` argument to `enableRouting` is currently reserved and unused.)
 
 ## Router Cleanup
 

@@ -14,7 +14,7 @@ Complete guide to using the pre-bundled versions of the framework for embedding 
 
 Located in `/app/dist/`:
 
-### framework.js (~74 KB)
+### framework.js (~92 KB)
 Complete framework bundle including:
 - **Component system:** `defineComponent`
 - **Reactivity:** `reactive`, `createEffect`, `computed`, `isReactive`, `watch`, `memo`, `trackAllDependencies`
@@ -73,7 +73,7 @@ Utility functions for common tasks:
 - **Notifications:** `notify(message, severity, ttl)`, `notifications` store
 - **Dark theme:** `darkTheme` reactive store
 - **localStorage:** `localStore(key, initial)` - reactive localStorage wrapper
-- **Helpers:** `sleep(ms)`, `range(start, end)`
+- **Helpers:** `sleep(ms)`, `range(end)` / `range(start, end, step)`
 
 **Usage:**
 ```html
@@ -91,6 +91,9 @@ Utility functions for common tasks:
   settings.state.theme = 'dark'; // Automatically syncs to localStorage
 </script>
 ```
+
+### opt.js (~4 KB)
+Runtime `opt()` transformer for fine-grained reactivity (`eval(opt(...))` pattern). Only needed if you use `opt()` at runtime instead of the build-time optimizer.
 
 ## Usage Examples
 
@@ -300,18 +303,13 @@ Utility functions for common tasks:
 
 ## Building Bundles
 
-Bundles are generated with:
+Bundles are generated with a single command from the repo root:
 
 ```bash
-cd app
-node bundler-esm.js      # Builds framework.js
-node copy-dist-extras.js # Copies router.js and utils.js (strips comments)
+node bundler-esm.js
 ```
 
-Or build all at once:
-```bash
-node bundler-esm.js && node copy-dist-extras.js
-```
+Default mode (no arguments) generates all minified bundles in `app/dist/` with source maps: `framework.js` (tree-shaken), `router.js`, and `utils.js`. Run `node bundler-esm.js --help` for custom single-file bundling options.
 
 ## Bundle Demo
 
@@ -339,8 +337,8 @@ Then open: http://localhost:9000/bundle-demo/
 ## Size Comparison
 
 **framework.js:**
-- Uncompressed: ~74 KB
-- Gzipped: ~20 KB (estimated)
+- Uncompressed: ~92 KB
+- Gzipped: ~21 KB
 
 **Includes:**
 - Reactive system (reactive, createEffect, computed, watch, memo, isReactive)

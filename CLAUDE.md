@@ -22,11 +22,11 @@ cd app && python3 test-server.py
 Both test suites require the test server running first.
 
 ```bash
-# Framework unit tests (~187 tests)
+# Framework unit tests (~420 tests)
 cd componentlib-e2e && node run-framework-tests.js
 # Or open http://localhost:9000/tests/
 
-# Component library E2E tests (~150 tests)
+# Component library E2E tests (~260 tests)
 cd componentlib-e2e && node test-runner.js
 
 # Only show output from failing tests (quieter for CI or quick checks)
@@ -100,7 +100,7 @@ Call `router.setOutlet()` in `mounted()` if component has its own `<router-outle
 Props may be `null` in `renderError()` - use CustomEvents for recovery actions.
 
 ### No Shadow DOM
-This framework does not use shadow DOM. Children are handled via preact virtual dom rendering.
+This framework does not use shadow DOM. Light-DOM children are captured at mount, exposed as `this.props.children` / `this.props.slots`, and rendered by the framework's own fine-grained template renderer (no virtual DOM library involved).
 
 ## Getting Help
 

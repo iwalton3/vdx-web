@@ -446,9 +446,11 @@ Pagination controls.
     totalrecords="100"
     rows="10"
     first="${this.state.first}"
-    on-change="${(e) => this.state.first = e.detail.first}">
+    on-change="${(e, val) => this.state.first = val.first}">
 </cl-paginator>
 ```
+
+The change event detail is `{ value: { first, page, rows } }` - custom-element handlers receive `detail.value` as the second argument.
 
 ### cl-tree
 
@@ -555,7 +557,8 @@ template() {
   - `"window"` - Tracks window/document scroll
   - CSS selector - Tracks a specific element
 - `selectable` - Enable selection (default: false)
-- `selectedIndex` - Currently selected index
+- `selectedKey` - Key of the currently selected item (as returned by `keyFn`)
+- `selectedIndex` - Currently selected index (deprecated - use `selectedKey`)
 - `emptyMessage` - Message when list is empty
 - `loading` - Show loading spinner
 
@@ -603,7 +606,7 @@ Tabbed interface component.
 <cl-tabview
     tabs="${this.state.tabs}"
     activeindex="0"
-    on-change="${(e) => this.state.activeTab = e.detail.index}">
+    on-change="${(e, index) => this.state.activeTab = index}">
 </cl-tabview>
 ```
 
@@ -871,6 +874,21 @@ Color picker component.
     x-model="color">
 </cl-colorpicker>
 ```
+
+## Additional Components
+
+These components exist in `app/componentlib/` and are used the same way; see their source files for full props:
+
+- **cl-alert** (`misc/alert.js`) - Inline alert box; `severity`, `title`, `closable`, `outline`
+- **cl-badge** (`misc/badge.js`) - Badge/pill; `value`, `severity`, `size`, `rounded`, `dot`, `removable`
+- **cl-spinner** (`misc/spinner.js`) - Loading spinner; `size`, `variant` (`border`/`dots`/`bars`/`pulse`), `label`
+- **cl-error-boundary** (`misc/error-boundary.js`) - Error fallback UI for `renderError()`; `error`, `title`, `showDetails`, `showRetry`
+- **cl-input-mask** (`form/input-mask.js`) - Masked input (e.g. `mask="(999) 999-9999"`); `slotChar`, standard form props
+- **cl-input-password** (`form/input-password.js`) - Password input with visibility toggle; standard form props
+- **cl-input-search** (`form/input-search.js`) - Search input with `suggestions`, `minChars`, `debounce`, `loading`
+- **cl-stepper** (`panel/stepper.js`) - Step wizard; `steps`, `activeIndex`, `linear`, `orientation`
+- **cl-shell** (`layout/shell.js`) - App shell layout with sidebar; `title`, `logo`, `menuItems`, `activeItem`
+- **cl-action-menu** (`overlay/action-menu.js`) - Dropdown action menu button; `label`, `items`, `position`
 
 ## Using x-model with Component Library
 

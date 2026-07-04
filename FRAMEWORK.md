@@ -161,12 +161,12 @@ return html`<p>${count}</p>`;  // contain(() => count) has no dependencies!
 // ✅ GOOD - Reactive access inside template
 return html`<p>${this.state.count}</p>`;  // contain(() => this.state.count) works
 
-// ✅ GOOD - Use getter methods for computed values
+// ✅ GOOD - Use methods for computed values (NOT get accessors - they break method binding)
 methods: {
-    get doubled() { return this.state.count * 2; }
+    doubled() { return this.state.count * 2; }
 },
 template() {
-    return html`<p>${this.doubled}</p>`;  // Getter called inside contain()
+    return html`<p>${this.doubled()}</p>`;  // Called inside contain()
 }
 ```
 

@@ -76,7 +76,7 @@ app/
 import { defineComponent, html } from './lib/framework.js';
 ```
 
-**Bundled (single file, ~74KB):**
+**Bundled (single file, ~92KB):**
 ```javascript
 import { defineComponent, html } from './dist/framework.js';
 ```
@@ -997,16 +997,15 @@ const router = enableRouting(outlet, {
     }
 });
 
-// Connect capability checking to your auth store
-router.checkCapability = (required) => {
-    return authStore.state.hasCapability(required);
-};
-
-// Optional: redirect unauthorized users
-router.onUnauthorized = (path, required) => {
-    console.log(`Access denied to ${path} - requires: ${required}`);
-    router.navigate('/login/');
-};
+// Enforce the `require` field with a navigation guard
+// (the router treats `require` as metadata - your guard enforces it)
+router.beforeEach(({ path, route }) => {
+    if (route.require && !authStore.state.hasCapability(route.require)) {
+        console.log(`Access denied to ${path} - requires: ${route.require}`);
+        router.navigate('/login/');
+        return false;  // Cancel navigation
+    }
+});
 ```
 
 **Step 3: Use in components**
@@ -1376,6 +1375,8 @@ For static site generators, you can pass complex data using `json-*` attributes 
 
 Use `computed()` for expensive calculations:
 
+`computed(getter)` takes a zero-argument getter (dependencies are tracked automatically) and returns `{ get, dispose }`:
+
 ```javascript
 import { computed } from './lib/framework.js';
 
@@ -1383,23 +1384,27 @@ defineComponent('product-list', {
     data() {
         return {
             items: [...],  // 1000 items
-            searchQuery: '',
-
-            filteredItems: computed((items, query) => {
-                console.log('Computing filtered items...');
-                return items.filter(item =>
-                    item.name.toLowerCase().includes(query.toLowerCase())
-                );
-            })
+            searchQuery: ''
         };
     },
 
+    mounted() {
+        // Dependencies (items, searchQuery) are tracked automatically;
+        // the getter only re-runs when they change
+        this._filteredItems = computed(() => {
+            console.log('Computing filtered items...');
+            return this.state.items.filter(item =>
+                item.name.toLowerCase().includes(this.state.searchQuery.toLowerCase())
+            );
+        });
+    },
+
+    unmounted() {
+        if (this._filteredItems) this._filteredItems.dispose();
+    },
+
     template() {
-        // Call computed with dependencies
-        const filtered = this.state.filteredItems(
-            this.state.items,
-            this.state.searchQuery
-        );
+        const filtered = this._filteredItems?.get() ?? [];
 
         return html`
             <input type="text" x-model="searchQuery" placeholder="Search...">

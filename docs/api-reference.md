@@ -39,6 +39,11 @@ Define a custom element component.
         methodName() { ... }
     },
 
+    // Store auto-wiring: exposes store state as this.stores.name
+    stores: {
+        name: someStore
+    },
+
     // Template function
     template() {
         return html`...`;
@@ -48,6 +53,7 @@ Define a custom element component.
     mounted() { },       // Called after component added to DOM
     unmounted() { },     // Called before component removed
     afterRender() { },   // Called after each render (use sparingly)
+    propsChanged(prop, newValue, oldValue) { },  // Called when a prop changes
 
     // Error boundary (optional)
     renderError(error) { // Called if template() throws
@@ -114,8 +120,26 @@ Reactive state object.
 this.state.count = 10;
 ```
 
-#### this.emitChange(event, value)
-Helper to emit change events for x-model compatibility.
+#### this.refs
+Object mapping `ref="name"` template attributes to DOM elements.
+
+```javascript
+template() { return html`<input ref="nameInput">`; },
+methods: {
+    focus() { this.refs.nameInput.focus(); }
+}
+```
+
+#### this.stores
+Direct references to the reactive state of stores declared via the `stores:` component option. Template reads like `this.stores.user.name` are tracked fine-grained.
+
+```javascript
+stores: { user: userStore },
+template() { return html`<p>${this.stores.user.name}</p>`; }
+```
+
+#### this.emitChange(event, value, [propName])
+Helper to emit change events for x-model compatibility. Stops propagation of the original event and dispatches a `change` CustomEvent with `detail: { value }`. `propName` defaults to `'value'`.
 
 ```javascript
 methods: {
@@ -188,15 +212,18 @@ ${each(this.state.items, item => html`
 `, item => item.id)}
 ```
 
-### memoEach(array, mapFn, keyFn, [cache])
+### memoEach(array, mapFn, keyFn, [options])
 
 Memoized list rendering - caches rendered templates per item key.
 
 **Parameters:**
-- `array` (Array) - Array to iterate over (used as cache key)
+- `array` (Array) - Array to iterate over
 - `mapFn` (function) - Function that returns template for each item
 - `keyFn` (function) - **Required** - Function to extract unique key from item
-- `cache` (Map, optional) - Explicit cache (only needed when same array rendered with different templates)
+- `options` (object, optional) - `{ cache, trustKey, deps }`. A bare `Map` is also accepted as an explicit cache for backward compatibility.
+  - `cache` (Map) - Explicit cache (only needed when same array rendered with different templates)
+  - `trustKey` (boolean) - Compare by key alone instead of item reference (virtual scroll)
+  - `deps` (Array) - External dependencies; all item caches are busted when any value changes
 
 **Example:**
 ```javascript
@@ -206,9 +233,9 @@ ${memoEach(this.state.songs, song => html`
 ```
 
 **Caching behavior:**
-- Uses array reference as cache key (WeakMap) - safe to use conditionally
-- Each different array automatically gets its own cache
-- Only need explicit `cache` param when rendering same array differently in multiple places
+- The cache lives at the slot level (the DOM location of the `${memoEach(...)}` expression) - safe to use conditionally
+- Each slot automatically gets its own cache; stale entries are pruned as items leave the array
+- Only need explicit `cache` param when rendering the same array differently in multiple places
 
 **When to use:** Virtual scroll, large lists (100+ items), expensive item templates.
 
@@ -742,6 +769,18 @@ Creates a memoization cache for use with `memoEach()`.
 
 **Note:** Usually not needed - `memoEach()` automatically manages caches when used inside component templates.
 
+### Other reactivity exports
+
+Documented in detail in [reactivity.md](reactivity.md):
+
+- `flushEffects()` - Run all pending reactive effects synchronously (lower-level than `flushSync()`, does not commit batched DOM updates)
+- `withoutTracking(fn)` - Run `fn` without registering dependencies on the current effect
+- `reactiveSet(initial)` / `reactiveMap(initial)` - Explicit reactive Set/Map wrappers (plain `Set`/`Map` in reactive state are auto-wrapped); support batch `addAll`/`setAll`/`deleteAll`
+- `isReactiveCollection(value)` - Check for a reactive Set/Map wrapper
+- `isUntracked(obj)` - Check whether an object was marked with `untracked()`
+- `trackMutations(obj)` - O(1) dependency on "anything in this object changed" (mutation counter)
+- `trackAllDependencies(obj)` - Recursively access all properties to register dependencies (prefer `trackMutations()` for large objects)
+
 ## Store API
 
 ### createStore(initialState)
@@ -778,10 +817,10 @@ unsubscribe();
 
 #### store.subscribe(callback)
 
-Subscribe to store changes.
+Subscribe to store changes. The callback runs once immediately at subscription time (with the current state), then again whenever tracked state changes.
 
 **Parameters:**
-- `callback` (function) - Called with new state on changes
+- `callback` (function) - Called with current state immediately, then on changes
 
 **Returns:** Unsubscribe function
 
@@ -873,7 +912,7 @@ const router = enableRouting(outlet, {
     },
     '/admin/': {
         component: 'admin-page',
-        require: 'admin',  // Capability guard
+        require: 'admin',  // Metadata - enforce it in a beforeEach hook
         load: () => import('./admin.js')
     }
 });
@@ -908,6 +947,47 @@ Set the router outlet element.
 router.setOutlet(document.querySelector('router-outlet'));
 ```
 
+### router.replace(path, query)
+
+Like `navigate()`, but replaces the current history entry instead of adding one.
+
+```javascript
+router.replace('/login/');
+```
+
+### router.back() / router.forward()
+
+Navigate the browser history (wrappers around `window.history`).
+
+### router.beforeEach(fn)
+
+Register a guard that runs before each navigation. The hook receives `{ path, query, params, route }` and can return `false` (or a promise resolving to `false`) to cancel navigation.
+
+```javascript
+router.beforeEach(({ route }) => {
+    if (route.require && !hasCapability(route.require)) {
+        router.navigate('/unauthorized/');
+        return false;
+    }
+});
+```
+
+### router.afterEach(fn)
+
+Register a hook that runs after each navigation with the same `{ path, query, params, route }` context. Useful for analytics or logging.
+
+### router.url(path, query)
+
+Generate an href for a route, respecting the routing mode (returns `#/path` in hash mode, `base + /path` in HTML5 mode).
+
+### router.currentRoute
+
+Reactive store holding `{ path, query, params, component, meta }` for the current route. Subscribe or read `router.currentRoute.state` directly.
+
+### router.destroy()
+
+Remove the router's window event listeners and clear hooks (for tests or multi-router setups).
+
 ## Utilities API
 
 ### notify(message, severity, ttl)
@@ -917,7 +997,7 @@ Show toast notification.
 **Parameters:**
 - `message` (string) - Notification message
 - `severity` (string) - One of: 'info', 'success', 'warning', 'error'
-- `ttl` (number) - Time to live in seconds (default: 3)
+- `ttl` (number) - Time to live in seconds (default: 5)
 
 **Example:**
 ```javascript
@@ -1037,6 +1117,21 @@ defineComponent('my-counter', {
 - Slots/children: `${this.props.children}`, `${this.props.slots.xxx}`
 
 **CSP Note:** Requires `'unsafe-eval'` in Content Security Policy. For strict CSP environments, use manual `contain()` calls or the build-time optimizer.
+
+### Other utility exports
+
+Also exported from `./lib/utils.js`:
+
+- `memoize(fn)` - Cache function results by JSON-stringified arguments
+- `debounce(fn, delay)` / `throttle(fn, limit)` / `rafThrottle(fn)` - Rate-limiting wrappers
+- `fetchJSON(url, options)` - `fetch` wrapper that handles JSON encoding/decoding and errors
+- `eventBus` - Simple global pub/sub (`on`, `off`, `emit`)
+- `formData(formElement)` / `serializeForm(formElement)` - Read form contents as an object
+- `createInterval(fn, delay)` - `setInterval` wrapper returning a cancel function
+- `dismissNotification(id)` - Remove a notification created by `notify()`
+- `relativeTime(date)` - Human-friendly "3 minutes ago" formatting
+- `clamp(value, min, max)`, `randomId(prefix)`, `isEmpty(value)` - Small helpers
+- `rlog(fn, options)` - Remote/console logging helper for debugging
 
 **Build-Time Alternative:**
 ```bash

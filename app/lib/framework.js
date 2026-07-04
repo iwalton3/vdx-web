@@ -66,15 +66,15 @@ export { defineComponent, flushRenders, flushSync } from './core/component.js';
  * Create an effect that automatically runs when its reactive dependencies change
  *
  * @param {() => void} fn - Function to run (dependencies tracked automatically)
- * @returns {() => void} Cleanup function to stop the effect
+ * @returns {{ effect: Function, dispose: () => void }} The effect and a dispose function to stop it
  *
  * @example
  * const state = reactive({ count: 0 });
- * const cleanup = createEffect(() => {
+ * const { dispose } = createEffect(() => {
  *   console.log('Count:', state.count);
  * });
  * state.count++; // Logs: Count: 1
- * cleanup(); // Stop tracking
+ * dispose(); // Stop tracking
  */
 /**
  * Track all reactive dependencies deeply in an object

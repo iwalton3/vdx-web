@@ -648,10 +648,10 @@ export default defineComponent('my-component', {
 
 ### Store Methods
 
-**subscribe(callback)** - Listen to state changes:
+**subscribe(callback)** - Listen to state changes. The callback also runs once immediately with the current state when you subscribe:
 ```javascript
 const unsubscribe = myStore.subscribe(state => {
-    console.log('State changed:', state);
+    console.log('State:', state);  // Runs now, then on every change
 });
 
 // Later: cleanup
@@ -1033,7 +1033,7 @@ methods: {
 **Parameters:**
 - `message` (string) - Notification text
 - `severity` (string) - One of: 'info', 'success', 'warning', 'error'
-- `ttl` (number) - Time to live in seconds (default: 3)
+- `ttl` (number) - Time to live in seconds (default: 5)
 
 **Accessing notifications store:**
 ```javascript

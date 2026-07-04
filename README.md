@@ -176,7 +176,7 @@ In the age of code rot, supply chain vulnerabilities, and dependency chains too 
 - **No build step** - Runs directly in the browser using ES6 modules
 - **Fine-grained reactivity** - Direct DOM updates, no virtual DOM diffing overhead
 - **Modern DX** - Reactive state, components, routing, two-way binding
-- **Production ready** - 290+ passing tests, XSS protection, used in real apps
+- **Production ready** - 680+ passing tests, XSS protection, used in real apps
 
 ### Technical Innovation
 
@@ -251,11 +251,11 @@ app/
 │   ├── router.d.ts          # TypeScript definitions
 │   ├── utils.js             # Utilities (notify, darkTheme, etc.)
 │   ├── utils.d.ts           # TypeScript definitions
-│   └── core/                # Framework internals (~3000 lines)
+│   └── core/                # Framework internals (~6700 lines)
 ├── dist/                    # Pre-bundled versions for embedding
 ├── componentlib/            # vdx-ui: Professional UI component library
 ├── components/              # Shared UI components
-├── tests/                   # Test suite (293 tests)
+├── tests/                   # Test suite (420+ tests)
 ├── ts-demo/                 # TypeScript demo application
 └── index.html               # Entry point
 ```
@@ -272,7 +272,7 @@ import { notify, darkTheme } from './lib/utils.js';
 **2. Pre-bundled (embedding/simple projects):**
 ```javascript
 import { defineComponent, html, reactive } from './dist/framework.js';
-// Everything in one ~74KB file
+// Everything in one ~92KB file
 ```
 
 ## Security Features
@@ -388,8 +388,8 @@ You can use a service worker with vdx-web, which retains the caching and update 
 4. App works offline with cache-first strategy
 
 ```bash
-# Before deploying, generate the manifest
-node spider-deps.js
+# Before deploying, generate the manifest (script lives in the PWA demo)
+node app/bundle-demo/pwa-offline/spider-deps.js
 ```
 
 See the [PWA Offline Demo](https://iwalton.com/bundle-demo/pwa-offline/) for a working example, or check out the [source code](/app/bundle-demo/pwa-offline/).
@@ -400,7 +400,7 @@ See the [PWA Offline Demo](https://iwalton.com/bundle-demo/pwa-offline/) for a w
 - **Embedded environments** - Jellyfin Media Player, Electron apps, etc.
 - **Quick prototypes** - Just drop in one file and start building
 - **Legacy modernization** - Add reactive components without a complete rewrite
-- **Security-conscious projects** - Audit the entire codebase (~3000 lines)
+- **Security-conscious projects** - Audit the entire codebase (~9000 lines of framework code)
 - **Learning** - Understand how modern frameworks work under the hood
 
 ## Philosophy

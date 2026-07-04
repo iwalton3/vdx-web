@@ -74,6 +74,8 @@ template() {
 - `on-submit-prevent` - Form submission with automatic `preventDefault()`
 - `on-mouseenter`, `on-mouseleave` - Mouse events
 - `on-input` - Input events
+- `on-click-outside` - Fires when a click lands outside the element (useful for dismissing dropdowns/menus; `on-click-outside-stop` also stops propagation)
+- Any other DOM or custom event name works the same way
 
 ### Event Modifiers
 
@@ -540,10 +542,13 @@ ${each(this.state.items, (item, index) => html`
 ```javascript
 ${each(this.state.items, item => html`
     <li>
-        <input type="text" x-model="items[${item.id}].name">
+        <input type="text" value="${item.name}"
+               on-input="${(e) => item.name = e.target.value}">
     </li>
 `, item => item.id)}
 ```
+
+(Note: `x-model` only supports static dot-separated paths like `x-model="user.name"` - it cannot address individual list items, so use a `value` + `on-input` pair inside loops.)
 
 The third parameter is a `keyFn` that returns a unique identifier for each item. This is **essential** when:
 - Items can be reordered, inserted, or deleted
@@ -576,11 +581,10 @@ ${memoEach(this.state.songs, song => html`
 ```
 
 **How it works:**
-- Uses array reference as cache key - safe to use in conditional rendering
-- Caches rendered templates per item key within each array
-- Only re-renders items where the item reference changed
-- Cache is automatically scoped to the component via WeakMap (proper GC)
-- Stale cache entries are cleaned up when items leave the array
+- The cache lives at the slot level (the DOM location where the `${memoEach(...)}` appears) - safe to use in conditional rendering
+- Caches rendered templates per item key
+- Only re-renders items where the item reference changed (or, with `trustKey: true`, where the key changed)
+- Stale cache entries are pruned automatically (a previous/current cache pair rotates each render)
 
 **When to use:**
 - Virtual scroll with large lists (100+ items)
@@ -589,17 +593,20 @@ ${memoEach(this.state.songs, song => html`
 
 **Signature:**
 ```javascript
-memoEach(array, mapFn, keyFn, [cache])
+memoEach(array, mapFn, keyFn, [options])
 ```
 
 - `array` - Array to iterate over
 - `mapFn` - Function to render each item: `(item, index) => html\`...\``
 - `keyFn` - **Required** - Function to extract unique key: `item => item.id`
-- `cache` - Optional explicit cache (see below for when this is needed)
+- `options` - Optional options object (a bare `Map` is also accepted as an explicit cache for backward compatibility):
+  - `cache` - Explicit cache Map (see below for when this is needed)
+  - `trustKey` - If `true`, compare by key alone instead of item reference. Useful for virtual scroll where items may be recreated object refs with the same key.
+  - `deps` - Array of external dependencies; when any value changes, ALL item caches are busted (see "External State Dependencies" below)
 
 **Conditional rendering - safe:**
 ```javascript
-// ✅ Safe - caching is based on array reference, not call order
+// ✅ Safe - each ${memoEach(...)} slot has its own cache, not shared by call order
 template() {
     return html`
         ${when(this.state.showSongs,
@@ -689,6 +696,15 @@ ${memoEach(items, (item, idx) => {
     const isSelected = idx === selectedIdx;
     return html`<div class="${isSelected ? 'selected' : ''}">${item.name}</div>`;
 }, (item, idx) => `${item.id}-${idx === selectedIdx}`)}
+```
+
+Alternatively, pass the external state as `deps` to bust ALL item caches when it changes (simpler, but re-renders every item):
+
+```javascript
+${memoEach(items, (item, idx) => {
+    const isSelected = idx === selectedIdx;
+    return html`<div class="${isSelected ? 'selected' : ''}">${item.name}</div>`;
+}, item => item.id, { deps: [selectedIdx] })}
 ```
 
 ### contain() - Reactive Boundaries
@@ -908,18 +924,21 @@ template() {
     `;
 }
 
-// ✅ GOOD Option 2 - Getter methods
+// ✅ GOOD Option 2 - Computed methods
 methods: {
-    get doubled() {
+    doubled() {
         return this.state.count * 2;
     },
-    get fullName() {
+    fullName() {
         return `${this.state.firstName} ${this.state.lastName}`;
     }
 },
 template() {
-    return html`<p>${this.doubled}</p><p>${this.fullName}</p>`;
+    return html`<p>${this.doubled()}</p><p>${this.fullName()}</p>`;
 }
+
+// ⚠️ Do NOT use `get` accessors in methods: - method binding evaluates them
+// at construction time (before state exists) and the component will throw.
 ```
 
 **Exception - memoEach external state:**

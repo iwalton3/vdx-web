@@ -605,10 +605,10 @@ defineComponent('user-dashboard', {
 ```
 
 **How it works:**
-1. On mount, the component subscribes to each store
-2. Store state is synced to `this.stores[name]`
-3. Changes to store state automatically trigger re-renders
-4. On unmount, subscriptions are automatically cleaned up
+1. `this.stores[name]` is a direct reference to the store's reactive state (no subscription is created)
+2. Template reads like `this.stores.login.user` track only those specific properties (fine-grained reactivity)
+3. Changes to store state automatically trigger re-renders of just the affected bindings
+4. Effect cleanup on unmount is automatic - no manual unsubscribe needed
 
 **Benefits over manual subscription:**
 ```javascript

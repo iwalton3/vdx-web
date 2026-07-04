@@ -238,9 +238,9 @@ Works by creating/disposing branch effects on condition change.
 
 Keyed reconciliation with effect tracking per item.
 
-### 4.3 `memoEach()` - Now Optimized by Default
+### 4.3 `memoEach()` - Slot-Level Memoization
 
-With fine-grained rendering, memoization behavior is automatic.
+`memoEach()` remains a distinct helper: it caches rendered templates per item key at the slot (DOM location) level, and supports `{ cache, trustKey, deps }` options. Fine-grained rendering made keyed `each()` cheaper, but `memoEach()` still avoids re-running `mapFn` for unchanged items.
 
 ---
 
@@ -293,17 +293,18 @@ All public APIs remained the same:
 |--------|--------|-------|
 | Update granularity | Whole component | Per-binding |
 | `template()` calls | Every state change | Once at mount |
-| `memoEach()` | Manual optimization | Automatic (alias for `each`) |
+| `memoEach()` | Manual optimization | Still available (slot-level caching, `trustKey`/`deps` options) |
 | `selectionVersion` | Needed for cache busting | Unnecessary |
 
 ### Deprecated (Removed)
 
 ```javascript
-trackAllDependencies()  // No longer needed
 scheduleRootRender()    // No longer exists
 performTreeRender()     // No longer exists
 USE_FINE_GRAINED        // Feature flag removed
 ```
+
+(`trackAllDependencies()` is still exported for coarse-grained tracking, though `trackMutations()` is preferred for large objects.)
 
 ---
 

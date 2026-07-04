@@ -81,7 +81,7 @@ TypeScript has zero npm dependencies for end users - only development dependenci
 
 ```typescript
 import { defineComponent, html, reactive } from './lib/framework.js';
-import type { ComponentOptions, ReactiveState } from './lib/framework.js';
+import type { ComponentOptions, Reactive } from './lib/framework.js';
 ```
 
 ### For Existing JavaScript Projects
@@ -304,7 +304,7 @@ python3 dev-server.py
 This server:
 - Watches `.ts` files for changes
 - Compiles them to `.js` on save
-- Serves the application at http://localhost:9000/
+- Serves the application at http://localhost:9001/
 - Shows compilation errors in the terminal
 
 ## Best Practices
