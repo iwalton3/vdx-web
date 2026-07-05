@@ -344,6 +344,25 @@ export function defineComponent(name, options) {
         'valueOf', 'hasOwnProperty', 'isPrototypeOf'
     ]);
 
+    // Attribute name mapping: camelCase props are exposed as kebab-case
+    // attributes (fromUnit <-> from-unit). HTML lowercases attribute names,
+    // so a camelCase prop name can never match a literal attribute; the
+    // legacy smushed-lowercase form (fromunit) is also accepted for reading.
+    const toKebabCase = (str) => str.replace(/[A-Z]/g, c => '-' + c.toLowerCase());
+    const propAttrNames = new Map();  // propName -> canonical (kebab) attribute name
+    const attrToProp = new Map();     // observed attribute name -> propName
+    if (options.props) {
+        for (const propName of Object.keys(options.props)) {
+            const kebab = toKebabCase(propName);
+            propAttrNames.set(propName, kebab);
+            attrToProp.set(kebab, propName);
+            const lower = propName.toLowerCase();
+            if (!attrToProp.has(lower)) {
+                attrToProp.set(lower, propName);
+            }
+        }
+    }
+
     // Validate computed property names once at definition time.
     // Names that collide with props, methods, or reserved names are skipped.
     const computedNames = [];
@@ -390,7 +409,7 @@ export function defineComponent(name, options) {
                     this.props[propName] = value;
                     if (typeof value === 'string') {
                         // improves usability/accessibility
-                        this.setAttribute(propName, value);
+                        this.setAttribute(propAttrNames.get(propName) || propName, value);
                     }
                 }
                 delete this._pendingProps;
@@ -861,16 +880,18 @@ export function defineComponent(name, options) {
             }
 
             // Update props, mirroring the property-setter path so attribute
-            // changes also notify propsChanged and trigger re-renders
-            if (options.props && name in options.props) {
-                const previous = this.props[name];
+            // changes also notify propsChanged and trigger re-renders.
+            // `name` arrives lowercase; map kebab/lowercase forms to the prop.
+            const propName = attrToProp.get(name);
+            if (propName) {
+                const previous = this.props[propName];
                 if (previous === newValue) {
                     return;
                 }
-                this.props[name] = newValue;
+                this.props[propName] = newValue;
 
                 if (typeof this.propsChanged === 'function') {
-                    this.propsChanged(name, newValue, previous);
+                    this.propsChanged(propName, newValue, previous);
                 }
                 if (this._propsVersion) {
                     this._propsVersion.v++;
@@ -883,8 +904,8 @@ export function defineComponent(name, options) {
         }
 
         static get observedAttributes() {
-            // Observe all props as attributes
-            return options.props ? Object.keys(options.props) : [];
+            // Observe kebab-case and legacy lowercase forms of all props
+            return [...attrToProp.keys()];
         }
 
         _parseAttributes() {
@@ -905,8 +926,13 @@ export function defineComponent(name, options) {
                         continue;
                     }
 
-                    // Check for attribute
-                    const attrValue = this.getAttribute(propName);
+                    // Check for attribute: kebab-case form first, then the
+                    // legacy smushed-lowercase form (getAttribute lowercases
+                    // propName, so 'fromUnit' reads the 'fromunit' attribute)
+                    let attrValue = this.getAttribute(propAttrNames.get(propName));
+                    if (attrValue === null) {
+                        attrValue = this.getAttribute(propName);
+                    }
                     if (attrValue !== null) {
                         this.props[propName] = attrValue;
                     } else if (!(propName in this.props)) {
@@ -1026,7 +1052,11 @@ export function defineComponent(name, options) {
     };
 
     // Helper to create a prop setter that handles pre-constructor calls
-    const createPropSetter = (propName) => ({
+    const createPropSetter = (propName) => {
+        // Canonical attribute form (kebab-case for camelCase props)
+        const attrName = propAttrNames.get(propName) || propName;
+        const hasLegacyForm = attrName !== propName.toLowerCase();
+        return {
         get() {
             // If props exists, return from props; otherwise return undefined
             return this.props ? this.props[propName] : undefined;
@@ -1060,9 +1090,14 @@ export function defineComponent(name, options) {
             // improves usability/accessibility
             this._suppressAttributeChange = true;
             if (typeof value === 'string') {
-                this.setAttribute(propName, value);
-            } else if (this.hasAttribute(propName)) {
+                this.setAttribute(attrName, value);
+            } else if (this.hasAttribute(attrName)) {
                 // remove non-string attributes
+                this.removeAttribute(attrName);
+            }
+            // Clear a stale legacy smushed-lowercase attribute (e.g. from
+            // static HTML written before kebab-case support)
+            if (hasLegacyForm && this.hasAttribute(propName)) {
                 this.removeAttribute(propName);
             }
             this._suppressAttributeChange = false;
@@ -1085,7 +1120,8 @@ export function defineComponent(name, options) {
         },
         enumerable: true,
         configurable: true
-    });
+        };
+    };
 
     // Define 'children' accessor
     Object.defineProperty(Component.prototype, 'children', {
@@ -1220,10 +1256,14 @@ export function defineComponent(name, options) {
                 this.props[propName] = value;
 
                 // Mirror the attribute handling in createPropSetter
+                const attrName = propAttrNames.get(propName) || propName;
                 this._suppressAttributeChange = true;
                 if (typeof value === 'string') {
-                    this.setAttribute(propName, value);
-                } else if (this.hasAttribute(propName)) {
+                    this.setAttribute(attrName, value);
+                } else if (this.hasAttribute(attrName)) {
+                    this.removeAttribute(attrName);
+                }
+                if (attrName !== propName.toLowerCase() && this.hasAttribute(propName)) {
                     this.removeAttribute(propName);
                 }
                 this._suppressAttributeChange = false;

@@ -133,9 +133,11 @@ Props can be set via regular HTML attributes (values are always strings):
 ```
 
 **How it works:**
-- All props are automatically registered as `observedAttributes`
+- camelCase props map to kebab-case attributes: `userId` ↔ `user-id` (HTML lowercases attribute names, so the camelCase form can't appear literally; the smushed-lowercase form `userid` is also accepted for reading, with kebab-case taking priority)
+- All prop attribute forms are automatically registered as `observedAttributes`
 - Attribute values are always strings (use JavaScript properties for other types)
-- Changes to attributes after mount trigger re-renders via `attributeChangedCallback`
+- Changes to attributes after mount trigger `propsChanged` and re-renders via `attributeChangedCallback` — `setAttribute('user-id', '456')` works from any vanilla JS
+- When a string prop is set as a JS property, it is mirrored back to the kebab-case attribute (visible to CSS attribute selectors)
 
 **2. JavaScript Properties**
 

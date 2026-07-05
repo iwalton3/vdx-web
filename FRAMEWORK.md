@@ -98,6 +98,12 @@ Objects, arrays, and functions pass automatically:
 </child-component>
 ```
 
+In static HTML (outside templates), camelCase props are set via kebab-case attributes:
+```html
+<unit-converter from-unit="liters" initial-value="10"></unit-converter>
+<!-- from-unit="..." sets this.props.fromUnit (always a string) -->
+```
+
 ## Children & Slots
 
 ```javascript
