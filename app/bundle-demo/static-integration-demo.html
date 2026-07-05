@@ -354,8 +354,11 @@
     <h3>5. Two-Way External Binding</h3>
 
     <p>
-        You can also read component state and react to changes. This shopping cart
-        demonstrates bidirectional communication between the component and external code:
+        You can also read component state and react to changes. Every function in a
+        component's <code>methods:</code> block is bound onto the element itself, so
+        external code can call it directly - no special exposure step needed. This
+        shopping cart demonstrates bidirectional communication between the component
+        and external code:
     </p>
 
     <div class="demo-section">
@@ -463,8 +466,12 @@
             <td><code>element.addEventListener('custom-event', handler)</code></td>
         </tr>
         <tr>
+            <td>Call component methods</td>
+            <td><code>element.methodName(...)</code> - every <code>methods:</code> entry is callable from vanilla JS</td>
+        </tr>
+        <tr>
             <td>Read component state</td>
-            <td><code>element.getState()</code> or <code>element.state</code></td>
+            <td><code>element.state</code> (reactive), or expose a snapshot method like the cart's <code>getState()</code></td>
         </tr>
         <tr>
             <td>Pass children</td>
@@ -1022,33 +1029,37 @@
             };
         },
 
-        mounted() {
-            // Expose methods for external JavaScript
-            this.addItem = (name, price) => {
+        computed: {
+            // Lazy + cached - recomputes only when items change
+            total() {
+                return this.state.items.reduce((sum, item) => sum + item.price, 0);
+            }
+        },
+
+        // Every methods: entry is bound onto the element instance, so external
+        // vanilla JS can call them directly: el.addItem('Coffee', 4.99)
+        methods: {
+            addItem(name, price) {
                 this.state.items = [...this.state.items, {
                     id: Date.now(),
                     name,
                     price
                 }];
                 this.notifyChange();
-            };
+            },
 
-            this.clearCart = () => {
+            clearCart() {
                 this.state.items = [];
                 this.notifyChange();
-            };
+            },
 
-            this.getTotal = () => {
-                return this.state.items.reduce((sum, item) => sum + item.price, 0);
-            };
+            getState() {
+                return {
+                    items: [...this.state.items],
+                    total: this.total
+                };
+            },
 
-            this.getState = () => ({
-                items: [...this.state.items],
-                total: this.getTotal()
-            });
-        },
-
-        methods: {
             removeItem(id) {
                 this.state.items = this.state.items.filter(item => item.id !== id);
                 this.notifyChange();
@@ -1057,7 +1068,7 @@
             notifyChange() {
                 this.dispatchEvent(new CustomEvent('cart-updated', {
                     bubbles: true,
-                    detail: { total: this.getTotal(), itemCount: this.state.items.length }
+                    detail: { total: this.total, itemCount: this.state.items.length }
                 }));
             },
 
@@ -1067,8 +1078,6 @@
         },
 
         template() {
-            const total = this.state.items.reduce((sum, item) => sum + item.price, 0);
-
             return html`
                 <div class="cart">
                     <div class="cart-header">
@@ -1090,7 +1099,7 @@
                             </ul>
                             <div class="cart-total">
                                 <span>Total:</span>
-                                <span class="cart-total-amount">${this.formatPrice(total)}</span>
+                                <span class="cart-total-amount">${this.formatPrice(this.total)}</span>
                             </div>
                         `
                     )}
