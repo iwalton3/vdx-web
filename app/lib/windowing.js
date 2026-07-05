@@ -81,8 +81,16 @@ function findScrollableParent(el) {
  * @param {(() => number)} options.count - Returns the total item count (required).
  *     If this reads reactive state, item-count changes update the window automatically.
  * @param {number|(() => number)} [options.buffer=10] - Extra rows rendered above/below the viewport
+ * @param {number|(() => number)} [options.overscan=0] - Extra rows added in the scroll
+ *     direction during fast scrolling (predictive buffering)
  * @param {string|HTMLElement} [options.scrollContainer='self'] - 'self' | 'parent' |
  *     'window' | CSS selector | element
+ * @param {HTMLElement|(() => HTMLElement|null)} [options.measureElement] - Element whose
+ *     position is measured in parent/window/element modes (defaults to host; pass the
+ *     inner items container when other content sits above the list)
+ * @param {() => number} [options.loadedCount] - For on-demand loading: how many items
+ *     are actually loaded. The window clamps to loaded rows while the spacer covers
+ *     the full count(), and bottom-locking uses loaded rows (no jumps on stale totals).
  * @param {number|(() => number)} [options.fallbackHeight=400] - Viewport height used
  *     before the container can be measured
  * @param {(start: number, end: number) => void} [options.onRange] - Called after the
@@ -100,6 +108,17 @@ export function createWindowing(host, options) {
     const itemHeight = () => resolve(opts.itemHeight, 1);
     const buffer = () => resolve(opts.buffer, 10);
     const fallbackHeight = () => resolve(opts.fallbackHeight, 400);
+    const overscan = () => resolve(opts.overscan, 0);
+
+    // Element whose position is measured for parent/window/element scroll
+    // modes. Defaults to the host; pass a function returning an inner items
+    // container when headers/other content sit above the list inside host.
+    function measureElement() {
+        if (typeof opts.measureElement === 'function') {
+            return opts.measureElement() || host;
+        }
+        return opts.measureElement || host;
+    }
 
     // Pre-measurement estimate so the first render shows a sensible window.
     // Option functions may not be evaluable yet at creation time (e.g. when
@@ -146,16 +165,20 @@ export function createWindowing(host, options) {
         }
         if (scrollTarget === window) {
             // Position of the list relative to the viewport
-            const rect = host.getBoundingClientRect();
+            const rect = measureElement().getBoundingClientRect();
             return Math.max(0, -rect.top);
         }
         if (scrollTarget) {
             const parentRect = scrollTarget.getBoundingClientRect();
-            const thisRect = host.getBoundingClientRect();
+            const thisRect = measureElement().getBoundingClientRect();
             return Math.max(0, parentRect.top - thisRect.top);
         }
         return 0;
     }
+
+    // Velocity tracking for directional overscan
+    let lastScrollTop;
+    let lastScrollTime;
 
     function updateVisibleRange() {
         if (destroyed) return;
@@ -166,16 +189,51 @@ export function createWindowing(host, options) {
         // tracking; this avoids double-triggering from scroll handlers
         const total = withoutTracking(() => opts.count());
 
+        // Directional overscan: when scrolling fast (>0.5px/ms), extend the
+        // buffer in the scroll direction so rows are ready before they enter
+        // the viewport (predictive buffering from the music player)
+        let bufferAbove = buf;
+        let bufferBelow = buf;
+        const over = overscan();
+        if (over > 0) {
+            const now = performance.now();
+            if (lastScrollTop !== undefined && lastScrollTime !== undefined) {
+                const timeDelta = now - lastScrollTime;
+                if (timeDelta > 0 && timeDelta < 200) {
+                    const scrollDelta = state.scrollTop - lastScrollTop;
+                    if (Math.abs(scrollDelta / timeDelta) > 0.5) {
+                        if (scrollDelta > 0) bufferBelow += over;
+                        else bufferAbove += over;
+                    }
+                }
+            }
+            lastScrollTop = state.scrollTop;
+            lastScrollTime = now;
+        }
+
         const first = Math.floor(state.scrollTop / rowH);
         const visibleCount = Math.ceil((state.containerHeight || fallbackHeight()) / rowH);
 
-        let newStart = Math.max(0, first - buf);
-        let newEnd = Math.min(total, first + visibleCount + buf);
+        let newStart = Math.max(0, first - bufferAbove);
+        let newEnd = Math.min(total, first + visibleCount + bufferBelow);
+
+        // Sparse/on-demand loading: when fewer items are loaded than count()
+        // reports, clamp the window to loaded rows (the spacer still covers
+        // the full count). Bottom-locking then works against loaded items so
+        // a stale total during loadMore can't cause scroll jumps.
+        const loaded = typeof opts.loadedCount === 'function'
+            ? withoutTracking(() => opts.loadedCount())
+            : total;
+        if (loaded > 0 && loaded < total) {
+            newStart = Math.min(newStart, loaded - 1);
+            newEnd = Math.min(newEnd, loaded);
+            newEnd = Math.max(newEnd, newStart + 1);
+        }
 
         // Bottom-locking: never let the rendered window extend past the list
         // end (prevents blank space / scroll-height jumps at the bottom)
         const renderCount = newEnd - newStart;
-        newStart = Math.min(newStart, Math.max(0, total - renderCount));
+        newStart = Math.min(newStart, Math.max(0, loaded - renderCount));
 
         if (state.visibleStart !== newStart || state.visibleEnd !== newEnd) {
             // flushSync: commit position (translateY) and contents (slice) in

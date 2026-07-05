@@ -23,8 +23,22 @@ export interface WindowingOptions {
   count: () => number;
   /** Extra rows rendered above/below the viewport (default: 10) */
   buffer?: number | (() => number);
+  /** Extra rows added in the scroll direction during fast scrolling (default: 0) */
+  overscan?: number | (() => number);
   /** Scroll tracking mode (default: 'self') */
   scrollContainer?: ScrollContainer;
+  /**
+   * Element whose position is measured in parent/window/element modes
+   * (defaults to host; pass the inner items container when other content
+   * sits above the list inside the host).
+   */
+  measureElement?: HTMLElement | (() => HTMLElement | null);
+  /**
+   * For on-demand loading: how many items are actually loaded. The window
+   * clamps to loaded rows while the spacer covers count(); bottom-locking
+   * uses loaded rows.
+   */
+  loadedCount?: () => number;
   /** Viewport height used before the container can be measured (default: 400) */
   fallbackHeight?: number | (() => number);
   /** Called after the visible range changes (use for on-demand loading) */

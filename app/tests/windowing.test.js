@@ -144,6 +144,23 @@ describe('Windowing Controller', function(it) {
         document.body.removeChild(el);
     });
 
+    it('clamps the window to loadedCount for on-demand loading', async () => {
+        const el = defineWindowedList('win-test-loaded', 100, {
+            count: function() { return 1000; },      // sparse total
+            loadedCount: function() { return 100; }  // actually loaded
+        });
+        await new Promise(r => setTimeout(r, 150));
+
+        assert.equal(el._win.totalHeight, 50000, 'Spacer covers the full sparse count');
+
+        // Scroll near the loaded frontier - window must clamp to loaded rows
+        await scrollAndSettle(el, 100 * 50 - 200);
+        assert.ok(el._win.visibleEnd <= 100, 'Window end clamped to loaded rows');
+        assert.ok(el._win.visibleStart < el._win.visibleEnd, 'Window remains non-empty');
+
+        document.body.removeChild(el);
+    });
+
     it('scrollToIndex scrolls the host in self mode', async () => {
         const el = defineWindowedList('win-test-scrollto', 100);
         await new Promise(r => setTimeout(r, 150));
