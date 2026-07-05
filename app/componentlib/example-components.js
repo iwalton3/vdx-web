@@ -1574,7 +1574,12 @@ defineComponent('example-virtual-list', {
         return {
             items: untracked([]),  // Don't track 10000 items!
             selectedItem: null,
-            scrollMode: 'self'  // 'self' | 'parent' | 'window'
+            scrollMode: 'self',  // 'self' | 'parent' | 'window'
+            // Smaller list for the drag-to-reorder demo. The consumer owns the
+            // array: the component never mutates props.items - it only emits a
+            // 'reorder' event and we apply the change here.
+            reorderItems: untracked([]),
+            lastReorder: null
         };
     },
     mounted() {
@@ -1584,6 +1589,11 @@ defineComponent('example-virtual-list', {
             title: `Item ${i + 1}`,
             subtitle: `Description for item ${i + 1}`
         }));
+        this.state.reorderItems = Array.from({ length: 500 }, (_, i) => ({
+            id: i + 1,
+            title: `Task ${i + 1}`,
+            subtitle: `Drag to reorder task ${i + 1}`
+        }));
     },
     methods: {
         handleSelect(e) {
@@ -1591,6 +1601,16 @@ defineComponent('example-virtual-list', {
         },
         setScrollMode(mode) {
             this.state.scrollMode = mode;
+        },
+        // Apply a reorder: the event gives us both the raw gap and a
+        // remove-then-insert `to` index - use `to` directly with splice.
+        handleReorder(e) {
+            const { from, to } = e.detail;
+            const next = this.state.reorderItems.slice();
+            const [moved] = next.splice(from, 1);
+            next.splice(to, 0, moved);
+            this.state.reorderItems = next;
+            this.state.lastReorder = `Moved "${moved.title}" from ${from} to ${to}`;
         },
         // Custom key function for memoization
         getItemKey(item) {
@@ -1643,6 +1663,25 @@ defineComponent('example-virtual-list', {
 
                 <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
                     Selected: ${this.state.selectedItem ? this.state.selectedItem.title : 'None'}
+                </div>
+
+                <h4 style="margin: 8px 0 0;">Reorderable (drag to reorder)</h4>
+                <p style="color: var(--text-muted, #666); margin: 0;">
+                    <strong>500 items</strong>, drag-to-reorder enabled. Drag a row (or
+                    its grip handle on touch); the consumer applies the change.
+                </p>
+                <cl-virtual-list
+                    class="reorderable-demo"
+                    items="${this.state.reorderItems}"
+                    itemHeight="56"
+                    height="320px"
+                    scrollContainer="self"
+                    keyFn="${this.getItemKey}"
+                    reorderable="true"
+                    on-reorder="handleReorder">
+                </cl-virtual-list>
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    Last reorder: ${this.state.lastReorder || 'None'}
                 </div>
 
                 <p style="color: var(--text-muted, #666); font-size: 13px; margin: 0;">

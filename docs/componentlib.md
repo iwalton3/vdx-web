@@ -563,15 +563,76 @@ template() {
 - `selectedIndex` - Currently selected index (deprecated - use `selectedKey`)
 - `emptyMessage` - Message when list is empty
 - `loading` - Show loading spinner
+- `reorderable` - Enable drag-to-reorder (default: false). See below.
 
 **Events:**
 - `select` - Fired when item is selected: `{ item, index }`
 - `item-click` - Fired when item is clicked: `{ item, index }`
+- `reorder` - Fired when a row is dropped in a new position (only when `reorderable`): `{ fromIndices, gap, from, to }`
 
 **Methods:**
 - `scrollToIndex(index)` - Scroll to a specific item
 - `scrollToTop()` - Scroll to first item
 - `scrollToBottom()` - Scroll to last item
+
+#### Drag-to-reorder (`reorderable`)
+
+Set `reorderable="true"` to make rows drag-reorderable. This composes the framework's
+windowing controller (already powering the virtual scroll) with the row-gestures
+controller, giving you the full gesture suite: whole-row HTML5 drag-and-drop on desktop
+(with pointer-midpoint gap targeting and before/after insertion indicators) and touch
+drag via a rendered grip handle (`span.drag-handle`, only present when `reorderable`).
+
+**The component never mutates `props.items`** - the array belongs to you. On drop it emits
+a `reorder` event describing the move; you apply it and pass the new `items` back down.
+
+The `reorder` detail carries the move in two forms so you can use whichever fits your API:
+
+- `fromIndices` - the moving row(s), always an array (single drag = `[i]`).
+- `gap` - the raw **insertion gap** (`0..items.length`): the slot between rows the item
+  lands in (`gap 0` = before the first row, `gap length` = after the last). Use this for
+  gap-semantic store APIs (`gapToGapIndex`).
+- `from` - `fromIndices[0]` (the source index).
+- `to` - the **remove-then-insert** index, i.e. `gapToRemoveInsertIndex(from, gap)`. Use
+  this directly with a `splice(from, 1)` + `splice(to, 0, moved)` sequence.
+
+```javascript
+data() {
+    return {
+        items: [/* ... your items ... */]
+    };
+},
+methods: {
+    handleReorder(e) {
+        // `to` is already the remove-then-insert index - splice straight in.
+        const { from, to } = e.detail;
+        const next = this.state.items.slice();
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        this.state.items = next;   // pass the new array back down
+    }
+},
+template() {
+    return html`
+        <cl-virtual-list
+            items="${this.state.items}"
+            itemHeight="56"
+            reorderable="true"
+            keyFn="${(item) => item.id}"
+            on-reorder="handleReorder">
+        </cl-virtual-list>
+    `;
+}
+```
+
+The raw `gap` is provided for stores whose reorder API already treats the target as an
+insertion gap (import `gapToGapIndex`/`gapToRemoveInsertIndex` from `lib/gestures.js` if
+you want the intent explicit at the call site rather than a bare `gap`).
+
+**Single-item drags only.** The component's selection is single-key, so there is no
+multi-select set to move as a group. If you need **group drag** (moving a whole selection
+at once), compose `createWindowing` + `createRowGestures` directly and pass the gesture
+controller a `selection` adapter - see `lib/gestures.js`.
 
 ## Panel Components
 

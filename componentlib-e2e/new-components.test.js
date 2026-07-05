@@ -302,6 +302,54 @@ async function runTests() {
         await test.assertExists('.virtual-list-item.selected');
     });
 
+    await test.test('VirtualList reorderable renders drag handles and draggable rows', async () => {
+        await test.selectComponent('VirtualList');
+        await test.page.waitForSelector('.reorderable-demo .virtual-list-item', { timeout: 3000 });
+
+        // Drag handle is rendered for touch drag when reorderable
+        await test.assertExists('.reorderable-demo .drag-handle');
+
+        // Rows are whole-row draggable on non-touch
+        const draggable = await test.page.$eval(
+            '.reorderable-demo .virtual-list-item',
+            el => el.getAttribute('draggable'));
+        await test.assert(draggable === 'true' || draggable === '',
+            `Reorderable rows should be draggable, got draggable="${draggable}"`);
+    });
+
+    await test.test('VirtualList reorder event reorders items via the consumer', async () => {
+        await test.selectComponent('VirtualList');
+        await test.page.waitForSelector('.reorderable-demo .virtual-list-item', { timeout: 3000 });
+
+        // Capture the first two titles, then dispatch a synthetic 'reorder' the
+        // way the gesture controller would, and confirm the example's handler
+        // applied the splice (consumer-owns-the-array contract).
+        const result = await test.page.evaluate(() => {
+            const list = document.querySelector('.reorderable-demo');
+            const titleAt = (i) => {
+                const rows = list.querySelectorAll('.virtual-list-item .item-title');
+                return rows[i] ? rows[i].textContent : null;
+            };
+            const before0 = titleAt(0);
+            // move item at index 0 to index 2 (remove-then-insert semantics)
+            list.dispatchEvent(new CustomEvent('reorder', {
+                bubbles: true, composed: true,
+                detail: { fromIndices: [0], gap: 3, from: 0, to: 2 }
+            }));
+            return { before0 };
+        });
+        await test.page.waitForTimeout(200);
+
+        const after = await test.page.evaluate(() => {
+            const list = document.querySelector('.reorderable-demo');
+            const rows = list.querySelectorAll('.virtual-list-item .item-title');
+            return { at2: rows[2] ? rows[2].textContent : null };
+        });
+
+        await test.assert(after.at2 === result.before0,
+            `Item originally at index 0 ("${result.before0}") should now be at index 2, got "${after.at2}"`);
+    });
+
     // ============ Badge Tests ============
     await test.test('Badge component renders', async () => {
         await test.selectComponent('Badge');
