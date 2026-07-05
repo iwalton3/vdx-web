@@ -2381,6 +2381,14 @@ function bundleAll(verbose) {
     );
     console.log(`  ✓ windowing.js (${(windowingSizes.minified / 1024).toFixed(2)} KB) + .map`);
 
+    // === 6. Process gestures.js ===
+    console.log('\n=== gestures.js ===');
+    const gesturesSizes = processSimpleFile(
+        path.join(baseDir, 'app', 'lib', 'gestures.js'),
+        path.join(distDir, 'gestures.js')
+    );
+    console.log(`  \u2713 gestures.js (${(gesturesSizes.minified / 1024).toFixed(2)} KB) + .map`);
+
     // Summary
     console.log('\n=== Summary ===');
     console.log(`  Output directory: ${distDir}`);
@@ -2390,6 +2398,7 @@ function bundleAll(verbose) {
     console.log('    utils.js + utils.js.map');
     console.log('    opt.js + opt.js.map');
     console.log('    windowing.js + windowing.js.map');
+    console.log('    gestures.js + gestures.js.map');
     console.log('\n  Source maps contain embedded readable source for debugging.');
     console.log('\n✓ Done!\n');
 }

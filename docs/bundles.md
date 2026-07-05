@@ -95,8 +95,11 @@ Utility functions for common tasks:
 ### opt.js (~4 KB)
 Runtime `opt()` transformer for fine-grained reactivity (`eval(opt(...))` pattern). Only needed if you use `opt()` at runtime instead of the build-time optimizer.
 
-### windowing.js (~6 KB)
+### windowing.js (~7 KB)
 `createWindowing()` virtual-scroll controller for windowed lists (see [performance.md](performance.md#windowed-virtual-scrolling)).
+
+### gestures.js (~10 KB)
+`createRowGestures()` list-row gesture controller (drag-reorder with midpoint gap targeting, touch drag, long-press/tap) plus pure reorder-math helpers. Composes with windowing.js.
 
 ## Usage Examples
 

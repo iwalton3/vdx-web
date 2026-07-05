@@ -1278,6 +1278,26 @@ Virtual-scroll controller from `./lib/windowing.js` - owns the window state (rea
 
 See [performance.md](performance.md#windowed-virtual-scrolling) for the full usage pattern.
 
+## Gestures API
+
+### createRowGestures(host, options)
+
+Row-gesture controller from `./lib/gestures.js` - owns the state machines for list-row interactions (desktop drag-and-drop reordering with pointer-midpoint gap targeting and insertion indicators, touch drag via handle with edge autoscroll, long-press vs tap discrimination) while the component owns the markup and domain callbacks. Composes with `createWindowing` (pass the controller as `options.windowing` for absolute-index math). `cl-virtual-list`'s `reorderable` mode is the reference consumer.
+
+**Parameters:**
+- `host` (HTMLElement) - The list's component element
+- `options` (object): `itemHeight` (required), `windowing` (controller, optional), `count` (fn, required without windowing), `onReorder(fromIndices, gap)` (gap is clamped and no-op-filtered), `onTap`/`onLongPress`/`onContextMenu`, `selection: { isSelected, indices }` (enables group drag), `indicator: { before, after }` class names, `longPressMs` (500), `slop` (10)
+
+**Handler methods** (bind in templates; all state lives in the controller): `click`, `contextMenu`, `touchStart`, `touchMove`, `touchEnd`, `dragStart`, `dragOver`, `dragLeave`, `drop`, `dragEnd`, `handleTouchStart/Move/End` (drag handle), plus `isTouchDevice()`, `cancel()`, `destroy()`.
+
+**Passive-safety invariant** (see the module JSDoc table): `touchStart`/`touchMove` never call `preventDefault` - bind them `-passive`; `touchEnd` and the `handleTouch*` suite may - keep them non-passive.
+
+**Pure reorder-math helpers** (exported, for translating the insertion gap onto your reorder API):
+- `gapToRemoveInsertIndex(from, gap)` - for remove-then-insert splice APIs
+- `gapToGapIndex(from, gap)` - identity, for gap-semantic APIs
+- `groupReorderTargets(fromIndices, gap)` - `{ target, newIndices }` for batch moves with selection-follow
+- `isNoopGap(fromIndices, gap)` - whether a drop leaves order unchanged
+
 ## See Also
 
 - [components.md](components.md) - Component development patterns
