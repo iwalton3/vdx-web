@@ -333,8 +333,15 @@ export class Router {
   url(path: string, query?: QueryParams): string;
 
   /**
+   * Merge additional routes into the routing table. Same-path definitions
+   * are replaced (keeping their pattern-matching position); new paths are
+   * appended. The current location is re-evaluated.
+   */
+  addRoutes(routes: RouteDefinitions): void;
+
+  /**
    * Clean up router resources and release the singleton
-   * (allows enableRouting() to be called again).
+   * (allows enableRouting() to create a fresh router again).
    */
   destroy(): void;
 }
@@ -358,14 +365,15 @@ export function getRouter(): Router | null;
 
 /**
  * Enable routing for a specific outlet element.
- * May only be called once per page - throws if a router already exists.
- * Use getRouter() for access, or getRouter().destroy() to tear down first.
+ * First call creates the singleton router. Subsequent calls warn and merge:
+ * new routes fold into the existing table (same-path definitions replaced),
+ * provided options are applied, and the outlet is reattached. Call
+ * getRouter().destroy() first for a fresh router.
  *
  * @param outlet - Router outlet element
  * @param routes - Route configuration
  * @param options - Router options (checkCapability, onUnauthorized)
  * @returns The singleton router instance
- * @throws If enableRouting() was already called
  *
  * @example
  * import { enableRouting } from './lib/router.js';

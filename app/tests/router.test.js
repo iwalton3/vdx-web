@@ -766,29 +766,61 @@ describe('Router Capability Enforcement', function(it) {
 });
 
 describe('enableRouting Singleton', function(it) {
-    it('throws on second call and can be re-enabled after destroy', () => {
+    it('warns and merges routes on a second call', async () => {
         // Clean up any router left over from other tests/pages
         const existing = getRouter();
         if (existing) existing.destroy();
 
+        const originalWarn = console.warn;
+        let warned = false;
+        console.warn = (...args) => {
+            if (String(args[0]).includes('enableRouting')) warned = true;
+        };
+
         const outlet = document.createElement('div');
-        const router = enableRouting(outlet, { '/': { component: 'home-page' } });
+        const outlet2 = document.createElement('div');
+        const router = enableRouting(outlet, {
+            '/': { component: 'home-page' },
+            '/merge-a/': { component: 'merge-a-page' }
+        });
 
         try {
             assert.ok(getRouter() === router, 'getRouter should return the singleton');
-            assert.throws(() => {
-                enableRouting(outlet, { '/': { component: 'home-page' } });
-            }, Error, 'Second enableRouting call should throw');
+
+            // Second call: warns, returns the same router, merges routes,
+            // replaces same-path definitions, reattaches the outlet
+            const router2 = enableRouting(outlet2, {
+                '/merge-a/': { component: 'merge-a-v2-page' },  // replaces
+                '/merge-b/': { component: 'merge-b-page' }      // new
+            });
+
+            assert.ok(warned, 'Should warn on second call');
+            assert.ok(router2 === router, 'Should return the existing singleton');
+            assert.equal(router.routes['/merge-a/'].component, 'merge-a-v2-page',
+                'Same-path route should be replaced');
+            assert.equal(router.routes['/merge-b/'].component, 'merge-b-page',
+                'New route should be added');
+            assert.equal(router.routes[''].component, 'home-page',
+                'Existing routes should be preserved');
+            assert.ok(router.outletElement === outlet2, 'Outlet should be reattached');
+
+            // Merged routes are navigable
+            router.navigate('/merge-b/');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            assert.equal(router.currentRoute.state.component, 'merge-b-page',
+                'Should navigate to a merged route');
         } finally {
+            console.warn = originalWarn;
             router.destroy();
         }
 
         assert.ok(getRouter() === null, 'destroy should release the singleton');
 
-        // Re-enabling after destroy works
-        const router2 = enableRouting(outlet, { '/': { component: 'home-page' } });
-        assert.ok(getRouter() === router2, 'Should allow enableRouting after destroy');
-        router2.destroy();
+        // Re-enabling after destroy creates a fresh router
+        const router3 = enableRouting(outlet, { '/': { component: 'home-page' } });
+        assert.ok(getRouter() === router3, 'Should allow enableRouting after destroy');
+        assert.ok(!router3.routes['/merge-b/'], 'Fresh router should not inherit merged routes');
+        router3.destroy();
     });
 });
 

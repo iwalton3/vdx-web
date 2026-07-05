@@ -913,7 +913,7 @@ prefs.state.theme = 'dark'; // Automatically saves to localStorage
 
 ### enableRouting(outlet, routes, options)
 
-Enables routing. May only be called once per page - a second call throws (use `getRouter()` for access, or `getRouter().destroy()` to tear down first).
+Enables routing. The first call creates the singleton router; subsequent calls warn and merge (new routes fold into the existing table with same-path definitions replaced, options are applied, the outlet is reattached). Use `getRouter().destroy()` first for a fresh router.
 
 **Parameters:**
 - `outlet` (HTMLElement) - Router outlet element

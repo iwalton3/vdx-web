@@ -233,7 +233,7 @@ defineComponent('my-component', {
 ```javascript
 import { enableRouting } from 'vdx/lib/router.js';
 
-// enableRouting may only be called ONCE per page (throws on second call)
+// A second enableRouting call warns and merges routes into the existing router
 enableRouting(outlet, {
     '/': { component: 'home-page' },
     '/users/:id/': { component: 'user-page' },   // params in this.props.params

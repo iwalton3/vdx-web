@@ -581,7 +581,7 @@ router.destroy();
 - Prevents memory leaks from lingering event handlers
 - Releases the singleton, allowing `enableRouting()` to be called again
 
-**Note:** `enableRouting()` may only be called once per page - a second call throws. Use `getRouter()` to access the existing router (and `router.setOutlet()` to attach a different outlet), or call `getRouter().destroy()` first.
+**Note:** The first `enableRouting()` call creates the singleton router. Calling it again warns and merges: new routes fold into the existing table (definitions for already-registered paths replace the old ones, keeping their pattern-matching position; new paths are appended after existing patterns, including wildcards), provided options are applied, and the outlet is reattached. `router.addRoutes(routes)` does the route merging directly. Call `getRouter().destroy()` first if you genuinely want a fresh router.
 
 **When to call `destroy()`:**
 - In test teardown/cleanup

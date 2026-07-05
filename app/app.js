@@ -80,26 +80,15 @@ const router = enableRouting(outlet, {
         component: 'page-not-found',
         load: () => import('./page-not-found.js')
     }
-});
+}, {
+    // Routes with `require` fail closed - the router denies them unless
+    // this approves. (Replaces the old beforeEach capability hook.)
+    checkCapability: (required) => login.state.has(required),
 
-// Add capability checking hook
-router.beforeEach(async ({ path, query, route }) => {
-    // Check if route requires a capability
-    if (route.require) {
-        const requiredCapability = route.require;
-
-        // Check if user has the required capability
-        if (!login.state.has(requiredCapability)) {
-            console.warn(`Route ${path} requires capability "${requiredCapability}" which user does not have`);
-
-            // Redirect to auth error page
-            router.replace('/auth/error/', {
-                message: `You do not have permission to access this page. Required capability: ${requiredCapability}`
-            });
-
-            return false; // Cancel navigation
-        }
+    onUnauthorized: ({ path, require }) => {
+        console.warn(`Route ${path} requires capability "${require}" which user does not have`);
+        router.replace('/auth/error/', {
+            message: `You do not have permission to access this page. Required capability: ${require}`
+        });
     }
-
-    return true; // Allow navigation
 });

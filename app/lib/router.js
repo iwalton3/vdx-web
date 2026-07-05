@@ -704,6 +704,23 @@ export class Router {
     }
 
     /**
+     * Merge additional routes into the routing table. New definitions for
+     * already-registered paths replace the old ones (keeping their original
+     * pattern-matching position); genuinely new paths are appended, so a new
+     * specific route added after an existing greedy wildcard will only be
+     * reachable via exact match. The current location is re-evaluated against
+     * the updated table.
+     * @param {Object<string, RouteConfig>} routes - Routes to merge
+     * @returns {void}
+     */
+    addRoutes(routes) {
+        this._flattenRoutes(routes);
+        // Re-match the current location - the merged routes may change what
+        // should be rendered right now
+        this.handleRoute();
+    }
+
+    /**
      * Set the outlet element where routed components will be rendered
      * @param {HTMLElement} element - Router outlet element (typically <router-outlet>)
      * @returns {void}
@@ -866,22 +883,29 @@ init();
 
 /**
  * Enable routing for a specific outlet element.
- * May only be called once per page - throws if a router already exists.
- * Use getRouter() to access the existing router (and router.setOutlet()
- * to attach a different outlet), or getRouter().destroy() to tear it down.
+ * On the first call, creates the singleton router. If called again, warns
+ * and merges: new routes are folded into the existing table (definitions
+ * for already-registered paths replace the old ones), any provided
+ * checkCapability/onUnauthorized options are applied, and the outlet is
+ * reattached. Call getRouter().destroy() first if you genuinely want a
+ * fresh router.
  * @param {RouterOutlet} outlet router outlet element
  * @param {Object<string, RouteConfig>} routes object defining routes
  * @param {Object} [options] router options (checkCapability, onUnauthorized - see Router constructor)
  * @returns {Router} The singleton router instance
- * @throws {Error} If enableRouting() was already called
  */
 export function enableRouting(outlet, routes, options = {}) {
     if (_router) {
-        throw new Error(
-            '[Router] enableRouting() was already called. Use getRouter() to access ' +
-            'the existing router (and router.setOutlet() to attach an outlet), or ' +
-            'call getRouter().destroy() first to create a new router.'
+        console.warn(
+            '[Router] enableRouting() called again - merging routes into the ' +
+            'existing router and reattaching the outlet. Call getRouter().destroy() ' +
+            'first if you want a fresh router.'
         );
+        if (options.checkCapability) _router.checkCapability = options.checkCapability;
+        if (options.onUnauthorized) _router.onUnauthorized = options.onUnauthorized;
+        _router.addRoutes(routes);
+        _router.setOutlet(outlet);
+        return _router;
     }
     _router = new Router(routes, options);
     _router.setOutlet(outlet);
