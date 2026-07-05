@@ -42,19 +42,21 @@ export default defineComponent('shop-checkout-page', {
         };
     },
 
-    methods: {
-        getShipping() {
+    computed: {
+        shippingCost() {
             return this.stores.cart.subtotal >= 50 ? 0 : 5.99;
         },
 
-        getTax() {
+        tax() {
             return this.stores.cart.subtotal * 0.08;
         },
 
-        getTotal() {
-            return this.stores.cart.subtotal + this.getShipping() + this.getTax();
-        },
+        total() {
+            return this.stores.cart.subtotal + this.shippingCost + this.tax;
+        }
+    },
 
+    methods: {
         validateShipping() {
             const errors = {};
             const s = this.state.shipping;
@@ -438,15 +440,15 @@ export default defineComponent('shop-checkout-page', {
                             </div>
                             <div class="summary-row">
                                 <span>Shipping</span>
-                                <span>${this.getShipping() === 0 ? 'FREE' : '$' + this.getShipping().toFixed(2)}</span>
+                                <span>${this.shippingCost === 0 ? 'FREE' : '$' + this.shippingCost.toFixed(2)}</span>
                             </div>
                             <div class="summary-row">
                                 <span>Tax</span>
-                                <span>$${this.getTax().toFixed(2)}</span>
+                                <span>$${this.tax.toFixed(2)}</span>
                             </div>
                             <div class="summary-row total">
                                 <span>Total</span>
-                                <span>$${this.getTotal().toFixed(2)}</span>
+                                <span>$${this.total.toFixed(2)}</span>
                             </div>
                         </div>
                     </div>

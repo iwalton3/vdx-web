@@ -133,31 +133,6 @@ export default defineComponent('cl-input-mask', {
             this.state.buffer = buffer;
         },
 
-        // Build display string from buffer
-        getDisplayValue() {
-            const mask = this.props.mask || '';
-            const slotChar = this.props.slotChar;
-            let result = '';
-            let bufferIdx = 0;
-
-            for (let i = 0; i < mask.length; i++) {
-                if (this.isMaskChar(mask[i])) {
-                    const char = this.state.buffer[bufferIdx] || '';
-                    result += char || (this.state.focused ? slotChar : '');
-                    bufferIdx++;
-                } else {
-                    // Only show literal if we have content before it or we're focused
-                    const hasContentBefore = this.state.buffer.slice(0, bufferIdx).some(c => c);
-                    const hasContentAfter = this.state.buffer.slice(bufferIdx).some(c => c);
-                    if (this.state.focused || hasContentBefore || hasContentAfter) {
-                        result += mask[i];
-                    }
-                }
-            }
-
-            return result;
-        },
-
         // Get raw value (just the user-entered characters)
         getRawValue() {
             return this.state.buffer.filter(c => c).join('');
@@ -413,11 +388,38 @@ export default defineComponent('cl-input-mask', {
         }
     },
 
+    computed: {
+        // Build display string from buffer
+        displayValue() {
+            const mask = this.props.mask || '';
+            const slotChar = this.props.slotChar;
+            let result = '';
+            let bufferIdx = 0;
+
+            for (let i = 0; i < mask.length; i++) {
+                if (this.isMaskChar(mask[i])) {
+                    const char = this.state.buffer[bufferIdx] || '';
+                    result += char || (this.state.focused ? slotChar : '');
+                    bufferIdx++;
+                } else {
+                    // Only show literal if we have content before it or we're focused
+                    const hasContentBefore = this.state.buffer.slice(0, bufferIdx).some(c => c);
+                    const hasContentAfter = this.state.buffer.slice(bufferIdx).some(c => c);
+                    if (this.state.focused || hasContentBefore || hasContentAfter) {
+                        result += mask[i];
+                    }
+                }
+            }
+
+            return result;
+        }
+    },
+
     template() {
         // When hideError is true, only use parent-provided error (not internal)
         const error = this.props.hideError ? this.props.error : (this.props.error || this.state.internalError);
         const hasError = !!error;
-        const displayValue = this.getDisplayValue();
+        const displayValue = this.displayValue;
 
         return html`
             <div class="cl-input-wrapper">

@@ -14,8 +14,14 @@ const stores = { tasks: tasksStore };
 export default defineComponent('demo-home', {
     stores,
 
+    computed: {
+        counts() {
+            return taskActions.getTaskCounts();
+        }
+    },
+
     template() {
-        const counts = taskActions.getTaskCounts();
+        const counts = this.counts;
 
         const stats = [
             { label: 'Total Tasks', value: counts.all, color: '#3b82f6' },

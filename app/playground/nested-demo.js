@@ -80,6 +80,12 @@ export default defineComponent('nested-demo', {
         };
     },
 
+    computed: {
+        activeCount() {
+            return this.state.users.filter(u => u.status === 'active').length;
+        }
+    },
+
     methods: {
         toggleUserStatus(id) {
             this.state.users = this.state.users.map(user =>
@@ -91,14 +97,12 @@ export default defineComponent('nested-demo', {
     },
 
     template() {
-        const activeCount = this.state.users.filter(u => u.status === 'active').length;
-
         return html`
             <h2>Nested Components</h2>
             <p>Parent-child component composition</p>
 
             <div style="margin-bottom: 15px; padding: 10px; background: var(--info-bg, #e7f3ff); border-radius: 4px;">
-                <strong>${activeCount}</strong> of <strong>${this.state.users.length}</strong> users active
+                <strong>${this.activeCount}</strong> of <strong>${this.state.users.length}</strong> users active
             </div>
 
             <div class="users-list">

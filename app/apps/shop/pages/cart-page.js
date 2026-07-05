@@ -12,6 +12,20 @@ import '../../../componentlib/data/datatable.js';
 export default defineComponent('shop-cart-page', {
     stores: { cart: cartStore },
 
+    computed: {
+        shippingCost() {
+            return this.stores.cart.subtotal >= 50 ? 0 : 5.99;
+        },
+
+        tax() {
+            return this.stores.cart.subtotal * 0.08; // 8% tax
+        },
+
+        total() {
+            return this.stores.cart.subtotal + this.shippingCost + this.tax;
+        }
+    },
+
     methods: {
         updateQuantity(productId, e, val) {
             cartStore.state.updateQuantity(productId, val);
@@ -33,19 +47,6 @@ export default defineComponent('shop-cart-page', {
 
         proceedToCheckout() {
             window.location.hash = '/shop/checkout/';
-        },
-
-        getShipping() {
-            const subtotal = this.stores.cart.subtotal;
-            return subtotal >= 50 ? 0 : 5.99;
-        },
-
-        getTax() {
-            return this.stores.cart.subtotal * 0.08; // 8% tax
-        },
-
-        getTotal() {
-            return this.stores.cart.subtotal + this.getShipping() + this.getTax();
         }
     },
 
@@ -136,7 +137,7 @@ export default defineComponent('shop-cart-page', {
 
                             <div class="summary-row">
                                 <span>Shipping</span>
-                                <span>${this.getShipping() === 0 ? 'FREE' : '$' + this.getShipping().toFixed(2)}</span>
+                                <span>${this.shippingCost === 0 ? 'FREE' : '$' + this.shippingCost.toFixed(2)}</span>
                             </div>
 
                             ${when(subtotal < 50 && subtotal > 0, html`
@@ -147,14 +148,14 @@ export default defineComponent('shop-cart-page', {
 
                             <div class="summary-row">
                                 <span>Estimated Tax</span>
-                                <span>$${this.getTax().toFixed(2)}</span>
+                                <span>$${this.tax.toFixed(2)}</span>
                             </div>
 
                             <div class="summary-divider"></div>
 
                             <div class="summary-row total">
                                 <span>Total</span>
-                                <span>$${this.getTotal().toFixed(2)}</span>
+                                <span>$${this.total.toFixed(2)}</span>
                             </div>
 
                             <cl-button

@@ -30,6 +30,22 @@ export default defineComponent('shop-product-detail', {
         await this.loadProduct();
     },
 
+    computed: {
+        breadcrumbs() {
+            if (!this.state.product) return [];
+            return [
+                { label: 'Products', url: '#/shop/products/' },
+                { label: this.getCategoryName(this.state.product.category), url: `#/shop/products/${this.state.product.category}/` },
+                { label: this.state.product.name }
+            ];
+        },
+
+        discountPercent() {
+            if (!this.state.product?.originalPrice) return 0;
+            return Math.round((1 - this.state.product.price / this.state.product.originalPrice) * 100);
+        }
+    },
+
     methods: {
         async loadProduct() {
             try {
@@ -94,15 +110,6 @@ export default defineComponent('shop-product-detail', {
             window.location.hash = `/shop/products/${categoryId}/`;
         },
 
-        getBreadcrumbs() {
-            if (!this.state.product) return [];
-            return [
-                { label: 'Products', url: '#/shop/products/' },
-                { label: this.getCategoryName(this.state.product.category), url: `#/shop/products/${this.state.product.category}/` },
-                { label: this.state.product.name }
-            ];
-        },
-
         getCategoryName(categoryId) {
             const names = {
                 electronics: 'Electronics',
@@ -112,11 +119,6 @@ export default defineComponent('shop-product-detail', {
                 books: 'Books'
             };
             return names[categoryId] || categoryId;
-        },
-
-        getDiscountPercent() {
-            if (!this.state.product?.originalPrice) return 0;
-            return Math.round((1 - this.state.product.price / this.state.product.originalPrice) * 100);
         }
     },
 
@@ -139,7 +141,7 @@ export default defineComponent('shop-product-detail', {
                     `, html`
                         <!-- Breadcrumb -->
                         <cl-breadcrumb
-                            model="${this.getBreadcrumbs()}"
+                            model="${this.breadcrumbs}"
                             home="${{icon: '🏠', url: '#/shop/'}}">
                         </cl-breadcrumb>
 
@@ -167,7 +169,7 @@ export default defineComponent('shop-product-detail', {
                                 <div class="product-price">
                                     ${when(this.state.product?.originalPrice, html`
                                         <span class="original-price">$${this.state.product?.originalPrice?.toFixed(2) || '0.00'}</span>
-                                        <span class="discount-badge">-${this.getDiscountPercent()}%</span>
+                                        <span class="discount-badge">-${this.discountPercent}%</span>
                                     `)}
                                     <span class="current-price">$${this.state.product?.price?.toFixed(2) || '0.00'}</span>
                                 </div>

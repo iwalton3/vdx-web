@@ -3,7 +3,6 @@
  */
 import { defineComponent } from '../lib/framework.js';
 import { html, each, when } from '../lib/framework.js';
-import { memoize } from '../lib/utils.js';
 
 export default defineComponent('computed-demo', {
     data() {
@@ -26,38 +25,50 @@ export default defineComponent('computed-demo', {
             filterCategory: 'all',
             filterInStock: false,
             minRating: 1,
-            searchQuery: '',
-
-            // Memoized properties with caching
-            // These only recompute when their arguments change
-            sortedItems: memoize((items, sortBy) => {
-                console.log('[Computed] Sorting items by', sortBy);
-                const sorted = [...items];
-
-                if (sortBy === 'name') {
-                    sorted.sort((a, b) => a.name.localeCompare(b.name));
-                } else if (sortBy === 'price-low') {
-                    sorted.sort((a, b) => a.price - b.price);
-                } else if (sortBy === 'price-high') {
-                    sorted.sort((a, b) => b.price - a.price);
-                } else if (sortBy === 'rating') {
-                    sorted.sort((a, b) => b.rating - a.rating);
-                }
-
-                return sorted;
-            }),
-
-            filteredItems: memoize((items, category, inStock, minRating, searchQuery) => {
-                console.log('[Computed] Filtering items');
-                return items.filter(item => {
-                    if (category !== 'all' && item.category !== category) return false;
-                    if (inStock && !item.inStock) return false;
-                    if (item.rating < minRating) return false;
-                    if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-                    return true;
-                });
-            })
+            searchQuery: ''
         };
+    },
+
+    // Computed properties are lazy + cached: each only recomputes when the
+    // reactive state it reads actually changes (check the console).
+    computed: {
+        filteredItems() {
+            console.log('[Computed] Filtering items');
+            const category = this.state.filterCategory;
+            const inStock = this.state.filterInStock;
+            const minRating = this.state.minRating;
+            const searchQuery = this.state.searchQuery;
+            return this.state.items.filter(item => {
+                if (category !== 'all' && item.category !== category) return false;
+                if (inStock && !item.inStock) return false;
+                if (item.rating < minRating) return false;
+                if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+                return true;
+            });
+        },
+
+        sortedItems() {
+            const sortBy = this.state.sortBy;
+            console.log('[Computed] Sorting items by', sortBy);
+            const sorted = [...this.filteredItems];
+
+            if (sortBy === 'name') {
+                sorted.sort((a, b) => a.name.localeCompare(b.name));
+            } else if (sortBy === 'price-low') {
+                sorted.sort((a, b) => a.price - b.price);
+            } else if (sortBy === 'price-high') {
+                sorted.sort((a, b) => b.price - a.price);
+            } else if (sortBy === 'rating') {
+                sorted.sort((a, b) => b.rating - a.rating);
+            }
+
+            return sorted;
+        },
+
+        // Only show first 50 for performance
+        displayItems() {
+            return this.sortedItems.slice(0, 50);
+        }
     },
 
     methods: {
@@ -75,20 +86,10 @@ export default defineComponent('computed-demo', {
     },
 
     template() {
-        // Get filtered and sorted items using computed properties
-        // These will only recompute when their specific dependencies change
-        const filtered = this.state.filteredItems(
-            this.state.items,
-            this.state.filterCategory,
-            this.state.filterInStock,
-            this.state.minRating,
-            this.state.searchQuery
-        );
-
-        const sorted = this.state.sortedItems(filtered, this.state.sortBy);
-
-        // Only show first 50 for performance
-        const displayItems = sorted.slice(0, 50);
+        // Reading a computed tracks it; the template re-renders only when the
+        // computed's own dependencies change.
+        const filtered = this.filteredItems;
+        const displayItems = this.displayItems;
 
         return html`
             <h2>Computed Properties Demo</h2>

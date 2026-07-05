@@ -50,6 +50,17 @@ export default defineComponent('demo-tasks', {
         };
     },
 
+    computed: {
+        // Derived from the tasks store - recomputes only when tasks/filter change
+        filteredTasks(): Task[] {
+            return taskActions.getFilteredTasks();
+        },
+
+        counts(): Record<TaskStatus | 'all', number> {
+            return taskActions.getTaskCounts();
+        }
+    },
+
     methods: {
         // Type-safe event handlers using function references
 
@@ -118,8 +129,8 @@ export default defineComponent('demo-tasks', {
     },
 
     template() {
-        const tasks = taskActions.getFilteredTasks();
-        const counts = taskActions.getTaskCounts();
+        const tasks: Task[] = this.filteredTasks;
+        const counts = this.counts;
         const currentFilter = this.stores.tasks.filter;
 
         const filters: Array<{ value: TaskStatus | 'all'; label: string }> = [

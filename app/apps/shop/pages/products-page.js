@@ -48,35 +48,18 @@ export default defineComponent('shop-products-page', {
         await this.loadProducts();
     },
 
-    methods: {
-        async loadProducts() {
-            try {
-                const response = await fetch('./products.json');
-                const data = await response.json();
-                this.state.products = data.products;
-                this.state.categories = data.categories;
-
-                // Set category from URL param if present, or clear it
-                if (this.props.params?.category) {
-                    this.state.selectedCategory = this.props.params.category;
-                } else {
-                    this.state.selectedCategory = null;
-                }
-
-                this.state.loading = false;
-            } catch (e) {
-                console.error('Failed to load products:', e);
-                this.state.loading = false;
-            }
+    computed: {
+        // Current category comes from the URL params (reactive)
+        currentCategory() {
+            return this.props.params?.category || null;
         },
 
-        getFilteredProducts() {
+        filteredProducts() {
             let filtered = [...this.state.products];
 
-            // Filter by category - use props directly for reactivity
-            const category = this.props.params?.category || null;
-            if (category) {
-                filtered = filtered.filter(p => p.category === category);
+            // Filter by category
+            if (this.currentCategory) {
+                filtered = filtered.filter(p => p.category === this.currentCategory);
             }
 
             // Filter by price range
@@ -120,10 +103,32 @@ export default defineComponent('shop-products-page', {
             return filtered;
         },
 
-        getPaginatedProducts() {
-            const filtered = this.getFilteredProducts();
+        paginatedProducts() {
             const start = this.state.currentPage * this.state.itemsPerPage;
-            return filtered.slice(start, start + this.state.itemsPerPage);
+            return this.filteredProducts.slice(start, start + this.state.itemsPerPage);
+        }
+    },
+
+    methods: {
+        async loadProducts() {
+            try {
+                const response = await fetch('./products.json');
+                const data = await response.json();
+                this.state.products = data.products;
+                this.state.categories = data.categories;
+
+                // Set category from URL param if present, or clear it
+                if (this.props.params?.category) {
+                    this.state.selectedCategory = this.props.params.category;
+                } else {
+                    this.state.selectedCategory = null;
+                }
+
+                this.state.loading = false;
+            } catch (e) {
+                console.error('Failed to load products:', e);
+                this.state.loading = false;
+            }
         },
 
         handlePageChange(e, val) {
@@ -194,11 +199,6 @@ export default defineComponent('shop-products-page', {
             }
         },
 
-        getCurrentCategory() {
-            // Use props directly for reactivity
-            return this.props.params?.category || null;
-        },
-
         getCategoryName(categoryId) {
             const category = this.state.categories.find(c => c.id === categoryId);
             return category ? category.name : 'All Products';
@@ -206,16 +206,15 @@ export default defineComponent('shop-products-page', {
     },
 
     template() {
-        const filteredProducts = this.getFilteredProducts();
-        const paginatedProducts = this.getPaginatedProducts();
-        const totalProducts = filteredProducts.length;
+        const paginatedProducts = this.paginatedProducts;
+        const totalProducts = this.filteredProducts.length;
 
         return html`
             <div class="products-page">
                 <!-- Header -->
                 <div class="page-header">
                     <div class="header-left">
-                        <h1>${this.getCategoryName(this.getCurrentCategory())}</h1>
+                        <h1>${this.getCategoryName(this.currentCategory)}</h1>
                         <span class="product-count">${totalProducts} products</span>
                     </div>
                     <div class="header-right">
@@ -235,13 +234,13 @@ export default defineComponent('shop-products-page', {
                             <h3>Categories</h3>
                             <div class="category-filters">
                                 <div
-                                    class="category-option ${!this.getCurrentCategory() ? 'active' : ''}"
+                                    class="category-option ${!this.currentCategory ? 'active' : ''}"
                                     on-click="${() => this.handleCategoryChange(null)}">
                                     All Products
                                 </div>
                                 ${each(this.state.categories, category => html`
                                     <div
-                                        class="category-option ${this.getCurrentCategory() === category.id ? 'active' : ''}"
+                                        class="category-option ${this.currentCategory === category.id ? 'active' : ''}"
                                         on-click="${() => this.handleCategoryChange(category.id)}">
                                         ${category.icon} ${category.name}
                                     </div>

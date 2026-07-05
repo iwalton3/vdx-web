@@ -67,6 +67,12 @@ export default defineComponent('shop-app', {
         };
     },
 
+    computed: {
+        cartCount() {
+            return this.stores.cart.items.reduce((sum, item) => sum + item.quantity, 0);
+        }
+    },
+
     mounted() {
         // Connect router to outlet after component renders
         const outlet = this.querySelector('router-outlet');
@@ -117,8 +123,6 @@ export default defineComponent('shop-app', {
     },
 
     template() {
-        const cartCount = this.stores.cart.items.reduce((sum, item) => sum + item.quantity, 0);
-
         return html`
             <cl-shell
                 title="VDX Shop"
@@ -129,8 +133,8 @@ export default defineComponent('shop-app', {
                 <div slot="topbar" class="topbar-actions">
                     <button class="cart-button" on-click="goToCart">
                         🛒
-                        ${when(cartCount > 0, html`
-                            <span class="cart-badge">${cartCount}</span>
+                        ${when(this.cartCount > 0, html`
+                            <span class="cart-badge">${this.cartCount}</span>
                         `)}
                     </button>
                 </div>

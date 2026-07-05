@@ -75,9 +75,11 @@ export default defineComponent('cl-colorpicker', {
                 g: parseInt(result[2], 16),
                 b: parseInt(result[3], 16)
             } : null;
-        },
+        }
+    },
 
-        getDisplayValue() {
+    computed: {
+        displayValue() {
             if (this.props.format === 'rgb') {
                 const rgb = this.hexToRgb(this.state.internalValue);
                 return rgb ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` : this.state.internalValue;
@@ -87,7 +89,7 @@ export default defineComponent('cl-colorpicker', {
     },
 
     template() {
-        const displayValue = this.getDisplayValue();
+        const displayValue = this.displayValue;
 
         return html`
             <div class="cl-colorpicker-wrapper">

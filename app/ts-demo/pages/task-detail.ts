@@ -64,13 +64,15 @@ export default defineComponent('demo-task-detail', {
         };
     },
 
-    methods: {
-        getTask(): Task | undefined {
+    computed: {
+        task(): Task | undefined {
             const taskId = this.props.params.id;
             if (!taskId) return undefined;
             return taskActions.getTask(taskId);
-        },
+        }
+    },
 
+    methods: {
         goBack(): void {
             const router = getRouter();
             if (router) {
@@ -79,7 +81,7 @@ export default defineComponent('demo-task-detail', {
         },
 
         startEditing(): void {
-            const task = this.getTask();
+            const task = this.task;
             if (!task) return;
 
             this.state.isEditing = true;
@@ -110,7 +112,7 @@ export default defineComponent('demo-task-detail', {
         },
 
         saveChanges(): void {
-            const task = this.getTask();
+            const task = this.task;
             if (!task) return;
 
             taskActions.updateTask(task.id, {
@@ -125,7 +127,7 @@ export default defineComponent('demo-task-detail', {
         },
 
         deleteTask(): void {
-            const task = this.getTask();
+            const task = this.task;
             if (!task) return;
 
             if (confirm('Are you sure you want to delete this task? This cannot be undone.')) {
@@ -136,7 +138,7 @@ export default defineComponent('demo-task-detail', {
     },
 
     template() {
-        const task = this.getTask();
+        const task = this.task;
 
         if (!task) {
             return html`

@@ -46,9 +46,11 @@ export default defineComponent('cl-error-boundary', {
                 bubbles: true,
                 composed: true
             }));
-        },
+        }
+    },
 
-        getErrorMessage() {
+    computed: {
+        errorMessage() {
             const err = this.props.error;
             if (!err) return 'An unexpected error occurred';
             if (typeof err === 'string') return err;
@@ -56,7 +58,7 @@ export default defineComponent('cl-error-boundary', {
             return String(err);
         },
 
-        getErrorStack() {
+        errorStack() {
             const err = this.props.error;
             if (err && err.stack) {
                 // Clean up stack trace for display
@@ -71,8 +73,8 @@ export default defineComponent('cl-error-boundary', {
     },
 
     template() {
-        const message = this.getErrorMessage();
-        const stack = this.props.showDetails ? this.getErrorStack() : null;
+        const message = this.errorMessage;
+        const stack = this.props.showDetails ? this.errorStack : null;
         const compactClass = this.props.compact ? 'compact' : '';
         // Show retry if explicitly set OR if onRetry callback provided
         const showRetryBtn = this.props.showRetry || this.props.onRetry;

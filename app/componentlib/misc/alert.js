@@ -25,9 +25,11 @@ export default defineComponent('cl-alert', {
                 bubbles: true,
                 composed: true
             }));
-        },
+        }
+    },
 
-        getDefaultIcon() {
+    computed: {
+        defaultIcon() {
             if (this.props.icon) return this.props.icon;
 
             const icons = {
@@ -53,7 +55,7 @@ export default defineComponent('cl-alert', {
 
         return html`
             <div class="${classes}" role="alert">
-                <span class="alert-icon">${this.getDefaultIcon()}</span>
+                <span class="alert-icon">${this.defaultIcon}</span>
                 <div class="alert-content">
                     ${when(this.props.title, html`
                         <div class="alert-title">${this.props.title}</div>

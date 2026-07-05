@@ -17,6 +17,16 @@ export default defineComponent('list-demo', {
         };
     },
 
+    computed: {
+        completedCount() {
+            return this.state.items.filter(i => i.done).length;
+        },
+
+        activeCount() {
+            return this.state.items.length - this.completedCount;
+        }
+    },
+
     methods: {
         addItem() {
             const text = this.state.newItemText.trim();
@@ -45,9 +55,6 @@ export default defineComponent('list-demo', {
     },
 
     template() {
-        const completedCount = this.state.items.filter(i => i.done).length;
-        const activeCount = this.state.items.length - completedCount;
-
         return html`
             <h2>List Demo</h2>
             <p>Interactive todo list with x-model two-way binding and each() helper</p>
@@ -88,9 +95,9 @@ export default defineComponent('list-demo', {
 
                     <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color, #ddd);">
                         <div style="font-size: 0.9em; color: var(--text-secondary, #666); margin-bottom: 10px;">
-                            ${activeCount} active, ${completedCount} completed
+                            ${this.activeCount} active, ${this.completedCount} completed
                         </div>
-                        ${when(completedCount > 0,
+                        ${when(this.completedCount > 0,
                             html`<button class="secondary" on-click="clearCompleted">Clear Completed</button>`,
                             html``
                         )}
