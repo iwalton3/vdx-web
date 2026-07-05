@@ -9,7 +9,7 @@ import { defineComponent, html, when, each } from 'vdx/lib/framework.js';
 
 export default defineComponent('my-component', {
     props: { title: 'Default' },          // Observed attributes
-    data() { return { count: 0 }; },      // Reactive state
+    data() { return { count: 0 }; },      // Reactive state. this.props exists here (values arrive later)
 
     mounted() { /* DOM ready */ },
     unmounted() { /* cleanup timers/subscriptions */ },
@@ -39,10 +39,14 @@ export default defineComponent('my-component', {
 **Always use `on-*` attributes:**
 ```javascript
 <button on-click="handleClick">Click</button>
-<form on-submit-prevent="handleSubmit">...</form>
+<form on-submit-prevent="handleSubmit">...</form>       // -prevent / -stop chain
 <input on-change="handleChange">
 <div on-custom-event="handleCustom">  // Any event name works
+<div on-touchmove-passive="handleTouch">  // -passive: never blocks scrolling
+<div on-click-outside="closeMenu">        // fires on clicks outside the element
 ```
+
+`-passive` handlers must never call `preventDefault()` (ignored; the framework warns if combined with `-prevent`).
 
 ## Two-Way Binding (x-model)
 
@@ -69,8 +73,9 @@ ${each(items, item => html`<li>${item.name}</li>`)}
 // Keyed lists (preserves DOM state)
 ${each(items, item => html`<li>${item.name}</li>`, item => item.id)}
 
-// Memoized lists (performance)
-${memoEach(items, item => html`<div>${item.name}</div>`, item => item.id)}
+// Memoized lists (performance). Windowed slices need trustKey; external
+// state affecting all rows needs deps - see docs/performance.md
+${memoEach(items.slice(a, b), item => html`<div>${item.name}</div>`, item => item.id, { trustKey: true })}
 
 // Reactive boundary (isolates high-frequency updates from parent)
 ${contain(() => html`<div>${this.state.timer}</div>`)}
@@ -204,6 +209,14 @@ import { untracked } from 'vdx/lib/framework.js';
 data() { return { songs: untracked([]) }; }  // Items aren't reactive
 ```
 
+**Computed values are never stale** - invalidation is synchronous on writes, so reading a computed right after mutating its deps is safe (mutate-then-emit-event patterns):
+```javascript
+this.state.items.push(item);
+this.emitChange(null, this.total);  // computed `total` is already fresh
+```
+
+**Proxy identity is stable** - `state.items[0] === state.items[0]` holds (cached proxies). But a raw object captured before insertion !== its proxied read; compare primitives when mixing raw and proxied references.
+
 **Immediate DOM updates:**
 ```javascript
 import { flushSync } from 'vdx/lib/framework.js';
@@ -281,6 +294,56 @@ Common components from `vdx/componentlib/`:
 // Tables
 <cl-datatable items="${rows}" columns="${cols}"></cl-datatable>
 ```
+
+## Virtual Scrolling (createWindowing)
+
+```javascript
+import { createWindowing } from 'vdx/lib/windowing.js';
+
+data() {
+    // Created in data() so window state exists for the first render
+    this._win = createWindowing(this, {
+        itemHeight: 52,
+        count: () => this.state.items.length,
+        scrollContainer: 'self',   // 'self' | 'parent' | 'window' | selector
+        onRange: (start, end) => this.maybeLoadMore(end)   // optional
+    });
+    return { items: untracked([]) };
+},
+unmounted() { this._win.destroy(); },
+template() {
+    const win = this._win;
+    return html`
+        <div class="spacer" style="height: ${win.totalHeight}px;"></div>
+        <div class="window" style="transform: translateY(${win.offsetY}px);">
+            ${memoEach(this.state.items.slice(win.visibleStart, win.visibleEnd),
+                item => html`...`, item => item.id, { trustKey: true })}
+        </div>
+    `;
+}
+```
+
+Call `this._win.refresh()` after replacing an `untracked()` item source or a programmatic scroll. Or just use `<cl-virtual-list>`. Full guide: [docs/performance.md](docs/performance.md).
+
+## List Gestures (createRowGestures)
+
+Drag-reorder, long-press, and touch-drag for list rows - composes with windowing:
+
+```javascript
+import { createRowGestures } from 'vdx/lib/gestures.js';
+
+data() {
+    this._g = createRowGestures(this, {
+        itemHeight: 52,
+        windowing: this._win,                       // optional composition
+        onReorder: (fromIndices, gap) => { ... },   // gap pre-clamped, no-ops filtered
+        onTap: (i, e) => { ... }, onLongPress: (i, e) => { ... }
+    });
+    ...
+}
+```
+
+Rows bind thin delegations (`on-dragover="${(e) => this._g.dragOver(index, e)}"` etc.). Passive-safety is a module invariant: `touchStart`/`touchMove` never preventDefault (bind `-passive`); `touchEnd` and the drag-handle `handleTouch*` suite may (bind non-passive). Translate the gap with the pure helpers: `gapToRemoveInsertIndex(from, gap)` for splice APIs, `gapToGapIndex` for gap-semantic APIs, `groupReorderTargets` for batches. `<cl-virtual-list reorderable>` is the packaged version (emits `reorder` with `{ fromIndices, gap, from, to }`; the consumer applies the change).
 
 ## Reactive Boundaries (Critical for Performance)
 

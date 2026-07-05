@@ -22,7 +22,7 @@ cd app && python3 test-server.py
 Both test suites require the test server running first.
 
 ```bash
-# Framework unit tests (~420 tests)
+# Framework unit tests (~480 tests)
 cd componentlib-e2e && node run-framework-tests.js
 # Or open http://localhost:9000/tests/
 
@@ -68,11 +68,14 @@ node test-runner.js --only-errors
 3. **Use `when()` and `each()`** - Not ternaries or manual loops
 4. **Call store methods on `.state`** - `store.state.method()`, not `store.method()`
 5. **Clean up in `unmounted()`** - Unsubscribe from stores, clear timers
+6. **Windowed lists**: use `createWindowing` (or `<cl-virtual-list>`) - never hand-roll spacer/range math
+7. **Row gestures** (drag-reorder, long-press): use `createRowGestures` and respect its passive-safety table
+8. **Touch/wheel handlers in scrollable UIs**: bind `-passive` unless the handler must preventDefault
 
 ## Common Gotchas
 
 ### Reactive Proxies
-- **Break `===` comparison**: Compare primitive properties, not object references
+- **Identity is stable for repeated reads**: `state.x === state.x` holds (cached proxies), but a raw object captured before insertion `!==` its proxied read - compare primitives when mixing raw and proxied references
 - **Can't be stored in IndexedDB**: Use `JSON.parse(JSON.stringify(data))` to strip proxy
 
 ### propsChanged Timing
@@ -82,6 +85,9 @@ propsChanged(prop, newValue) {
     if (prop === 'data') this._process(newValue);  // ✅ not this.props.data
 }
 ```
+
+### data() and props
+`this.props` exists during `data()` (safe for controller option factories like `itemHeight: () => this.props.itemHeight`), but attribute/property values arrive later - use function-form options, never read prop values eagerly in `data()`.
 
 ### Reactive Boundaries
 Variables captured outside `contain()` won't update:
@@ -106,7 +112,7 @@ This framework does not use shadow DOM. Light-DOM children are captured at mount
 ## Getting Help
 
 - `/app/tests/` - Working examples
-- `/app/lib/core/` - Framework internals (~6800 lines)
+- `/app/lib/core/` - Framework internals (~6800 lines); `lib/windowing.js` + `lib/gestures.js` are the list controllers
 - `/app/components/` - Component patterns
 - `/app/componentlib/` - UI component library source
 - Read the docs/ folder for detailed information
