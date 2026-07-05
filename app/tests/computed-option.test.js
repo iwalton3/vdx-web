@@ -96,6 +96,39 @@ describe('Component computed: option', function(it) {
         document.body.removeChild(el);
     });
 
+    it('is fresh when read synchronously after a state write (event-emit pattern)', () => {
+        let emittedTotal = null;
+        defineComponent('test-computed-sync-read', {
+            data() {
+                return { items: [] };
+            },
+            computed: {
+                total() { return this.state.items.reduce((s, i) => s + i.price, 0); }
+            },
+            methods: {
+                addItem(price) {
+                    this.state.items = [...this.state.items, { price }];
+                    // Read the computed synchronously after the write, as an
+                    // event-emitting method would
+                    emittedTotal = this.total;
+                }
+            },
+            template() {
+                return html`<div></div>`;
+            }
+        });
+
+        const el = document.createElement('test-computed-sync-read');
+        document.body.appendChild(el);
+
+        el.addItem(4.99);
+        assert.equal(emittedTotal, 4.99, 'First synchronous read reflects the write');
+        el.addItem(3.50);
+        assert.equal(emittedTotal, 8.49, 'Second synchronous read is not stale');
+
+        document.body.removeChild(el);
+    });
+
     it('recomputes when props change', (done) => {
         defineComponent('test-computed-props', {
             props: { factor: '2' },

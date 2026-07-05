@@ -149,6 +149,35 @@ describe('Reactivity System', function(it) {
         doubled.dispose();
     });
 
+    it('computed is fresh when read synchronously after a write (no flush)', () => {
+        const obj = reactive({ items: [1, 2] });
+        const total = computed(() => obj.items.reduce((s, n) => s + n, 0));
+        assert.equal(total.get(), 3, 'Initial value');
+
+        // Read immediately after the mutation, before any microtask flush -
+        // the "mutate then emit event with derived value" pattern
+        obj.items = [1, 2, 3];
+        assert.equal(total.get(), 6, 'Synchronous read after write is not stale');
+
+        obj.items.push(4);
+        assert.equal(total.get(), 10, 'Synchronous read after array mutation is not stale');
+
+        total.dispose();
+    });
+
+    it('chained computeds are fresh on synchronous read after a write', () => {
+        const obj = reactive({ n: 1 });
+        const doubled = computed(() => obj.n * 2);
+        const quadrupled = computed(() => doubled.get() * 2);
+        assert.equal(quadrupled.get(), 4, 'Initial chained value');
+
+        obj.n = 5;
+        assert.equal(quadrupled.get(), 20, 'Chained computed fresh without flush');
+
+        quadrupled.dispose();
+        doubled.dispose();
+    });
+
     it('computed does not leak its dependencies into the calling effect', () => {
         const obj = reactive({ a: 1, unrelated: 0 });
         const val = computed(() => obj.a);

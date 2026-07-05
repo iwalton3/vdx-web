@@ -540,9 +540,24 @@ function trigger(target, key) {
             debugReactivityHook(target, key, target[key], `trigger(${deps.size} effects)`);
         }
 
-        // Queue effects for batched execution
+        // Queue effects for batched execution. Effects marked _syncInvalidate
+        // (computed invalidation watchers) run immediately instead: they only
+        // flip a dirty flag and notify dependents, and running them eagerly
+        // keeps computed values fresh when read synchronously after a write
+        // (recomputation itself stays lazy, in the computed's get()).
         for (const effect of deps) {
-            addPendingEffect(effect);
+            if (effect._syncInvalidate) {
+                if (!effect._disposed && !runningEffects.has(effect)) {
+                    runningEffects.add(effect);
+                    try {
+                        effect();
+                    } finally {
+                        runningEffects.delete(effect);
+                    }
+                }
+            } else {
+                addPendingEffect(effect);
+            }
         }
 
         // Schedule flush via microtask
@@ -815,6 +830,10 @@ export function computed(getter) {
             trigger(depTarget, 'value');
         }
     });
+
+    // Run invalidation synchronously on dependency writes (see trigger()),
+    // so a computed read immediately after a mutation is never stale.
+    effect._syncInvalidate = true;
 
     const get = () => {
         // Register the calling effect as a dependent of this computed

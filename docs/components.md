@@ -660,6 +660,7 @@ defineComponent('cart-summary', {
 
 **Behavior:**
 - **Lazy + cached** - the getter only re-runs when a reactive dependency changed and the property is read again
+- **Always fresh** - reading a computed right after mutating its dependencies returns the new value (safe to use in methods that mutate state then emit an event with a derived value)
 - **Tracked** - dependencies on state, stores, and props are detected automatically; templates reading a computed re-render when it invalidates
 - **Auto-disposed** - cleaned up on unmount (and recreated if the element reconnects)
 - **Plain functions only** - do not use `get` accessors (they are evaluated at construction time and throw)

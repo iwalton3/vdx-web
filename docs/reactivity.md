@@ -717,6 +717,7 @@ sum.dispose();
 **Key features:**
 - **Automatic dependency tracking** - No need to list dependencies manually
 - **Lazy evaluation** - Only recomputes when `get()` is called and dependencies have changed
+- **Always consistent** - Invalidation happens synchronously on dependency writes, so reading a computed immediately after a mutation is never stale (safe for "mutate then emit event with derived value" patterns)
 - **Cleanup** - Call `dispose()` when no longer needed to stop tracking
 
 ### Using Computed Values in Components
