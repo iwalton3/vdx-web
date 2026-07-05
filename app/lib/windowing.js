@@ -311,6 +311,30 @@ export function createWindowing(host, options) {
             scrollTarget = scrollMode;
             scrollTarget.addEventListener('scroll', scrollHandler, listenerOptions);
         }
+
+        applyAnchorOptOut();
+    }
+
+    // Scroll anchoring must not see the windowed rows: the controller's
+    // consumers replace batches of row DOM as the window moves or re-keys,
+    // and browsers (notably Chrome on Android) compensate for replaced
+    // anchor content by adjusting the scroll position - the view visibly
+    // "walks" by up to visible+buffer rows. overflow-anchor: none excludes
+    // an element AND its subtree from anchor candidacy, so marking the
+    // measured items container protects even when the real scroll container
+    // is unknown to the controller (scrollContainer: 'window' with an inner
+    // scroller between the window and the list). Element scroll targets are
+    // marked as well.
+    function applyAnchorOptOut() {
+        try {
+            const content = measureElement();
+            if (content && content.style) content.style.overflowAnchor = 'none';
+        } catch {
+            // Options may not be evaluable pre-mount; refresh()/attach() retry
+        }
+        if (scrollTarget && scrollTarget !== window && scrollTarget.style) {
+            scrollTarget.style.overflowAnchor = 'none';
+        }
     }
 
     function attach() {
@@ -389,6 +413,8 @@ export function createWindowing(host, options) {
             remeasureScroll();
             updateDimensions();
             updateVisibleRange();
+            // Idempotent; re-applies when measureElement resolves post-mount
+            applyAnchorOptOut();
         },
 
         /** Scroll so the given item index is at the top of the viewport */

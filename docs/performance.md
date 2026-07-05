@@ -84,6 +84,18 @@ ${memoEach(visible, song => html`...`,
 
 This looks like manual dependency tracking - and it is. It's the sanctioned pattern for this case, not a hack: a windowed, drag-editable list over thousands of items is exactly where automatic deep reactivity costs more than hand-managed invalidation. The version counter is one integer standing in for "the list's structure changed"; everything else stays fine-grained.
 
+**Keep the version counter for STRUCTURAL changes only.** It is tempting to
+bump it for every list-adjacent change (selection, highlight, mode) because it
+always works - but each bump replaces every rendered row. Fold per-row state
+into the key instead (composite key, above) so a selection toggle re-renders
+one row, not the whole window. This is not just wasted work: replacing every
+rendered row in a scroll container triggers **browser scroll anchoring**
+adjustments (worst on Android Chrome), which can walk the scroll position up
+by the entire rendered window per toggle. A real bug: a playlist page keyed
+rows as `uuid-index-version` and bumped the version on selection toggles - on
+Android, each checkbox tap scrolled the view up by ~55 rows (visible + buffer,
+i.e. exactly the rows that were torn down).
+
 **The mapFn tracking rule** (worth repeating): `memoEach` defers `mapFn`, so reactive state read inside the callback does NOT become a dependency of the component. Read external state into a local *before* the `memoEach` call and use the captured value inside - that read is what makes the template re-evaluate.
 
 ## Windowed (Virtual) Scrolling
@@ -126,6 +138,17 @@ defineComponent('song-list', {
 ```
 
 The controller's getters (`visibleStart`, `visibleEnd`, `offsetY`, `totalHeight`) are reactive - reading them in the template tracks them. Call `refresh()` after changing an `untracked()` item source (reactive sources are tracked automatically through `count()`); `scrollToIndex`/`scrollToTop`/`scrollToBottom` handle position math per scroll mode; `setScrollContainer()` re-wires the scroll mode; `attach()`/`detach()` support element reconnection (`destroy()` is full teardown).
+
+**Scroll anchoring**: windowed rows are constantly replaced, and browser
+scroll anchoring (worst on Android Chrome) compensates for replaced anchor
+content by moving the scroll position. The controller defends automatically:
+it sets `overflow-anchor: none` on element scroll targets AND on the measured
+items container (`measureElement`, defaulting to the host) - the latter
+excludes the whole row subtree from anchor candidacy even when the real
+scroller is unknown to it. One case still deserves app attention: with
+`scrollContainer: 'window'`, if an intermediate `overflow: auto` ancestor is
+the actual scroller, put `overflow-anchor: none` on that scroller too so
+non-row content changes near the list can't anchor-shift it.
 
 **What the controller does for you** (and the rules to follow if you ever hand-roll):
 
