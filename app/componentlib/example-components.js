@@ -1,7 +1,9 @@
 /**
  * Pre-registered example components for demos
  */
-import { defineComponent, html, when, each, raw, untracked } from '../lib/framework.js';
+import { defineComponent, html, when, each, raw, untracked, memoEach } from '../lib/framework.js';
+import { createWindowing } from '../lib/windowing.js';
+import { createRowGestures, groupReorderTargets } from '../lib/gestures.js';
 
 // Import all component library components
 import './form/input-text.js';
@@ -39,6 +41,7 @@ import './overlay/sidebar.js';
 import './overlay/toast.js';
 import './overlay/tooltip.js';
 import './overlay/action-menu.js';
+import './overlay/context-menu.js';
 
 import './button/button.js';
 import './button/split-button.js';
@@ -1805,6 +1808,562 @@ defineComponent('example-alert', {
                 <cl-alert severity="info">
                     A simple alert without a title, just the message content.
                 </cl-alert>
+            </div>
+        `;
+    }
+});
+
+// ============================================================================
+// ContextMenu Example - standalone, generic usage of cl-context-menu
+// ============================================================================
+defineComponent('example-context-menu', {
+    data() {
+        return {
+            lastPick: null,
+            // A deliberately long menu so the "taller than viewport" scroll path
+            // can be exercised when opened near the bottom of a small viewport.
+            menuItems: [
+                { label: 'Edit', icon: '✏️' },
+                { label: 'Duplicate', icon: '⧉' },
+                { separator: true },
+                { label: 'Cut', icon: '✂️', shortcut: '⌘X' },
+                { label: 'Copy', icon: '📋', shortcut: '⌘C' },
+                { label: 'Paste', icon: '📌', shortcut: '⌘V', disabled: true },
+                { separator: true },
+                { label: 'Delete', icon: '🗑️', danger: true }
+            ]
+        };
+    },
+    methods: {
+        openMenu(e) {
+            // openAtEvent reads the pointer coords, suppresses the native menu,
+            // and opens here. The second arg is an opaque context echoed back.
+            this.refs.menu.openAtEvent(e, { source: 'target-area' });
+        },
+        openProgrammatic() {
+            // Open at a fixed spot near the top-left, no event needed.
+            const rect = this.refs.target.getBoundingClientRect();
+            this.refs.menu.open(rect.left + 20, rect.top + 20, { source: 'button' });
+        },
+        onPick(e) {
+            this.state.lastPick = `${e.detail.item.label} (context: ${e.detail.context ? e.detail.context.source : 'none'})`;
+        }
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <p style="color: var(--text-muted, #666); margin: 0;">
+                    A generic, viewport-overflow-aware context menu. Right-click the
+                    target area (it flips/clamps so it never leaves the viewport, and
+                    scrolls internally if taller than the screen), or open it
+                    programmatically.
+                </p>
+
+                <div
+                    ref="target"
+                    class="ctx-target"
+                    on-contextmenu="${(e) => this.openMenu(e)}">
+                    Right-click anywhere in this box
+                </div>
+
+                <div>
+                    <cl-button label="Open programmatically" severity="secondary"
+                        on-click="${() => this.openProgrammatic()}"></cl-button>
+                </div>
+
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    Last selection: ${this.state.lastPick || 'None'}
+                </div>
+
+                <cl-context-menu
+                    ref="menu"
+                    items="${this.state.menuItems}"
+                    on-select="onPick">
+                </cl-context-menu>
+            </div>
+        `;
+    },
+    styles: /*css*/`
+        .ctx-target {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 160px;
+            border: 2px dashed var(--input-border, #ced4da);
+            border-radius: 8px;
+            color: var(--text-muted, #666);
+            background: var(--hover-bg, #f8f9fa);
+            user-select: none;
+        }
+    `
+});
+
+// ============================================================================
+// Reorderable playground - INNER windowed list
+//
+// cl-virtual-list's selection is single-key, so it cannot express multiselect
+// or group drag. Per componentlib.md / performance.md, the sanctioned pattern
+// for that is to compose createWindowing + createRowGestures directly with a
+// `selection` adapter - which is exactly what this component does. It owns no
+// data: it renders `items` + `selectedIds` props and emits gesture events; the
+// parent applies every change (consumer-owns-the-array contract).
+// ============================================================================
+defineComponent('example-reorder-list', {
+    props: {
+        items: [],
+        selectedIds: [],
+        selectionMode: false,
+        itemHeight: 56
+    },
+
+    data() {
+        // Windowing controller - host ('self') is the scroller, so touch-drag
+        // geometry (host rect + scrollTop) maps directly to absolute indices.
+        this._win = createWindowing(this, {
+            itemHeight: () => Number(this.props.itemHeight) || 56,
+            count: () => (this.props.items || []).length,
+            fallbackHeight: () => 420
+        });
+
+        // Row-gesture controller with a selection adapter so a drag that starts
+        // on a selected row moves the WHOLE selection (group drag).
+        this._gestures = createRowGestures(this, {
+            itemHeight: () => Number(this.props.itemHeight) || 56,
+            windowing: this._win,
+            count: () => (this.props.items || []).length,
+            scrollContainer: () => this,
+            selection: {
+                isSelected: (i) => {
+                    const item = (this.props.items || [])[i];
+                    return item ? this._selectedSet().has(item.id) : false;
+                },
+                indices: () => {
+                    const sel = this._selectedSet();
+                    const out = [];
+                    (this.props.items || []).forEach((it, idx) => {
+                        if (sel.has(it.id)) out.push(idx);
+                    });
+                    return out;
+                }
+            },
+            onReorder: (fromIndices, gap) => {
+                this.dispatchEvent(new CustomEvent('reorder', {
+                    bubbles: true, composed: true,
+                    detail: { fromIndices, gap }
+                }));
+            },
+            onTap: (i) => {
+                const item = (this.props.items || [])[i];
+                this.dispatchEvent(new CustomEvent('row-tap', {
+                    bubbles: true, composed: true,
+                    detail: { index: i, id: item ? item.id : null }
+                }));
+            },
+            onLongPress: (i) => {
+                const item = (this.props.items || [])[i];
+                const pt = this._lastTouch || { x: 0, y: 0 };
+                this.dispatchEvent(new CustomEvent('row-menu', {
+                    bubbles: true, composed: true,
+                    detail: { index: i, id: item ? item.id : null, clientX: pt.x, clientY: pt.y }
+                }));
+            }
+        });
+
+        return {};
+    },
+
+    mounted() {
+        this._win.attach();
+        this._win.setScrollContainer('self');
+    },
+
+    unmounted() {
+        this._win.detach();
+        this._gestures.cancel();
+    },
+
+    propsChanged(prop) {
+        if (prop === 'items' || prop === 'itemHeight') {
+            this._win.refresh();
+        }
+    },
+
+    methods: {
+        _selectedSet() {
+            return new Set(this.props.selectedIds || []);
+        },
+
+        _onContextMenu(index, e) {
+            if (e && typeof e.preventDefault === 'function') e.preventDefault();
+            const item = (this.props.items || [])[index];
+            this.dispatchEvent(new CustomEvent('row-menu', {
+                bubbles: true, composed: true,
+                detail: { index, id: item ? item.id : null, clientX: e.clientX, clientY: e.clientY }
+            }));
+        },
+
+        _onCheck(item, e) {
+            if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+            this.dispatchEvent(new CustomEvent('toggle-select', {
+                bubbles: true, composed: true,
+                detail: { id: item.id }
+            }));
+        },
+
+        _renderRow(item, isSelected, absIndex, selectionMode, itemHeight, g) {
+            // Selection-UX rules learned from production:
+            //  - In selection mode, ONLY selected rows are drag handles; unselected
+            //    rows scroll / tap-select. Outside selection mode every row drags.
+            //  - A touch that starts on the checkbox never starts a drag (the
+            //    checkbox is not the drag handle, and it stops propagation).
+            const isHandle = !selectionMode || isSelected;
+            const draggable = !g.isTouchDevice() && isHandle;
+
+            return html`
+                <div
+                    class="rl-row ${isSelected ? 'selected' : ''}"
+                    style="height: ${itemHeight}px;"
+                    data-index="${absIndex}"
+                    data-id="${item.id}"
+                    draggable="${draggable}"
+                    on-click="${(e) => g.click(absIndex, e)}"
+                    on-contextmenu="${(e) => this._onContextMenu(absIndex, e)}"
+                    on-touchstart-passive="${(e) => { const t = e.touches && e.touches[0]; if (t) this._lastTouch = { x: t.clientX, y: t.clientY }; g.touchStart(absIndex, e); }}"
+                    on-touchmove-passive="${(e) => g.touchMove(e)}"
+                    on-touchend="${(e) => g.touchEnd(absIndex, e)}"
+                    on-dragstart="${(e) => g.dragStart(absIndex, e)}"
+                    on-dragover="${(e) => g.dragOver(absIndex, e)}"
+                    on-dragleave="${(e) => g.dragLeave(e)}"
+                    on-drop="${(e) => g.drop(absIndex, e)}"
+                    on-dragend="${(e) => g.dragEnd(e)}">
+                    ${when(selectionMode, () => html`
+                        <input
+                            type="checkbox"
+                            class="rl-check"
+                            checked="${isSelected}"
+                            on-click="${(e) => this._onCheck(item, e)}">
+                    `)}
+                    ${when(isHandle, () => html`
+                        <span
+                            class="rl-handle"
+                            aria-hidden="true"
+                            on-touchstart="${(e) => g.handleTouchStart(absIndex, e)}"
+                            on-touchmove="${(e) => g.handleTouchMove(e)}"
+                            on-touchend="${(e) => g.handleTouchEnd(e)}">⣿</span>
+                    `)}
+                    <div class="rl-content">
+                        <div class="rl-title">${item.title}</div>
+                        <div class="rl-sub">${item.subtitle}</div>
+                    </div>
+                </div>
+            `;
+        }
+    },
+
+    template() {
+        const win = this._win;
+        const g = this._gestures;
+        const items = this.props.items || [];
+        const selectionMode = !!this.props.selectionMode;
+        const itemHeight = Number(this.props.itemHeight) || 56;
+        // Read selection OUTSIDE mapFn so the template tracks it and the composite
+        // key below recomputes when it changes.
+        const sel = this._selectedSet();
+
+        // Only mount the memoEach once there are rows. Rendering an *empty*
+        // memoEach first and then growing it to N goes through the framework's
+        // keyed-update path, which does not populate an empty list; keeping the
+        // first memoEach render a non-empty initial render avoids that (this is
+        // the same empty-branch strategy cl-virtual-list uses).
+        if (items.length === 0) {
+            return html`<div class="rl-empty">No items</div>`;
+        }
+
+        return html`
+            <div class="rl-container">
+            <div class="rl-spacer" style="height: ${win.totalHeight}px;"></div>
+            <div class="rl-window" style="transform: translateY(${win.offsetY}px);">
+                ${memoEach(items.slice(win.visibleStart, win.visibleEnd), (item, i) => {
+                    const absIndex = win.visibleStart + i;
+                    const isSelected = sel.has(item.id);
+                    return this._renderRow(item, isSelected, absIndex, selectionMode, itemHeight, g);
+                }, (item, i) => {
+                    // Composite key: per-row selection bit + mode bit + absolute
+                    // index. Toggling one row's selection changes only that row's
+                    // key, so unaffected rows keep their DOM nodes. The absolute
+                    // index (invariant under pure scroll) busts moved rows after a
+                    // reorder so their data-index / bound handlers refresh.
+                    const absIndex = win.visibleStart + i;
+                    const isSelected = sel.has(item.id);
+                    return `${item.id}-${isSelected ? 's' : 'n'}-${selectionMode ? 'm' : 'x'}-i${absIndex}`;
+                }, { trustKey: true })}
+            </div>
+            </div>
+        `;
+    },
+
+    styles: /*css*/`
+        :host {
+            display: block;
+            position: relative;
+            height: 420px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            border: 1px solid var(--input-border, #ddd);
+            border-radius: 6px;
+            background: var(--input-bg, #fff);
+        }
+
+        .rl-container { position: relative; width: 100%; }
+
+        .rl-spacer { width: 100%; pointer-events: none; }
+
+        .rl-window {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            will-change: transform;
+        }
+
+        .rl-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 14px;
+            border-bottom: 1px solid var(--border-color, #eee);
+            box-sizing: border-box;
+            width: 100%;
+            cursor: pointer;
+            transition: background-color 0.15s;
+        }
+
+        .rl-row:hover { background: var(--hover-bg, #f5f5f5); }
+
+        .rl-row.selected { background: var(--selected-bg, #e7f3ff); }
+
+        .rl-row.dragging { opacity: 0.5; }
+
+        .rl-row.group-dragging { opacity: 0.5; }
+
+        .rl-row.drag-over { box-shadow: inset 0 2px 0 0 var(--primary-color, #007bff); }
+
+        .rl-row.drag-over-below { box-shadow: inset 0 -2px 0 0 var(--primary-color, #007bff); }
+
+        .rl-check {
+            flex: 0 0 auto;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .rl-handle {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+            min-height: 32px;
+            margin-left: -6px;
+            color: var(--text-muted, #999);
+            font-size: 15px;
+            line-height: 1;
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .rl-handle:active { cursor: grabbing; }
+
+        .rl-content { flex: 1; min-width: 0; }
+
+        .rl-title {
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--text-color, #333);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .rl-sub {
+            font-size: 12px;
+            color: var(--text-muted, #666);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
+        }
+    `
+});
+
+// ============================================================================
+// Reorderable playground - OUTER component
+//
+// Owns the data + selection + mode; wires the inner list to cl-context-menu.
+// Demonstrates, in one list: drag-reorder (desktop + touch), multiselect with
+// checkboxes, group drag of the selection, and a right-click / long-press
+// context menu whose actions operate on the selection.
+// ============================================================================
+defineComponent('example-reorder-playground', {
+    data() {
+        return {
+            // untracked contents (replaced immutably on every structural change,
+            // which re-renders the outer template and pushes new items down).
+            items: untracked([]),
+            selectedIds: [],       // array of ids (new ref on every change)
+            selectionMode: false,
+            lastAction: null,
+            _nextId: 1,
+            menuItems: [
+                { label: 'Duplicate', icon: '⧉', action: (ctx) => this.duplicateRows(ctx) },
+                { label: 'Remove', icon: '🗑️', danger: true, action: (ctx) => this.removeRows(ctx) },
+                { separator: true },
+                { label: 'Clear selection', icon: '✖', action: () => this.clearSelection() }
+            ]
+        };
+    },
+
+    mounted() {
+        const items = [];
+        for (let i = 1; i <= 300; i++) {
+            items.push({ id: i, title: `Task ${i}`, subtitle: `Drag, select, or right-click task ${i}` });
+        }
+        this.state._nextId = 301;
+        this.state.items = items;
+    },
+
+    computed: {
+        selectedCount() {
+            return this.state.selectedIds.length;
+        }
+    },
+
+    methods: {
+        _idsSet() {
+            return new Set(this.state.selectedIds);
+        },
+
+        toggleMode() {
+            this.state.selectionMode = !this.state.selectionMode;
+        },
+
+        selectAll() {
+            this.state.selectionMode = true;
+            this.state.selectedIds = this.state.items.map(it => it.id);
+        },
+
+        clearSelection() {
+            this.state.selectedIds = [];
+        },
+
+        toggleId(id) {
+            const s = this._idsSet();
+            if (s.has(id)) s.delete(id); else s.add(id);
+            this.state.selectedIds = [...s];
+        },
+
+        onRowTap(e) {
+            if (this.state.selectionMode) {
+                this.toggleId(e.detail.id);
+            }
+        },
+
+        onToggleSelect(e) {
+            this.toggleId(e.detail.id);
+        },
+
+        onReorder(e) {
+            const { fromIndices, gap } = e.detail;
+            const items = this.state.items.slice();
+            const sorted = [...fromIndices].sort((a, b) => a - b);
+            const moving = sorted.map(i => items[i]);
+            // Remove from highest index down so lower indices stay valid.
+            for (let k = sorted.length - 1; k >= 0; k--) items.splice(sorted[k], 1);
+            const { target } = groupReorderTargets(sorted, gap);
+            items.splice(target, 0, ...moving);
+            this.state.items = items;
+            this.state.lastAction = moving.length > 1
+                ? `Moved ${moving.length} rows to position ${target}`
+                : `Moved "${moving[0].title}" to position ${target}`;
+        },
+
+        onRowMenu(e) {
+            const { id, clientX, clientY } = e.detail;
+            const sel = this._idsSet();
+            // If the right-clicked row is part of a selection, act on the whole
+            // selection; otherwise act on just that row.
+            const ids = (sel.size > 0 && sel.has(id)) ? [...sel] : [id];
+            this.refs.menu.open(clientX, clientY, { ids });
+        },
+
+        // NB: NOT named `remove` - that would shadow the native Element.remove()
+        // the framework calls when detaching this element during re-render.
+        removeRows(ctx) {
+            const ids = new Set(ctx.ids);
+            this.state.items = this.state.items.filter(it => !ids.has(it.id));
+            this.state.selectedIds = this.state.selectedIds.filter(id => !ids.has(id));
+            this.state.lastAction = `Removed ${ctx.ids.length} row(s)`;
+        },
+
+        duplicateRows(ctx) {
+            const ids = new Set(ctx.ids);
+            const out = [];
+            let nextId = this.state._nextId;
+            for (const it of this.state.items) {
+                out.push(it);
+                if (ids.has(it.id)) {
+                    out.push({ id: nextId, title: `${it.title} (copy)`, subtitle: it.subtitle });
+                    nextId++;
+                }
+            }
+            this.state._nextId = nextId;
+            this.state.items = out;
+            this.state.lastAction = `Duplicated ${ctx.ids.length} row(s)`;
+        }
+    },
+
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <p style="color: var(--text-muted, #666); margin: 0;">
+                    One list combining <strong>drag-reorder</strong> (desktop + touch),
+                    <strong>multiselect with checkboxes</strong>, <strong>group drag</strong>
+                    of the selection, and a <strong>right-click / long-press context menu</strong>
+                    whose actions operate on the selection. Toggle selection mode, tick some
+                    rows, then drag a selected row to move them all - or right-click for actions.
+                </p>
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <cl-button
+                        label="${this.state.selectionMode ? 'Exit selection mode' : 'Selection mode'}"
+                        severity="${this.state.selectionMode ? 'primary' : 'secondary'}"
+                        on-click="${() => this.toggleMode()}"></cl-button>
+                    <cl-button label="Select all" severity="secondary"
+                        on-click="${() => this.selectAll()}"></cl-button>
+                    <cl-button label="Clear" severity="secondary"
+                        on-click="${() => this.clearSelection()}"></cl-button>
+                    <span style="color: var(--text-muted, #666); font-size: 14px;">
+                        ${this.selectedCount} selected
+                    </span>
+                </div>
+
+                <example-reorder-list
+                    class="playground-list"
+                    items="${this.state.items}"
+                    selectedIds="${this.state.selectedIds}"
+                    selectionMode="${this.state.selectionMode}"
+                    itemHeight="56"
+                    on-reorder="onReorder"
+                    on-row-tap="onRowTap"
+                    on-toggle-select="onToggleSelect"
+                    on-row-menu="onRowMenu">
+                </example-reorder-list>
+
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    Last action: ${this.state.lastAction || 'None'}
+                </div>
+
+                <cl-context-menu ref="menu" items="${this.state.menuItems}"></cl-context-menu>
             </div>
         `;
     }

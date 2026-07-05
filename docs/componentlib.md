@@ -806,6 +806,96 @@ Tooltip component that wraps content.
 - `text` - Tooltip text
 - `position` - `'top'`, `'right'`, `'bottom'`, `'left'`
 
+### cl-context-menu
+
+A generic, viewport-overflow-aware popup menu that opens at arbitrary `(x, y)`
+coordinates. Unlike `cl-action-menu` (a button that drops a menu below itself),
+`cl-context-menu` is not tied to any trigger element - drive it from a
+`contextmenu` (right-click) event, a long-press gesture, or programmatically.
+It keeps itself fully inside the viewport (flip / clamp / internal scroll) and
+only one instance is ever open at a time.
+
+```javascript
+data() {
+    return {
+        menuItems: [
+            { label: 'Edit', icon: '✏️' },
+            { label: 'Copy', icon: '📋', shortcut: '⌘C' },
+            { separator: true },
+            { label: 'Delete', icon: '🗑️', danger: true }
+        ]
+    };
+},
+
+methods: {
+    // Wire any element's contextmenu event to open the menu at the pointer.
+    openMenu(e, row) {
+        this.refs.menu.openAtEvent(e, row);   // second arg = context echoed back
+    },
+    onPick(e) {
+        console.log('chose', e.detail.item.label, 'for', e.detail.context);
+    }
+},
+
+template() {
+    return html`
+        <div on-contextmenu="${(e) => this.openMenu(e, this.state.row)}">
+            Right-click me
+        </div>
+
+        <cl-context-menu
+            ref="menu"
+            items="${this.state.menuItems}"
+            on-select="onPick">
+        </cl-context-menu>
+    `;
+}
+```
+
+**Items** (`items` prop) - array of objects; the primary content path (same
+shape as `cl-action-menu`):
+- `label` - text shown for the item
+- `icon` - optional emoji / character icon
+- `shortcut` - optional keyboard-shortcut hint (right-aligned)
+- `disabled` - `true` to disable (not selectable)
+- `danger` - `true` for destructive actions (red)
+- `separator` - `true` for a divider (no label)
+- `action(context)` / `command(context)` - optional callback invoked on select
+
+Slotted children are also rendered inside the menu surface, for fully custom
+content when the `items` shape doesn't fit. Slotted controls are the consumer's
+responsibility to wire (and should call `close()` themselves); the `select`
+event and auto-close on selection apply to `items`-prop entries.
+
+**Props:**
+- `items` - Array of menu items (see above)
+- `padding` - Gap (px) kept between the menu and every viewport edge (default: 8)
+- `minWidth` - Minimum width of the menu surface in px (default: 200)
+
+**Methods:**
+- `open(x, y, context?)` - Open anchored at viewport coordinates `(x, y)`. `context` is stored and echoed back in the `select` event.
+- `openAtEvent(event, context?)` - Convenience: reads the pointer coordinates from a `contextmenu`/pointer/touch event, calls `preventDefault()`, and opens.
+- `close()` - Close the menu.
+- `isOpen()` - Whether the menu is currently open.
+
+**Events:**
+- `select` - Fired when an `items`-prop entry is chosen: `{ item, context }`. The menu closes automatically.
+
+**Overflow handling.** After render the menu is measured, then: opened to the
+right of / below the anchor; flipped to the left / above when it would overflow
+that edge; clamped so it never crosses the viewport padding; and, when it is
+taller than the viewport, pinned to the top with a `max-height` so it scrolls
+internally instead of overflowing. It closes on Escape, outside click/tap, page
+scroll, and window resize.
+
+**Touch / long-press.** The component itself only needs `open(x, y)`. For list
+rows, wire it to `createRowGestures` from `lib/gestures.js`: pass an
+`onLongPress: (i, e) => this.refs.menu.open(touchX, touchY, ctx)` handler
+(long-press is passive-safe and does not block scrolling). The showcase's
+**Reorder Playground** (Data category) demonstrates this end to end - a windowed
+list combining drag-reorder, multiselect checkboxes, group drag, and this
+context menu with correct `memoEach` keying.
+
 ## Button Components
 
 ### cl-button

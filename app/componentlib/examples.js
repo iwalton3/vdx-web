@@ -965,6 +965,39 @@ export const componentExamples = {
 // - separator: true for a divider line`
     },
 
+    'context-menu': {
+        id: 'context-menu',
+        name: 'Context Menu',
+        category: 'overlay',
+        description: 'Generic, viewport-overflow-aware popup menu that opens at pointer coordinates (right-click / long-press / programmatic).',
+        demo: `<example-context-menu></example-context-menu>`,
+        source: `// Wire a contextmenu event, or drive it programmatically.
+<div on-contextmenu="\${(e) => this.refs.menu.openAtEvent(e, item)}">…</div>
+
+<cl-context-menu
+    ref="menu"
+    items="\${[
+        { label: 'Edit', icon: 'pencil' },
+        { label: 'Copy', icon: 'copy', shortcut: '\\u2318C' },
+        { separator: true },
+        { label: 'Delete', icon: 'trash', danger: true }
+    ]}"
+    on-select="onPick">
+</cl-context-menu>
+
+// Programmatic:
+//   this.refs.menu.open(x, y, context);   // context is echoed back in the select event
+//
+// Methods:  open(x, y, context?)  openAtEvent(event, context?)  close()  isOpen()
+// Props:    items[]  padding (viewport gap, default 8)  minWidth (default 200)
+// Event:    select  { item, context }
+//
+// Overflow handling: opens right/below the anchor, flips left/up near an edge,
+// clamps to the viewport, and scrolls internally when taller than the viewport.
+// Only one cl-context-menu is ever open at a time. Slotted children are also
+// rendered inside the menu for fully custom content.`
+    },
+
     // BUTTON COMPONENTS
     button: {
         id: 'button',
@@ -1725,6 +1758,45 @@ export const componentExamples = {
         \`;
     }
 });`
+    },
+
+    reorderPlayground: {
+        id: 'reorderPlayground',
+        name: 'Reorder Playground',
+        category: 'data',
+        description: 'Windowed list combining drag-reorder (desktop + touch), multiselect with checkboxes, group drag of the selection, and a right-click / long-press context menu.',
+        demo: `<example-reorder-playground></example-reorder-playground>`,
+        source: `// cl-virtual-list's selection is single-key, so multiselect + group drag are
+// out of its scope. The sanctioned pattern (see performance.md) is to compose
+// createWindowing + createRowGestures directly with a \`selection\` adapter.
+
+this._win = createWindowing(this, { itemHeight: 56, count: () => items.length });
+this._g = createRowGestures(this, {
+    itemHeight: 56,
+    windowing: this._win,
+    count: () => items.length,
+    // Dragging a selected row moves the WHOLE selection (group drag):
+    selection: {
+        isSelected: (i) => selectedIds.has(items[i].id),
+        indices: () => items.map((it, i) => selectedIds.has(it.id) ? i : -1).filter(i => i >= 0)
+    },
+    onReorder: (fromIndices, gap) => applyGroupReorder(fromIndices, gap),  // groupReorderTargets
+    onTap: (i) => toggleSelectionIfInSelectionMode(i),
+    onLongPress: (i, e) => contextMenu.open(touchX, touchY, { ids })
+});
+
+// Composite memoEach key: per-row selection bit lives IN the key, so toggling
+// one row re-renders only that row (never a version bump for selection). The
+// absolute index is folded in too so moved rows refresh their data-index.
+memoEach(items.slice(win.visibleStart, win.visibleEnd),
+    (item, i) => renderRow(item, selectedIds.has(item.id), win.visibleStart + i),
+    (item, i) => \`\${item.id}-\${selectedIds.has(item.id) ? 's' : 'n'}-i\${win.visibleStart + i}\`,
+    { trustKey: true });
+
+// Selection-UX rules (production-hardened):
+//  - A touch starting on the checkbox never begins a drag (checkbox != handle).
+//  - In selection mode only selected rows are drag handles; unselected rows
+//    scroll / tap-select. Outside selection mode every row drags.`
     },
 
     badge: {
