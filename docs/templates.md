@@ -83,6 +83,7 @@ Add modifiers to the end of event names:
 
 - `-prevent` - Calls `e.preventDefault()` automatically
 - `-stop` - Calls `e.stopPropagation()` automatically
+- `-passive` - Registers the listener with `{ passive: true }`, so the browser doesn't wait for your handler before scrolling. Use on `touchstart`/`touchmove`/`wheel` handlers in scrollable lists. `preventDefault()` is ignored inside passive listeners, so `-passive` cannot be combined with `-prevent` (the framework warns and keeps the listener non-passive).
 
 ```javascript
 // Prevent form submission default behavior
@@ -93,6 +94,9 @@ Add modifiers to the end of event names:
 
 // Multiple modifiers work together
 <a on-click-prevent-stop="handleLink">
+
+// Scroll-friendly touch handling (never blocks scrolling)
+<div on-touchstart-passive="handleTouchStart" on-touchmove-passive="handleTouchMove">
 ```
 
 ### Custom Events with Hyphens

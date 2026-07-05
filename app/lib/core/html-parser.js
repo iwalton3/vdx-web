@@ -35,7 +35,9 @@ const VOID_ELEMENTS = new Set([
 ]);
 
 // Known event modifiers
-const KNOWN_MODIFIERS = new Set(['prevent', 'stop']);
+// prevent: e.preventDefault() | stop: e.stopPropagation() |
+// passive: register with { passive: true } (scroll-friendly touch/wheel)
+const KNOWN_MODIFIERS = new Set(['prevent', 'stop', 'passive']);
 
 // HTML entities - common ones for inline decoding
 const HTML_ENTITIES = new Map([
@@ -745,31 +747,27 @@ class Parser {
      */
     handleEvent(name, value) {
         const fullEventName = name.substring(3);
-        let eventName, modifier;
+        let eventName;
+        const modifiers = [];
 
         if (fullEventName === 'click-outside') {
             eventName = 'clickoutside';
-            modifier = null;
         } else {
+            // Strip ALL trailing known modifiers (on-click-prevent-stop -> click + [prevent, stop])
             const parts = fullEventName.split('-');
-            const lastPart = parts[parts.length - 1];
-
-            if (parts.length > 1 && KNOWN_MODIFIERS.has(lastPart)) {
-                eventName = parts.slice(0, -1).join('-');
-                modifier = lastPart;
-            } else {
-                eventName = fullEventName;
-                modifier = null;
+            while (parts.length > 1 && KNOWN_MODIFIERS.has(parts[parts.length - 1])) {
+                modifiers.unshift(parts.pop());
             }
+            eventName = parts.join('-');
         }
 
         let eventDef;
         if (this.attrHasSlot && this.attrSlots.length === 1 && !value) {
             // Entire value is a slot (function reference)
-            eventDef = { slot: this.attrSlots[0], modifier };
+            eventDef = { slot: this.attrSlots[0], modifiers };
         } else {
             // Method name string
-            eventDef = { method: value, modifier };
+            eventDef = { method: value, modifiers };
         }
 
         // Handle chaining

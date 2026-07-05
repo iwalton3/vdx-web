@@ -1593,10 +1593,22 @@ function instantiateElement(node, values, component, parent, effects, inheritedS
             } else if (name === 'clickoutside-stop' || name === 'click-outside-stop') {
                 setupClickOutside(el, handler, true, effects);
             } else {
-                el.addEventListener(name, handler);
+                // -passive registers a passive listener so touch/wheel handlers
+                // don't block scrolling. Incompatible with -prevent (the browser
+                // ignores preventDefault in passive listeners).
+                const modifiers = def.modifiers || (def.modifier ? [def.modifier] : []);
+                let listenerOptions;
+                if (modifiers.includes('passive')) {
+                    if (modifiers.includes('prevent')) {
+                        console.warn(`[Events] on-${name}: -passive conflicts with -prevent; ignoring -passive`);
+                    } else {
+                        listenerOptions = { passive: true };
+                    }
+                }
+                el.addEventListener(name, handler, listenerOptions);
                 effects.push({
                     dispose() {
-                        el.removeEventListener(name, handler);
+                        el.removeEventListener(name, handler, listenerOptions);
                     }
                 });
             }
@@ -1868,12 +1880,13 @@ function resolveEventHandler(eventName, def, values, component, isCustomElement)
     }
 
     if (handler && typeof handler === 'function') {
-        // Apply modifiers
-        if (def.modifier === 'prevent') {
+        // Apply modifiers (def.modifier is the legacy single-modifier form)
+        const modifiers = def.modifiers || (def.modifier ? [def.modifier] : []);
+        if (modifiers.includes('prevent')) {
             const orig = handler;
             handler = (e) => { e.preventDefault(); return orig(e); };
         }
-        if (def.modifier === 'stop') {
+        if (modifiers.includes('stop')) {
             const orig = handler;
             handler = (e) => { e.stopPropagation(); return orig(e); };
         }
