@@ -320,6 +320,8 @@ export function createWindowing(host, options) {
             resizeObserver = new ResizeObserver(() => updateDimensions());
             resizeObserver.observe(host);
         }
+        // Scrolls may have happened while unwired - re-measure, don't trust cache
+        remeasureScroll();
         updateDimensions();
         updateVisibleRange();
     }
@@ -329,6 +331,16 @@ export function createWindowing(host, options) {
         if (resizeObserver) {
             resizeObserver.disconnect();
             resizeObserver = null;
+        }
+    }
+
+    // Re-sync the cached scroll position from the DOM. The cache is normally
+    // maintained by scroll events, but programmatic scrolls that land before
+    // the listener is wired (or while detached) never reach it - refresh()
+    // and (re)attachment must therefore re-measure rather than trust it.
+    function remeasureScroll() {
+        if (scrollMode === 'self' || scrollTarget) {
+            state.scrollTop = measureScrollTop();
         }
     }
 
@@ -369,16 +381,21 @@ export function createWindowing(host, options) {
         get containerHeight() { return state.containerHeight; },
 
         /**
-         * Recompute dimensions and the visible range. Call after changing an
-         * untracked() item source or replacing items delivered via props.
+         * Re-measure the scroll position and dimensions, then recompute the
+         * visible range. Call after changing an untracked() item source,
+         * replacing items delivered via props, or programmatically scrolling.
          */
         refresh() {
+            remeasureScroll();
             updateDimensions();
             updateVisibleRange();
         },
 
         /** Scroll so the given item index is at the top of the viewport */
         scrollToIndex(index) {
+            // Commit any pending spacer-height update first, so the scrollTop
+            // write below can't be silently clamped by a stale scrollHeight
+            flushSync(() => {});
             const target = index * itemHeight();
             if (scrollMode === 'self') {
                 host.scrollTop = target;
@@ -406,6 +423,7 @@ export function createWindowing(host, options) {
         setScrollContainer(mode) {
             scrollMode = mode;
             setupScrollTracking();
+            remeasureScroll();
             updateDimensions();
             updateVisibleRange();
         },

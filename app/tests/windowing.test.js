@@ -177,6 +177,32 @@ describe('Windowing Controller', function(it) {
         document.body.removeChild(el);
     });
 
+    it('refresh() re-measures a programmatic scroll that had no listener', async () => {
+        const el = defineWindowedList('win-test-remeasure', 100);
+        await new Promise(r => setTimeout(r, 150));
+
+        // Simulate the mount-order race: a programmatic scroll lands while
+        // the controller's listener is not wired (event goes unheard)
+        el._win.detach();
+        el.scrollTop = 2500;
+        await new Promise(r => setTimeout(r, 60));
+        assert.equal(el._win.visibleStart, 0, 'Cached position is stale while detached');
+
+        // refresh() must re-measure from the DOM, not trust the cache
+        el._win.refresh();
+        assert.equal(el._win.visibleStart, 46, 'refresh() picks up the real scroll position');
+        assert.equal(el._win.offsetY, 46 * 50, 'Offset follows the re-measured window');
+
+        // (re)attach must also self-heal after scrolls that happened unwired
+        el._win.detach();
+        el.scrollTop = 0;
+        await new Promise(r => setTimeout(r, 60));
+        el._win.attach();
+        assert.equal(el._win.visibleStart, 0, 'attach() re-measures too');
+
+        document.body.removeChild(el);
+    });
+
     it('destroy() stops responding to scroll', async () => {
         const el = defineWindowedList('win-test-destroy', 100);
         await new Promise(r => setTimeout(r, 150));
