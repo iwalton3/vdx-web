@@ -212,6 +212,42 @@ async function runTests() {
             'Moved rows should still be present, further down the list');
     });
 
+    await test.test('ReorderPlayground checkbox TAP toggles exactly once (touch + synthesized click)', async () => {
+        await freshReorder();
+        const res = await test.page.evaluate(async () => {
+            const pg = document.querySelector('example-reorder-playground');
+            if (!pg.state.selectionMode) pg.toggleMode();
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const cb = document.querySelector('example-reorder-list .rl-check');
+            const box = cb.getBoundingClientRect();
+            const x = box.x + box.width / 2, y = box.y + box.height / 2;
+            const fire = (type) => {
+                const touch = new Touch({ identifier: 1, target: cb, clientX: x, clientY: y });
+                return cb.dispatchEvent(new TouchEvent(type, {
+                    touches: type === 'touchend' ? [] : [touch],
+                    changedTouches: [touch],
+                    bubbles: true, cancelable: true,
+                }));
+            };
+            const before = pg.state.selectedIds.length;
+            // A real tap = touch sequence THEN the browser-synthesized click.
+            // The bug: the row's touchEnd fired onTap (toggle) AND the click
+            // hit the checkbox handler (toggle again) - net zero, dead
+            // checkbox on touch devices. Excluded controls must arm nothing.
+            fire('touchstart');
+            const endNotPrevented = fire('touchend');
+            cb.click();
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const after = pg.state.selectedIds.length;
+            pg.clearSelection();
+            if (pg.state.selectionMode) pg.toggleMode();
+            return { before, after, endNotPrevented };
+        });
+        await test.assert(res.endNotPrevented, 'checkbox touchend must not be default-prevented');
+        await test.assert(res.after === res.before + 1,
+            `a checkbox tap must toggle exactly once (before=${res.before}, after=${res.after})`);
+    });
+
     await test.test('ReorderPlayground row context menu removes rows', async () => {
         await freshReorder();
         const beforeFirst = await test.page.$eval('example-reorder-list .rl-title', t => t.textContent);

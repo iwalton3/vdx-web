@@ -543,6 +543,15 @@ export function createRowGestures(host, options) {
             clearLongPress();
             const touch = e.touches && e.touches[0];
             if (!touch) return;
+            // A touch starting on an excluded element (e.g. a selection
+            // checkbox) belongs to that control: arm neither long-press nor
+            // tap. Otherwise touchEnd fires onTap AND the control's own click
+            // handler fires from the synthesized click - a double toggle that
+            // nets to nothing (dead checkboxes on touch devices).
+            if (excludeSelector && e.target && typeof e.target.closest === 'function'
+                && e.target.closest(excludeSelector)) {
+                return;
+            }
             touchStartX = touch.clientX;
             touchStartY = touch.clientY;
             longPressTriggered = false;

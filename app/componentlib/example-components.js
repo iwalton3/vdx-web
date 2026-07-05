@@ -1932,6 +1932,10 @@ defineComponent('example-reorder-list', {
             windowing: this._win,
             count: () => (this.props.items || []).length,
             scrollContainer: () => this,
+            // The checkbox is its own control: touches starting on it must
+            // arm neither tap/long-press nor drag, or its click handler and
+            // the row's onTap double-toggle the selection (net no-op).
+            excludeSelector: '.rl-check',
             selection: {
                 isSelected: (i) => {
                     const item = (this.props.items || [])[i];
