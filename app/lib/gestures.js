@@ -797,10 +797,13 @@ export function createRowGestures(host, options) {
         handleTouchEnd(e) {
             if (destroyed) return;
 
-            // Row-body path that never activated (movement stayed below the
-            // threshold): reset WITHOUT preventDefault so the synthesized click
-            // still tap-selects. Handle-path drags are always active here.
-            if (touchDragArmed && !touchDragActive) {
+            // Anything that is not an ACTIVE drag must reset WITHOUT
+            // preventDefault, or the browser never synthesizes the tap's click
+            // and taps go dead. That covers BOTH the armed-but-below-threshold
+            // row-body tap AND the never-armed touch (excludeSelector matches -
+            // e.g. a checkbox - or canDrag rejected the row). Handle-path drags
+            // and promoted row-body drags are active and fall through to commit.
+            if (!touchDragActive) {
                 resetTouchDrag();
                 return;
             }
