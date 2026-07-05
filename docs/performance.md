@@ -88,88 +88,65 @@ This looks like manual dependency tracking - and it is. It's the sanctioned patt
 
 ## Windowed (Virtual) Scrolling
 
-For lists past ~50-100 items, render only the visible window. Use [`cl-virtual-list`](componentlib.md) when its feature set fits (fixed item height; self/parent/window scroll modes; keyboard nav; selection). Build inline windowing when you need things it doesn't provide - sparse lazily-loaded arrays, conditional windowing, custom gesture-heavy rows.
-
-The skeleton every windowed list shares:
+For lists past ~50-100 items, render only the visible window. Use [`cl-virtual-list`](componentlib.md) when its feature set fits (fixed item height; self/parent/window scroll modes; keyboard nav; selection). When you need custom markup, gestures, or loading behavior, use **`createWindowing()`** from `lib/windowing.js` - the shared windowing math (range calculation, bottom-locking, frame-atomic commits, scroll-mode plumbing, `scrollToIndex`) with your own template. cl-virtual-list itself is built on it.
 
 ```javascript
-data() {
-    return {
-        items: untracked([]),
-        visibleStart: 0,
-        visibleEnd: 50,
-        scrollTop: 0,
-        containerHeight: 400
-    };
-},
+import { createWindowing } from './lib/windowing.js';
 
-mounted() {
-    this._onScroll = rafThrottle(() => this.handleScroll());
-    this.addEventListener('scroll', this._onScroll);
-},
-
-unmounted() {
-    this.removeEventListener('scroll', this._onScroll);
-},
-
-methods: {
-    handleScroll() {
-        this.state.scrollTop = this.scrollTop;
-        this.updateVisibleRange();
+defineComponent('song-list', {
+    data() {
+        // Created in data() so windowing state exists for the first render
+        this._win = createWindowing(this, {
+            itemHeight: 52,
+            buffer: 10,
+            count: () => this.state.songs.length,
+            scrollContainer: 'self',    // 'self' | 'parent' | 'window' | selector
+            onRange: (start, end) => this.maybeLoadMore(end)  // on-demand loading hook
+        });
+        return { songs: untracked([]) };
     },
 
-    updateVisibleRange() {
-        const itemHeight = 52, buffer = 10;
-        const total = this.state.items.length;
-        const first = Math.floor(this.state.scrollTop / itemHeight);
-        const count = Math.ceil(this.state.containerHeight / itemHeight);
+    unmounted() {
+        this._win.destroy();
+    },
 
-        let start = Math.max(0, first - buffer);
-        let end = Math.min(total, first + count + buffer);
-        // Bottom-locking: never let the window extend past the list end
-        start = Math.min(start, Math.max(0, total - (end - start)));
-
-        if (start !== this.state.visibleStart || end !== this.state.visibleEnd) {
-            // flushSync: commit position + contents in THIS frame (see below)
-            flushSync(() => {
-                this.state.visibleStart = start;
-                this.state.visibleEnd = end;
-            });
-        }
+    template() {
+        const win = this._win;
+        return html`
+            <div class="spacer" style="height: ${win.totalHeight}px;"></div>
+            <div class="window" style="transform: translateY(${win.offsetY}px);">
+                ${memoEach(this.state.songs.slice(win.visibleStart, win.visibleEnd),
+                    song => html`<div class="row" style="height: 52px;">${song.title}</div>`,
+                    song => song.uuid,
+                    { trustKey: true })}
+            </div>
+        `;
     }
-},
-
-template() {
-    const itemHeight = 52;
-    const totalHeight = this.state.items.length * itemHeight;
-    const offsetY = this.state.visibleStart * itemHeight;
-
-    return html`
-        <div class="spacer" style="height: ${totalHeight}px;"></div>
-        <div class="window" style="transform: translateY(${offsetY}px);">
-            ${memoEach(this.state.items.slice(this.state.visibleStart, this.state.visibleEnd),
-                item => html`<div style="height: ${itemHeight}px;">${item.title}</div>`,
-                item => item.uuid,
-                { trustKey: true })}
-        </div>
-    `;
-}
+});
 ```
 
-Key points:
+The controller's getters (`visibleStart`, `visibleEnd`, `offsetY`, `totalHeight`) are reactive - reading them in the template tracks them. Call `refresh()` after changing an `untracked()` item source (reactive sources are tracked automatically through `count()`); `scrollToIndex`/`scrollToTop`/`scrollToBottom` handle position math per scroll mode; `setScrollContainer()` re-wires the scroll mode; `attach()`/`detach()` support element reconnection (`destroy()` is full teardown).
 
-- **`rafThrottle` the scroll handler** - at most one range update per frame.
-- **`flushSync` the range commit** - the scroll handler already runs inside an animation frame. State writes flush on a microtask (before paint), but *attribute-only* DOM updates batch to the NEXT animation frame - so without `flushSync`, the `translateY` can land a frame behind the row contents, which reads as tearing/jitter during fast scroll. `flushSync` guarantees position and contents commit together in the current frame.
+**What the controller does for you** (and the rules to follow if you ever hand-roll):
+
+- **rAF-throttled scroll handling** - at most one range update per frame.
+- **`flushSync` range commits** - the scroll handler runs inside an animation frame. State writes flush on a microtask (before paint), but *attribute-only* DOM updates batch to the NEXT animation frame - so without `flushSync`, the `translateY` can land a frame behind the row contents, which reads as tearing/jitter during fast scroll. `flushSync` guarantees position and contents commit together in the current frame.
+- **Bottom-locking** - clamps the window start so the rendered range never extends past the list end (prevents blank space and scroll-height jumps at the bottom).
+- **Passive scroll listeners** and ResizeObserver-driven re-measurement.
+
+Two rules stay on your side:
+
 - **`trustKey: true`** - `.slice()` produces fresh wrapper positions each render; trust the key so unchanged rows keep their DOM.
-- **Bottom-locking** - clamp the window start so the rendered range never extends past the list end (prevents blank space and scroll-height jumps at the bottom).
 - **Inline the `slice()` in the `memoEach` call** - do not hoist it to a local variable if you use the build-time optimizer (see [Optimizer Interactions](#optimizer-interactions)).
 
 **Sparse arrays and on-demand loading.** For unbounded lists (a whole music library), don't fetch everything: allocate a sparse array of the known total length, fetch chunks as the window approaches them, and render placeholders for missing rows:
 
 ```javascript
-// In updateVisibleRange, after computing the window:
-if (end >= this._loadedCount - 50) {
-    this.loadMoreItems();   // cursor-paginated fetch filling the sparse array
+// The controller's onRange hook triggers loading as the window approaches the frontier:
+onRange: (start, end) => {
+    if (end >= this._loadedCount - 50) {
+        this.loadMoreItems();   // cursor-paginated fetch filling the sparse array
+    }
 }
 
 // In mapFn - item may not have arrived yet:

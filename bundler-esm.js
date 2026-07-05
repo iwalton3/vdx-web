@@ -2373,6 +2373,14 @@ function bundleAll(verbose) {
     console.log(`  Readable: ${(optSizes.readable / 1024).toFixed(2)} KB`);
     console.log(`  ✓ opt.js (${(optSizes.minified / 1024).toFixed(2)} KB) + .map`);
 
+    // === 5. Process windowing.js ===
+    console.log('\n=== windowing.js ===');
+    const windowingSizes = processSimpleFile(
+        path.join(baseDir, 'app', 'lib', 'windowing.js'),
+        path.join(distDir, 'windowing.js')
+    );
+    console.log(`  ✓ windowing.js (${(windowingSizes.minified / 1024).toFixed(2)} KB) + .map`);
+
     // Summary
     console.log('\n=== Summary ===');
     console.log(`  Output directory: ${distDir}`);
@@ -2381,6 +2389,7 @@ function bundleAll(verbose) {
     console.log('    router.js + router.js.map');
     console.log('    utils.js + utils.js.map');
     console.log('    opt.js + opt.js.map');
+    console.log('    windowing.js + windowing.js.map');
     console.log('\n  Source maps contain embedded readable source for debugging.');
     console.log('\n✓ Done!\n');
 }

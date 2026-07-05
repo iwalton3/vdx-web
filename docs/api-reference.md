@@ -1228,6 +1228,19 @@ Mouse hover events.
 <div on-mouseenter="handleEnter" on-mouseleave="handleLeave">
 ```
 
+### Event Modifiers
+
+Append to any event name; multiple modifiers chain:
+
+- `-prevent` - calls `e.preventDefault()`
+- `-stop` - calls `e.stopPropagation()`
+- `-passive` - registers with `{ passive: true }` (scroll-friendly touch/wheel handlers; incompatible with `-prevent`)
+
+```javascript
+<a on-click-prevent-stop="handleLink">
+<div on-touchmove-passive="handleTouchMove">
+```
+
 ## Special Attributes
 
 ### x-model
@@ -1251,10 +1264,25 @@ Two-way data binding for form inputs.
 <select x-model="country">
 ```
 
+## Windowing API
+
+### createWindowing(host, options)
+
+Virtual-scroll controller from `./lib/windowing.js` - owns the window state (reactive `visibleStart`/`visibleEnd`/`offsetY`/`totalHeight`) and scroll/resize plumbing while the component owns the markup. `cl-virtual-list` is built on it.
+
+**Parameters:**
+- `host` (HTMLElement) - The list's element (scroll source in `'self'` mode)
+- `options` (object): `itemHeight` (px, number or function - required), `count` (function returning total items - required), `buffer` (default 10), `scrollContainer` (`'self'` | `'parent'` | `'window'` | selector | element), `fallbackHeight` (default 400), `onRange(start, end)` (on-demand loading hook)
+
+**Returns:** controller with reactive getters and `refresh()`, `scrollToIndex(i)`, `scrollToTop()`, `scrollToBottom()`, `setScrollContainer(mode)`, `attach()`, `detach()`, `destroy()`.
+
+See [performance.md](performance.md#windowed-virtual-scrolling) for the full usage pattern.
+
 ## See Also
 
 - [components.md](components.md) - Component development patterns
 - [templates.md](templates.md) - Template system and helpers
 - [reactivity.md](reactivity.md) - Reactive state management
+- [performance.md](performance.md) - Virtual scrolling, large lists, high-frequency updates
 - [routing.md](routing.md) - Router usage
 - [security.md](security.md) - Security best practices

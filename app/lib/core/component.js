@@ -386,16 +386,19 @@ export function defineComponent(name, options) {
         constructor() {
             super();
 
-            // Initialize reactive state
-            this.state = reactive(options.data ? options.data.call(this) : {});
-
             // Store props (always include children and slots, even if empty)
             // children is always an array of default slot children
             // slots is an object with named slot children
+            // Initialized BEFORE data() so code in data() (e.g. option
+            // factories passed to helpers like createWindowing) can safely
+            // read this.props - values arrive later, but the object exists
             this.props = {
                 children: [],
                 slots: {}
             };
+
+            // Initialize reactive state
+            this.state = reactive(options.data ? options.data.call(this) : {});
 
             // Reactive version counter for fine-grained prop tracking
             // Effects that access this will re-run when props change
