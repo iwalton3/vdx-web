@@ -995,15 +995,15 @@ const router = enableRouting(outlet, {
         component: 'admin-page',
         require: 'admin'  // Requires 'admin' capability
     }
-});
+}, {
+    // Routes with `require` fail closed - denied unless this approves.
+    // Passed via options so the initial route is also checked.
+    checkCapability: (required) => authStore.state.hasCapability(required),
 
-// Enforce the `require` field with a navigation guard
-// (the router treats `require` as metadata - your guard enforces it)
-router.beforeEach(({ path, route }) => {
-    if (route.require && !authStore.state.hasCapability(route.require)) {
-        console.log(`Access denied to ${path} - requires: ${route.require}`);
+    // Optional: redirect unauthorized users (default renders the 404 page)
+    onUnauthorized: ({ path, require }) => {
+        console.log(`Access denied to ${path} - requires: ${require}`);
         router.navigate('/login/');
-        return false;  // Cancel navigation
     }
 });
 ```

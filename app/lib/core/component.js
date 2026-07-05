@@ -3,7 +3,7 @@
  * Web Components-based system with fine-grained reactive rendering
  */
 
-import { reactive, createEffect, trackMutations, flushEffects, runAsEffect } from './reactivity.js';
+import { reactive, createEffect, trackMutations, flushEffects, runAsEffect, computed, withoutTracking } from './reactivity.js';
 import { compileTemplate } from './template-compiler.js';
 import { setRenderContext } from './template.js';
 import { instantiateTemplate, createDeferredChild, VALUE_GETTER, flushDOMUpdates } from './template-renderer.js';
@@ -344,6 +344,25 @@ export function defineComponent(name, options) {
         'valueOf', 'hasOwnProperty', 'isPrototypeOf'
     ]);
 
+    // Validate computed property names once at definition time.
+    // Names that collide with props, methods, or reserved names are skipped.
+    const computedNames = [];
+    if (options.computed) {
+        for (const [cname, getter] of Object.entries(options.computed)) {
+            if (typeof getter !== 'function') {
+                console.warn(`[${name}] Skipping computed "${cname}" - must be a plain function`);
+                continue;
+            }
+            if (reservedNames.has(cname) || cname === 'children' || cname === 'slots' || cname === 'style' ||
+                (options.props && cname in options.props) ||
+                (options.methods && cname in options.methods)) {
+                console.warn(`[${name}] Skipping computed "${cname}" - name conflicts with a prop, method, or reserved name`);
+                continue;
+            }
+            computedNames.push(cname);
+        }
+    }
+
     class Component extends HTMLElement {
         constructor() {
             super();
@@ -493,6 +512,27 @@ export function defineComponent(name, options) {
             // Note: Store subscriptions are no longer needed because this.stores[name]
             // directly references store.state. Templates access this.stores.name.property
             // which tracks the store's reactive state directly (fine-grained reactivity).
+
+            // Create computed properties (lazy, cached; disposed on disconnect).
+            // Created inside withoutTracking so they are root-owned effects -
+            // NOT children of whatever parent effect is instantiating this
+            // component - and survive parent re-renders.
+            if (computedNames.length > 0 && !this._computeds) {
+                const component = this;
+                this._computeds = {};
+                withoutTracking(() => {
+                    for (const cname of computedNames) {
+                        const getter = options.computed[cname];
+                        component._computeds[cname] = computed(() => {
+                            // Track props version so prop changes invalidate the computed
+                            if (component._propsVersion) {
+                                const _ = component._propsVersion.v;
+                            }
+                            return getter.call(component);
+                        });
+                    }
+                });
+            }
 
             // Setup reactivity - fine-grained rendering with per-binding effects
             if (options.template) {
@@ -800,6 +840,14 @@ export function defineComponent(name, options) {
             // Call unmounted hook (after effects are disposed)
             if (options.unmounted) {
                 options.unmounted.call(this);
+            }
+
+            // Dispose computed properties (recreated if the element reconnects)
+            if (this._computeds) {
+                for (const c of Object.values(this._computeds)) {
+                    if (c && c.dispose) c.dispose();
+                }
+                this._computeds = null;
             }
 
             // Clear refs to prevent memory leaks from stale DOM references
@@ -1237,6 +1285,20 @@ export function defineComponent(name, options) {
             }
             Object.defineProperty(Component.prototype, propName, createPropSetter(propName));
         }
+    }
+
+    // Define accessors for computed properties - read as plain properties
+    // (this.total, not this.total()). get() registers the reading effect as
+    // a dependent, so templates re-render when the computed invalidates.
+    for (const cname of computedNames) {
+        Object.defineProperty(Component.prototype, cname, {
+            get() {
+                const c = this._computeds && this._computeds[cname];
+                return c ? c.get() : undefined;
+            },
+            enumerable: true,
+            configurable: true
+        });
     }
 
     // Register the custom element

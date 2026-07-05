@@ -459,10 +459,12 @@ const router = enableRouting(outlet, {
 ```
 
 **How it works:**
-- `require` is metadata only - the router stores it on the route but does not enforce it
-- You enforce it yourself in a `beforeEach` hook, which receives the matched route config
+- The router calls your `checkCapability` function (sync or async) before rendering any route with a `require` field
+- **Fails closed**: if a route has `require` but no `checkCapability` is configured, navigation is denied with a console warning
+- On denial, `onUnauthorized` is called if provided; otherwise the `/404` route (or `page-not-found`) is rendered
+- The check runs before `beforeEach` hooks - denied routes never reach your hooks
 
-**Enforcing capabilities:**
+**Configuring the capability check:**
 
 ```javascript
 // In auth/auth.js
@@ -473,14 +475,19 @@ const login = createStore({
     // ... auth methods
 });
 
-// Enforce route.require in a guard
-router.beforeEach(({ route }) => {
-    if (route.require && !login.state.capabilities.includes(route.require)) {
-        router.navigate('/unauthorized/');
-        return false;  // Cancel navigation
+// Pass via options so the initial route is also checked
+const router = enableRouting(outlet, routes, {
+    checkCapability: (required) => login.state.capabilities.includes(required),
+
+    // Optional: called with { path, query, params, require, route } on denial
+    onUnauthorized: ({ path, require }) => {
+        console.log(`Access denied to ${path} - requires: ${require}`);
+        router.navigate('/login/');
     }
 });
 ```
+
+Both can also be assigned after construction (`router.checkCapability = fn`), but the options form is preferred so the initial route is checked too. For access rules beyond simple capability strings, use a `beforeEach` hook instead (below).
 
 ### Custom Route Guards
 
@@ -555,8 +562,6 @@ router.afterEach(({ path, query, params }) => {
 });
 ```
 
-(The third `options` argument to `enableRouting` is currently reserved and unused.)
-
 ## Router Cleanup
 
 When your application needs to dispose of the router (e.g., in tests, SPAs with multiple routers, or micro-frontends), use the `destroy()` method:
@@ -574,6 +579,9 @@ router.destroy();
 - Removes `hashchange` event listeners (hash routing mode)
 - Clears internal state
 - Prevents memory leaks from lingering event handlers
+- Releases the singleton, allowing `enableRouting()` to be called again
+
+**Note:** `enableRouting()` may only be called once per page - a second call throws. Use `getRouter()` to access the existing router (and `router.setOutlet()` to attach a different outlet), or call `getRouter().destroy()` first.
 
 **When to call `destroy()`:**
 - In test teardown/cleanup

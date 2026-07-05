@@ -3,7 +3,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { Router } from '../lib/router.js';
+import { Router, enableRouting, getRouter } from '../lib/router.js';
 
 describe('Router', function(it) {
     it('creates router with routes', () => {
@@ -62,6 +62,9 @@ describe('Router', function(it) {
         const router = new Router({
             '/': { component: 'home-page' },
             '/protected/': { component: 'protected-page', require: 'admin' }
+        }, {
+            // `require` fails closed before hooks run, so authorize the route
+            checkCapability: (required) => required === 'admin'
         });
 
         let hookCalled = false;
@@ -613,6 +616,179 @@ describe('Router Wildcard Parameters', function(it) {
         assert.equal(currentRoute.component, 'new-page', 'Should follow redirect');
         assert.equal(currentRoute.params.name, 'pre$&post', 'Should insert $ sequences literally');
         router.destroy();
+    });
+});
+
+describe('Router Capability Enforcement', function(it) {
+    it('allows navigation when checkCapability returns true', async () => {
+        const checked = [];
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/cap-allowed/': { component: 'cap-allowed-page', require: 'admin' }
+        }, {
+            checkCapability: (required, context) => {
+                checked.push({ required, path: context.path });
+                return required === 'admin';
+            }
+        });
+
+        router.navigate('/cap-allowed/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        assert.equal(router.currentRoute.state.component, 'cap-allowed-page',
+            'Should render protected route when capability check passes');
+        const check = checked.find(c => c.path === '/cap-allowed/');
+        assert.ok(check, 'checkCapability should be called for the protected route');
+        assert.equal(check.required, 'admin', 'Should receive the require value');
+        router.destroy();
+    });
+
+    it('denies navigation when checkCapability returns false', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/cap-denied/': { component: 'cap-denied-page', require: 'admin' }
+        }, {
+            checkCapability: () => false
+        });
+
+        router.navigate('/cap-denied/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        assert.ok(router.currentRoute.state.component !== 'cap-denied-page',
+            'Should not render the protected component');
+        assert.equal(router.currentRoute.state.component, 'page-not-found',
+            'Should fall back to not-found by default');
+        router.destroy();
+    });
+
+    it('supports async checkCapability', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/cap-async/': { component: 'cap-async-page', require: 'user' }
+        }, {
+            checkCapability: async (required) => {
+                await new Promise(resolve => setTimeout(resolve, 10));
+                return required === 'user';
+            }
+        });
+
+        router.navigate('/cap-async/');
+        await new Promise(resolve => setTimeout(resolve, 80));
+
+        assert.equal(router.currentRoute.state.component, 'cap-async-page',
+            'Should await async capability checks');
+        router.destroy();
+    });
+
+    it('calls onUnauthorized with context when denied', async () => {
+        let unauthorizedContext = null;
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/cap-unauth/': { component: 'cap-unauth-page', require: 'moderator' }
+        }, {
+            checkCapability: () => false,
+            onUnauthorized: (context) => {
+                unauthorizedContext = context;
+            }
+        });
+
+        router.navigate('/cap-unauth/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        assert.ok(unauthorizedContext, 'onUnauthorized should be called');
+        assert.equal(unauthorizedContext.path, '/cap-unauth/', 'Should receive the denied path');
+        assert.equal(unauthorizedContext.require, 'moderator', 'Should receive the missing capability');
+        assert.ok(router.currentRoute.state.component !== 'cap-unauth-page',
+            'Should not render the protected component');
+        router.destroy();
+    });
+
+    it('fails closed when require is set but no checkCapability is configured', async () => {
+        const originalWarn = console.warn;
+        let warned = false;
+        console.warn = (...args) => {
+            if (args[0] && args[0].includes && args[0].includes('checkCapability')) {
+                warned = true;
+            }
+        };
+
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/cap-noconfig/': { component: 'cap-noconfig-page', require: 'admin' }
+        });
+
+        try {
+            router.navigate('/cap-noconfig/');
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            assert.ok(router.currentRoute.state.component !== 'cap-noconfig-page',
+                'Should deny navigation when no checkCapability is configured');
+            assert.ok(warned, 'Should warn about the missing checkCapability');
+        } finally {
+            console.warn = originalWarn;
+            router.destroy();
+        }
+    });
+
+    it('checkCapability can be assigned after construction', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/cap-late/': { component: 'cap-late-page', require: 'admin' }
+        });
+
+        router.checkCapability = (required) => required === 'admin';
+
+        router.navigate('/cap-late/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        assert.equal(router.currentRoute.state.component, 'cap-late-page',
+            'Assigned checkCapability should be honored');
+        router.destroy();
+    });
+
+    it('does not run checkCapability for routes without require', async () => {
+        let called = false;
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/cap-open/': { component: 'cap-open-page' }
+        }, {
+            checkCapability: () => { called = true; return false; }
+        });
+
+        router.navigate('/cap-open/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        assert.equal(router.currentRoute.state.component, 'cap-open-page',
+            'Unprotected route should render');
+        assert.ok(!called, 'checkCapability should not run for routes without require');
+        router.destroy();
+    });
+});
+
+describe('enableRouting Singleton', function(it) {
+    it('throws on second call and can be re-enabled after destroy', () => {
+        // Clean up any router left over from other tests/pages
+        const existing = getRouter();
+        if (existing) existing.destroy();
+
+        const outlet = document.createElement('div');
+        const router = enableRouting(outlet, { '/': { component: 'home-page' } });
+
+        try {
+            assert.ok(getRouter() === router, 'getRouter should return the singleton');
+            assert.throws(() => {
+                enableRouting(outlet, { '/': { component: 'home-page' } });
+            }, Error, 'Second enableRouting call should throw');
+        } finally {
+            router.destroy();
+        }
+
+        assert.ok(getRouter() === null, 'destroy should release the singleton');
+
+        // Re-enabling after destroy works
+        const router2 = enableRouting(outlet, { '/': { component: 'home-page' } });
+        assert.ok(getRouter() === router2, 'Should allow enableRouting after destroy');
+        router2.destroy();
     });
 });
 

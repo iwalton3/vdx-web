@@ -44,6 +44,12 @@ Define a custom element component.
         name: someStore
     },
 
+    // Computed properties - lazy, cached, auto-disposed on unmount.
+    // Read as plain properties: this.total (no call)
+    computed: {
+        total() { return this.state.items.reduce((s, i) => s + i.price, 0); }
+    },
+
     // Template function
     template() {
         return html`...`;
@@ -137,6 +143,20 @@ Direct references to the reactive state of stores declared via the `stores:` com
 stores: { user: userStore },
 template() { return html`<p>${this.stores.user.name}</p>`; }
 ```
+
+#### Computed properties (from the `computed:` option)
+Each entry in the `computed:` option becomes a read-only instance property (read `this.total`, not `this.total()`). Values are lazy and cached: the getter re-runs only when a reactive dependency (state, stores, or props) changes and the property is read again. Reading one inside a template or effect subscribes it to updates. Disposed automatically on unmount.
+
+```javascript
+computed: {
+    total() { return this.state.items.reduce((s, i) => s + i.price, 0); }
+},
+template() {
+    return html`<p>Total: ${this.total}</p>`;  // re-renders when items change
+}
+```
+
+**Note:** Use plain functions, not `get` accessors. Names that collide with props or methods are skipped with a warning.
 
 #### this.emitChange(event, value, [propName])
 Helper to emit change events for x-model compatibility. Stops propagation of the original event and dispatches a `change` CustomEvent with `detail: { value }`. `propName` defaults to `'value'`.
@@ -893,12 +913,14 @@ prefs.state.theme = 'dark'; // Automatically saves to localStorage
 
 ### enableRouting(outlet, routes, options)
 
-Enables routing.
+Enables routing. May only be called once per page - a second call throws (use `getRouter()` for access, or `getRouter().destroy()` to tear down first).
 
 **Parameters:**
 - `outlet` (HTMLElement) - Router outlet element
 - `routes` (object) - Route configuration
-- `options` (object) - Router options (optional)
+- `options` (object, optional):
+  - `checkCapability(required, { path, query, params, route })` - Called for routes with a `require` field; return `true` (or a promise resolving to `true`) to allow navigation. Routes with `require` are **denied if no checkCapability is configured** (fail closed).
+  - `onUnauthorized({ path, query, params, require, route })` - Called when a `require` check fails. Defaults to rendering the `/404` route.
 
 **Example:**
 ```javascript
@@ -912,9 +934,11 @@ const router = enableRouting(outlet, {
     },
     '/admin/': {
         component: 'admin-page',
-        require: 'admin',  // Metadata - enforce it in a beforeEach hook
+        require: 'admin',  // Enforced via checkCapability (fails closed)
         load: () => import('./admin.js')
     }
+}, {
+    checkCapability: (required) => auth.state.capabilities.includes(required)
 });
 ```
 

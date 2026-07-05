@@ -10,6 +10,7 @@ Complete guide to building components with the framework.
 - [Children Props (React-style Composition)](#children-props-react-style-composition)
 - [Refs (DOM References)](#refs-dom-references)
 - [Stores (Auto-Subscribe)](#stores-auto-subscribe)
+- [Computed Properties](#computed-properties)
 - [Lifecycle Hooks](#lifecycle-hooks)
 - [Component Styles](#component-styles)
 - [Best Practices](#best-practices)
@@ -629,6 +630,38 @@ stores: {
 // Access via this.stores.login.user
 // Cleanup is automatic!
 ```
+
+## Computed Properties
+
+Declare derived values with the `computed:` option. Each entry becomes a read-only instance property (read `this.total`, not `this.total()`):
+
+```javascript
+defineComponent('cart-summary', {
+    data() {
+        return { items: [] };
+    },
+
+    computed: {
+        total() {
+            return this.state.items.reduce((sum, i) => sum + i.price, 0);
+        },
+        itemCount() {
+            return this.state.items.length;
+        }
+    },
+
+    template() {
+        return html`<p>${this.itemCount} items - $${this.total}</p>`;
+    }
+});
+```
+
+**Behavior:**
+- **Lazy + cached** - the getter only re-runs when a reactive dependency changed and the property is read again
+- **Tracked** - dependencies on state, stores, and props are detected automatically; templates reading a computed re-render when it invalidates
+- **Auto-disposed** - cleaned up on unmount (and recreated if the element reconnects)
+- **Plain functions only** - do not use `get` accessors (they are evaluated at construction time and throw)
+- Names that collide with props or methods are skipped with a console warning
 
 ## Lifecycle Hooks
 

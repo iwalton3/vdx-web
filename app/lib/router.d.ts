@@ -36,7 +36,8 @@ export interface RouteConfig {
 
   /**
    * Optional capability requirement for access control.
-   * Used with beforeEach hooks to implement auth guards.
+   * Enforced by the router via checkCapability (fails closed:
+   * denied if no checkCapability is configured).
    * @example 'admin', 'authenticated'
    */
   require?: string;
@@ -163,6 +164,37 @@ export type AfterHook = (context: NavigationContext) => void | Promise<void>;
 // =============================================================================
 
 /**
+ * Context passed to capability checks and unauthorized handlers.
+ */
+export interface CapabilityContext {
+  /** Path being navigated to */
+  path: string;
+  /** Parsed query parameters */
+  query: Record<string, string>;
+  /** Extracted route parameters */
+  params: Record<string, string>;
+  /** The matched route config */
+  route: RouteConfig;
+}
+
+/**
+ * Router construction options.
+ */
+export interface RouterOptions {
+  /**
+   * Called for routes with a `require` field; return true (or a promise
+   * resolving to true) to allow navigation. Routes with `require` are
+   * DENIED if no checkCapability is configured (fail closed).
+   */
+  checkCapability?: (required: string, context: CapabilityContext) => boolean | Promise<boolean>;
+  /**
+   * Called when a `require` check fails.
+   * Defaults to rendering the /404 route.
+   */
+  onUnauthorized?: (context: CapabilityContext & { require: string }) => void;
+}
+
+/**
  * Router class for managing client-side navigation.
  *
  * @example
@@ -178,9 +210,19 @@ export class Router {
    * Create a new router instance.
    *
    * @param routes - Route configuration map
-   * @param options - Router options (reserved for future use)
+   * @param options - Router options (capability enforcement hooks)
    */
-  constructor(routes: RouteDefinitions, options?: Record<string, unknown>);
+  constructor(routes: RouteDefinitions, options?: RouterOptions);
+
+  /**
+   * Capability check for routes with `require` (may be assigned after
+   * construction, but prefer passing via options so the initial route
+   * is also checked).
+   */
+  checkCapability: ((required: string, context: CapabilityContext) => boolean | Promise<boolean>) | null;
+
+  /** Handler invoked when a `require` check fails (default: render /404). */
+  onUnauthorized: ((context: CapabilityContext & { require: string }) => void) | null;
 
   /**
    * Reactive store containing current route state.
@@ -291,8 +333,8 @@ export class Router {
   url(path: string, query?: QueryParams): string;
 
   /**
-   * Clean up router resources.
-   * Call when destroying the router instance.
+   * Clean up router resources and release the singleton
+   * (allows enableRouting() to be called again).
    */
   destroy(): void;
 }
@@ -316,12 +358,14 @@ export function getRouter(): Router | null;
 
 /**
  * Enable routing for a specific outlet element.
- * Creates or returns the singleton router instance.
+ * May only be called once per page - throws if a router already exists.
+ * Use getRouter() for access, or getRouter().destroy() to tear down first.
  *
  * @param outlet - Router outlet element
  * @param routes - Route configuration
- * @param options - Additional options (currently unused)
+ * @param options - Router options (checkCapability, onUnauthorized)
  * @returns The singleton router instance
+ * @throws If enableRouting() was already called
  *
  * @example
  * import { enableRouting } from './lib/router.js';
@@ -342,7 +386,7 @@ export function getRouter(): Router | null;
 export function enableRouting(
   outlet: HTMLElement,
   routes: RouteDefinitions,
-  options?: Record<string, unknown>
+  options?: RouterOptions
 ): Router;
 
 // =============================================================================

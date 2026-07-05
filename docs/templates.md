@@ -924,8 +924,8 @@ template() {
     `;
 }
 
-// ✅ GOOD Option 2 - Computed methods
-methods: {
+// ✅ GOOD Option 2 - The computed: option (lazy, cached, read as properties)
+computed: {
     doubled() {
         return this.state.count * 2;
     },
@@ -934,11 +934,21 @@ methods: {
     }
 },
 template() {
-    return html`<p>${this.doubled()}</p><p>${this.fullName()}</p>`;
+    return html`<p>${this.doubled}</p><p>${this.fullName}</p>`;
 }
 
-// ⚠️ Do NOT use `get` accessors in methods: - method binding evaluates them
-// at construction time (before state exists) and the component will throw.
+// ✅ GOOD Option 3 - Plain methods (recomputed on every call)
+methods: {
+    doubled() {
+        return this.state.count * 2;
+    }
+},
+template() {
+    return html`<p>${this.doubled()}</p>`;
+}
+
+// ⚠️ Do NOT use `get` accessors in methods: or computed: - method binding
+// evaluates them at construction time (before state exists) and throws.
 ```
 
 **Exception - memoEach external state:**

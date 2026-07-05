@@ -18,10 +18,14 @@ export default defineComponent('my-component', {
         increment() { this.state.count++; }
     },
 
+    computed: {                           // Lazy cached values, auto-disposed
+        doubled() { return this.state.count * 2; }
+    },
+
     template() {
         return html`
             <h1>${this.props.title}</h1>
-            <p>Count: ${this.state.count}</p>
+            <p>Count: ${this.state.count} (doubled: ${this.doubled})</p>
             <button on-click="increment">+1</button>
         `;
     },
@@ -161,7 +165,15 @@ return html`<p>${count}</p>`;  // contain(() => count) has no dependencies!
 // ✅ GOOD - Reactive access inside template
 return html`<p>${this.state.count}</p>`;  // contain(() => this.state.count) works
 
-// ✅ GOOD - Use methods for computed values (NOT get accessors - they break method binding)
+// ✅ GOOD - Use the computed: option (lazy, cached, auto-disposed; read as a property)
+computed: {
+    doubled() { return this.state.count * 2; }
+},
+template() {
+    return html`<p>${this.doubled}</p>`;  // Tracked inside contain()
+}
+
+// ✅ ALSO GOOD - Plain methods (NOT get accessors - they break method binding)
 methods: {
     doubled() { return this.state.count * 2; }
 },
@@ -215,9 +227,15 @@ defineComponent('my-component', {
 ```javascript
 import { enableRouting } from 'vdx/lib/router.js';
 
+// enableRouting may only be called ONCE per page (throws on second call)
 enableRouting(outlet, {
     '/': { component: 'home-page' },
-    '/users/:id/': { component: 'user-page' },  // params in this.props.params
+    '/users/:id/': { component: 'user-page' },   // params in this.props.params
+    '/files/:path*/': { component: 'file-page' }, // wildcard: multi-segment param
+    '/admin/': { component: 'admin-page', require: 'admin' }  // fails closed
+}, {
+    // Routes with `require` are DENIED unless this approves
+    checkCapability: (required) => auth.state.capabilities.includes(required)
 });
 
 // Navigation

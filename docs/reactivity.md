@@ -719,19 +719,47 @@ sum.dispose();
 - **Lazy evaluation** - Only recomputes when `get()` is called and dependencies have changed
 - **Cleanup** - Call `dispose()` when no longer needed to stop tracking
 
-### Using computed() in Components
+### Using Computed Values in Components
+
+The easiest way is the component-level `computed:` option - lifecycle (creation, disposal) is handled automatically and values are exposed as plain instance properties:
 
 ```javascript
-import { defineComponent, html, computed, reactive } from './lib/framework.js';
+import { defineComponent, html } from './lib/framework.js';
 
 defineComponent('counter-sum', {
+    data() {
+        return { a: 1, b: 2 };
+    },
+
+    computed: {
+        sum() { return this.state.a + this.state.b; }
+    },
+
+    template() {
+        return html`
+            <div>
+                <input type="number" x-model="a">
+                <input type="number" x-model="b">
+                <p>Sum: ${this.sum}</p>
+            </div>
+        `;
+    }
+});
+```
+
+Computed properties are lazy and cached (the getter only re-runs when a dependency changed and the value is read again), invalidate on state, store, and prop changes, and are disposed on unmount. Use plain functions, not `get` accessors.
+
+You can also use the standalone `computed()` manually when you need explicit control:
+
+```javascript
+import { defineComponent, html, computed } from './lib/framework.js';
+
+defineComponent('counter-sum-manual', {
     mounted() {
-        // Create a computed value
         this._sum = computed(() => this.state.a + this.state.b);
     },
 
     unmounted() {
-        // Clean up the computed value
         if (this._sum) this._sum.dispose();
     },
 
@@ -740,13 +768,8 @@ defineComponent('counter-sum', {
     },
 
     template() {
-        return html`
-            <div>
-                <input type="number" x-model="a">
-                <input type="number" x-model="b">
-                <p>Sum: ${this._sum?.get() ?? 0}</p>
-            </div>
-        `;
+        // Note: mounted() runs after the first render, so guard the access
+        return html`<p>Sum: ${this._sum?.get() ?? 0}</p>`;
     }
 });
 ```

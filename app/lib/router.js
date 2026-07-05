@@ -242,7 +242,12 @@ export class Router {
     /**
      * Create a new router instance
      * @param {Object<string, RouteConfig>} routes - Route configuration map
-     * @param {Object} [options={}] - Router options (reserved for future use)
+     * @param {Object} [options={}] - Router options
+     * @param {(required: string, context: {path: string, query: Object, params: Object, route: RouteConfig}) => boolean|Promise<boolean>} [options.checkCapability]
+     *     Called for routes with a `require` field; return true to allow navigation.
+     *     Routes with `require` are DENIED if no checkCapability is configured (fail closed).
+     * @param {(context: {path: string, query: Object, params: Object, require: string, route: RouteConfig}) => void} [options.onUnauthorized]
+     *     Called when a `require` check fails. Defaults to rendering the /404 route.
      */
     constructor(routes, options = {}) {
         this.routes = {};
@@ -251,6 +256,11 @@ export class Router {
         this.outletElement = null;
         this.loadedComponents = new Set(); // Track loaded components
         this._navToken = 0; // Monotonic navigation counter (stale handleRoute guard)
+
+        // Capability enforcement for routes with `require` (both may also be
+        // assigned after construction: router.checkCapability = fn)
+        this.checkCapability = options.checkCapability || null;
+        this.onUnauthorized = options.onUnauthorized || null;
 
         // Detect routing mode: HTML5 (with base tag) or hash
         this.useHTML5 = this._detectRoutingMode();
@@ -310,9 +320,20 @@ export class Router {
         });
         this._listeners = [];
 
+        // Unsubscribe the outlet from route changes
+        if (this._outletUnsubscribe) {
+            this._outletUnsubscribe();
+            this._outletUnsubscribe = null;
+        }
+
         // Clear hooks
         this.beforeHooks = [];
         this.afterHooks = [];
+
+        // Release the singleton so enableRouting() can be called again
+        if (_router === this) {
+            _router = null;
+        }
     }
 
     /**
@@ -594,6 +615,40 @@ export class Router {
             return;
         }
 
+        // Capability enforcement: routes with `require` are denied unless
+        // checkCapability approves. Fails closed - `require` with no
+        // checkCapability configured denies rather than silently allowing.
+        if (route.require) {
+            let allowed = false;
+            if (typeof this.checkCapability === 'function') {
+                allowed = await this.checkCapability(route.require, { path, query, params, route });
+                if (navToken !== this._navToken) return; // Superseded during check
+            } else {
+                console.warn(
+                    `[Router] Route "${path}" has require: "${route.require}" but no ` +
+                    `checkCapability function is configured - denying navigation. ` +
+                    `Set checkCapability via enableRouting options or router.checkCapability.`
+                );
+            }
+            if (!allowed) {
+                if (typeof this.onUnauthorized === 'function') {
+                    this.onUnauthorized({ path, query, params, require: route.require, route });
+                } else {
+                    // Default: render the 404 route (don't reveal protected routes)
+                    const fallback = this.routes['/404'] || { component: 'page-not-found' };
+                    this.currentRoute.set({
+                        path,
+                        query,
+                        params: {},
+                        component: fallback.component,
+                        meta: fallback.meta || {}
+                    });
+                    this._renderOutlet();
+                }
+                return;
+            }
+        }
+
         // Run before hooks
         for (const hook of this.beforeHooks) {
             const result = await hook({ path, query, params, route });
@@ -810,16 +865,25 @@ function init() {
 init();
 
 /**
- * Enable routing for a specific outlet element
+ * Enable routing for a specific outlet element.
+ * May only be called once per page - throws if a router already exists.
+ * Use getRouter() to access the existing router (and router.setOutlet()
+ * to attach a different outlet), or getRouter().destroy() to tear it down.
  * @param {RouterOutlet} outlet router outlet element
  * @param {Object<string, RouteConfig>} routes object defining routes
- * @param {Object} options additional options (currently unused)
+ * @param {Object} [options] router options (checkCapability, onUnauthorized - see Router constructor)
  * @returns {Router} The singleton router instance
+ * @throws {Error} If enableRouting() was already called
  */
 export function enableRouting(outlet, routes, options = {}) {
-    if (!_router) {
-        _router = new Router(routes, options);
+    if (_router) {
+        throw new Error(
+            '[Router] enableRouting() was already called. Use getRouter() to access ' +
+            'the existing router (and router.setOutlet() to attach an outlet), or ' +
+            'call getRouter().destroy() first to create a new router.'
+        );
     }
+    _router = new Router(routes, options);
     _router.setOutlet(outlet);
     return _router;
 }
