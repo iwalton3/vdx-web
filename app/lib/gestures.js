@@ -66,6 +66,7 @@
  *   | click              | no              | on-click             |
  *   | contextMenu        | no              | on-contextmenu       |
  *   | touchStart         | NEVER           | on-touchstart-passive|
+ *   | rowTouchStart      | NEVER           | on-touchstart-passive|
  *   | touchMove          | NEVER           | on-touchmove-passive |
  *   | touchEnd           | MAY (ghost-tap) | on-touchend          |
  *   | dragStart/Over/... | yes (DnD)       | on-dragstart etc.    |
@@ -208,6 +209,25 @@ export function isNoopGap(fromIndices, gap) {
  *     names applied to the hovered row to show the insertion edge (defaults
  *     `{ before: 'drag-over', after: 'drag-over-below' }`). The controller
  *     owns adding/removing/cleaning these across `host`.
+ * @param {string} [options.excludeSelector] - A row-body touch (via
+ *     `rowTouchStart`) whose `e.target` matches this selector (tested with
+ *     `closest`) never arms a drag - e.g. `'.selection-checkbox'` keeps a
+ *     checkbox tap a pure selection tap.
+ * @param {(index: number) => boolean} [options.canDrag] - Predicate gating
+ *     which rows arm a *row-body* touch drag (`rowTouchStart`). Rows that fail
+ *     it scroll or tap instead of dragging (e.g. only selected rows are grab
+ *     handles in selection mode). Does not affect the drag-handle path.
+ * @param {number} [options.activationThreshold=0] - Movement (px) a row-body
+ *     touch drag must exceed before it promotes from a tap into a drag. 0 keeps
+ *     the prior immediate activation. (Pages use 16 to survive tap wobble.)
+ * @param {'geometry'|'pointer'} [options.touchTarget='geometry'] - Touch-drag
+ *     drop targeting. 'geometry' uses fixed-itemHeight math on a self-scrolling
+ *     host. 'pointer' resolves the hovered row via `document.elementFromPoint`
+ *     and treats it as the insertion gap ("insert before this row"), which
+ *     tolerates sticky headers and non-self scroll containers.
+ * @param {string} [options.rowClass] - In 'pointer' mode, the row's class used
+ *     to resolve the hovered row via `element.closest('.<rowClass>')` (defaults
+ *     to any `[data-index]` element).
  * @param {number} [options.longPressMs=500] - Long-press hold duration.
  * @param {number} [options.slop=10] - Movement (px) that cancels a long-press.
  * @param {string} [options.draggingClass='dragging']
@@ -260,6 +280,24 @@ export function createRowGestures(host, options) {
 
     const selection = opts.selection || null;
 
+    // --- opt-in touch-drag refinements (all default to the prior behavior) ---
+    // A touch starting on an element matching this selector never arms a drag
+    // (e.g. '.selection-checkbox' - a pure selection tap).
+    const excludeSelector = typeof opts.excludeSelector === 'string' ? opts.excludeSelector : null;
+    // Predicate gating which rows arm a *row-body* touch drag (e.g. selection
+    // mode arms drags only for already-selected rows; others scroll/tap).
+    const canDrag = typeof opts.canDrag === 'function' ? opts.canDrag : null;
+    // Movement (px) a row-body touch drag must exceed before it promotes from a
+    // tap into a drag. 0 keeps the prior immediate-activation behavior.
+    const activationThreshold = opts.activationThreshold !== undefined ? opts.activationThreshold : 0;
+    // Touch-drag drop targeting: 'geometry' (default, fixed-itemHeight math) or
+    // 'pointer' (the hovered row via elementFromPoint IS the insertion gap -
+    // "insert before this row"; tolerates sticky headers / non-self scrollers).
+    const touchTarget = opts.touchTarget === 'pointer' ? 'pointer' : 'geometry';
+    // Row class used to resolve the hovered row in 'pointer' mode via
+    // element.closest('.<rowClass>'). Falls back to any [data-index] element.
+    const rowClass = typeof opts.rowClass === 'string' ? opts.rowClass : null;
+
     let destroyed = false;
 
     // --- gesture state (all owned here) ---------------------------------
@@ -274,6 +312,11 @@ export function createRowGestures(host, options) {
     let touchGroupDrag = false;
     let touchDraggedIndices = null;
     let touchDragActive = false;
+    // Row-body path only: armed (a drag is possible) but not yet promoted past
+    // the activation threshold. Handle-path drags skip this (active immediately).
+    let touchDragArmed = false;
+    let bodyStartX = 0;
+    let bodyStartY = 0;
     // Long-press / tap
     let longPressTimer = null;
     let touchStartX = 0;
@@ -437,6 +480,24 @@ export function createRowGestures(host, options) {
         touchGroupDrag = false;
         touchDraggedIndices = null;
         touchDragActive = false;
+        touchDragArmed = false;
+    }
+
+    /**
+     * Resolve the row under a touch point for 'pointer' targeting. Returns the
+     * row's absolute data-index and element, or null when the point is not over
+     * a droppable row (off-list, or over the currently-dragged row).
+     * @private
+     */
+    function pointerRowIndex(clientX, clientY) {
+        if (typeof document === 'undefined' || typeof document.elementFromPoint !== 'function') return null;
+        const under = document.elementFromPoint(clientX, clientY);
+        if (!under || typeof under.closest !== 'function') return null;
+        const row = under.closest(rowClass ? `.${rowClass}` : '[data-index]');
+        if (!row || row.dataset.index === undefined || row.classList.contains(draggingClass)) return null;
+        const idx = parseInt(row.dataset.index, 10);
+        if (Number.isNaN(idx)) return null;
+        return { index: idx, row };
     }
 
     function clearLongPress() {
@@ -628,12 +689,50 @@ export function createRowGestures(host, options) {
             touchDragIndex = index;
             touchDropGap = null;
             touchDragActive = true;
+            touchDragArmed = false;
             const moving = resolveMovingSet(index);
             touchGroupDrag = moving.group;
             touchDraggedIndices = moving.indices;
             const src = rowEl(index);
             if (src) src.classList.add(draggingClass);
             if (touchGroupDrag) applyGroupDragging(touchDraggedIndices);
+        },
+
+        /** PASSIVE-SAFE row-body touch start for delayed-activation drags
+         *  (opt-in; bind `on-touchstart-passive`). Never preventDefaults, so a
+         *  tap or scroll is preserved; it merely arms a drag that only becomes
+         *  active once `handleTouchMove` sees movement past `activationThreshold`.
+         *  A touch matching `excludeSelector`, or a row rejected by `canDrag`,
+         *  never arms - the browser keeps the tap/scroll gesture. */
+        rowTouchStart(index, e) {
+            if (destroyed) return;
+            const touch = e.touches && e.touches[0];
+            if (!touch) return;
+            bodyStartX = touch.clientX;
+            bodyStartY = touch.clientY;
+            touchDragActive = false;
+            touchDragArmed = false;
+            touchDropGap = null;
+            // A touch starting on an excluded element is a pure tap, never a grab.
+            if (excludeSelector && e.target && typeof e.target.closest === 'function'
+                && e.target.closest(excludeSelector)) {
+                touchDragIndex = null;
+                touchGroupDrag = false;
+                touchDraggedIndices = null;
+                return;
+            }
+            // Only rows the predicate allows arm a drag; others scroll or tap.
+            if (!canDrag || canDrag(index)) {
+                touchDragIndex = index;
+                const moving = resolveMovingSet(index);
+                touchGroupDrag = moving.group;
+                touchDraggedIndices = moving.indices;
+                touchDragArmed = true;
+            } else {
+                touchDragIndex = null;
+                touchGroupDrag = false;
+                touchDraggedIndices = null;
+            }
         },
 
         /** Track the touch drag: preventDefaults, compute the hovered gap from
@@ -643,8 +742,36 @@ export function createRowGestures(host, options) {
             if (touchDragIndex === null) return;
             const touch = e.touches && e.touches[0];
             if (!touch) return;
+
+            // Delayed activation (row-body path): stay a no-op until the finger
+            // moves past the activation threshold, so a tap or scroll survives.
+            // Handle-path drags are already active (armed === false) and skip this.
+            if (touchDragArmed && !touchDragActive) {
+                const dx = Math.abs(touch.clientX - bodyStartX);
+                const dy = Math.abs(touch.clientY - bodyStartY);
+                if (dx < activationThreshold && dy < activationThreshold) return;
+                touchDragActive = true;
+                const src = rowEl(touchDragIndex);
+                if (src) src.classList.add(draggingClass);
+                if (touchGroupDrag) applyGroupDragging(touchDraggedIndices);
+            }
+
             if (typeof e.stopPropagation === 'function') e.stopPropagation();
             if (typeof e.preventDefault === 'function') e.preventDefault();
+
+            if (touchTarget === 'pointer') {
+                // The hovered row IS the insertion gap ("insert before this
+                // row"); only the before-edge indicator is shown, matching the
+                // source pages' elementFromPoint drop targeting.
+                host.querySelectorAll(`.${beforeClass}`).forEach(el => el.classList.remove(beforeClass));
+                touchDropGap = null;
+                const hit = pointerRowIndex(touch.clientX, touch.clientY);
+                if (hit && hit.index !== touchDragIndex) {
+                    hit.row.classList.add(beforeClass);
+                    touchDropGap = hit.index;
+                }
+                return;
+            }
 
             const gap = touchGap(touch.clientY);
             touchDropGap = gap;
@@ -669,6 +796,15 @@ export function createRowGestures(host, options) {
          *  and onReorder(fromIndices, clampedGap) unless it is a no-op. */
         handleTouchEnd(e) {
             if (destroyed) return;
+
+            // Row-body path that never activated (movement stayed below the
+            // threshold): reset WITHOUT preventDefault so the synthesized click
+            // still tap-selects. Handle-path drags are always active here.
+            if (touchDragArmed && !touchDragActive) {
+                resetTouchDrag();
+                return;
+            }
+
             if (typeof e.stopPropagation === 'function') e.stopPropagation();
             if (typeof e.preventDefault === 'function') e.preventDefault();
             stopAutoscroll();
