@@ -402,6 +402,7 @@ while (parent) {
 
 ## See Also
 
+- [docs/performance.md](performance.md) - Runtime performance patterns (virtual scroll, memoEach invalidation, high-frequency state)
 - [docs/reactivity.md](reactivity.md) - Reactive state patterns
 - [docs/templates.md](templates.md) - Template syntax and helpers
 - [docs/bundles.md](bundles.md) - Pre-bundled framework files

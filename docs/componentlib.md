@@ -498,6 +498,8 @@ Drag and drop reorderable list.
 
 Efficiently renders large lists by only rendering visible items. Supports self-scrolling, parent scrolling, or window scrolling.
 
+This component packages the windowing patterns proven in a production music player. If you need features it doesn't provide (sparse lazily-loaded arrays, conditional windowing, gesture-heavy custom rows), build inline windowing with the same skeleton - see [performance.md](performance.md#windowed-virtual-scrolling).
+
 ```javascript
 data() {
     return {

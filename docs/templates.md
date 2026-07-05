@@ -591,6 +591,8 @@ ${memoEach(this.state.songs, song => html`
 - Expensive item templates (many conditionals, nested components)
 - Lists that update frequently but individual items rarely change
 
+**Choosing how to invalidate the cache** (composite keys vs `deps` vs version counters vs `trustKey`) is covered in depth in [performance.md](performance.md#choosing-a-memoeach-invalidation-strategy).
+
 **Signature:**
 ```javascript
 memoEach(array, mapFn, keyFn, [options])

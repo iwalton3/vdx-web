@@ -149,6 +149,7 @@ The framework automatically uses the correct attribute (`value` or `checked`), s
 - **[docs/reactivity.md](docs/reactivity.md)** - Reactive state, stores, computed
 - **[docs/routing.md](docs/routing.md)** - Router setup, lazy loading
 - **[docs/security.md](docs/security.md)** - XSS protection, input validation, CSP
+- **[docs/performance.md](docs/performance.md)** - Large lists, virtual scrolling, high-frequency updates
 - **[docs/bundles.md](docs/bundles.md)** - Using pre-bundled versions
 - **[docs/typescript.md](docs/typescript.md)** - TypeScript support and demo app
 - **[docs/api-reference.md](docs/api-reference.md)** - Complete API reference

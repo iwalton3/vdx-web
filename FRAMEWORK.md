@@ -313,6 +313,8 @@ template() {
 
 **The rule:** If a template has both high-frequency updates AND expensive content (large lists, complex rendering), use `contain()` or move content to child components.
 
+For virtual scrolling, memoEach invalidation strategies (composite keys, deps, version counters), and 60fps non-reactive islands, see [docs/performance.md](docs/performance.md).
+
 ## Build-Time Optimizer
 
 The optimizer applies fine-grained reactivity transformations at build time:

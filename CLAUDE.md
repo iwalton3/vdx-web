@@ -53,6 +53,7 @@ node test-runner.js --only-errors
 | [docs/reactivity.md](docs/reactivity.md) | Reactive state, stores, computed properties |
 | [docs/routing.md](docs/routing.md) | Router setup, redirects, params, navigation |
 | [docs/security.md](docs/security.md) | XSS protection, input validation, CSRF |
+| [docs/performance.md](docs/performance.md) | Large/editable lists, virtual scroll, memoEach invalidation, high-frequency state |
 | [docs/testing.md](docs/testing.md) | Writing and running tests |
 | [docs/optimization.md](docs/optimization.md) | Build-time optimizer, linting, source maps |
 | [docs/componentlib.md](docs/componentlib.md) | cl-* UI components |
