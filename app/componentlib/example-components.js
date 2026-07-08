@@ -95,7 +95,7 @@ defineComponent('example-input-text', {
 // InputNumber Example
 defineComponent('example-input-number', {
     data() {
-        return { value: 0, quantity: 1, price: 9.99 };
+        return { value: 0, quantity: 1, price: 9.99, vertical: 5, amount: '100.00', width: 320 };
     },
     template() {
         return html`
@@ -117,6 +117,27 @@ defineComponent('example-input-number', {
                     step="0.01"
                     x-model="price">
                 </cl-input-number>
+
+                <cl-input-number
+                    label="Vertical buttons"
+                    orientation="vertical"
+                    x-model="vertical">
+                </cl-input-number>
+
+                <cl-input-number
+                    label="String decimal mode (step 0.01, exact)"
+                    mode="string"
+                    step="0.01"
+                    x-model="amount">
+                </cl-input-number>
+                <small style="color: var(--text-muted, #666);">Value: "${this.state.amount}" (string)</small>
+
+                <label class="cl-label" for="auto-width-range">Auto layout — drag the slider to resize</label>
+                <input id="auto-width-range" type="range" min="90" max="360"
+                    aria-label="Resize the auto-layout demo" x-model="width">
+                <div style="width: ${this.state.width}px; max-width: 100%; border: 1px dashed #ccc; padding: 8px;">
+                    <cl-input-number label="Auto (collapses when narrow)" x-model="quantity"></cl-input-number>
+                </div>
             </div>
         `;
     }

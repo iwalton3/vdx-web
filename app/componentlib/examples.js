@@ -53,7 +53,7 @@ export const componentExamples = {
         demo: `<example-input-number></example-input-number>`,
         source: `defineComponent('example-input-number', {
     data() {
-        return { value: 0, quantity: 1, price: 9.99 };
+        return { value: 0, quantity: 1, price: 9.99, vertical: 5, amount: '100.00' };
     },
     template() {
         return html\`
@@ -75,6 +75,27 @@ export const componentExamples = {
                     step="0.01"
                     x-model="price">
                 </cl-input-number>
+
+                <!-- Opt in to vertically stacked buttons -->
+                <cl-input-number
+                    label="Vertical buttons"
+                    orientation="vertical"
+                    x-model="vertical">
+                </cl-input-number>
+
+                <!-- String mode: exact decimal math, value stays a string -->
+                <cl-input-number
+                    label="String decimal mode"
+                    mode="string"
+                    step="0.01"
+                    x-model="amount">
+                </cl-input-number>
+
+                <!-- orientation defaults to "auto": collapses to vertical when
+                     the control is too narrow to fit the horizontal buttons -->
+                <div style="width: 120px;">
+                    <cl-input-number label="Auto" x-model="quantity"></cl-input-number>
+                </div>
             </div>
         \`;
     }
