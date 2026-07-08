@@ -295,7 +295,7 @@ export default defineComponent('cl-dropdown', {
                          tabindex="${this.props.disabled ? -1 : 0}"
                          on-click="togglePanel"
                          on-keydown="handleKeyDown">
-                        <span class="${hasValue ? '' : 'placeholder'}">${selectedLabel}</span>
+                        <span class="dropdown-value ${hasValue ? '' : 'placeholder'}">${selectedLabel}</span>
                         <span class="dropdown-icon" aria-hidden="true">${this.state.showPanel ? '▲' : '▼'}</span>
                     </div>
                     ${when(this.state.showPanel, html`
@@ -364,12 +364,24 @@ export default defineComponent('cl-dropdown', {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 12px;
+            gap: 8px;
+            box-sizing: border-box;
+            /* Match the height of a standard text input by default. */
+            height: var(--cl-control-height, 38px);
+            padding: 0 12px;
             border: 1px solid var(--input-border, #ced4da);
             border-radius: 4px;
             background: var(--input-bg, #fff);
             cursor: pointer;
             transition: all 0.2s;
+        }
+
+        .dropdown-value {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .dropdown-trigger:hover:not(.disabled) {

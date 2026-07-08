@@ -353,8 +353,11 @@ export default defineComponent('cl-multiselect', {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            min-height: 42px;
-            padding: 6px 12px;
+            box-sizing: border-box;
+            /* Match a standard text input by default; grows to fit wrapped
+               chips when several are selected. */
+            min-height: var(--cl-control-height, 38px);
+            padding: 4px 12px;
             border: 1px solid var(--input-border, #ced4da);
             border-radius: 4px;
             background: var(--input-bg, #fff);
@@ -381,7 +384,6 @@ export default defineComponent('cl-multiselect', {
 
         .placeholder {
             color: var(--text-muted, #6c757d);
-            line-height: 30px;
         }
 
         .chip {
