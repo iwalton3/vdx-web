@@ -104,6 +104,22 @@ template: eval(opt(function() {
 }))
 ```
 
+**⚠️ `raw()` re-inserts on every re-render.** Normal template content is diffed and its DOM
+(and any live child-component state) is preserved across re-renders - even when the whole
+component re-renders, the framework diffs *within* each template rather than rebuilding it.
+`raw()` opts out of that: because it's an opaque source-code splice, every re-render destroys
+and recreates the entire subtree it produced, resetting anything inside (child components,
+form values, scroll position). If the `raw()` content should survive re-renders driven by
+*unrelated* state, isolate it in a `contain()` keyed to only the state it actually depends on:
+
+```javascript
+// ❌ typing in a search box or toggling a theme re-inserts the demo, remounting it
+${raw(this.state.current.demo)}
+
+// ✅ contain() re-runs only when `current` changes, so unrelated re-renders leave it alone
+${contain(() => raw(this.state.current.demo))}
+```
+
 ## Passing Props
 
 Objects, arrays, and functions pass automatically:
