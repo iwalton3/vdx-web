@@ -61,6 +61,17 @@ template() {
 }
 ```
 
+**x-model on a custom element** binds to that component's `change` event and reads
+`detail.value`. So a component you drive with `x-model` must call `this.emitChange(null, value)`
+(which dispatches `change` on the host) to push its value out. x-model deliberately
+**ignores** native `input`/`change` events that bubble up from an inner `<input>` inside the
+component (they carry no `detail` and would clobber the bound state) - only the host's own
+change is honored. Components that wrap a native input should therefore emit their own change.
+
+**Chaining caveat:** if you put both `x-model` and `on-change` on the same custom element, the
+`on-change` handler receives only `(e)` - the extracted `detail.value` is *not* passed as a 2nd
+argument. Read `e.detail.value` inside the handler instead of relying on `(e, value)`.
+
 ## Template Helpers
 
 ```javascript
@@ -141,6 +152,23 @@ methods: {
     focus() { this.refs.myInput.focus(); }
 }
 ```
+
+**Refs are for already-mounted nodes.** A `ref` on a node that is *conditionally shown this
+tick* is not populated synchronously - even right after `flushSync(() => this.state.editing = true)`,
+`this.refs.myInput` (and `this.querySelector('.my-input')`) can still be empty. To focus a
+just-revealed input, defer to the next frame and query the light DOM:
+
+```javascript
+startEdit() {
+    this.state.editing = true;
+    requestAnimationFrame(() => {
+        const input = this.querySelector('.my-input');
+        if (input) { input.focus(); input.select(); }
+    });
+}
+```
+
+Prefer `this.querySelector(...)` over `this.refs` for nodes in a freshly-swapped template branch.
 
 ## Reactivity Rules
 

@@ -50,6 +50,19 @@ import './button/breadcrumb.js';
 
 import './misc/progressbar.js';
 import './misc/fileupload.js';
+import './misc/dropzone.js';
+import './misc/divider.js';
+import './misc/avatar.js';
+import './misc/skeleton.js';
+import './misc/empty.js';
+import './misc/copy.js';
+import './overlay/popover.js';
+import './selection/segmented.js';
+import './form/inplace.js';
+import './form/rating.js';
+import './form/otp.js';
+import './data/timeline.js';
+import './data/meter.js';
 import './misc/colorpicker.js';
 import './misc/spinner.js';
 import './misc/badge.js';
@@ -273,7 +286,15 @@ defineComponent('example-slider', {
 // Calendar Example
 defineComponent('example-calendar', {
     data() {
-        return { date: '', inline: new Date().toISOString().split('T')[0] };
+        return { date: '', inline: new Date().toISOString().split('T')[0], rangeText: 'None' };
+    },
+    methods: {
+        handleRange(e) {
+            const v = e.detail && e.detail.value;
+            this.state.rangeText = (v && v.start)
+                ? `${v.start} → ${v.end || '…'}`
+                : 'None';
+        }
     },
     template() {
         return html`
@@ -284,13 +305,19 @@ defineComponent('example-calendar', {
                 </cl-calendar>
 
                 <cl-calendar
+                    label="Date Range"
+                    selection-mode="range"
+                    on-change="handleRange">
+                </cl-calendar>
+
+                <cl-calendar
                     label="Inline Calendar"
                     inline="true"
                     x-model="inline">
                 </cl-calendar>
 
                 <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
-                    Selected: ${this.state.date || 'None'}
+                    Selected: ${this.state.date || 'None'} &nbsp;·&nbsp; Range: ${this.state.rangeText}
                 </div>
             </div>
         `;
@@ -1017,12 +1044,63 @@ defineComponent('example-fileupload', {
     },
     template() {
         return html`
-            <div style="max-width: 600px;">
+            <div style="display: flex; flex-direction: column; gap: 24px; max-width: 600px;">
                 <cl-fileupload
                     multiple="true"
                     label="Choose Files"
                     on-change="${(e, val) => this.state.files = val}">
                 </cl-fileupload>
+
+                <cl-fileupload
+                    dropzone="true"
+                    multiple="true"
+                    on-change="${(e, val) => this.state.files = val}">
+                </cl-fileupload>
+            </div>
+        `;
+    }
+});
+
+// DropZone Example
+defineComponent('example-dropzone', {
+    data() {
+        return { last: 'Nothing dropped yet', rejected: '' };
+    },
+    methods: {
+        onSelect(e) {
+            this.state.last = e.detail.files.map(f => f.name).join(', ');
+            this.state.rejected = '';
+        },
+        onReject(e) {
+            this.state.rejected = e.detail.files
+                .map(r => `${r.file.name} (${r.reason})`).join(', ');
+        }
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 20px; max-width: 600px;">
+                <cl-dropzone
+                    multiple="true"
+                    paste="true"
+                    on-select="onSelect"
+                    on-reject="onReject">
+                </cl-dropzone>
+
+                <cl-dropzone
+                    accept="image/*"
+                    maxfilesize="${2 * 1024 * 1024}"
+                    label="Drop an image (max 2 MB)"
+                    hint="PNG, JPG or GIF"
+                    on-select="onSelect"
+                    on-reject="onReject">
+                </cl-dropzone>
+
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px; font-size: 14px;">
+                    <div>Accepted: ${this.state.last}</div>
+                    ${when(this.state.rejected, html`
+                        <div style="color: var(--error-color, #dc3545);">Rejected: ${this.state.rejected}</div>
+                    `)}
+                </div>
             </div>
         `;
     }
@@ -2389,6 +2467,307 @@ defineComponent('example-reorder-playground', {
                 </div>
 
                 <cl-context-menu ref="menu" items="${this.state.menuItems}"></cl-context-menu>
+            </div>
+        `;
+    }
+});
+
+// ============ Tier 1 display components ============
+
+// Divider Example
+defineComponent('example-divider', {
+    template() {
+        return html`
+            <div style="max-width: 520px;">
+                <p style="margin: 0;">Content above the divider.</p>
+                <cl-divider></cl-divider>
+                <p style="margin: 0;">A plain horizontal rule separates sections.</p>
+
+                <cl-divider label="OR" variant="dashed"></cl-divider>
+                <p style="margin: 0;">Dashed divider with a centered label.</p>
+
+                <cl-divider label="Left aligned" align="left"></cl-divider>
+
+                <div style="display: flex; align-items: center; height: 40px; margin-top: 16px;">
+                    <span>Home</span>
+                    <cl-divider orientation="vertical"></cl-divider>
+                    <span>Profile</span>
+                    <cl-divider orientation="vertical"></cl-divider>
+                    <span>Settings</span>
+                </div>
+            </div>
+        `;
+    }
+});
+
+// Avatar Example
+defineComponent('example-avatar', {
+    data() {
+        return {
+            team: [
+                { label: 'Ada Lovelace', status: 'online' },
+                { label: 'Alan Turing', status: 'busy' },
+                { label: 'Grace Hopper' },
+                { label: 'Katherine Johnson', status: 'away' },
+                { label: 'Edsger Dijkstra' }
+            ]
+        };
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <cl-avatar label="Ada Lovelace" size="sm"></cl-avatar>
+                    <cl-avatar label="Alan Turing" size="md" status="online"></cl-avatar>
+                    <cl-avatar label="Grace Hopper" size="lg" status="busy"></cl-avatar>
+                    <cl-avatar label="Katherine Johnson" size="xl" shape="square"></cl-avatar>
+                    <cl-avatar src="/does-not-exist.png" label="Fallback User" size="lg"></cl-avatar>
+                </div>
+
+                <div>
+                    <div style="font-size: 13px; color: var(--text-muted,#6c757d); margin-bottom: 8px;">Avatar group (max 3)</div>
+                    <cl-avatar-group avatars="${this.state.team}" max="3" size="md"></cl-avatar-group>
+                </div>
+            </div>
+        `;
+    }
+});
+
+// Skeleton Example
+defineComponent('example-skeleton', {
+    data() {
+        return { loading: true };
+    },
+    methods: {
+        toggle() { this.state.loading = !this.state.loading; }
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 24px; max-width: 420px;">
+                <cl-button label="${this.state.loading ? 'Show content' : 'Show skeleton'}" on-click="toggle"></cl-button>
+
+                ${when(this.state.loading, html`
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <cl-skeleton variant="circle" width="48px"></cl-skeleton>
+                        <div style="flex: 1;">
+                            <cl-skeleton variant="text" width="40%"></cl-skeleton>
+                            <cl-skeleton variant="text" lines="2"></cl-skeleton>
+                        </div>
+                    </div>
+                    <cl-skeleton variant="rect" height="120px" animation="pulse"></cl-skeleton>
+                `, html`
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <cl-avatar label="Grace Hopper" size="48"></cl-avatar>
+                        <div>
+                            <strong>Grace Hopper</strong>
+                            <div style="color: var(--text-muted,#6c757d);">Compiler pioneer. Coined the term "debugging".</div>
+                        </div>
+                    </div>
+                    <div style="height: 120px; background: var(--primary-light, rgba(0,123,255,0.1)); border-radius: 8px; display: flex; align-items: center; justify-content: center;">Loaded content</div>
+                `)}
+            </div>
+        `;
+    }
+});
+
+// Empty Example
+defineComponent('example-empty', {
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 24px; max-width: 480px;">
+                <div style="border: 1px solid var(--input-border,#dee2e6); border-radius: 8px;">
+                    <cl-empty
+                        title="No results found"
+                        description="Try adjusting your search or filters to find what you're looking for.">
+                        <cl-button label="Clear filters" severity="secondary"></cl-button>
+                        <cl-button label="Add item"></cl-button>
+                    </cl-empty>
+                </div>
+
+                <div style="border: 1px solid var(--input-border,#dee2e6); border-radius: 8px;">
+                    <cl-empty icon="🗂️" size="sm" title="Your inbox is empty"></cl-empty>
+                </div>
+            </div>
+        `;
+    }
+});
+
+// Popover Example
+defineComponent('example-popover', {
+    template() {
+        return html`
+            <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+                <cl-popover position="bottom">
+                    <cl-button label="Click menu"></cl-button>
+                    <div slot="content" style="display: flex; flex-direction: column; gap: 8px; min-width: 180px;">
+                        <strong>Account</strong>
+                        <div style="color: var(--text-muted,#6c757d); font-size: 13px;">Signed in as grace@example.com</div>
+                        <cl-divider></cl-divider>
+                        <cl-button label="Settings" severity="secondary"></cl-button>
+                        <cl-button label="Sign out" severity="danger"></cl-button>
+                    </div>
+                </cl-popover>
+
+                <cl-popover position="right" trigger="hover">
+                    <cl-button label="Hover for info" severity="secondary"></cl-button>
+                    <div slot="content" style="max-width: 220px;">
+                        This popover opens on hover and can hold any rich content, unlike a plain tooltip.
+                    </div>
+                </cl-popover>
+            </div>
+        `;
+    }
+});
+
+// ============ Tier 2 components ============
+
+// Segmented Example
+defineComponent('example-segmented', {
+    data() {
+        return {
+            view: 'list',
+            range: 'week',
+            sizes: [
+                { label: 'Day', value: 'day' },
+                { label: 'Week', value: 'week' },
+                { label: 'Month', value: 'month' }
+            ]
+        };
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 24px; align-items: flex-start;">
+                <cl-segmented
+                    options="${[{ label: 'List', value: 'list', icon: '☰' }, { label: 'Grid', value: 'grid', icon: '▦' }, { label: 'Board', value: 'board', icon: '▤' }]}"
+                    x-model="view">
+                </cl-segmented>
+
+                <cl-segmented options="${this.state.sizes}" size="small" x-model="range"></cl-segmented>
+
+                <cl-segmented options="${['Off', 'On']}" value="On" disabled="true"></cl-segmented>
+
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    View: ${this.state.view} · Range: ${this.state.range}
+                </div>
+            </div>
+        `;
+    }
+});
+
+// Inplace Example
+defineComponent('example-inplace', {
+    data() {
+        return { name: 'Grace Hopper', title: '' };
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 16px; max-width: 420px;">
+                <div>Name: <cl-inplace x-model="name"></cl-inplace></div>
+                <div>Title: <cl-inplace x-model="title" empty-text="Add a title…"></cl-inplace></div>
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    Stored name: ${this.state.name} · title: ${this.state.title || '(empty)'}
+                </div>
+            </div>
+        `;
+    }
+});
+
+// Rating Example
+defineComponent('example-rating', {
+    data() {
+        return { score: 3, halfScore: 2.5 };
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div>Interactive: <cl-rating x-model="score"></cl-rating> (${this.state.score})</div>
+                <div>Half steps: <cl-rating x-model="halfScore" precision="0.5"></cl-rating> (${this.state.halfScore})</div>
+                <div>Read-only: <cl-rating value="4" readonly="true"></cl-rating></div>
+            </div>
+        `;
+    }
+});
+
+// OTP Example
+defineComponent('example-otp', {
+    data() {
+        return { code: '' };
+    },
+    template() {
+        const complete = this.state.code.length === 6;
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <cl-otp length="6" type="number" x-model="code"></cl-otp>
+                <div>Masked PIN: <cl-otp length="4" type="number" mask="true"></cl-otp></div>
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    ${complete ? 'Complete: ' + this.state.code : 'Waiting for code…'}
+                </div>
+            </div>
+        `;
+    }
+});
+
+// Copy Example
+defineComponent('example-copy', {
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 20px; align-items: flex-start;">
+                <cl-copy value="npm install vdx-web" label="Copy command"></cl-copy>
+                <cl-copy variant="inline" value="vdx_demo_a1b2c3d4e5f6"></cl-copy>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span>API key</span>
+                    <cl-copy variant="icon" value="a1b2c3d4e5f6"></cl-copy>
+                </div>
+            </div>
+        `;
+    }
+});
+
+// Timeline Example
+defineComponent('example-timeline', {
+    data() {
+        return {
+            events: [
+                { time: '09:00', title: 'Order placed', description: 'Payment confirmed.', icon: '✓', status: 'success' },
+                { time: '11:30', title: 'Processing', description: 'Items picked and packed.', icon: '⚙' },
+                { time: '14:15', title: 'Shipped', description: 'Handed to carrier.', icon: '🚚', status: 'warning' },
+                { time: '—', title: 'Delivered', description: 'Awaiting delivery.', status: 'muted' }
+            ]
+        };
+    },
+    template() {
+        return html`
+            <div style="max-width: 480px;">
+                <cl-timeline items="${this.state.events}"></cl-timeline>
+            </div>
+        `;
+    }
+});
+
+// Meter Example
+defineComponent('example-meter', {
+    data() {
+        return {
+            cpu: 72,
+            thresholds: [{ value: 70, color: '#f5b301' }, { value: 90, color: '#dc3545' }]
+        };
+    },
+    methods: {
+        setCpu(e) { this.state.cpu = Number(e.target.value); }
+    },
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 28px; max-width: 520px;">
+                <div style="display: flex; flex-direction: column; gap: 18px;">
+                    <cl-meter label="Disk usage" value="42" unit="%"></cl-meter>
+                    <cl-meter label="Memory" value="${this.state.cpu}" unit="%" thresholds="${this.state.thresholds}"></cl-meter>
+                    <input type="range" min="0" max="100" value="${this.state.cpu}" on-input="setCpu" style="width: 100%;">
+                </div>
+
+                <div style="display: flex; gap: 32px; flex-wrap: wrap;">
+                    <cl-meter variant="radial" value="${this.state.cpu}" unit="%" label="CPU" thresholds="${this.state.thresholds}"></cl-meter>
+                    <cl-meter variant="radial" value="8" min="0" max="10" label="Score" size="120" color="#28a745"></cl-meter>
+                </div>
             </div>
         `;
     }

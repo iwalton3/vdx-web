@@ -258,6 +258,107 @@ async function runTests() {
         );
     });
 
+    // ============ Toast stacking animation (keyed reconciliation) ============
+    // Regression: cl-toast used each() without a keyFn, so index-based
+    // reconciliation recreated DOM nodes when a middle toast was removed,
+    // retriggering the slide-in animation across the whole pane. With a stable
+    // keyFn, surviving toasts must keep their exact DOM nodes.
+    await test.test('Toast: dismissing a middle toast preserves the surviving toasts DOM nodes', async () => {
+        await test.selectComponent('Toast');
+        await test.page.waitForSelector('cl-toast', { timeout: 3000 });
+
+        // Show three long-lived toasts directly on the component instance.
+        await test.page.evaluate(() => {
+            const t = document.querySelector('cl-toast');
+            t.show({ severity: 'info', summary: 'One', detail: 'first', life: 60000 });
+            t.show({ severity: 'success', summary: 'Two', detail: 'second', life: 60000 });
+            t.show({ severity: 'error', summary: 'Three', detail: 'third', life: 60000 });
+        });
+        await test.page.waitForTimeout(300);
+
+        const initial = await test.page.$$eval('cl-toast .toast-message', els => els.length);
+        await test.assert(initial === 3, `Expected 3 toasts, got ${initial}`);
+
+        // Tag every toast node so we can detect recreation.
+        await test.page.evaluate(() => {
+            document.querySelectorAll('cl-toast .toast-message').forEach((el, i) => { el.__tag = 'tag-' + i; });
+        });
+
+        // Dismiss the middle toast.
+        await test.page.evaluate(() => {
+            const nodes = document.querySelectorAll('cl-toast .toast-message');
+            nodes[1].querySelector('.toast-close').click();
+        });
+        await test.page.waitForTimeout(500); // exit animation (300ms) + removal
+
+        const result = await test.page.evaluate(() => {
+            const nodes = Array.from(document.querySelectorAll('cl-toast .toast-message'));
+            return { count: nodes.length, tags: nodes.map(n => n.__tag || 'NEW') };
+        });
+
+        await test.assert(result.count === 2, `Expected 2 toasts after dismiss, got ${result.count}`);
+        await test.assert(
+            result.tags.includes('tag-0') && result.tags.includes('tag-2') && !result.tags.includes('NEW'),
+            `Surviving toasts must keep their original DOM nodes (no re-animation), got tags: ${result.tags.join(',')}`
+        );
+    });
+
+    // ============ Toggle: no slide animation on mount ============
+    // A toggle that mounts already-checked must not animate on->off->on. The
+    // transition is gated behind an `.animated` class added only after the first
+    // paint, so it is absent at mount and present afterwards.
+    await test.test('Toggle does not animate into its initial state on mount', async () => {
+        await test.selectComponent('Toggle');
+        const atMount = await test.page.evaluate(() => {
+            const el = document.createElement('cl-toggle');
+            el.setAttribute('checked', 'true');
+            document.body.appendChild(el);
+            const w = el.querySelector('.cl-toggle-wrapper');
+            const result = w ? w.classList.contains('animated') : null;
+            el.remove();
+            return result;
+        });
+        await test.assert(atMount === false, 'Freshly-mounted toggle must not have transitions enabled (no mount animation)');
+
+        // After settling, existing toggles are animated so real toggles slide.
+        const settled = await test.page.$('example-toggle cl-toggle .cl-toggle-wrapper.animated');
+        await test.assert(!!settled, 'After the first frame, toggles should be animated so genuine toggling slides');
+    });
+
+    // ============ Calendar: range hover stays readable ============
+    // Hovering a day while selecting a range must keep the dark (endpoint) colour,
+    // not the light hover background that made white text unreadable.
+    await test.test('Calendar range hover keeps a dark, readable background', async () => {
+        await test.selectComponent('Calendar');
+        await test.page.evaluate(() =>
+            document.querySelectorAll('example-calendar cl-calendar')[1].querySelector('.calendar-toggle').click());
+        await test.page.waitForTimeout(300);
+        await test.page.evaluate(() => {
+            const cal = document.querySelectorAll('example-calendar cl-calendar')[1];
+            cal.querySelectorAll('.day:not(.empty):not(.disabled)')[4].click();
+        });
+        await test.page.waitForTimeout(150);
+
+        const box = await test.page.evaluate(() => {
+            const cal = document.querySelectorAll('example-calendar cl-calendar')[1];
+            const day = cal.querySelectorAll('.day:not(.empty):not(.disabled)')[11];
+            const rc = day.getBoundingClientRect();
+            return { x: rc.x + rc.width / 2, y: rc.y + rc.height / 2 };
+        });
+        await test.page.mouse.move(box.x, box.y);
+        await test.page.waitForTimeout(200);
+
+        const style = await test.page.evaluate(() => {
+            const cal = document.querySelectorAll('example-calendar cl-calendar')[1];
+            const day = cal.querySelectorAll('.day:not(.empty):not(.disabled)')[11];
+            const cs = getComputedStyle(day);
+            return { bg: cs.backgroundColor, isEnd: day.classList.contains('range-end') };
+        });
+        await test.assert(style.isEnd, 'Hovered day should preview as the range end');
+        await test.assert(/rgb\(0, 123, 255\)|rgba\(0, 123, 255/.test(style.bg),
+            `Hovered range-end day should stay primary-blue, got: ${style.bg}`);
+    });
+
     await test.teardown();
 }
 

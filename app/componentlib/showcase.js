@@ -1,7 +1,7 @@
 /**
  * Component Showcase - VDX-UI Component Library
  */
-import { defineComponent, html, when, each, raw } from '../lib/framework.js';
+import { defineComponent, html, when, each, raw, contain } from '../lib/framework.js';
 
 // Import all example components (which also import the library components)
 import './example-components.js';
@@ -203,17 +203,16 @@ export default defineComponent('component-showcase', {
                             </div>
 
                             <div class="tab-content">
-                                ${when(this.state.selectedTab === 'demo', html`
-                                    <div class="demo-section">
-                                        ${current ? raw(current.demo) : ''}
-                                    </div>
-                                `)}
-
-                                ${when(this.state.selectedTab === 'source', html`
-                                    <div class="source-section">
-                                        <pre><code>${current ? current.source : ''}</code></pre>
-                                    </div>
-                                `)}
+                                <!-- Isolate the demo in a reactive boundary keyed to the
+                                     selected component + tab, so re-renders from unrelated
+                                     state (dark mode, search) don't re-insert raw(demo) and
+                                     wipe the live component's state. -->
+                                ${contain(() => {
+                                    const comp = this.state.selectedComponent;
+                                    return this.state.selectedTab === 'demo'
+                                        ? html`<div class="demo-section">${comp ? raw(comp.demo) : ''}</div>`
+                                        : html`<div class="source-section"><pre><code>${comp ? comp.source : ''}</code></pre></div>`;
+                                })}
                             </div>
                         </div>
                     `, html`

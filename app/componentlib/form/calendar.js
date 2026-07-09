@@ -12,7 +12,8 @@ export default defineComponent('cl-calendar', {
         max: '',
         inline: false,
         dateFormat: 'MM/DD/YYYY',  // Display format
-        placeholder: ''
+        placeholder: '',
+        selectionMode: 'single'    // 'single' | 'range'
     },
 
     data() {
@@ -23,7 +24,11 @@ export default defineComponent('cl-calendar', {
             viewMode: 'days',      // 'days', 'months', 'years'
             yearRangeStart: 0,
             inputValue: '',
-            inputError: ''
+            inputError: '',
+            // Range selection (selectionMode="range"). Timestamps or null.
+            rangeStart: null,
+            rangeEnd: null,
+            hoverDate: null        // previews the in-progress range on hover
         };
     },
 
@@ -49,12 +54,44 @@ export default defineComponent('cl-calendar', {
             }
         },
 
+        isRange() {
+            return this.props.selectionMode === 'range';
+        },
+
+        // Parse an ISO date (YYYY-MM-DD) as a local-time date, matching the
+        // single-date sync behaviour so day cells line up with what was picked.
+        parseISO(str) {
+            if (!str) return null;
+            const utc = new Date(str);
+            if (isNaN(utc.getTime())) return null;
+            return new Date(utc.getTime() + utc.getTimezoneOffset() * 60000);
+        },
+
         syncValueToState() {
+            if (this.isRange()) {
+                const v = this.props.value;
+                let start = null, end = null;
+                if (v && typeof v === 'object') {
+                    start = v.start; end = v.end;
+                } else if (typeof v === 'string' && v.includes('/')) {
+                    [start, end] = v.split('/');
+                } else if (typeof v === 'string' && v) {
+                    start = v;
+                }
+                const sd = this.parseISO(start);
+                const ed = this.parseISO(end);
+                this.state.rangeStart = sd ? sd.getTime() : null;
+                this.state.rangeEnd = ed ? ed.getTime() : null;
+                this.state.hoverDate = null;
+                this.state.inputValue = this.formatRange();
+                if (sd) this.state.viewDate = sd.getTime();
+                return;
+            }
+
             if (this.props.value && this.props.value !== '') {
                 // date in local timezone from ISO date e.g. 2023-08-15
-                const utcDate = new Date(this.props.value);
-                const date = new Date(utcDate.getTime() + utcDate.getTimezoneOffset() * 60000);
-                if (!isNaN(date.getTime())) {
+                const date = this.parseISO(this.props.value);
+                if (date && !isNaN(date.getTime())) {
                     this.state.selectedDate = date.getTime();
                     this.state.viewDate = date.getTime();
                     this.state.inputValue = this.formatDisplayDate(date);
@@ -77,6 +114,10 @@ export default defineComponent('cl-calendar', {
         },
 
         selectDate(date) {
+            if (this.isRange()) {
+                this.selectRangeDate(date);
+                return;
+            }
             this.state.selectedDate = date.getTime();
             this.state.viewDate = date.getTime();
             this.state.inputValue = this.formatDisplayDate(date);
@@ -87,6 +128,94 @@ export default defineComponent('cl-calendar', {
             if (!this.props.inline) {
                 this.state.showPicker = false;
             }
+        },
+
+        selectRangeDate(date) {
+            const t = date.getTime();
+            // First click, or starting a fresh range after a completed one.
+            if (this.state.rangeStart == null || this.state.rangeEnd != null) {
+                this.state.rangeStart = t;
+                this.state.rangeEnd = null;
+                this.state.hoverDate = null;
+                this.state.inputValue = this.formatRange();
+                return;
+            }
+            // Second click completes the range (order-independent).
+            let start = this.state.rangeStart;
+            let end = t;
+            if (end < start) { const tmp = start; start = end; end = tmp; }
+            this.state.rangeStart = start;
+            this.state.rangeEnd = end;
+            this.state.hoverDate = null;
+            this.state.viewDate = end;
+            this.state.inputValue = this.formatRange();
+            this.emitRangeChange();
+
+            if (!this.props.inline) {
+                this.state.showPicker = false;
+            }
+        },
+
+        hoverDay(date) {
+            if (this.isRange() && date &&
+                this.state.rangeStart != null && this.state.rangeEnd == null) {
+                this.state.hoverDate = date.getTime();
+            }
+        },
+
+        // Effective [lo, hi] bounds for highlighting; uses hoverDate as a live
+        // preview of the second endpoint while a range is being picked.
+        rangeBounds() {
+            const s = this.state.rangeStart;
+            if (s == null) return null;
+            let e = this.state.rangeEnd;
+            if (e == null) e = this.state.hoverDate;
+            if (e == null) return [s, null];
+            return e < s ? [e, s] : [s, e];
+        },
+
+        sameDay(date, ts) {
+            if (ts == null || !date) return false;
+            return new Date(date).toDateString() === new Date(ts).toDateString();
+        },
+
+        isRangeStart(date) {
+            const b = this.rangeBounds();
+            return !!(b && this.sameDay(date, b[0]));
+        },
+
+        isRangeEnd(date) {
+            const b = this.rangeBounds();
+            return !!(b && b[1] != null && this.sameDay(date, b[1]));
+        },
+
+        isInRange(date) {
+            const b = this.rangeBounds();
+            if (!b || b[1] == null || !date) return false;
+            const day = new Date(date); day.setHours(0, 0, 0, 0);
+            const lo = new Date(b[0]); lo.setHours(0, 0, 0, 0);
+            const hi = new Date(b[1]); hi.setHours(0, 0, 0, 0);
+            return day.getTime() > lo.getTime() && day.getTime() < hi.getTime();
+        },
+
+        formatRange() {
+            const s = this.state.rangeStart, e = this.state.rangeEnd;
+            if (s == null) return '';
+            const sf = this.formatDisplayDate(new Date(s));
+            if (e == null) return sf;
+            return `${sf} – ${this.formatDisplayDate(new Date(e))}`;
+        },
+
+        emitRangeChange() {
+            const s = this.state.rangeStart, e = this.state.rangeEnd;
+            const detail = {
+                start: s != null ? this.toISODate(new Date(s)) : null,
+                end: e != null ? this.toISODate(new Date(e)) : null
+            };
+            this.emitChange(null, detail);
+            this.dispatchEvent(new CustomEvent('range-change', {
+                detail, bubbles: true, composed: true
+            }));
         },
 
         toISODate(date) {
@@ -351,6 +480,15 @@ export default defineComponent('cl-calendar', {
         },
 
         clearDate() {
+            if (this.isRange()) {
+                this.state.rangeStart = null;
+                this.state.rangeEnd = null;
+                this.state.hoverDate = null;
+                this.state.inputValue = '';
+                this.state.inputError = '';
+                this.emitRangeChange();
+                return;
+            }
             this.state.selectedDate = null;
             this.state.inputValue = '';
             this.state.inputError = '';
@@ -411,18 +549,29 @@ export default defineComponent('cl-calendar', {
                 `)}
                 ${when(!this.props.inline, html`
                     <div class="calendar-input-wrapper">
-                        <cl-input-mask
-                            class="calendar-mask-input"
-                            value="${this.state.inputValue}"
-                            mask="${this.dateMask}"
-                            placeholder="${this.props.placeholder || this.props.dateFormat}"
-                            disabled="${this.props.disabled}"
-                            hideError="${true}"
-                            error="${this.state.inputError}"
-                            on-input="handleMaskInput"
-                            on-change="handleMaskChange"
-                            on-keydown="handleInputKeydown">
-                        </cl-input-mask>
+                        ${when(this.isRange(), html`
+                            <input
+                                class="calendar-range-input"
+                                type="text"
+                                readonly
+                                value="${this.state.inputValue}"
+                                placeholder="${this.props.placeholder || 'Select date range'}"
+                                disabled="${this.props.disabled}"
+                                on-click="togglePicker">
+                        `, html`
+                            <cl-input-mask
+                                class="calendar-mask-input"
+                                value="${this.state.inputValue}"
+                                mask="${this.dateMask}"
+                                placeholder="${this.props.placeholder || this.props.dateFormat}"
+                                disabled="${this.props.disabled}"
+                                hideError="${true}"
+                                error="${this.state.inputError}"
+                                on-input="handleMaskInput"
+                                on-change="handleMaskChange"
+                                on-keydown="handleInputKeydown">
+                            </cl-input-mask>
+                        `)}
                         <button
                             class="calendar-toggle ${this.state.inputError ? 'error' : ''}"
                             type="button"
@@ -467,9 +616,13 @@ export default defineComponent('cl-calendar', {
                                         return html`<div class="day empty"></div>`;
                                     }
                                     const disabled = this.isDateDisabled(date);
+                                    const range = this.isRange();
                                     const classes = [
                                         'day',
-                                        this.isSelectedDate(date) ? 'selected' : '',
+                                        (!range && this.isSelectedDate(date)) ? 'selected' : '',
+                                        (range && this.isRangeStart(date)) ? 'range-start' : '',
+                                        (range && this.isRangeEnd(date)) ? 'range-end' : '',
+                                        (range && this.isInRange(date)) ? 'in-range' : '',
                                         this.isToday(date) ? 'today' : '',
                                         disabled ? 'disabled' : ''
                                     ].filter(Boolean).join(' ');
@@ -477,7 +630,8 @@ export default defineComponent('cl-calendar', {
                                     return html`
                                         <div
                                             class="${classes}"
-                                            on-click="${disabled ? null : () => this.selectDate(date)}">
+                                            on-click="${disabled ? null : () => this.selectDate(date)}"
+                                            on-mouseenter="${disabled ? null : () => this.hoverDay(date)}">
                                             ${date.getDate()}
                                         </div>
                                     `;
@@ -485,7 +639,7 @@ export default defineComponent('cl-calendar', {
                             </div>
                             <div class="calendar-footer">
                                 <button class="footer-btn" on-click="goToToday">Today</button>
-                                ${when(this.state.selectedDate, html`
+                                ${when(this.state.selectedDate || this.state.rangeStart != null, html`
                                     <button class="footer-btn clear-btn" on-click="clearDate">Clear</button>
                                 `)}
                             </div>
@@ -714,7 +868,9 @@ export default defineComponent('cl-calendar', {
             color: var(--text-color, #333);
         }
 
-        .day:not(.empty):not(.disabled):hover {
+        /* Plain days get the light hover; selected/range days keep their own
+           (dark) colour on hover so text stays readable. */
+        .day:not(.empty):not(.disabled):not(.selected):not(.range-start):not(.range-end):not(.in-range):hover {
             background: var(--hover-bg, #f0f0f0);
         }
 
@@ -725,6 +881,49 @@ export default defineComponent('cl-calendar', {
         .day.selected {
             background: var(--primary-color, #007bff);
             color: white;
+        }
+
+        /* Range selection */
+        .day.in-range {
+            background: var(--primary-light, rgba(0, 123, 255, 0.14));
+            border-radius: 0;
+            color: var(--text-color, #333);
+        }
+
+        .day.range-start,
+        .day.range-end {
+            background: var(--primary-color, #007bff);
+            color: white;
+        }
+
+        .day.range-start {
+            border-radius: 4px 0 0 4px;
+        }
+
+        .day.range-end {
+            border-radius: 0 4px 4px 0;
+        }
+
+        .day.range-start.range-end {
+            border-radius: 4px;
+        }
+
+        .calendar-range-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--input-border, #ced4da);
+            border-radius: 4px 0 0 4px;
+            border-right: none;
+            font-size: 14px;
+            background: var(--input-bg, #fff);
+            color: var(--text-color, #333);
+            cursor: pointer;
+            min-width: 0;
+        }
+
+        .calendar-range-input:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
         }
 
         .day.disabled {

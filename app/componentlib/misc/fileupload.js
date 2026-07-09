@@ -2,6 +2,8 @@
  * FileUpload - File upload component
  */
 import { defineComponent, html, when, each } from '../../lib/framework.js';
+import './dropzone.js';
+import { filterFiles } from './dropzone.js';
 
 export default defineComponent('cl-fileupload', {
     props: {
@@ -10,7 +12,8 @@ export default defineComponent('cl-fileupload', {
         maxfilesize: 0, // in bytes
         disabled: false,
         auto: false,
-        label: 'Choose Files'
+        label: 'Choose Files',
+        dropzone: false // render a drag & drop area instead of a choose button
     },
 
     data() {
@@ -21,36 +24,51 @@ export default defineComponent('cl-fileupload', {
 
     methods: {
         handleFileSelect(event) {
-            const fileList = Array.from(event.target.files);
-            const validFiles = [];
+            const { accepted, rejected } = filterFiles(event.target.files, {
+                accept: this.props.accept,
+                maxSize: this.props.maxfilesize,
+                multiple: this.props.multiple
+            });
+            this.reportRejected(rejected);
+            this.addAccepted(accepted);
+            event.target.value = ''; // allow re-selecting the same file
+        },
 
-            for (const file of fileList) {
-                if (this.props.maxfilesize && file.size > this.props.maxfilesize) {
-                    this.emitEvent('file-size-error', { file });
-                    continue;
-                }
-                validFiles.push({
-                    file,
-                    name: file.name,
-                    size: file.size,
-                    type: file.type
-                });
-            }
+        // Files arriving already-validated from the composed cl-dropzone.
+        onDropzoneSelect(e) {
+            this.addAccepted(e.detail.files);
+        },
+
+        onDropzoneReject(e) {
+            this.reportRejected(e.detail.files || []);
+        },
+
+        reportRejected(rejected) {
+            rejected.forEach(r =>
+                this.emitEvent(r.reason === 'size' ? 'file-size-error' : 'file-type-error', { file: r.file })
+            );
+        },
+
+        addAccepted(files) {
+            if (!files || !files.length) return;
+            const infos = Array.from(files).map(file => ({
+                file,
+                name: file.name,
+                size: file.size,
+                type: file.type
+            }));
 
             if (!this.props.multiple) {
-                this.state.files = validFiles.slice(0, 1);
+                this.state.files = infos.slice(0, 1);
             } else {
-                this.state.files = [...this.state.files, ...validFiles];
+                this.state.files = [...this.state.files, ...infos];
             }
 
             this.emitChange(null, this.state.files);
 
-            if (this.props.auto && validFiles.length > 0) {
+            if (this.props.auto) {
                 this.upload();
             }
-
-            // Reset input
-            event.target.value = '';
         },
 
         removeFile(index) {
@@ -85,21 +103,38 @@ export default defineComponent('cl-fileupload', {
     template() {
         return html`
             <div class="cl-fileupload">
-                <div class="upload-header">
-                    <label class="choose-button">
-                        <input
-                            type="file"
-                            multiple="${this.props.multiple}"
-                            accept="${this.props.accept}"
-                            disabled="${this.props.disabled}"
-                            on-change="handleFileSelect">
-                        ${this.props.label}
-                    </label>
+                ${when(this.props.dropzone, html`
+                    <cl-dropzone
+                        multiple="${this.props.multiple}"
+                        accept="${this.props.accept}"
+                        maxfilesize="${this.props.maxfilesize}"
+                        disabled="${this.props.disabled}"
+                        on-select="onDropzoneSelect"
+                        on-reject="onDropzoneReject">
+                    </cl-dropzone>
                     ${when(this.state.files.length > 0 && !this.props.auto, html`
-                        <button class="upload-button" on-click="upload">Upload</button>
-                        <button class="cancel-button" on-click="clear">Cancel</button>
+                        <div class="upload-actions">
+                            <button class="upload-button" on-click="upload">Upload</button>
+                            <button class="cancel-button" on-click="clear">Cancel</button>
+                        </div>
                     `)}
-                </div>
+                `, html`
+                    <div class="upload-header">
+                        <label class="choose-button">
+                            <input
+                                type="file"
+                                multiple="${this.props.multiple}"
+                                accept="${this.props.accept}"
+                                disabled="${this.props.disabled}"
+                                on-change="handleFileSelect">
+                            ${this.props.label}
+                        </label>
+                        ${when(this.state.files.length > 0 && !this.props.auto, html`
+                            <button class="upload-button" on-click="upload">Upload</button>
+                            <button class="cancel-button" on-click="clear">Cancel</button>
+                        `)}
+                    </div>
+                `)}
                 ${when(this.state.files.length > 0, html`
                     <div class="files-list">
                         ${each(this.state.files, (fileInfo, index) => html`
@@ -137,14 +172,28 @@ export default defineComponent('cl-fileupload', {
             flex-wrap: wrap;
         }
 
+        .upload-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
         .choose-button {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             padding: 10px 20px;
             background: var(--primary-color, #007bff);
             color: white;
+            /* transparent border so the box height matches the bordered
+               Upload/Cancel buttons sitting next to it in the flex row */
+            border: 1px solid transparent;
             border-radius: 4px;
             font-size: 14px;
             font-weight: 500;
+            line-height: 1.5;
+            box-sizing: border-box;
             cursor: pointer;
             transition: background 0.2s;
         }

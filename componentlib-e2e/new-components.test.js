@@ -523,6 +523,76 @@ async function runTests() {
         }
     });
 
+    // ============ Calendar Range Selection Tests ============
+    await test.test('Calendar has a range-mode picker', async () => {
+        await test.selectComponent('Calendar');
+        const mode = await test.page.evaluate(() => {
+            const cals = document.querySelectorAll('example-calendar cl-calendar');
+            return Array.from(cals).some(c => c.getAttribute('selection-mode') === 'range');
+        });
+        await test.assert(mode, 'Should have a calendar with selection-mode="range"');
+    });
+
+    await test.test('Calendar range highlights in-between days on hover', async () => {
+        await test.selectComponent('Calendar');
+
+        // Open the range calendar (2nd cl-calendar in the example).
+        await test.page.evaluate(() => {
+            const cal = document.querySelectorAll('example-calendar cl-calendar')[1];
+            cal.querySelector('.calendar-toggle').click();
+        });
+        await test.page.waitForTimeout(300);
+
+        // Click a start day, then hover a later day.
+        await test.page.evaluate(() => {
+            const cal = document.querySelectorAll('example-calendar cl-calendar')[1];
+            const days = Array.from(cal.querySelectorAll('.day:not(.empty):not(.disabled)'));
+            days[4].click();
+            days[11].dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        });
+        await test.page.waitForTimeout(200);
+
+        const inRange = await test.page.evaluate(() => {
+            const cal = document.querySelectorAll('example-calendar cl-calendar')[1];
+            return cal.querySelectorAll('.day.in-range').length;
+        });
+        await test.assert(inRange > 0, `Hovering after a start pick should preview in-range days, got ${inRange}`);
+    });
+
+    await test.test('Calendar range completes and emits start/end', async () => {
+        await test.selectComponent('Calendar');
+
+        await test.page.evaluate(() => {
+            const cal = document.querySelectorAll('example-calendar cl-calendar')[1];
+            cal.querySelector('.calendar-toggle').click();
+        });
+        await test.page.waitForTimeout(300);
+
+        await test.page.evaluate(() => {
+            const cal = document.querySelectorAll('example-calendar cl-calendar')[1];
+            const days = Array.from(cal.querySelectorAll('.day:not(.empty):not(.disabled)'));
+            days[4].click();
+            days[11].click();
+        });
+        await test.page.waitForTimeout(300);
+
+        const readout = await test.page.evaluate(() => {
+            const el = document.querySelector('example-calendar div[style*="background"]');
+            return el ? el.textContent : '';
+        });
+        await test.assert(
+            /Range:\s*\d{4}-\d{2}-\d{2}\s*→\s*\d{4}-\d{2}-\d{2}/.test(readout),
+            `Completed range should emit start → end ISO dates, got: ${readout}`
+        );
+
+        // Picker should close after completing the range.
+        const closed = await test.page.evaluate(() => {
+            const cal = document.querySelectorAll('example-calendar cl-calendar')[1];
+            return !cal.querySelector('.calendar-picker');
+        });
+        await test.assert(closed, 'Range picker should close after selecting the end date');
+    });
+
     // Cleanup and print summary
     await test.teardown();
 }

@@ -21,12 +21,16 @@ export default defineComponent('cl-toggle', {
 
     data() {
         return {
-            internalChecked: false
+            internalChecked: false,
+            animated: false
         };
     },
 
     mounted() {
         this.state.internalChecked = this._getCheckedState();
+        // Enable the slide/colour transition only after the initial state has
+        // painted, so mounting a checked toggle doesn't animate on -> off -> on.
+        requestAnimationFrame(() => { this.state.animated = true; });
     },
 
     propsChanged(prop, newValue, oldValue) {
@@ -80,7 +84,7 @@ export default defineComponent('cl-toggle', {
 
         return html`
             <div
-                class="cl-toggle-wrapper ${positionClass}"
+                class="cl-toggle-wrapper ${positionClass} ${this.state.animated ? 'animated' : ''}"
                 on-click="toggle"
                 on-keydown="handleKeyDown"
                 tabindex="${this.props.disabled ? '-1' : '0'}"
@@ -129,9 +133,15 @@ export default defineComponent('cl-toggle', {
             position: relative;
             background: var(--input-border, #ccc);
             border-radius: 100px;
-            transition: all 0.2s;
             display: flex;
             align-items: center;
+        }
+
+        /* Transitions are enabled only after the first paint (see mounted()) so
+           a toggle that mounts in the "on" state doesn't animate into it. */
+        .cl-toggle-wrapper.animated .toggle-track,
+        .cl-toggle-wrapper.animated .toggle-thumb {
+            transition: all 0.2s;
         }
 
         .toggle-track.size-small {
@@ -162,7 +172,6 @@ export default defineComponent('cl-toggle', {
             position: absolute;
             background: var(--input-bg, white);
             border-radius: 50%;
-            transition: all 0.2s;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         }
 

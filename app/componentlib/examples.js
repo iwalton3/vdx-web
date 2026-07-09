@@ -257,11 +257,19 @@ export const componentExamples = {
         id: 'calendar',
         name: 'Calendar',
         category: 'form',
-        description: 'Date picker with masked input, month/year picker, and inline mode',
+        description: 'Date picker with masked input, month/year picker, range selection, and inline mode',
         demo: `<example-calendar></example-calendar>`,
         source: `defineComponent('example-calendar', {
     data() {
-        return { date: '', inline: new Date().toISOString().split('T')[0] };
+        return { date: '', inline: new Date().toISOString().split('T')[0], rangeText: 'None' };
+    },
+    methods: {
+        handleRange(e) {
+            const v = e.detail && e.detail.value;
+            this.state.rangeText = (v && v.start)
+                ? \`\${v.start} → \${v.end || '…'}\`
+                : 'None';
+        }
     },
     template() {
         return html\`
@@ -271,6 +279,13 @@ export const componentExamples = {
                     x-model="date">
                 </cl-calendar>
 
+                <!-- selection-mode="range": click start, then end -->
+                <cl-calendar
+                    label="Date Range"
+                    selection-mode="range"
+                    on-change="handleRange">
+                </cl-calendar>
+
                 <cl-calendar
                     label="Inline Calendar"
                     inline="true"
@@ -278,7 +293,7 @@ export const componentExamples = {
                 </cl-calendar>
 
                 <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
-                    Selected: \${this.state.date || 'None'}
+                    Selected: \${this.state.date || 'None'} · Range: \${this.state.rangeText}
                 </div>
             </div>
         \`;
@@ -1204,14 +1219,258 @@ export const componentExamples = {
         id: 'fileupload',
         name: 'FileUpload',
         category: 'misc',
-        description: 'File upload component',
+        description: 'File upload with a choose button or a drag & drop area (dropzone="true")',
         demo: `<example-fileupload></example-fileupload>`,
-        source: `<cl-fileupload
+        source: `<!-- Classic choose-button upload -->
+<cl-fileupload
     multiple="true"
     accept=".pdf,.jpg,.png"
     maxfilesize="1048576"
     on-upload="\${handleUpload}">
+</cl-fileupload>
+
+<!-- Drag & drop area (composes cl-dropzone) -->
+<cl-fileupload
+    dropzone="true"
+    multiple="true"
+    on-change="\${(e, files) => this.state.files = files}">
 </cl-fileupload>`
+    },
+
+    dropzone: {
+        id: 'dropzone',
+        name: 'DropZone',
+        category: 'misc',
+        description: 'Drag & drop, paste, or click-to-browse file capture target with accept/size validation',
+        demo: `<example-dropzone></example-dropzone>`,
+        source: `defineComponent('my-uploader', {
+    methods: {
+        onSelect(e) {
+            // e.detail.files is a File[] that passed accept + maxfilesize
+            console.log('accepted', e.detail.files);
+        },
+        onReject(e) {
+            // e.detail.files is [{ file, reason: 'size' | 'type' }]
+            console.log('rejected', e.detail.files);
+        }
+    },
+    template() {
+        return html\`
+            <cl-dropzone
+                multiple="true"
+                paste="true"
+                on-select="onSelect"
+                on-reject="onReject">
+            </cl-dropzone>
+
+            <cl-dropzone
+                accept="image/*"
+                maxfilesize="\${2 * 1024 * 1024}"
+                label="Drop an image (max 2 MB)"
+                hint="PNG, JPG or GIF"
+                on-select="onSelect"
+                on-reject="onReject">
+            </cl-dropzone>
+        \`;
+    }
+});`
+    },
+
+    divider: {
+        id: 'divider',
+        name: 'Divider',
+        category: 'misc',
+        description: 'Horizontal or vertical separator, optionally with a label',
+        demo: `<example-divider></example-divider>`,
+        source: `<!-- Plain rule -->
+<cl-divider></cl-divider>
+
+<!-- Labelled -->
+<cl-divider label="OR" variant="dashed"></cl-divider>
+<cl-divider label="Left aligned" align="left"></cl-divider>
+
+<!-- Vertical, between inline items -->
+<span>Home</span>
+<cl-divider orientation="vertical"></cl-divider>
+<span>Profile</span>`
+    },
+
+    avatar: {
+        id: 'avatar',
+        name: 'Avatar',
+        category: 'misc',
+        description: 'User avatar with image, initials fallback, status dot, and stacked groups',
+        demo: `<example-avatar></example-avatar>`,
+        source: `<!-- Initials + status, sizes and shapes -->
+<cl-avatar label="Alan Turing" size="md" status="online"></cl-avatar>
+<cl-avatar label="Katherine Johnson" size="xl" shape="square"></cl-avatar>
+
+<!-- Image with automatic initials fallback on load error -->
+<cl-avatar src="/users/ada.jpg" label="Ada Lovelace" size="lg"></cl-avatar>
+
+<!-- Overlapping group with +N overflow -->
+<cl-avatar-group
+    avatars="\${this.state.team}"
+    max="3"
+    size="md">
+</cl-avatar-group>`
+    },
+
+    skeleton: {
+        id: 'skeleton',
+        name: 'Skeleton',
+        category: 'misc',
+        description: 'Loading placeholder shaped like the pending content',
+        demo: `<example-skeleton></example-skeleton>`,
+        source: `<cl-skeleton variant="circle" width="48px"></cl-skeleton>
+<cl-skeleton variant="text" width="40%"></cl-skeleton>
+<cl-skeleton variant="text" lines="2"></cl-skeleton>
+<cl-skeleton variant="rect" height="120px" animation="pulse"></cl-skeleton>`
+    },
+
+    empty: {
+        id: 'empty',
+        name: 'Empty',
+        category: 'misc',
+        description: 'Empty-state placeholder for lists, tables, and search results',
+        demo: `<example-empty></example-empty>`,
+        source: `<cl-empty
+    title="No results found"
+    description="Try adjusting your search or filters.">
+    <cl-button label="Clear filters" severity="secondary"></cl-button>
+    <cl-button label="Add item"></cl-button>
+</cl-empty>`
+    },
+
+    popover: {
+        id: 'popover',
+        name: 'Popover',
+        category: 'overlay',
+        description: 'Click- or hover-triggered panel anchored to a trigger, holding any content',
+        demo: `<example-popover></example-popover>`,
+        source: `<cl-popover position="bottom">
+    <cl-button label="Open"></cl-button>
+    <div slot="content">
+        ...any rich content: menus, forms, details...
+    </div>
+</cl-popover>
+
+<!-- Hover trigger -->
+<cl-popover position="right" trigger="hover">
+    <cl-button label="Info"></cl-button>
+    <div slot="content">Rich hover content</div>
+</cl-popover>`
+    },
+
+    segmented: {
+        id: 'segmented',
+        name: 'Segmented',
+        category: 'selection',
+        description: 'Segmented control / select-button for one-of-few choices (view & filter switches)',
+        demo: `<example-segmented></example-segmented>`,
+        source: `<cl-segmented
+    options="\${[
+        { label: 'List', value: 'list', icon: '☰' },
+        { label: 'Grid', value: 'grid', icon: '▦' },
+        { label: 'Board', value: 'board', icon: '▤' }
+    ]}"
+    x-model="view">
+</cl-segmented>
+
+<!-- Options may also be plain strings -->
+<cl-segmented options="\${['Off', 'On']}" x-model="power"></cl-segmented>`
+    },
+
+    inplace: {
+        id: 'inplace',
+        name: 'Inplace',
+        category: 'form',
+        description: 'Click-to-edit text: display value, click to edit, Enter/blur commits, Escape cancels',
+        demo: `<example-inplace></example-inplace>`,
+        source: `<cl-inplace x-model="name"></cl-inplace>
+<cl-inplace x-model="title" empty-text="Add a title…"></cl-inplace>`
+    },
+
+    rating: {
+        id: 'rating',
+        name: 'Rating',
+        category: 'form',
+        description: 'Star rating with hover preview, half steps, and read-only display',
+        demo: `<example-rating></example-rating>`,
+        source: `<!-- Interactive -->
+<cl-rating x-model="score"></cl-rating>
+
+<!-- Half stars -->
+<cl-rating x-model="score" precision="0.5"></cl-rating>
+
+<!-- Read-only display -->
+<cl-rating value="4" readonly="true"></cl-rating>`
+    },
+
+    otp: {
+        id: 'otp',
+        name: 'OTP',
+        category: 'form',
+        description: 'One-time-code / PIN input with auto-advance, backspace, and paste distribution',
+        demo: `<example-otp></example-otp>`,
+        source: `<cl-otp
+    length="6"
+    type="number"
+    x-model="code"
+    on-complete="\${(e) => verify(e.detail.value)}">
+</cl-otp>
+
+<!-- Masked PIN -->
+<cl-otp length="4" type="number" mask="true"></cl-otp>`
+    },
+
+    copy: {
+        id: 'copy',
+        name: 'Copy',
+        category: 'misc',
+        description: 'Copy-to-clipboard control (button, icon, or inline value) with a transient copied state',
+        demo: `<example-copy></example-copy>`,
+        source: `<cl-copy value="npm install vdx-web" label="Copy command"></cl-copy>
+
+<!-- Inline value + copy icon -->
+<cl-copy variant="inline" value="vdx_demo_a1b2c3d4e5f6"></cl-copy>
+
+<!-- Icon only -->
+<cl-copy variant="icon" value="a1b2c3d4e5f6"></cl-copy>`
+    },
+
+    meter: {
+        id: 'meter',
+        name: 'Meter',
+        category: 'data',
+        description: 'Dashboard gauge (linear bar or radial ring) that colours by threshold as the value rises',
+        demo: `<example-meter></example-meter>`,
+        source: `<!-- Linear with threshold colours -->
+<cl-meter label="Memory" value="72" unit="%"
+    thresholds="\${[{ value: 70, color: '#f5b301' }, { value: 90, color: '#dc3545' }]}">
+</cl-meter>
+
+<!-- Radial gauge -->
+<cl-meter variant="radial" value="72" unit="%" label="CPU"
+    thresholds="\${thresholds}">
+</cl-meter>
+
+<!-- Custom range and fixed colour -->
+<cl-meter variant="radial" value="8" min="0" max="10" label="Score" color="#28a745"></cl-meter>`
+    },
+
+    timeline: {
+        id: 'timeline',
+        name: 'Timeline',
+        category: 'data',
+        description: 'Vertical event timeline with status markers — activity feeds, order history, audit logs',
+        demo: `<example-timeline></example-timeline>`,
+        source: `<cl-timeline items="\${[
+    { time: '09:00', title: 'Order placed', icon: '✓', status: 'success' },
+    { time: '11:30', title: 'Processing', icon: '⚙' },
+    { time: '14:15', title: 'Shipped', icon: '🚚', status: 'warning' },
+    { time: '—', title: 'Delivered', status: 'muted' }
+]}"></cl-timeline>`
     },
 
     colorpicker: {

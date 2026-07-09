@@ -301,13 +301,53 @@ Range slider input.
 
 ### cl-calendar
 
-Date picker component.
+Date picker component. Masked typeable input, month/year picker, and inline mode.
 
 ```javascript
 <cl-calendar
     label="Select Date"
     x-model="selectedDate">
 </cl-calendar>
+```
+
+**Range selection** with `selection-mode="range"`: click a start date, then an end date
+(in-between days highlight on hover). Emits `change` with `{ start, end }` (ISO date strings):
+
+```javascript
+<cl-calendar
+    label="Date Range"
+    selection-mode="range"
+    on-change="${(e) => this.state.range = e.detail.value}">
+</cl-calendar>
+<!-- initial value: object { start, end } or "YYYY-MM-DD/YYYY-MM-DD" -->
+```
+
+### cl-inplace
+
+Click-to-edit text. Shows a value; click (or Enter/Space) to edit; Enter/blur commits, Escape cancels.
+
+```javascript
+<cl-inplace x-model="title" empty-text="Add a title…"></cl-inplace>
+```
+
+### cl-rating
+
+Star rating input/display with hover preview. `precision="0.5"` enables half stars; `readonly` for display.
+
+```javascript
+<cl-rating x-model="score" max="5"></cl-rating>
+<cl-rating value="4.5" precision="0.5" readonly="true"></cl-rating>
+```
+
+### cl-otp
+
+One-time-code / PIN input: a row of single-character boxes with auto-advance, backspace-to-previous,
+arrow navigation, and paste distribution. Emits `complete` when every box is filled.
+
+```javascript
+<cl-otp length="6" type="number" x-model="code"
+    on-complete="${(e) => verify(e.detail.value)}"></cl-otp>
+<cl-otp length="4" type="number" mask="true"></cl-otp>   <!-- password dots -->
 ```
 
 ## Selection Components
@@ -394,6 +434,18 @@ Tag input component for managing a list of values.
     placeholder="Add tag..."
     x-model="tags">
 </cl-chips>
+```
+
+### cl-segmented
+
+Segmented control / select-button for one-of-few choices (view switches, filters). x-model compatible.
+Options may be strings or `{ label, value, icon }`.
+
+```javascript
+<cl-segmented
+    options="${[{ label: 'List', value: 'list' }, { label: 'Grid', value: 'grid' }]}"
+    x-model="view">
+</cl-segmented>
 ```
 
 ## Data Components
@@ -633,6 +685,31 @@ you want the intent explicit at the call site rather than a bare `gap`).
 multi-select set to move as a group. If you need **group drag** (moving a whole selection
 at once), compose `createWindowing` + `createRowGestures` directly and pass the gesture
 controller a `selection` adapter - see `lib/gestures.js`.
+
+### cl-timeline
+
+Vertical event timeline with status markers - activity feeds, order history, audit logs.
+Data-driven: `items = [{ title, description, time, icon, color, status }]`. `align="alternate"` for a two-sided layout.
+
+```javascript
+<cl-timeline items="${[
+    { time: '09:00', title: 'Order placed', icon: '✓', status: 'success' },
+    { time: '11:30', title: 'Processing', icon: '⚙' },
+    { time: '—', title: 'Delivered', status: 'muted' }
+]}"></cl-timeline>
+```
+
+### cl-meter
+
+Dashboard gauge for a single value in a range. `variant="linear"` (bar) or `"radial"` (ring).
+Recolors by `thresholds` (lower-bounds) as the value rises; or a fixed `color`. `min`/`max`/`unit`/`label`.
+
+```javascript
+<cl-meter label="Memory" value="72" unit="%"
+    thresholds="${[{ value: 70, color: '#f5b301' }, { value: 90, color: '#dc3545' }]}">
+</cl-meter>
+<cl-meter variant="radial" value="8" min="0" max="10" label="Score" color="#28a745"></cl-meter>
+```
 
 ## Panel Components
 
@@ -896,6 +973,24 @@ rows, wire it to `createRowGestures` from `lib/gestures.js`: pass an
 list combining drag-reorder, multiselect checkboxes, group drag, and this
 context menu with correct `memoEach` keying.
 
+### cl-popover
+
+Click- or hover-triggered panel anchored to a trigger element, holding arbitrary content
+(distinct from `cl-tooltip`, which is hover + text only). Default children are the trigger;
+`slot="content"` is the panel body. Closes on outside click and Escape. Public methods: `show()`, `hide()`, `toggle()`.
+
+```javascript
+<cl-popover position="bottom">
+    <cl-button label="Open"></cl-button>
+    <div slot="content">...menus, forms, details...</div>
+</cl-popover>
+
+<cl-popover position="right" trigger="hover">
+    <cl-button label="Info"></cl-button>
+    <div slot="content">Rich hover content</div>
+</cl-popover>
+```
+
 ## Button Components
 
 ### cl-button
@@ -993,7 +1088,8 @@ Progress indicator.
 
 ### cl-fileupload
 
-File upload component.
+File upload component. Set `dropzone="true"` to render a drag & drop area (it composes
+`cl-dropzone`) instead of the choose button.
 
 ```javascript
 <cl-fileupload
@@ -1002,12 +1098,35 @@ File upload component.
     maxfilesize="1048576"
     on-upload="${this.handleUpload}">
 </cl-fileupload>
+
+<!-- Drag & drop area -->
+<cl-fileupload dropzone="true" multiple="true"
+    on-change="${(e, files) => this.state.files = files}">
+</cl-fileupload>
 ```
 
 **Props:**
 - `multiple` - Allow multiple files
 - `accept` - Accepted file types
 - `maxfilesize` - Max file size in bytes
+- `dropzone` - Render a drag & drop area instead of a choose button
+
+### cl-dropzone
+
+A focused drag & drop (and paste, and click-to-browse) file capture target. Validates against
+`accept` / `maxfilesize` and emits the accepted and rejected sets - it keeps no file list of its
+own (pair it with `cl-fileupload`, or handle `select` yourself).
+
+```javascript
+<cl-dropzone
+    multiple="true"
+    accept="image/*"
+    maxfilesize="${2 * 1024 * 1024}"
+    paste="true"
+    on-select="${(e) => upload(e.detail.files)}"       // File[] that passed validation
+    on-reject="${(e) => warn(e.detail.files)}">         // [{ file, reason: 'size' | 'type' }]
+</cl-dropzone>
+```
 
 ### cl-colorpicker
 
@@ -1042,6 +1161,11 @@ These components exist in `app/componentlib/` and are used the same way; see the
 - **cl-stepper** (`panel/stepper.js`) - Step wizard; `steps`, `activeIndex`, `linear`, `orientation`
 - **cl-shell** (`layout/shell.js`) - App shell layout with sidebar; `title`, `logo`, `menuItems`, `activeItem`
 - **cl-action-menu** (`overlay/action-menu.js`) - Dropdown action menu button; `label`, `items`, `position`
+- **cl-avatar** (`misc/avatar.js`) - User avatar with image, initials fallback, and status dot; `src`, `label`, `size`, `shape`, `status`. Also **cl-avatar-group** - overlapping stack with `avatars`, `max` (+N overflow)
+- **cl-skeleton** (`misc/skeleton.js`) - Loading placeholder; `variant` (`text`/`rect`/`circle`), `width`, `height`, `lines`, `animation` (`wave`/`pulse`/`none`)
+- **cl-empty** (`misc/empty.js`) - Empty-state placeholder; `icon`, `title`, `description`, `size`; default slot renders action buttons
+- **cl-divider** (`misc/divider.js`) - Separator; `orientation` (`horizontal`/`vertical`), `label`, `align`, `variant` (`solid`/`dashed`/`dotted`)
+- **cl-copy** (`misc/copy.js`) - Copy-to-clipboard control; `value`, `variant` (`button`/`icon`/`inline`), `label`, `copiedLabel`; emits `copy`
 
 ## Using x-model with Component Library
 

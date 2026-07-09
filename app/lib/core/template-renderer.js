@@ -1831,6 +1831,13 @@ function resolveEventHandler(eventName, def, values, component, isCustomElement)
                 let value;
 
                 if (def.customElement) {
+                    // Only honor the component's OWN change event, dispatched on
+                    // the host element (target === the element carrying x-model).
+                    // Native change/input events that bubble up from an inner
+                    // <input> have a descendant target and no detail; letting them
+                    // through would clobber the bound state to undefined. A custom
+                    // element must emitChange() to drive x-model.
+                    if (e.target !== e.currentTarget) return;
                     value = (e.detail && e.detail.value !== undefined) ? e.detail.value : e.detail;
                 } else {
                     const target = e.target;

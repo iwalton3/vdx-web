@@ -1040,3 +1040,60 @@ describe('Event Handler Support', function(it) {
         }, 100);
     });
 });
+
+describe('x-model isolation from inner native events', function(it) {
+    // Regression: a custom element that wraps a native <input> would have its
+    // parent's x-model clobbered by the native input/change events bubbling out
+    // of that inner input (they carry no detail). x-model must only honor the
+    // component's OWN change event, dispatched on the host (target === host).
+    it('ignores native events from an inner input but honors the component own change', (done) => {
+        defineComponent('test-xmodel-wrapper', {
+            props: { value: '' },
+            methods: {
+                commit(v) {
+                    this.dispatchEvent(new CustomEvent('change', {
+                        detail: { value: v }, bubbles: true, composed: true
+                    }));
+                }
+            },
+            template() {
+                return html`<input id="inner" type="text" value="${this.props.value}">`;
+            }
+        });
+
+        defineComponent('test-xmodel-parent', {
+            data() { return { name: 'start' }; },
+            template() {
+                return html`<test-xmodel-wrapper id="w" x-model="name"></test-xmodel-wrapper>`;
+            }
+        });
+
+        const el = document.createElement('test-xmodel-parent');
+        document.body.appendChild(el);
+
+        setTimeout(() => {
+            const wrapper = el.querySelector('#w');
+            const inner = wrapper.querySelector('#inner');
+
+            // Native input/change bubbling from the inner input must NOT touch state.
+            inner.value = 'typed-by-user';
+            inner.dispatchEvent(new Event('input', { bubbles: true }));
+            inner.dispatchEvent(new Event('change', { bubbles: true }));
+
+            setTimeout(() => {
+                assert.equal(el.state.name, 'start',
+                    'Native events bubbling from an inner input must not update x-model state');
+
+                // The component's own change (dispatched on the host) DOES update state.
+                wrapper.commit('committed');
+
+                setTimeout(() => {
+                    assert.equal(el.state.name, 'committed',
+                        'The component own change event should drive x-model');
+                    document.body.removeChild(el);
+                    done();
+                }, 40);
+            }, 40);
+        }, 100);
+    });
+});
