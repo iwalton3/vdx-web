@@ -27,10 +27,13 @@ cd componentlib-e2e && node run-framework-tests.js
 # Or open http://localhost:9000/tests/
 
 # Component library E2E tests (~260 tests)
-cd componentlib-e2e && node test-runner.js
+# PREFER --only-errors: it runs the files in parallel (~10x faster) and only
+# prints output from failing tests. Use the bare command only when you need the
+# full passing-test output for debugging.
+cd componentlib-e2e && node test-runner.js --only-errors
 
-# Only show output from failing tests (quieter for CI or quick checks)
-node test-runner.js --only-errors
+# Full output (slower, sequential)
+node test-runner.js
 ```
 
 ## Required Reading (VERY IMPORTANT)

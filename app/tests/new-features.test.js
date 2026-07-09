@@ -1097,3 +1097,92 @@ describe('x-model isolation from inner native events', function(it) {
         }, 100);
     });
 });
+
+describe('on-* value argument and native-event delegation', function(it) {
+    // Fix: a chained x-model + on-change now delivers (e, value) to on-change,
+    // not just (e).
+    it('passes the resolved value to a chained on-change handler', (done) => {
+        let received = 'UNSET';
+        defineComponent('test-chain-wrapper', {
+            props: { value: '' },
+            methods: {
+                emit(v) {
+                    this.dispatchEvent(new CustomEvent('change', {
+                        detail: { value: v }, bubbles: true, composed: true
+                    }));
+                }
+            },
+            template() { return html`<span>${this.props.value}</span>`; }
+        });
+        defineComponent('test-chain-parent', {
+            data() { return { v: '' }; },
+            methods: { onChange(e, value) { received = value; } },
+            template() {
+                return html`<test-chain-wrapper id="w" x-model="v" on-change="onChange"></test-chain-wrapper>`;
+            }
+        });
+
+        const el = document.createElement('test-chain-parent');
+        document.body.appendChild(el);
+        setTimeout(() => {
+            el.querySelector('#w').emit('hello');
+            setTimeout(() => {
+                assert.equal(received, 'hello', 'chained on-change should receive the value as 2nd arg');
+                assert.equal(el.state.v, 'hello', 'x-model should still update in the chain');
+                document.body.removeChild(el);
+                done();
+            }, 30);
+        }, 100);
+    });
+
+    // Fix: native input/change handlers now also receive the target value.
+    it('passes the target value as the 2nd arg to a native input handler', (done) => {
+        let received = 'UNSET';
+        defineComponent('test-native-val', {
+            methods: { onInput(e, value) { received = value; } },
+            template() { return html`<input id="i" type="text" on-input="onInput">`; }
+        });
+        const el = document.createElement('test-native-val');
+        document.body.appendChild(el);
+        setTimeout(() => {
+            const input = el.querySelector('#i');
+            input.value = 'abc';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            setTimeout(() => {
+                assert.equal(received, 'abc', 'native input handler should get target value as 2nd arg');
+                document.body.removeChild(el);
+                done();
+            }, 30);
+        }, 100);
+    });
+
+    // Fix: a native change bubbling to a custom element is ignored by its
+    // on-change, unless -delegate opts back in.
+    it('ignores native change bubbling to a custom element on-change, unless -delegate', (done) => {
+        let normalCalls = 0, delegateCalls = 0;
+        defineComponent('test-inner-wrap', {
+            template() { return html`<input id="inner" type="text">`; }
+        });
+        defineComponent('test-guard-parent', {
+            methods: { onNormal() { normalCalls++; }, onDelegate() { delegateCalls++; } },
+            template() {
+                return html`
+                    <test-inner-wrap id="a" on-change="onNormal"></test-inner-wrap>
+                    <test-inner-wrap id="b" on-change-delegate="onDelegate"></test-inner-wrap>
+                `;
+            }
+        });
+        const el = document.createElement('test-guard-parent');
+        document.body.appendChild(el);
+        setTimeout(() => {
+            el.querySelector('#a #inner').dispatchEvent(new Event('change', { bubbles: true }));
+            el.querySelector('#b #inner').dispatchEvent(new Event('change', { bubbles: true }));
+            setTimeout(() => {
+                assert.equal(normalCalls, 0, 'native change from an inner input must not reach on-change');
+                assert.equal(delegateCalls, 1, '-delegate should forward the native change');
+                document.body.removeChild(el);
+                done();
+            }, 30);
+        }, 100);
+    });
+});

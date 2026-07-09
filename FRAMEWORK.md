@@ -40,13 +40,16 @@ export default defineComponent('my-component', {
 ```javascript
 <button on-click="handleClick">Click</button>
 <form on-submit-prevent="handleSubmit">...</form>       // -prevent / -stop chain
-<input on-change="handleChange">
+<input on-change="${(e, value) => this.state.x = value}">  // handler gets (event, value)
 <div on-custom-event="handleCustom">  // Any event name works
 <div on-touchmove-passive="handleTouch">  // -passive: never blocks scrolling
 <div on-click-outside="closeMenu">        // fires on clicks outside the element
+<cl-widget on-input-delegate="onInput">   // -delegate: also see native events from inner controls
 ```
 
-`-passive` handlers must never call `preventDefault()` (ignored; the framework warns if combined with `-prevent`).
+Every handler is called with `(event, value)` - the resolved value as a 2nd arg (typed target
+value for native controls, `event.detail.value` for custom elements). `-passive` handlers must
+never call `preventDefault()` (ignored; the framework warns if combined with `-prevent`).
 
 ## Two-Way Binding (x-model)
 
@@ -61,16 +64,14 @@ template() {
 }
 ```
 
-**x-model on a custom element** binds to that component's `change` event and reads
-`detail.value`. So a component you drive with `x-model` must call `this.emitChange(null, value)`
-(which dispatches `change` on the host) to push its value out. x-model deliberately
-**ignores** native `input`/`change` events that bubble up from an inner `<input>` inside the
-component (they carry no `detail` and would clobber the bound state) - only the host's own
-change is honored. Components that wrap a native input should therefore emit their own change.
-
-**Chaining caveat:** if you put both `x-model` and `on-change` on the same custom element, the
-`on-change` handler receives only `(e)` - the extracted `detail.value` is *not* passed as a 2nd
-argument. Read `e.detail.value` inside the handler instead of relying on `(e, value)`.
+**`x-model` / `on-change` on a custom element** listen for the *component's own* change - a
+`CustomEvent` it dispatches on the host via `this.emitChange(null, value)` - not native
+`input`/`change` events that bubble up from an inner `<input>`. Those bubbled native events are
+ignored so they can't clobber the binding, which means **a component that wraps a native input
+must emit its own change** to be drivable. This holds for both `x-model` and a plain `on-change`,
+and it composes: `x-model` + `on-change` on the same element both fire with `(event, value)`.
+If you actually want the raw bubbled native events, opt in per-handler with `-delegate`
+(`on-input-delegate="..."`).
 
 ## Template Helpers
 

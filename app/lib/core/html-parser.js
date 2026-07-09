@@ -36,8 +36,10 @@ const VOID_ELEMENTS = new Set([
 
 // Known event modifiers
 // prevent: e.preventDefault() | stop: e.stopPropagation() |
-// passive: register with { passive: true } (scroll-friendly touch/wheel)
-const KNOWN_MODIFIERS = new Set(['prevent', 'stop', 'passive']);
+// passive: register with { passive: true } (scroll-friendly touch/wheel) |
+// delegate: on a custom element, still receive native input/change events that
+// bubble up from inner controls (off by default; see FRAMEWORK.md x-model notes)
+const KNOWN_MODIFIERS = new Set(['prevent', 'stop', 'passive', 'delegate']);
 
 // HTML entities - common ones for inline decoding
 const HTML_ENTITIES = new Map([

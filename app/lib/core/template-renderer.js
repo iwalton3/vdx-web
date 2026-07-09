@@ -1818,6 +1818,27 @@ function resolveDynamicProp(name, def, values, component, isCustomElement) {
 }
 
 /**
+ * Resolve the value passed as the 2nd argument to an on-* handler. Custom
+ * elements carry it in event.detail.value; native controls derive it from the
+ * target by input type (mirrors the x-model native branches).
+ */
+function resolveEventValue(e, isCustomElement) {
+    if (isCustomElement) {
+        return (e.detail && e.detail.value !== undefined) ? e.detail.value : e.detail;
+    }
+    const t = e.target;
+    if (!t) return undefined;
+    if (t.type === 'checkbox') return t.checked;
+    if (t.type === 'radio') return t.checked ? t.value : undefined;
+    if (t.type === 'number' || t.type === 'range') {
+        const n = t.valueAsNumber;
+        return Number.isNaN(n) ? t.value : n;
+    }
+    if (t.type === 'file') return t.files;
+    return t.value;
+}
+
+/**
  * Resolve an event handler
  */
 function resolveEventHandler(eventName, def, values, component, isCustomElement) {
@@ -1898,21 +1919,32 @@ function resolveEventHandler(eventName, def, values, component, isCustomElement)
             handler = (e) => { e.stopPropagation(); return orig(e); };
         }
 
-        // Chain with existing handler if needed (e.g., x-model + on-input)
+        // Chain with existing handler if needed (e.g., x-model + on-change).
+        // Thread the resolved value to both so a chained on-change still gets
+        // (e, value) and not just (e).
         if (def._chainWith) {
             const firstHandler = resolveEventHandler(eventName, def._chainWith, values, component, isCustomElement);
             if (firstHandler) {
                 const secondHandler = handler;
-                handler = (e) => { firstHandler(e); secondHandler(e); };
+                handler = (e, value) => { firstHandler(e, value); secondHandler(e, value); };
             }
         }
 
-        // Wrap for custom elements to extract e.detail.value
-        if (isCustomElement && !def.xModel) {
+        // Every on-* handler receives the resolved value as its 2nd argument
+        // (uniform across native + custom elements). On a custom element, a
+        // native input/change bubbling from an inner control is NOT the
+        // component's own change - ignore it so it can't drive a parent handler
+        // or x-model. Opt back into forwarding with the `-delegate` modifier.
+        if (!def.xModel) {
             const orig = handler;
+            const delegate = modifiers.includes('delegate');
+            const guardFormEvent = isCustomElement && !delegate
+                && (eventName === 'input' || eventName === 'change');
             handler = (e) => {
-                const value = (e.detail && e.detail.value !== undefined) ? e.detail.value : e.detail;
-                return orig(e, value);
+                if (guardFormEvent && e.target !== e.currentTarget && !(e instanceof CustomEvent)) {
+                    return;
+                }
+                return orig(e, resolveEventValue(e, isCustomElement));
             };
         }
     }
