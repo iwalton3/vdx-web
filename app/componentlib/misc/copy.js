@@ -4,6 +4,9 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires copy - detail: { value } - the copied text
+ */
 export class ClCopy extends Component {
     static props = {
         value: '',

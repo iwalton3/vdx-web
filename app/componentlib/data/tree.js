@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - the selected node values
+ */
 export class ClTree extends Component {
     static props = {
         value: [],

@@ -87,6 +87,9 @@ function isBounded(bound) {
     return bound !== null && bound !== undefined && bound !== '';
 }
 
+/**
+ * @fires change - detail: { value }
+ */
 export class ClInputNumber extends Component {
     static props = {
         value: 0,

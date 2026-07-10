@@ -3,6 +3,10 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires click - the primary button was activated
+ * @fires item-click - detail: the chosen dropdown menu item
+ */
 export class ClSplitButton extends Component {
     static props = {
         label: '',

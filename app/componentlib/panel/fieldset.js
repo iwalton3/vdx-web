@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - the collapsed state
+ */
 export class ClFieldset extends Component {
     static props = {
         legend: '',

@@ -19,6 +19,9 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires retry - recovery was requested from the error UI
+ */
 export class ClErrorBoundary extends Component {
     static props = {
         // Error object or message string

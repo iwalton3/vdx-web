@@ -20,6 +20,11 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires validate - detail: { step, nextStep } or { step, isComplete }; cancelable
+ * @fires complete - detail: { completedSteps }
+ * @fires change - detail: { value: { step, previousStep, direction } }
+ */
 export class ClStepper extends Component {
     static props = {
         steps: [],           // Array of { label: string, icon?: string, optional?: boolean }

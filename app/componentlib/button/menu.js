@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires item-click - detail: the clicked menu item
+ */
 export class ClMenu extends Component {
     static props = {
         model: [] // Array of {label: string, icon: string, command: function, items: []}

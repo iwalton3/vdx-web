@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires item-click - detail: { item, originalEvent }
+ */
 export class ClBreadcrumb extends Component {
     static props = {
         model: [], // Array of {label: string, url: string, command: function}

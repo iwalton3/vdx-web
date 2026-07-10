@@ -4,6 +4,10 @@
  */
 import { defineComponent, html, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires input - detail: { value }
+ * @fires change - detail: { value }
+ */
 export class ClRating extends Component {
     static props = {
         value: 0,

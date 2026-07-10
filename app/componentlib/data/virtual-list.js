@@ -11,6 +11,11 @@ import { defineComponent, html, memoEach, when, Component } from '../../lib/fram
 import { createWindowing } from '../../lib/windowing.js';
 import { createRowGestures, gapToRemoveInsertIndex } from '../../lib/gestures.js';
 
+/**
+ * @fires reorder - detail: { fromIndices, gap, from, to }
+ * @fires select - detail: { item, index, key }
+ * @fires item-click - detail: { item, index, key }
+ */
 export class ClVirtualList extends Component {
     static props = {
         items: [],

@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - the selected value
+ */
 export class ClRadioButton extends Component {
     static props = {
         value: '',

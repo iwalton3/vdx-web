@@ -12,6 +12,10 @@ function normalize(options) {
     );
 }
 
+/**
+ * @fires input - detail: { value }
+ * @fires change - detail: { value }
+ */
 export class ClSegmented extends Component {
     static props = {
         options: [],

@@ -40,6 +40,9 @@ function closeOthers(except) {
     }
 }
 
+/**
+ * @fires select - detail: { item, context }
+ */
 export class ClContextMenu extends Component {
     static props = {
         // Array of { label, icon?, disabled?, danger?, separator?, action?, command?, shortcut? }.

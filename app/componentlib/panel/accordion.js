@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, each, raw, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - the active index, or an array when multiple
+ */
 export class ClAccordion extends Component {
     static props = {
         tabs: [], // Array of {header: string, content: string}

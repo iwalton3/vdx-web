@@ -12,6 +12,9 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires popover-toggle - detail: { open }
+ */
 export class ClPopover extends Component {
     static props = {
         position: 'bottom',   // 'top' | 'bottom' | 'left' | 'right'

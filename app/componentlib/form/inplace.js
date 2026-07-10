@@ -5,6 +5,9 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - the committed value
+ */
 export class ClInplace extends Component {
     static props = {
         value: '',

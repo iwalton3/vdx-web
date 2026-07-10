@@ -17,6 +17,9 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires item-click - detail: the activated item
+ */
 export class ClActionMenu extends Component {
     static props = {
         label: '...',           // Button label (default: ellipsis)

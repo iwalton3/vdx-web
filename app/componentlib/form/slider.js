@@ -12,6 +12,9 @@ import { defineComponent, html, when, Component } from '../../lib/framework.js';
 // Counter for unique IDs
 let sliderIdCounter = 0;
 
+/**
+ * @fires change - detail: { value }
+ */
 export class ClSlider extends Component {
     static props = {
         value: 0,

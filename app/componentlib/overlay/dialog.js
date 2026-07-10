@@ -19,6 +19,9 @@ let dialogIdCounter = 0;
 // Selector for focusable elements
 const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
+/**
+ * @fires change - detail: { value: false } - the dialog was closed
+ */
 export class ClDialog extends Component {
     static props = {
         visible: false,

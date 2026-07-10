@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires remove - detail: { value }
+ */
 export class ClBadge extends Component {
     static props = {
         value: '',

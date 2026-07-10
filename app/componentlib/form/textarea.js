@@ -12,6 +12,9 @@ import { defineComponent, html, when, Component } from '../../lib/framework.js';
 // Counter for unique IDs
 let textareaIdCounter = 0;
 
+/**
+ * @fires change - detail: { value }
+ */
 export class ClTextarea extends Component {
     static props = {
         value: '',

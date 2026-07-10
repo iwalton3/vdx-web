@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value }
+ */
 export class ClColorpicker extends Component {
     static props = {
         value: '#000000',

@@ -5,6 +5,12 @@ import { defineComponent, html, when, each, Component } from '../../lib/framewor
 import './dropzone.js';
 import { filterFiles } from './dropzone.js';
 
+/**
+ * @fires upload - detail: { files }
+ * @fires file-size-error - detail: { file }
+ * @fires file-type-error - detail: { file }
+ * @fires change - detail: { value } - the current file list
+ */
 export class ClFileupload extends Component {
     static props = {
         multiple: false,

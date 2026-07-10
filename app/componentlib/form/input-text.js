@@ -12,6 +12,10 @@ import { defineComponent, html, when, Component } from '../../lib/framework.js';
 // Counter for unique IDs
 let inputTextIdCounter = 0;
 
+/**
+ * @fires input - detail: { value } - on each keystroke
+ * @fires change - detail: { value }
+ */
 export class ClInputText extends Component {
     static props = {
         value: '',

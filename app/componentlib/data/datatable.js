@@ -16,6 +16,12 @@ import { defineComponent, html, when, each, Component } from '../../lib/framewor
 // Counter for unique IDs
 let datatableIdCounter = 0;
 
+/**
+ * @fires sort - detail: { field, order }
+ * @fires row-select - detail: { data, index }
+ * @fires row-unselect - detail: { data, index }
+ * @fires change - detail: { value } - the selected row (single) or rows (multiple)
+ */
 export class ClDatatable extends Component {
     static props = {
         value: [],

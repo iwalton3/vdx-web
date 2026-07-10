@@ -14,6 +14,9 @@ import { defineComponent, html, when, each, Component } from '../../lib/framewor
 // Counter for unique IDs
 let dropdownIdCounter = 0;
 
+/**
+ * @fires change - detail: { value }
+ */
 export class ClDropdown extends Component {
     static props = {
         options: [],

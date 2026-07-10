@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires close - the alert was dismissed
+ */
 export class ClAlert extends Component {
     static props = {
         severity: 'info',       // 'info', 'success', 'warning', 'error'

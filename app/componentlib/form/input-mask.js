@@ -9,6 +9,10 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires input - detail: { value }
+ * @fires change - detail: { value }
+ */
 export class ClInputMask extends Component {
     static props = {
         value: '',

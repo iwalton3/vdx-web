@@ -3,6 +3,10 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - ISO date string, or { start, end } in range mode
+ * @fires range-change - detail: { start, end } (ISO dates or null)
+ */
 export class ClCalendar extends Component {
     static props = {
         value: '',

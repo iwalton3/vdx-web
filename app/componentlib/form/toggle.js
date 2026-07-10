@@ -7,6 +7,10 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - the toggled state
+ * @fires input - detail: { value }
+ */
 export class ClToggle extends Component {
     static props = {
         checked: false,

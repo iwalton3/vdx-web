@@ -14,6 +14,9 @@ import { defineComponent, html, when, each, Component } from '../../lib/framewor
 // Counter for unique IDs
 let multiselectIdCounter = 0;
 
+/**
+ * @fires change - detail: { value } - array of selected values
+ */
 export class ClMultiselect extends Component {
     static props = {
         options: [],

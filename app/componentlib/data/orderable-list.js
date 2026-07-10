@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - the reordered items array
+ */
 export class ClOrderableList extends Component {
     static props = {
         value: [],

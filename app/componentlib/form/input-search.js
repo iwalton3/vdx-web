@@ -3,6 +3,14 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires input - detail: { value } - on each keystroke
+ * @fires search - detail: { value } - debounced
+ * @fires submit - detail: { value } - Enter pressed
+ * @fires clear - the field was cleared
+ * @fires select - detail: { value, suggestion }
+ * @fires change - detail: { value }
+ */
 export class ClInputSearch extends Component {
     static props = {
         value: '',

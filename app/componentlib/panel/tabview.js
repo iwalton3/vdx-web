@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, each, raw, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - the active tab index
+ */
 export class ClTabview extends Component {
     static props = {
         tabs: [], // Array of {header: string, content: string}

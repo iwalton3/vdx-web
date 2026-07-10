@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - the panel sizes
+ */
 export class ClSplitter extends Component {
     static props = {
         layout: 'horizontal', // 'horizontal' or 'vertical'

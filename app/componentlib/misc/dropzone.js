@@ -65,6 +65,11 @@ export function filterFiles(fileList, { accept = '', maxSize = 0, multiple = tru
     };
 }
 
+/**
+ * @fires select - detail: { files } - the accepted files
+ * @fires reject - detail: { files } - files failing the type/size rules
+ * @fires change - detail: { value } - the accepted files
+ */
 export class ClDropzone extends Component {
     static props = {
         multiple: false,

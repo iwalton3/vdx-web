@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - the checked state
+ */
 export class ClCheckbox extends Component {
     static props = {
         checked: false,

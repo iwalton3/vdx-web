@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value: { first, page, rows } }
+ */
 export class ClPaginator extends Component {
     static props = {
         totalrecords: 0,

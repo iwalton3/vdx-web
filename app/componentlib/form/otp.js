@@ -9,6 +9,11 @@
  */
 import { defineComponent, html, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires input - detail: { value }
+ * @fires complete - detail: { value } - all digits entered
+ * @fires change - detail: { value }
+ */
 export class ClOtp extends Component {
     static props = {
         length: 6,

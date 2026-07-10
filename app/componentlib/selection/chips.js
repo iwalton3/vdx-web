@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - array of chip values
+ */
 export class ClChips extends Component {
     static props = {
         value: [],

@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
+/**
+ * @fires change - detail: { value } - the activated nav item key
+ */
 export class ClShell extends Component {
     static props = {
         title: 'VDX',

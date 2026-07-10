@@ -3,6 +3,9 @@
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
+/**
+ * @fires click - re-dispatched as a bubbling CustomEvent; detail is the original mouse event
+ */
 export class ClButton extends Component {
     static props = {
         label: '',
