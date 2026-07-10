@@ -112,9 +112,9 @@ async function runTests() {
             return sourceSection ? sourceSection.textContent : '';
         });
 
-        // Check for proper patterns in source code
+        // Check for proper patterns in source code (class authoring style)
         await test.assert(sourceCode.includes('defineComponent'), 'Source should show defineComponent wrapper');
-        await test.assert(sourceCode.includes('data()'), 'Source should show data() function');
+        await test.assert(sourceCode.includes('extends Component'), 'Source should show class extends Component');
         await test.assert(sourceCode.includes('x-model='), 'Source should show x-model usage');
     });
 
