@@ -432,6 +432,42 @@ function shouldSkipWrapping(expr) {
     return false;
 }
 
+/**
+ * Collect names of locals whose initializer reads reactive state
+ * (this.state/stores/props) through a COMPUTED expression the optimizer cannot
+ * inline (anything other than a plain member path).
+ *
+ * Such a local, if captured inside html.contain(() => ...), is frozen at the
+ * value from the first template() run -- the closure never re-reads the state,
+ * and if the local gates a short-circuiting ternary the closure subscribes to
+ * nothing and never updates at all. So any ${} referencing one must NOT be
+ * fine-grained; leaving it coarse lets the component's compute effect re-run
+ * template() (which re-reads the state) and refresh the value.
+ *
+ * Simple paths (const x = this.state.y) are excluded: fixTaintedReferences
+ * inlines those before wrapping, so they never remain in the wrapped expression.
+ */
+function collectComputedStateLocals(source) {
+    const names = new Set();
+    const re = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([^;]*\bthis\.(?:state|stores|props)\b[^;]*);/g;
+    let m;
+    while ((m = re.exec(source)) !== null) {
+        const [, name, rhs] = m;
+        const isSimplePath = /^\s*this\.(?:state|stores|props)(?:\.[\w$]+|\[[^\]]+\])*\s*$/.test(rhs);
+        if (!isSimplePath) names.add(name);
+    }
+    return names;
+}
+
+/** Does `expr` reference any of `names` as a standalone identifier? */
+function referencesComputedStateLocal(expr, names) {
+    if (!names || names.size === 0) return false;
+    for (const n of names) {
+        if (new RegExp(`(?<![.\\-])\\b${n}\\b(?![\\-]|\\s*:)`).test(expr)) return true;
+    }
+    return false;
+}
+
 // =============================================================================
 // Early Dereference Detection and Fixing (for optimize.js build-time)
 // =============================================================================
@@ -1443,9 +1479,9 @@ function lintClassComponentFields(source, filename = '') {
 /**
  * Check if an expression will be modified (either wrapped or fixed).
  */
-function willBeModified(exprText, varToPath) {
+function willBeModified(exprText, varToPath, computedStateLocals) {
     // Will be wrapped if not skipped
-    if (!shouldSkipWrapping(exprText)) {
+    if (!shouldSkipWrapping(exprText) && !referencesComputedStateLocal(exprText, computedStateLocals)) {
         return true;
     }
     // Will be fixed if contains any early-dereferenced variable
@@ -1463,7 +1499,7 @@ function willBeModified(exprText, varToPath) {
  * Apply transformations to a single pass of expressions.
  * Returns the transformed source and count of changes.
  */
-function applyOptPass(source, varToPath) {
+function applyOptPass(source, varToPath, computedStateLocals) {
     // Normalize varToPath - values can be strings or objects with {path, defRegionStart, defRegionEnd}
     // fixTaintedReferences expects string values, so extract just the paths
     const normalizedVarToPath = new Map();
@@ -1483,7 +1519,8 @@ function applyOptPass(source, varToPath) {
     const skippedNoNested = [];
 
     for (const expr of allExpressions) {
-        const willBeSkipped = shouldSkipWrapping(expr.expr);
+        const willBeSkipped = shouldSkipWrapping(expr.expr) ||
+            referencesComputedStateLocal(expr.expr, computedStateLocals);
 
         // Check if this expression CONTAINS nested expressions that will be MODIFIED
         // (wrapped OR fixed - either causes position shifts)
@@ -1493,7 +1530,7 @@ function applyOptPass(source, varToPath) {
             expr !== other &&
             other.start > expr.start &&
             other.end < expr.end &&
-            willBeModified(other.expr, normalizedVarToPath)
+            willBeModified(other.expr, normalizedVarToPath, computedStateLocals)
         );
 
         if (containsModifiableNested) {
@@ -1523,8 +1560,10 @@ function applyOptPass(source, varToPath) {
             fixedCount++;
         }
 
-        // Skip contain() wrapping for certain patterns, but still apply the fix
-        if (shouldSkipWrapping(expr)) {
+        // Skip contain() wrapping for certain patterns, but still apply the fix.
+        // Also skip when the expression references a computed state-derived local:
+        // fine-graining would freeze that local (see collectComputedStateLocals).
+        if (shouldSkipWrapping(expr) || referencesComputedStateLocal(expr, computedStateLocals)) {
             if (fixedExpr !== expr) {
                 result = result.slice(0, start) + '${' + fixedExpr + '}' + result.slice(end);
             }
@@ -1540,6 +1579,10 @@ function applyOptPass(source, varToPath) {
 
 function applyOptTransformations(source, filename = '', verbose = false) {
     const { fixable, unfixable } = detectEarlyDereferences(source);
+
+    // Locals computed from reactive state that can't be inlined: any ${} referencing
+    // one must not be fine-grained (the contain() closure would freeze it).
+    const computedStateLocals = collectComputedStateLocals(source);
 
     // Check for stale argument patterns - warn but continue optimization
     // The when/each/memoEach helper calls are already skipped from contain() wrapping
@@ -1559,7 +1602,7 @@ function applyOptTransformations(source, filename = '', verbose = false) {
     // Apply passes until no more changes (handles nested templates)
     // Max 10 passes to prevent infinite loops
     for (let pass = 0; pass < 10; pass++) {
-        const { code, fixedCount } = applyOptPass(result, fixable);
+        const { code, fixedCount } = applyOptPass(result, fixable, computedStateLocals);
         if (code === result) break;  // No changes, done
         result = code;
         totalFixed += fixedCount;
