@@ -2,15 +2,15 @@
  * Empty - Empty-state placeholder for lists, tables, and search results.
  * Default slot / children render call-to-action buttons under the message.
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-empty', {
-    props: {
+export class ClEmpty extends Component {
+    static props = {
         icon: '',                  // emoji or text glyph; default 📭
         title: 'Nothing here yet',
         description: '',
         size: 'md'                 // 'sm' | 'md' | 'lg'
-    },
+    }
 
     template() {
         return html`
@@ -27,9 +27,9 @@ export default defineComponent('cl-empty', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host { display: block; }
 
         .cl-empty {
@@ -78,4 +78,6 @@ export default defineComponent('cl-empty', {
         .cl-empty.size-lg .empty-icon { font-size: 64px; margin-bottom: 20px; }
         .cl-empty.size-lg .empty-title { font-size: 20px; }
     `
-});
+}
+
+export default defineComponent('cl-empty', ClEmpty);

@@ -2,13 +2,13 @@
  * Timeline - Vertical sequence of events with markers and a connecting line.
  * Data-driven: items = [{ title, description, time, icon, color, status }].
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-timeline', {
-    props: {
+export class ClTimeline extends Component {
+    static props = {
         items: [],
         align: 'left'   // 'left' | 'alternate'
-    },
+    }
 
     template() {
         const items = this.props.items || [];
@@ -35,9 +35,9 @@ export default defineComponent('cl-timeline', {
                 }, (item, i) => item.id != null ? item.id : i)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host { display: block; }
 
         .cl-timeline {
@@ -126,4 +126,6 @@ export default defineComponent('cl-timeline', {
             .align-alternate .side-right .tl-content { grid-column: 2; text-align: left; }
         }
     `
-});
+}
+
+export default defineComponent('cl-timeline', ClTimeline);

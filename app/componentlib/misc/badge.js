@@ -1,10 +1,10 @@
 /**
  * Badge - Badge/pill component for labels, counts, and status indicators
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-badge', {
-    props: {
+export class ClBadge extends Component {
+    static props = {
         value: '',
         severity: 'primary',    // 'primary', 'secondary', 'success', 'danger', 'warning', 'info'
         size: 'medium',         // 'small', 'medium', 'large'
@@ -12,18 +12,16 @@ export default defineComponent('cl-badge', {
         dot: false,             // Show as dot (no value)
         icon: '',               // Optional icon
         removable: false        // Show remove button
-    },
+    }
 
-    methods: {
-        handleRemove(e) {
-            e.stopPropagation();
-            this.dispatchEvent(new CustomEvent('remove', {
-                bubbles: true,
-                composed: true,
-                detail: { value: this.props.value }
-            }));
-        }
-    },
+    handleRemove(e) {
+        e.stopPropagation();
+        this.dispatchEvent(new CustomEvent('remove', {
+            bubbles: true,
+            composed: true,
+            detail: { value: this.props.value }
+        }));
+    }
 
     template() {
         const classes = [
@@ -49,9 +47,9 @@ export default defineComponent('cl-badge', {
                 `)}
             </span>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: inline-block;
         }
@@ -160,4 +158,6 @@ export default defineComponent('cl-badge', {
             opacity: 1;
         }
     `
-});
+}
+
+export default defineComponent('cl-badge', ClBadge);

@@ -1,15 +1,15 @@
 /**
  * ProgressBar - Progress indicator
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-progressbar', {
-    props: {
+export class ClProgressbar extends Component {
+    static props = {
         value: 0,
         showvalue: true,
         mode: 'determinate', // 'determinate' or 'indeterminate'
         color: ''
-    },
+    }
 
     template() {
         const percentage = Math.min(100, Math.max(0, this.props.value));
@@ -31,9 +31,9 @@ export default defineComponent('cl-progressbar', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -82,4 +82,6 @@ export default defineComponent('cl-progressbar', {
             text-align: right;
         }
     `
-});
+}
+
+export default defineComponent('cl-progressbar', ClProgressbar);

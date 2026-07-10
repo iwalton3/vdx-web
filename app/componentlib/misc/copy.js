@@ -2,65 +2,65 @@
  * Copy - Copy-to-clipboard control. Renders as a button, an icon, or an inline
  * value + icon. Shows a transient "copied" state and emits a 'copy' event.
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-copy', {
-    props: {
+export class ClCopy extends Component {
+    static props = {
         value: '',
         label: 'Copy',
         copiedLabel: 'Copied!',
         variant: 'button',    // 'button' | 'icon' | 'inline'
         disabled: false
-    },
+    }
 
-    data() {
-        return { copied: false };
-    },
+    constructor(props) {
+        super(props);
+
+        this.state = { copied: false };
+    }
 
     unmounted() {
         if (this._timer) clearTimeout(this._timer);
-    },
+    }
 
-    methods: {
-        async copy() {
-            if (this.props.disabled) return;
-            const text = this.props.value != null ? String(this.props.value) : '';
-            const ok = await this._write(text);
-            if (ok) {
-                this.state.copied = true;
-                this.dispatchEvent(new CustomEvent('copy', {
-                    bubbles: true, composed: true, detail: { value: text }
-                }));
-                if (this._timer) clearTimeout(this._timer);
-                this._timer = setTimeout(() => { this.state.copied = false; }, 1500);
-            }
-        },
-
-        async _write(text) {
-            try {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    await navigator.clipboard.writeText(text);
-                    return true;
-                }
-            } catch (e) { /* fall through to legacy path */ }
-
-            // Legacy fallback for non-secure contexts.
-            try {
-                const ta = document.createElement('textarea');
-                ta.value = text;
-                ta.style.position = 'fixed';
-                ta.style.opacity = '0';
-                document.body.appendChild(ta);
-                ta.focus();
-                ta.select();
-                const ok = document.execCommand('copy');
-                document.body.removeChild(ta);
-                return ok;
-            } catch (e) {
-                return false;
-            }
+    async copy() {
+        if (this.props.disabled) return;
+        const text = this.props.value != null ? String(this.props.value) : '';
+        const ok = await this._write(text);
+        if (ok) {
+            this.state.copied = true;
+            this.dispatchEvent(new CustomEvent('copy', {
+                bubbles: true, composed: true, detail: { value: text }
+            }));
+            if (this._timer) clearTimeout(this._timer);
+            this._timer = setTimeout(() => { this.state.copied = false; }, 1500);
         }
-    },
+    }
+
+    async _write(text) {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+        } catch (e) { /* fall through to legacy path */ }
+
+        // Legacy fallback for non-secure contexts.
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok;
+        } catch (e) {
+            return false;
+        }
+    }
 
     template() {
         const copyIcon = html`
@@ -116,9 +116,9 @@ export default defineComponent('cl-copy', {
                 <span class="copy-label">${this.state.copied ? this.props.copiedLabel : this.props.label}</span>
             </button>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host { display: inline-block; }
 
         .cl-copy {
@@ -190,4 +190,6 @@ export default defineComponent('cl-copy', {
         .copy-inline-btn:hover:not(:disabled) { color: var(--primary-color, #007bff); }
         .cl-copy.inline.copied .copy-inline-btn { color: #28a745; }
     `
-});
+}
+
+export default defineComponent('cl-copy', ClCopy);

@@ -15,23 +15,25 @@
  *     ]}">
  * </cl-action-menu>
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-action-menu', {
-    props: {
+export class ClActionMenu extends Component {
+    static props = {
         label: '...',           // Button label (default: ellipsis)
         icon: '',               // Optional icon for button
         items: [],              // Array of menu items
         position: 'bottom-end', // Menu position: bottom-start, bottom-end, top-start, top-end
         disabled: false         // Disable the menu
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             isOpen: false,
             dropdownStyle: ''
         };
-    },
+    }
 
     mounted() {
         // Close menu when clicking outside
@@ -57,114 +59,112 @@ export default defineComponent('cl-action-menu', {
             }
         };
         window.addEventListener('scroll', this._handleScroll, true);
-    },
+    }
 
     unmounted() {
         document.removeEventListener('click', this._handleOutsideClick);
         document.removeEventListener('keydown', this._handleEscape);
         window.removeEventListener('scroll', this._handleScroll, true);
-    },
+    }
 
-    methods: {
-        toggleMenu(e) {
-            e.stopPropagation();
-            if (!this.props.disabled) {
-                if (!this.state.isOpen) {
-                    this.updateDropdownPosition();
-                }
-                this.state.isOpen = !this.state.isOpen;
+    toggleMenu(e) {
+        e.stopPropagation();
+        if (!this.props.disabled) {
+            if (!this.state.isOpen) {
+                this.updateDropdownPosition();
             }
-        },
-
-        updateDropdownPosition() {
-            const btn = this.querySelector('.trigger-btn');
-            if (!btn) return;
-
-            const rect = btn.getBoundingClientRect();
-            const position = this.props.position;
-
-            let top, left;
-
-            if (position.startsWith('bottom')) {
-                top = rect.bottom + 4;
-            } else {
-                // Will be adjusted after we know dropdown height
-                top = rect.top - 4;
-            }
-
-            if (position.endsWith('end')) {
-                // Right-aligned - we'll set right instead
-                left = rect.right;
-            } else {
-                left = rect.left;
-            }
-
-            // Store for use in template
-            this._btnRect = rect;
-            this._position = position;
-        },
-
-        getDropdownStyle() {
-            if (!this._btnRect) return '';
-
-            const rect = this._btnRect;
-            const position = this._position || 'bottom-end';
-            const menuWidth = 180; // min-width from CSS
-            const padding = 8; // viewport padding
-
-            let styles = [];
-
-            // Vertical positioning
-            if (position.startsWith('bottom')) {
-                styles.push(`top: ${rect.bottom + 4}px`);
-            } else {
-                styles.push(`bottom: ${window.innerHeight - rect.top + 4}px`);
-            }
-
-            // Horizontal positioning with bounds checking
-            if (position.endsWith('end')) {
-                // Right-aligned: check if it would clip left edge
-                const rightPos = window.innerWidth - rect.right;
-                const leftEdge = rect.right - menuWidth;
-
-                if (leftEdge < padding) {
-                    // Would clip left, align to left edge instead
-                    styles.push(`left: ${padding}px`);
-                } else {
-                    styles.push(`right: ${rightPos}px`);
-                }
-            } else {
-                // Left-aligned: check if it would clip right edge
-                const rightEdge = rect.left + menuWidth;
-
-                if (rightEdge > window.innerWidth - padding) {
-                    // Would clip right, align to right edge instead
-                    styles.push(`right: ${padding}px`);
-                } else {
-                    styles.push(`left: ${rect.left}px`);
-                }
-            }
-
-            return styles.join('; ');
-        },
-
-        handleItemClick(item, e) {
-            e.stopPropagation();
-
-            if (item.disabled) return;
-
-            this.state.isOpen = false;
-
-            if (item.action) {
-                item.action();
-            }
-
-            this.dispatchEvent(new CustomEvent('item-click', {
-                detail: item,
-                bubbles: true
-            }));
+            this.state.isOpen = !this.state.isOpen;
         }
-    },
+    }
+
+    updateDropdownPosition() {
+        const btn = this.querySelector('.trigger-btn');
+        if (!btn) return;
+
+        const rect = btn.getBoundingClientRect();
+        const position = this.props.position;
+
+        let top, left;
+
+        if (position.startsWith('bottom')) {
+            top = rect.bottom + 4;
+        } else {
+            // Will be adjusted after we know dropdown height
+            top = rect.top - 4;
+        }
+
+        if (position.endsWith('end')) {
+            // Right-aligned - we'll set right instead
+            left = rect.right;
+        } else {
+            left = rect.left;
+        }
+
+        // Store for use in template
+        this._btnRect = rect;
+        this._position = position;
+    }
+
+    getDropdownStyle() {
+        if (!this._btnRect) return '';
+
+        const rect = this._btnRect;
+        const position = this._position || 'bottom-end';
+        const menuWidth = 180; // min-width from CSS
+        const padding = 8; // viewport padding
+
+        let styles = [];
+
+        // Vertical positioning
+        if (position.startsWith('bottom')) {
+            styles.push(`top: ${rect.bottom + 4}px`);
+        } else {
+            styles.push(`bottom: ${window.innerHeight - rect.top + 4}px`);
+        }
+
+        // Horizontal positioning with bounds checking
+        if (position.endsWith('end')) {
+            // Right-aligned: check if it would clip left edge
+            const rightPos = window.innerWidth - rect.right;
+            const leftEdge = rect.right - menuWidth;
+
+            if (leftEdge < padding) {
+                // Would clip left, align to left edge instead
+                styles.push(`left: ${padding}px`);
+            } else {
+                styles.push(`right: ${rightPos}px`);
+            }
+        } else {
+            // Left-aligned: check if it would clip right edge
+            const rightEdge = rect.left + menuWidth;
+
+            if (rightEdge > window.innerWidth - padding) {
+                // Would clip right, align to right edge instead
+                styles.push(`right: ${padding}px`);
+            } else {
+                styles.push(`left: ${rect.left}px`);
+            }
+        }
+
+        return styles.join('; ');
+    }
+
+    handleItemClick(item, e) {
+        e.stopPropagation();
+
+        if (item.disabled) return;
+
+        this.state.isOpen = false;
+
+        if (item.action) {
+            item.action();
+        }
+
+        this.dispatchEvent(new CustomEvent('item-click', {
+            detail: item,
+            bubbles: true
+        }));
+    }
 
     template() {
         const { label, icon, items, disabled } = this.props;
@@ -200,9 +200,9 @@ export default defineComponent('cl-action-menu', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: inline-block;
             position: relative;
@@ -315,4 +315,6 @@ export default defineComponent('cl-action-menu', {
             border-top: 1px solid var(--input-border, #dee2e6);
         }
     `
-});
+}
+
+export default defineComponent('cl-action-menu', ClActionMenu);

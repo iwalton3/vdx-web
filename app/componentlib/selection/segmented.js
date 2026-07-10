@@ -2,7 +2,7 @@
  * Segmented - Segmented control / select-button for choosing one of a few
  * mutually exclusive options (view switches, filters). x-model compatible.
  */
-import { defineComponent, html, each } from '../../lib/framework.js';
+import { defineComponent, html, each, Component } from '../../lib/framework.js';
 
 function normalize(options) {
     return (options || []).map(o =>
@@ -12,41 +12,39 @@ function normalize(options) {
     );
 }
 
-export default defineComponent('cl-segmented', {
-    props: {
+export class ClSegmented extends Component {
+    static props = {
         options: [],
         value: null,
         disabled: false,
         size: 'medium',     // 'small' | 'medium' | 'large'
         fluid: false        // stretch to fill container width
-    },
+    }
 
-    data() {
-        return { internalValue: null };
-    },
+    constructor(props) {
+        super(props);
+
+        this.state = { internalValue: null };
+    }
 
     mounted() {
         this.state.internalValue = this.props.value;
-    },
+    }
 
     propsChanged(prop, newValue) {
         if (prop === 'value') this.state.internalValue = newValue;
-    },
+    }
 
-    methods: {
-        select(value) {
-            if (this.props.disabled) return;
-            this.state.internalValue = value;
-            this.emitChange(null, value);
-            this.dispatchEvent(new CustomEvent('input', {
-                bubbles: true, composed: true, detail: { value }
-            }));
-        }
-    },
+    select(value) {
+        if (this.props.disabled) return;
+        this.state.internalValue = value;
+        this.emitChange(null, value);
+        this.dispatchEvent(new CustomEvent('input', {
+            bubbles: true, composed: true, detail: { value }
+        }));
+    }
 
-    computed: {
-        items() { return normalize(this.props.options); }
-    },
+    get items() { return normalize(this.props.options); }
 
     template() {
         const classes = [
@@ -75,9 +73,9 @@ export default defineComponent('cl-segmented', {
                 }, opt => opt.value)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host { display: inline-block; }
 
         .cl-segmented {
@@ -127,4 +125,6 @@ export default defineComponent('cl-segmented', {
 
         .seg-icon { line-height: 1; }
     `
-});
+}
+
+export default defineComponent('cl-segmented', ClSegmented);

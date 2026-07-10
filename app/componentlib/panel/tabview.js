@@ -1,31 +1,31 @@
 /**
  * TabView - Tabbed interface component
  */
-import { defineComponent, html, when, each, raw } from '../../lib/framework.js';
+import { defineComponent, html, when, each, raw, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-tabview', {
-    props: {
+export class ClTabview extends Component {
+    static props = {
         tabs: [], // Array of {header: string, content: string}
         activeindex: 0
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             activeTab: 0
         };
-    },
+    }
 
     mounted() {
         // Convert to number since props from HTML attributes are strings
         this.state.activeTab = parseInt(this.props.activeindex, 10) || 0;
-    },
+    }
 
-    methods: {
-        selectTab(index) {
-            this.state.activeTab = index;
-            this.emitChange(null, index);
-        }
-    },
+    selectTab(index) {
+        this.state.activeTab = index;
+        this.emitChange(null, index);
+    }
 
     template() {
         const tabs = this.props.tabs || [];
@@ -46,9 +46,9 @@ export default defineComponent('cl-tabview', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -97,4 +97,6 @@ export default defineComponent('cl-tabview', {
             line-height: 1.6;
         }
     `
-});
+}
+
+export default defineComponent('cl-tabview', ClTabview);

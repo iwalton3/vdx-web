@@ -1,14 +1,14 @@
 /**
  * Card - Content card container
  */
-import { defineComponent, html, when, raw } from '../../lib/framework.js';
+import { defineComponent, html, when, raw, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-card', {
-    props: {
+export class ClCard extends Component {
+    static props = {
         header: '',
         subheader: '',
         footer: ''
-    },
+    }
 
     template() {
         // children is always an array, slots has named slots
@@ -38,9 +38,9 @@ export default defineComponent('cl-card', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -84,4 +84,6 @@ export default defineComponent('cl-card', {
             font-size: 14px;
         }
     `
-});
+}
+
+export default defineComponent('cl-card', ClCard);

@@ -1,38 +1,36 @@
 /**
  * Skeleton - Loading placeholder that mirrors the shape of pending content.
  */
-import { defineComponent, html, each } from '../../lib/framework.js';
+import { defineComponent, html, each, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-skeleton', {
-    props: {
+export class ClSkeleton extends Component {
+    static props = {
         variant: 'text',       // 'text' | 'rect' | 'circle'
         width: '',             // CSS length; defaults per variant
         height: '',            // CSS length; defaults per variant
         lines: 1,              // for variant="text": number of lines
         animation: 'wave',     // 'wave' | 'pulse' | 'none'
         radius: ''             // border-radius override
-    },
+    }
 
-    methods: {
-        boxStyle(isLast, isText) {
-            const w = this.props.width || (isText && isLast ? '60%' : '100%');
-            const h = this.props.height
-                || (this.props.variant === 'circle' ? '40px'
-                    : this.props.variant === 'rect' ? '120px' : '');
-            let radius = this.props.radius;
-            if (!radius) {
-                radius = this.props.variant === 'circle' ? '50%'
-                    : this.props.variant === 'rect' ? '8px' : '4px';
-            }
-            let style = `border-radius:${radius};`;
-            if (w) style += `width:${w};`;
-            if (h) style += `height:${h};`;
-            if (this.props.variant === 'circle' && !this.props.height) {
-                style += `width:${this.props.width || '40px'};height:${this.props.width || '40px'};`;
-            }
-            return style;
+    boxStyle(isLast, isText) {
+        const w = this.props.width || (isText && isLast ? '60%' : '100%');
+        const h = this.props.height
+            || (this.props.variant === 'circle' ? '40px'
+                : this.props.variant === 'rect' ? '120px' : '');
+        let radius = this.props.radius;
+        if (!radius) {
+            radius = this.props.variant === 'circle' ? '50%'
+                : this.props.variant === 'rect' ? '8px' : '4px';
         }
-    },
+        let style = `border-radius:${radius};`;
+        if (w) style += `width:${w};`;
+        if (h) style += `height:${h};`;
+        if (this.props.variant === 'circle' && !this.props.height) {
+            style += `width:${this.props.width || '40px'};height:${this.props.width || '40px'};`;
+        }
+        return style;
+    }
 
     template() {
         const anim = `anim-${this.props.animation}`;
@@ -53,9 +51,9 @@ export default defineComponent('cl-skeleton', {
             <span class="cl-skeleton ${this.props.variant} ${anim}"
                   style="${this.boxStyle(true, this.props.variant === 'text')}"></span>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host { display: block; }
 
         .cl-skeleton-lines {
@@ -101,4 +99,6 @@ export default defineComponent('cl-skeleton', {
             100% { transform: translateX(100%); }
         }
     `
-});
+}
+
+export default defineComponent('cl-skeleton', ClSkeleton);

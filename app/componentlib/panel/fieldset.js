@@ -1,33 +1,33 @@
 /**
  * Fieldset - Fieldset with legend and toggle
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-fieldset', {
-    props: {
+export class ClFieldset extends Component {
+    static props = {
         legend: '',
         toggleable: false,
         collapsed: false
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             isCollapsed: false
         };
-    },
+    }
 
     mounted() {
         this.state.isCollapsed = this.props.collapsed;
-    },
+    }
 
-    methods: {
-        toggle() {
-            if (this.props.toggleable) {
-                this.state.isCollapsed = !this.state.isCollapsed;
-                this.emitChange(null, this.state.isCollapsed);
-            }
+    toggle() {
+        if (this.props.toggleable) {
+            this.state.isCollapsed = !this.state.isCollapsed;
+            this.emitChange(null, this.state.isCollapsed);
         }
-    },
+    }
 
     template() {
         return html`
@@ -45,9 +45,9 @@ export default defineComponent('cl-fieldset', {
                 </div>
             </fieldset>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -89,4 +89,6 @@ export default defineComponent('cl-fieldset', {
             display: none;
         }
     `
-});
+}
+
+export default defineComponent('cl-fieldset', ClFieldset);

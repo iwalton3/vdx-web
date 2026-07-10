@@ -6,13 +6,13 @@
  *       thresholds="${[{ value: 70, color: '#f5b301' }, { value: 90, color: '#dc3545' }]}">
  *   </cl-meter>
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
 const RADIUS = 42;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export default defineComponent('cl-meter', {
-    props: {
+export class ClMeter extends Component {
+    static props = {
         value: 0,
         min: 0,
         max: 100,
@@ -23,28 +23,28 @@ export default defineComponent('cl-meter', {
         color: '',           // fixed colour override (ignores thresholds)
         thresholds: [],      // [{ value, color }] lower-bounds where the colour switches
         size: 120            // radial diameter in px
-    },
+    }
 
-    computed: {
-        fraction() {
-            const min = Number(this.props.min), max = Number(this.props.max);
-            const span = max - min;
-            if (!span) return 0;
-            return Math.min(1, Math.max(0, (Number(this.props.value) - min) / span));
-        },
-        percent() {
-            return Math.round(this.fraction * 100);
-        },
-        activeColor() {
-            if (this.props.color) return this.props.color;
-            const th = [...(this.props.thresholds || [])].sort((a, b) => a.value - b.value);
-            let color = 'var(--primary-color, #007bff)';
-            for (const t of th) {
-                if (Number(this.props.value) >= t.value) color = t.color;
-            }
-            return color;
+    get fraction() {
+        const min = Number(this.props.min), max = Number(this.props.max);
+        const span = max - min;
+        if (!span) return 0;
+        return Math.min(1, Math.max(0, (Number(this.props.value) - min) / span));
+    }
+
+    get percent() {
+        return Math.round(this.fraction * 100);
+    }
+
+    get activeColor() {
+        if (this.props.color) return this.props.color;
+        const th = [...(this.props.thresholds || [])].sort((a, b) => a.value - b.value);
+        let color = 'var(--primary-color, #007bff)';
+        for (const t of th) {
+            if (Number(this.props.value) >= t.value) color = t.color;
         }
-    },
+        return color;
+    }
 
     template() {
         const valueText = `${this.props.value}${this.props.unit}`;
@@ -91,9 +91,9 @@ export default defineComponent('cl-meter', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host { display: block; }
 
         /* Linear */
@@ -177,4 +177,6 @@ export default defineComponent('cl-meter', {
             color: var(--text-muted, #6c757d);
         }
     `
-});
+}
+
+export default defineComponent('cl-meter', ClMeter);

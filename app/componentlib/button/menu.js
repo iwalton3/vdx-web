@@ -1,51 +1,52 @@
 /**
  * Menu - Menu component
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-menu', {
-    props: {
+export class ClMenu extends Component {
+    static props = {
         model: [] // Array of {label: string, icon: string, command: function, items: []}
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             expandedItems: new Set()
         };
-    },
+    }
 
-    methods: {
-        handleItemClick(item, event) {
-            event.stopPropagation();
+    handleItemClick(item, event) {
+        event.stopPropagation();
 
-            if (item.items && item.items.length > 0) {
-                this.toggleSubmenu(item);
-            } else {
-                if (item.command) {
-                    item.command();
-                }
-                this.emitEvent('item-click', item);
+        if (item.items && item.items.length > 0) {
+            this.toggleSubmenu(item);
+        } else {
+            if (item.command) {
+                item.command();
             }
-        },
+            this.emitEvent('item-click', item);
+        }
+    }
 
-        toggleSubmenu(item) {
-            const key = item.label;
-            if (this.state.expandedItems.has(key)) {
-                this.state.expandedItems.delete(key);
-            } else {
-                this.state.expandedItems.add(key);
-            }
-        },
+    toggleSubmenu(item) {
+        const key = item.label;
+        if (this.state.expandedItems.has(key)) {
+            this.state.expandedItems.delete(key);
+        } else {
+            this.state.expandedItems.add(key);
+        }
+    }
 
-        isExpanded(item) {
-            return this.state.expandedItems.has(item.label);
-        },
+    isExpanded(item) {
+        return this.state.expandedItems.has(item.label);
+    }
 
-        renderMenuItem(item, level = 0) {
-            const hasSubmenu = item.items && item.items.length > 0;
-            const isExpanded = this.isExpanded(item);
+    renderMenuItem(item, level = 0) {
+        const hasSubmenu = item.items && item.items.length > 0;
+        const isExpanded = this.isExpanded(item);
 
-            return html`
+        return html`
                 <div class="menu-item-wrapper">
                     <div
                         class="menu-item ${hasSubmenu ? 'has-submenu' : ''}"
@@ -66,12 +67,11 @@ export default defineComponent('cl-menu', {
                     `)}
                 </div>
             `;
-        },
+    }
 
-        emitEvent(name, detail) {
-            this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
-        }
-    },
+    emitEvent(name, detail) {
+        this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+    }
 
     template() {
         const model = this.props.model || [];
@@ -81,9 +81,9 @@ export default defineComponent('cl-menu', {
                 ${each(model, item => this.renderMenuItem(item))}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -145,4 +145,6 @@ export default defineComponent('cl-menu', {
             background: var(--hover-bg, #e9ecef);
         }
     `
-});
+}
+
+export default defineComponent('cl-menu', ClMenu);

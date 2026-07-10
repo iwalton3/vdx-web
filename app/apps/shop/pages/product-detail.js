@@ -1,7 +1,7 @@
 /**
  * Product Detail Page
  */
-import { defineComponent, html, when, each } from '../../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../../lib/framework.js';
 import cartStore from '../cart-store.js';
 
 // Import UI components
@@ -9,118 +9,116 @@ import '../../../componentlib/button/button.js';
 import '../../../componentlib/form/input-number.js';
 import '../../../componentlib/button/breadcrumb.js';
 
-export default defineComponent('shop-product-detail', {
-    props: {
+export class ShopProductDetail extends Component {
+    static props = {
         params: {}  // URL params from router
-    },
+    }
 
-    stores: { cart: cartStore },
+    static stores = { cart: cartStore }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             product: null,
             relatedProducts: [],
             quantity: 1,
             loading: true,
             selectedImage: 0
         };
-    },
+    }
 
     async mounted() {
         await this.loadProduct();
-    },
+    }
 
-    computed: {
-        breadcrumbs() {
-            if (!this.state.product) return [];
-            return [
-                { label: 'Products', url: '#/shop/products/' },
-                { label: this.getCategoryName(this.state.product.category), url: `#/shop/products/${this.state.product.category}/` },
-                { label: this.state.product.name }
-            ];
-        },
+    get breadcrumbs() {
+        if (!this.state.product) return [];
+        return [
+            { label: 'Products', url: '#/shop/products/' },
+            { label: this.getCategoryName(this.state.product.category), url: `#/shop/products/${this.state.product.category}/` },
+            { label: this.state.product.name }
+        ];
+    }
 
-        discountPercent() {
-            if (!this.state.product?.originalPrice) return 0;
-            return Math.round((1 - this.state.product.price / this.state.product.originalPrice) * 100);
-        }
-    },
+    get discountPercent() {
+        if (!this.state.product?.originalPrice) return 0;
+        return Math.round((1 - this.state.product.price / this.state.product.originalPrice) * 100);
+    }
 
-    methods: {
-        async loadProduct() {
-            try {
-                const response = await fetch('./products.json');
-                const data = await response.json();
+    async loadProduct() {
+        try {
+            const response = await fetch('./products.json');
+            const data = await response.json();
 
-                const productId = parseInt(this.props.params?.id);
-                this.state.product = data.products.find(p => p.id === productId);
+            const productId = parseInt(this.props.params?.id);
+            this.state.product = data.products.find(p => p.id === productId);
 
-                if (this.state.product) {
-                    // Get related products from same category
-                    this.state.relatedProducts = data.products
-                        .filter(p => p.category === this.state.product.category && p.id !== productId)
-                        .slice(0, 4);
-                }
-
-                this.state.loading = false;
-            } catch (e) {
-                console.error('Failed to load product:', e);
-                this.state.loading = false;
+            if (this.state.product) {
+                // Get related products from same category
+                this.state.relatedProducts = data.products
+                    .filter(p => p.category === this.state.product.category && p.id !== productId)
+                    .slice(0, 4);
             }
-        },
 
-        handleQuantityChange(e, val) {
-            this.state.quantity = Math.max(1, Math.min(10, val));
-        },
-
-        addToCart() {
-            if (!this.state.product || !this.state.product.inStock) return;
-
-            cartStore.state.addItem(this.state.product, this.state.quantity);
-
-            // Show toast
-            const toast = document.querySelector('cl-toast');
-            if (toast) {
-                toast.show({
-                    severity: 'success',
-                    summary: 'Added to Cart',
-                    detail: `${this.state.quantity}x ${this.state.product.name} added to your cart`,
-                    life: 3000
-                });
-            }
-        },
-
-        buyNow() {
-            this.addToCart();
-            window.location.hash = '/shop/cart/';
-        },
-
-        goBack() {
-            window.history.back();
-        },
-
-        navigateToProduct(productId) {
-            window.location.hash = `/shop/product/${productId}/`;
-            // Reload the product
-            this.state.loading = true;
-            setTimeout(() => this.loadProduct(), 0);
-        },
-
-        navigateToCategory(categoryId) {
-            window.location.hash = `/shop/products/${categoryId}/`;
-        },
-
-        getCategoryName(categoryId) {
-            const names = {
-                electronics: 'Electronics',
-                clothing: 'Clothing',
-                home: 'Home & Garden',
-                sports: 'Sports & Outdoors',
-                books: 'Books'
-            };
-            return names[categoryId] || categoryId;
+            this.state.loading = false;
+        } catch (e) {
+            console.error('Failed to load product:', e);
+            this.state.loading = false;
         }
-    },
+    }
+
+    handleQuantityChange(e, val) {
+        this.state.quantity = Math.max(1, Math.min(10, val));
+    }
+
+    addToCart() {
+        if (!this.state.product || !this.state.product.inStock) return;
+
+        cartStore.state.addItem(this.state.product, this.state.quantity);
+
+        // Show toast
+        const toast = document.querySelector('cl-toast');
+        if (toast) {
+            toast.show({
+                severity: 'success',
+                summary: 'Added to Cart',
+                detail: `${this.state.quantity}x ${this.state.product.name} added to your cart`,
+                life: 3000
+            });
+        }
+    }
+
+    buyNow() {
+        this.addToCart();
+        window.location.hash = '/shop/cart/';
+    }
+
+    goBack() {
+        window.history.back();
+    }
+
+    navigateToProduct(productId) {
+        window.location.hash = `/shop/product/${productId}/`;
+        // Reload the product
+        this.state.loading = true;
+        setTimeout(() => this.loadProduct(), 0);
+    }
+
+    navigateToCategory(categoryId) {
+        window.location.hash = `/shop/products/${categoryId}/`;
+    }
+
+    getCategoryName(categoryId) {
+        const names = {
+            electronics: 'Electronics',
+            clothing: 'Clothing',
+            home: 'Home & Garden',
+            sports: 'Sports & Outdoors',
+            books: 'Books'
+        };
+        return names[categoryId] || categoryId;
+    }
 
     template() {
         return html`
@@ -261,9 +259,9 @@ export default defineComponent('shop-product-detail', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .product-detail-page {
             max-width: 1200px;
             margin: 0 auto;
@@ -557,4 +555,6 @@ export default defineComponent('shop-product-detail', {
             }
         }
     `
-});
+}
+
+export default defineComponent('shop-product-detail', ShopProductDetail);

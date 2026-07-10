@@ -28,7 +28,7 @@
  *
  * @event select  { item, context } - fired when an items-prop entry is chosen.
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
 // Module-level registry so opening one menu closes every other instance -
 // there is never more than one context menu on screen at a time.
@@ -40,8 +40,8 @@ function closeOthers(except) {
     }
 }
 
-export default defineComponent('cl-context-menu', {
-    props: {
+export class ClContextMenu extends Component {
+    static props = {
         // Array of { label, icon?, disabled?, danger?, separator?, action?, command?, shortcut? }.
         // Primary content path (matches cl-menu / cl-action-menu). Slotted
         // children are also rendered (see the template) for fully custom menus.
@@ -50,19 +50,21 @@ export default defineComponent('cl-context-menu', {
         padding: 8,
         // Minimum width of the menu surface (px).
         minWidth: 200
-    },
+    }
 
-    data() {
+    constructor(props) {
+        super(props);
+
         // The `open()` context payload is deliberately kept off reactive state
         // (it never drives rendering) - stored on this._openContext instead.
-        return {
+        this.state = {
             isVisible: false,
             positioned: false,   // gates visibility so the pre-measure frame never flashes
             x: 0,
             y: 0,
             maxHeight: null      // set when the menu is taller than the viewport (scrollable)
         };
-    },
+    }
 
     mounted() {
         // Close on any interaction outside the menu. Capture phase so we win the
@@ -99,7 +101,7 @@ export default defineComponent('cl-context-menu', {
             if (this.state.isVisible) this.close();
         };
         window.addEventListener('resize', this._handleResize);
-    },
+    }
 
     unmounted() {
         document.removeEventListener('mousedown', this._handleOutside, true);
@@ -109,128 +111,126 @@ export default defineComponent('cl-context-menu', {
         window.removeEventListener('scroll', this._handleScroll, true);
         window.removeEventListener('resize', this._handleResize);
         openInstances.delete(this);
-    },
+    }
 
-    methods: {
-        /**
-         * Open the menu with its top-left anchored at (x, y) in viewport
-         * coordinates. The final position is adjusted after render to stay
-         * inside the viewport. `context` is stored and echoed back in `select`.
-         */
-        open(x, y, context = null) {
-            closeOthers(this);
-            openInstances.add(this);
+    /**
+     * Open the menu with its top-left anchored at (x, y) in viewport
+     * coordinates. The final position is adjusted after render to stay
+     * inside the viewport. `context` is stored and echoed back in `select`.
+     */
+    open(x, y, context = null) {
+        closeOthers(this);
+        openInstances.add(this);
 
-            this._anchorX = x;
-            this._anchorY = y;
-            this._openContext = context;
-            this.state.x = x;
-            this.state.y = y;
-            this.state.maxHeight = null;   // measure natural height first
-            this.state.positioned = false; // keep hidden until placed
-            this.state.isVisible = true;
+        this._anchorX = x;
+        this._anchorY = y;
+        this._openContext = context;
+        this.state.x = x;
+        this.state.y = y;
+        this.state.maxHeight = null;   // measure natural height first
+        this.state.positioned = false; // keep hidden until placed
+        this.state.isVisible = true;
 
-            // Measure after the browser has laid the menu out, then flip/clamp.
-            requestAnimationFrame(() => this._adjustPosition());
-        },
+        // Measure after the browser has laid the menu out, then flip/clamp.
+        requestAnimationFrame(() => this._adjustPosition());
+    }
 
-        /**
-         * Convenience wiring for a `contextmenu` (or any pointer) event: reads
-         * the pointer coordinates, suppresses the native menu, and opens here.
-         */
-        openAtEvent(e, context = null) {
-            if (e && typeof e.preventDefault === 'function') e.preventDefault();
-            let x = 0, y = 0;
-            if (e) {
-                if (typeof e.clientX === 'number' && (e.clientX || e.clientY)) {
-                    x = e.clientX; y = e.clientY;
-                } else if (e.touches && e.touches[0]) {
-                    x = e.touches[0].clientX; y = e.touches[0].clientY;
-                } else if (e.changedTouches && e.changedTouches[0]) {
-                    x = e.changedTouches[0].clientX; y = e.changedTouches[0].clientY;
-                }
+    /**
+     * Convenience wiring for a `contextmenu` (or any pointer) event: reads
+     * the pointer coordinates, suppresses the native menu, and opens here.
+     */
+    openAtEvent(e, context = null) {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        let x = 0, y = 0;
+        if (e) {
+            if (typeof e.clientX === 'number' && (e.clientX || e.clientY)) {
+                x = e.clientX; y = e.clientY;
+            } else if (e.touches && e.touches[0]) {
+                x = e.touches[0].clientX; y = e.touches[0].clientY;
+            } else if (e.changedTouches && e.changedTouches[0]) {
+                x = e.changedTouches[0].clientX; y = e.changedTouches[0].clientY;
             }
-            this.open(x, y, context);
-        },
-
-        close() {
-            if (!this.state.isVisible) return;
-            this.state.isVisible = false;
-            this.state.positioned = false;
-            this._openContext = null;
-            openInstances.delete(this);
-        },
-
-        isOpen() {
-            return this.state.isVisible;
-        },
-
-        /**
-         * Viewport-overflow prevention. Measures the natural menu box, then:
-         *   - Horizontal: opens to the right of the anchor; flips to the left
-         *     (right edge at the anchor) when the right side overflows; clamps.
-         *   - Vertical: opens below the anchor; flips above when the bottom
-         *     overflows; clamps.
-         *   - Taller than the viewport: pins to the top padding and caps
-         *     max-height so the menu scrolls internally instead of overflowing.
-         */
-        _adjustPosition() {
-            const menu = this.querySelector('.cl-context-menu');
-            if (!menu) return;
-
-            const pad = Number(this.props.padding) || 0;
-            const vw = window.innerWidth;
-            const vh = window.innerHeight;
-            const rect = menu.getBoundingClientRect();
-            const w = rect.width;
-            const h = rect.height;
-            const ax = this._anchorX;
-            const ay = this._anchorY;
-
-            // --- Horizontal: prefer opening right; flip left on overflow -----
-            let left = ax;
-            if (ax + w > vw - pad) left = ax - w;    // flip: right edge toward anchor
-            left = Math.min(left, vw - w - pad);     // keep right edge inside the pad
-            left = Math.max(left, pad);              // keep left edge inside (wins if w > vw)
-
-            // --- Vertical: taller-than-viewport => scroll; else flip up ------
-            const available = vh - pad * 2;
-            let top;
-            let maxHeight = null;
-            if (h >= available) {
-                top = pad;
-                maxHeight = available;               // menu scrolls internally
-            } else {
-                top = ay;
-                if (ay + h > vh - pad) top = ay - h; // flip: bottom edge toward anchor
-                top = Math.min(top, vh - h - pad);   // keep bottom edge inside the pad
-                top = Math.max(top, pad);            // keep top edge inside
-            }
-
-            this.state.maxHeight = maxHeight;
-            this.state.x = left;
-            this.state.y = top;
-            this.state.positioned = true;            // reveal now that it is placed
-        },
-
-        _handleItemClick(item, e) {
-            if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-            if (!item || item.disabled || item.separator) return;
-
-            const context = this._openContext;
-            this.close();
-
-            // Support both cl-menu (command) and cl-action-menu (action) idioms.
-            if (typeof item.action === 'function') item.action(context);
-            if (typeof item.command === 'function') item.command(context);
-
-            this.dispatchEvent(new CustomEvent('select', {
-                bubbles: true,
-                composed: true,
-                detail: { item, context }
-            }));
         }
-    },
+        this.open(x, y, context);
+    }
+
+    close() {
+        if (!this.state.isVisible) return;
+        this.state.isVisible = false;
+        this.state.positioned = false;
+        this._openContext = null;
+        openInstances.delete(this);
+    }
+
+    isOpen() {
+        return this.state.isVisible;
+    }
+
+    /**
+     * Viewport-overflow prevention. Measures the natural menu box, then:
+     *   - Horizontal: opens to the right of the anchor; flips to the left
+     *     (right edge at the anchor) when the right side overflows; clamps.
+     *   - Vertical: opens below the anchor; flips above when the bottom
+     *     overflows; clamps.
+     *   - Taller than the viewport: pins to the top padding and caps
+     *     max-height so the menu scrolls internally instead of overflowing.
+     */
+    _adjustPosition() {
+        const menu = this.querySelector('.cl-context-menu');
+        if (!menu) return;
+
+        const pad = Number(this.props.padding) || 0;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const rect = menu.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        const ax = this._anchorX;
+        const ay = this._anchorY;
+
+        // --- Horizontal: prefer opening right; flip left on overflow -----
+        let left = ax;
+        if (ax + w > vw - pad) left = ax - w;    // flip: right edge toward anchor
+        left = Math.min(left, vw - w - pad);     // keep right edge inside the pad
+        left = Math.max(left, pad);              // keep left edge inside (wins if w > vw)
+
+        // --- Vertical: taller-than-viewport => scroll; else flip up ------
+        const available = vh - pad * 2;
+        let top;
+        let maxHeight = null;
+        if (h >= available) {
+            top = pad;
+            maxHeight = available;               // menu scrolls internally
+        } else {
+            top = ay;
+            if (ay + h > vh - pad) top = ay - h; // flip: bottom edge toward anchor
+            top = Math.min(top, vh - h - pad);   // keep bottom edge inside the pad
+            top = Math.max(top, pad);            // keep top edge inside
+        }
+
+        this.state.maxHeight = maxHeight;
+        this.state.x = left;
+        this.state.y = top;
+        this.state.positioned = true;            // reveal now that it is placed
+    }
+
+    _handleItemClick(item, e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (!item || item.disabled || item.separator) return;
+
+        const context = this._openContext;
+        this.close();
+
+        // Support both cl-menu (command) and cl-action-menu (action) idioms.
+        if (typeof item.action === 'function') item.action(context);
+        if (typeof item.command === 'function') item.command(context);
+
+        this.dispatchEvent(new CustomEvent('select', {
+            bubbles: true,
+            composed: true,
+            detail: { item, context }
+        }));
+    }
 
     template() {
         const { isVisible, x, y, positioned, maxHeight } = this.state;
@@ -266,9 +266,9 @@ export default defineComponent('cl-context-menu', {
                 ${this.props.children}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         /* Full-viewport, click-through host so only the menu surface is
            interactive; outside clicks fall through to the page below. */
         :host {
@@ -352,4 +352,6 @@ export default defineComponent('cl-context-menu', {
             border-top: 1px solid var(--input-border, #dee2e6);
         }
     `
-});
+}
+
+export default defineComponent('cl-context-menu', ClContextMenu);

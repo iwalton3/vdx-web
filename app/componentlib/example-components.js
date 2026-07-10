@@ -1,7 +1,7 @@
 /**
  * Pre-registered example components for demos
  */
-import { defineComponent, html, when, each, raw, untracked, memoEach } from '../lib/framework.js';
+import { defineComponent, html, when, each, raw, untracked, memoEach, Component } from '../lib/framework.js';
 import { createWindowing } from '../lib/windowing.js';
 import { createRowGestures, groupReorderTargets } from '../lib/gestures.js';
 
@@ -71,10 +71,13 @@ import './misc/error-boundary.js';
 import './misc/error-boundary-demo.js';
 
 // InputText Example
-defineComponent('example-input-text', {
-    data() {
-        return { value: '', email: '', pattern: '' };
-    },
+class ExampleInputText extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { value: '', email: '', pattern: '' };
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
@@ -103,13 +106,18 @@ defineComponent('example-input-text', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-input-text', ExampleInputText);
 
 // InputNumber Example
-defineComponent('example-input-number', {
-    data() {
-        return { value: 0, quantity: 1, price: 9.99, vertical: 5, amount: '100.00', width: 320 };
-    },
+class ExampleInputNumber extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { value: 0, quantity: 1, price: 9.99, vertical: 5, amount: '100.00', width: 320 };
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
@@ -154,13 +162,18 @@ defineComponent('example-input-number', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-input-number', ExampleInputNumber);
 
 // TextArea Example
-defineComponent('example-textarea', {
-    data() {
-        return { text: '', limited: '' };
-    },
+class ExampleTextarea extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { text: '', limited: '' };
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 600px;">
@@ -182,13 +195,18 @@ defineComponent('example-textarea', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-textarea', ExampleTextarea);
 
 // Checkbox Example
-defineComponent('example-checkbox', {
-    data() {
-        return { checked: false, terms: true };
-    },
+class ExampleCheckbox extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { checked: false, terms: true };
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
@@ -214,13 +232,18 @@ defineComponent('example-checkbox', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-checkbox', ExampleCheckbox);
 
 // RadioButton Example
-defineComponent('example-radio-button', {
-    data() {
-        return { size: 'medium' };
-    },
+class ExampleRadioButton extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { size: 'medium' };
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -256,13 +279,18 @@ defineComponent('example-radio-button', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-radio-button', ExampleRadioButton);
 
 // Slider Example
-defineComponent('example-slider', {
-    data() {
-        return { value: 50, volume: 75 };
-    },
+class ExampleSlider extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { value: 50, volume: 75 };
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 500px;">
@@ -281,21 +309,25 @@ defineComponent('example-slider', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-slider', ExampleSlider);
 
 // Calendar Example
-defineComponent('example-calendar', {
-    data() {
-        return { date: '', inline: new Date().toISOString().split('T')[0], rangeText: 'None' };
-    },
-    methods: {
-        handleRange(e) {
-            const v = e.detail && e.detail.value;
-            this.state.rangeText = (v && v.start)
-                ? `${v.start} → ${v.end || '…'}`
-                : 'None';
-        }
-    },
+class ExampleCalendar extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { date: '', inline: new Date().toISOString().split('T')[0], rangeText: 'None' };
+    }
+
+    handleRange(e) {
+        const v = e.detail && e.detail.value;
+        this.state.rangeText = (v && v.start)
+            ? `${v.start} → ${v.end || '…'}`
+            : 'None';
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 500px;">
@@ -322,12 +354,16 @@ defineComponent('example-calendar', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-calendar', ExampleCalendar);
 
 // Dropdown Example
-defineComponent('example-dropdown', {
-    data() {
-        return {
+class ExampleDropdown extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             selected: 'javascript',
             cities: ['New York', 'London', 'Paris', 'Tokyo', 'Sydney'],
             selectedCity: null,
@@ -338,7 +374,8 @@ defineComponent('example-dropdown', {
                 { label: 'C++', value: 'cpp' }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
@@ -358,12 +395,16 @@ defineComponent('example-dropdown', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-dropdown', ExampleDropdown);
 
 // MultiSelect Example
-defineComponent('example-multiselect', {
-    data() {
-        return {
+class ExampleMultiselect extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             selected: ['red', 'blue'],
             colors: [
                 { label: 'Red', value: 'red' },
@@ -373,7 +414,8 @@ defineComponent('example-multiselect', {
                 { label: 'Purple', value: 'purple' }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 600px;">
@@ -390,17 +432,22 @@ defineComponent('example-multiselect', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-multiselect', ExampleMultiselect);
 
 // AutoComplete Example
-defineComponent('example-autocomplete', {
-    data() {
-        return {
+class ExampleAutocomplete extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             value: '',
             countries: ['United States', 'Canada', 'Mexico', 'Brazil', 'Argentina',
                       'United Kingdom', 'France', 'Germany', 'Spain', 'Italy']
         };
-    },
+    }
+
     template() {
         return html`
             <div style="max-width: 500px;">
@@ -417,13 +464,18 @@ defineComponent('example-autocomplete', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-autocomplete', ExampleAutocomplete);
 
 // Chips Example
-defineComponent('example-chips', {
-    data() {
-        return { tags: ['javascript', 'react', 'vue'] };
-    },
+class ExampleChips extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { tags: ['javascript', 'react', 'vue'] };
+    }
+
     template() {
         return html`
             <div style="max-width: 600px;">
@@ -439,12 +491,16 @@ defineComponent('example-chips', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-chips', ExampleChips);
 
 // DataTable Example
-defineComponent('example-datatable', {
-    data() {
-        return {
+class ExampleDatatable extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             selected: null,
             products: [
                 { id: 1, name: 'Laptop', category: 'Electronics', price: 999 },
@@ -459,7 +515,8 @@ defineComponent('example-datatable', {
                 { field: 'price', header: 'Price', sortable: true }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div>
@@ -477,13 +534,18 @@ defineComponent('example-datatable', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-datatable', ExampleDatatable);
 
 // Paginator Example
-defineComponent('example-paginator', {
-    data() {
-        return { first: 0, rows: 10 };
-    },
+class ExamplePaginator extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { first: 0, rows: 10 };
+    }
+
     template() {
         return html`
             <div>
@@ -496,12 +558,16 @@ defineComponent('example-paginator', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-paginator', ExamplePaginator);
 
 // Tree Example
-defineComponent('example-tree', {
-    data() {
-        return {
+class ExampleTree extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             selected: null,
             nodes: [
                 {
@@ -524,7 +590,8 @@ defineComponent('example-tree', {
                 }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div style="max-width: 500px;">
@@ -537,15 +604,20 @@ defineComponent('example-tree', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-tree', ExampleTree);
 
 // OrderableList Example
-defineComponent('example-orderable-list', {
-    data() {
-        return {
+class ExampleOrderableList extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             items: ['First Item', 'Second Item', 'Third Item', 'Fourth Item', 'Fifth Item']
         };
-    },
+    }
+
     template() {
         return html`
             <div style="max-width: 500px;">
@@ -557,12 +629,16 @@ defineComponent('example-orderable-list', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-orderable-list', ExampleOrderableList);
 
 // Accordion Example
-defineComponent('example-accordion', {
-    data() {
-        return {
+class ExampleAccordion extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             tabs: [
                 {
                     header: 'What is Lorem Ipsum?',
@@ -578,7 +654,8 @@ defineComponent('example-accordion', {
                 }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div style="max-width: 700px;">
@@ -589,12 +666,16 @@ defineComponent('example-accordion', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-accordion', ExampleAccordion);
 
 // TabView Example
-defineComponent('example-tabview', {
-    data() {
-        return {
+class ExampleTabview extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             tabs: [
                 {
                     header: 'Profile',
@@ -610,7 +691,8 @@ defineComponent('example-tabview', {
                 }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div style="max-width: 700px;">
@@ -621,10 +703,12 @@ defineComponent('example-tabview', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-tabview', ExampleTabview);
 
 // Card Example
-defineComponent('example-card', {
+class ExampleCard extends Component {
     template() {
         return html`
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
@@ -646,10 +730,12 @@ defineComponent('example-card', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-card', ExampleCard);
 
 // Fieldset Example
-defineComponent('example-fieldset', {
+class ExampleFieldset extends Component {
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 600px;">
@@ -666,10 +752,12 @@ defineComponent('example-fieldset', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-fieldset', ExampleFieldset);
 
 // Splitter Example
-defineComponent('example-splitter', {
+class ExampleSplitter extends Component {
     template() {
         return html`
             <div style="height: 400px;">
@@ -686,23 +774,28 @@ defineComponent('example-splitter', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-splitter', ExampleSplitter);
 
 // Dialog Example with Footer Buttons
-defineComponent('example-dialog', {
-    data() {
-        return { basicVisible: false, confirmVisible: false, formVisible: false };
-    },
-    methods: {
-        handleConfirm() {
-            alert('Confirmed!');
-            this.state.confirmVisible = false;
-        },
-        handleFormSubmit() {
-            alert('Form submitted!');
-            this.state.formVisible = false;
-        }
-    },
+class ExampleDialog extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { basicVisible: false, confirmVisible: false, formVisible: false };
+    }
+
+    handleConfirm() {
+        alert('Confirmed!');
+        this.state.confirmVisible = false;
+    }
+
+    handleFormSubmit() {
+        alert('Form submitted!');
+        this.state.formVisible = false;
+    }
+
     template() {
         return html`
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -744,19 +837,23 @@ defineComponent('example-dialog', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-dialog', ExampleDialog);
 
 // Sidebar Example
-defineComponent('example-sidebar', {
-    data() {
-        return { visible: false, position: 'left' };
-    },
-    methods: {
-        show(pos) {
-            this.state.position = pos;
-            this.state.visible = true;
-        }
-    },
+class ExampleSidebar extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { visible: false, position: 'left' };
+    }
+
+    show(pos) {
+        this.state.position = pos;
+        this.state.visible = true;
+    }
+
     template() {
         return html`
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -776,22 +873,23 @@ defineComponent('example-sidebar', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-sidebar', ExampleSidebar);
 
 // Toast Example
-defineComponent('example-toast', {
-    methods: {
-        showToast(severity) {
-            const toast = this.querySelector('cl-toast');
-            const messages = {
-                success: { severity: 'success', summary: 'Success', detail: 'Operation completed successfully' },
-                info: { severity: 'info', summary: 'Info', detail: 'This is an informational message' },
-                warn: { severity: 'warn', summary: 'Warning', detail: 'Please proceed with caution' },
-                error: { severity: 'error', summary: 'Error', detail: 'Something went wrong' }
-            };
-            toast.show(messages[severity]);
-        }
-    },
+class ExampleToast extends Component {
+    showToast(severity) {
+        const toast = this.querySelector('cl-toast');
+        const messages = {
+            success: { severity: 'success', summary: 'Success', detail: 'Operation completed successfully' },
+            info: { severity: 'info', summary: 'Info', detail: 'This is an informational message' },
+            warn: { severity: 'warn', summary: 'Warning', detail: 'Please proceed with caution' },
+            error: { severity: 'error', summary: 'Error', detail: 'Something went wrong' }
+        };
+        toast.show(messages[severity]);
+    }
+
     template() {
         return html`
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -804,10 +902,12 @@ defineComponent('example-toast', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-toast', ExampleToast);
 
 // Tooltip Example
-defineComponent('example-tooltip', {
+class ExampleTooltip extends Component {
     template() {
         return html`
             <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: center;">
@@ -829,15 +929,16 @@ defineComponent('example-tooltip', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-tooltip', ExampleTooltip);
 
 // Action Menu Example
-defineComponent('example-action-menu', {
-    methods: {
-        handleAction(action) {
-            console.log('Action:', action);
-        }
-    },
+class ExampleActionMenu extends Component {
+    handleAction(action) {
+        console.log('Action:', action);
+    }
+
     template() {
         const fileActions = [
             { label: 'New File', icon: '📄', action: () => this.handleAction('new') },
@@ -886,19 +987,23 @@ defineComponent('example-action-menu', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-action-menu', ExampleActionMenu);
 
 // Button Example
-defineComponent('example-button', {
-    data() {
-        return { loading: false };
-    },
-    methods: {
-        handleLoad() {
-            this.state.loading = true;
-            setTimeout(() => this.state.loading = false, 2000);
-        }
-    },
+class ExampleButton extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { loading: false };
+    }
+
+    handleLoad() {
+        this.state.loading = true;
+        setTimeout(() => this.state.loading = false, 2000);
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px;">
@@ -929,19 +1034,24 @@ defineComponent('example-button', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-button', ExampleButton);
 
 // SplitButton Example
-defineComponent('example-split-button', {
-    data() {
-        return {
+class ExampleSplitButton extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             items: [
                 { label: 'Update', command: () => console.log('Update') },
                 { label: 'Delete', command: () => console.log('Delete') },
                 { label: 'Archive', command: () => console.log('Archive') }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -959,12 +1069,16 @@ defineComponent('example-split-button', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-split-button', ExampleSplitButton);
 
 // Menu Example
-defineComponent('example-menu', {
-    data() {
-        return {
+class ExampleMenu extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             items: [
                 {
                     label: 'File',
@@ -987,7 +1101,8 @@ defineComponent('example-menu', {
                 { label: 'Help', icon: '❓' }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div style="max-width: 400px;">
@@ -995,12 +1110,16 @@ defineComponent('example-menu', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-menu', ExampleMenu);
 
 // Breadcrumb Example
-defineComponent('example-breadcrumb', {
-    data() {
-        return {
+class ExampleBreadcrumb extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             items: [
                 { label: 'Electronics', url: '#' },
                 { label: 'Computers', url: '#' },
@@ -1008,7 +1127,8 @@ defineComponent('example-breadcrumb', {
             ],
             home: { icon: '🏠', url: '#' }
         };
-    },
+    }
+
     template() {
         return html`
             <div>
@@ -1019,13 +1139,18 @@ defineComponent('example-breadcrumb', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-breadcrumb', ExampleBreadcrumb);
 
 // ProgressBar Example
-defineComponent('example-progressbar', {
-    data() {
-        return { value: 60 };
-    },
+class ExampleProgressbar extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { value: 60 };
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 600px;">
@@ -1035,13 +1160,18 @@ defineComponent('example-progressbar', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-progressbar', ExampleProgressbar);
 
 // FileUpload Example
-defineComponent('example-fileupload', {
-    data() {
-        return { files: [] };
-    },
+class ExampleFileupload extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { files: [] };
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 600px;">
@@ -1059,23 +1189,28 @@ defineComponent('example-fileupload', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-fileupload', ExampleFileupload);
 
 // DropZone Example
-defineComponent('example-dropzone', {
-    data() {
-        return { last: 'Nothing dropped yet', rejected: '' };
-    },
-    methods: {
-        onSelect(e) {
-            this.state.last = e.detail.files.map(f => f.name).join(', ');
-            this.state.rejected = '';
-        },
-        onReject(e) {
-            this.state.rejected = e.detail.files
-                .map(r => `${r.file.name} (${r.reason})`).join(', ');
-        }
-    },
+class ExampleDropzone extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { last: 'Nothing dropped yet', rejected: '' };
+    }
+
+    onSelect(e) {
+        this.state.last = e.detail.files.map(f => f.name).join(', ');
+        this.state.rejected = '';
+    }
+
+    onReject(e) {
+        this.state.rejected = e.detail.files
+            .map(r => `${r.file.name} (${r.reason})`).join(', ');
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 600px;">
@@ -1104,13 +1239,18 @@ defineComponent('example-dropzone', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-dropzone', ExampleDropzone);
 
 // ColorPicker Example
-defineComponent('example-colorpicker', {
-    data() {
-        return { color: '#3498db', inlineColor: '#e74c3c' };
-    },
+class ExampleColorpicker extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { color: '#3498db', inlineColor: '#e74c3c' };
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 500px;">
@@ -1131,14 +1271,18 @@ defineComponent('example-colorpicker', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-colorpicker', ExampleColorpicker);
 
 // Shell Example
 import './layout/shell.js';
 
-defineComponent('example-shell', {
-    data() {
-        return {
+class ExampleShell extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             activeItem: 'dashboard',
             menuItems: [
                 {
@@ -1162,7 +1306,8 @@ defineComponent('example-shell', {
                 { label: 'Help', icon: '❓', key: 'help' }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div style="height: 500px; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
@@ -1187,12 +1332,16 @@ defineComponent('example-shell', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-shell', ExampleShell);
 
 // Complete Form Example
-defineComponent('example-complete-form', {
-    data() {
-        return {
+class ExampleCompleteForm extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             form: {
                 firstName: '',
                 lastName: '',
@@ -1221,21 +1370,22 @@ defineComponent('example-complete-form', {
                 { label: 'Science', value: 'science' }
             ]
         };
-    },
-    methods: {
-        handleSubmit() {
-            console.log('Form submitted:', this.state.form);
-            alert('Form submitted! Check console for data.');
-        },
-        handleReset() {
-            this.state.form = {
-                firstName: '', lastName: '', email: '', phone: '',
-                birthDate: '', gender: 'other', country: null,
-                interests: [], bio: '', newsletter: false,
-                notifications: true, experience: 3
-            };
-        }
-    },
+    }
+
+    handleSubmit() {
+        console.log('Form submitted:', this.state.form);
+        alert('Form submitted! Check console for data.');
+    }
+
+    handleReset() {
+        this.state.form = {
+            firstName: '', lastName: '', email: '', phone: '',
+            birthDate: '', gender: 'other', country: null,
+            interests: [], bio: '', newsletter: false,
+            notifications: true, experience: 3
+        };
+    }
+
     template() {
         return html`
             <cl-card header="User Registration">
@@ -1290,8 +1440,9 @@ defineComponent('example-complete-form', {
                 </div>
             </cl-card>
         `;
-    },
-    styles: /*css*/`
+    }
+
+    static styles = /*css*/`
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1337,12 +1488,16 @@ defineComponent('example-complete-form', {
             }
         }
     `
-});
+}
+
+defineComponent('example-complete-form', ExampleCompleteForm);
 
 // Stepper Example
-defineComponent('example-stepper', {
-    data() {
-        return {
+class ExampleStepper extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             steps: [
                 { label: 'Account', icon: '👤' },
                 { label: 'Profile', icon: '📝' },
@@ -1356,27 +1511,29 @@ defineComponent('example-stepper', {
                 bio: ''
             }
         };
-    },
-    methods: {
-        handleStepChange(e) {
-            const detail = e.detail || {};
-            if (detail.step !== undefined) {
-                this.state.currentStep = detail.step;
-            }
-        },
-        handleValidate(e) {
-            const detail = e.detail || {};
-            const step = detail.step;
-            if (step === 0 && !this.state.form.email) {
-                const stepper = this.querySelector('cl-stepper');
-                stepper.setError('Please enter an email address');
-                e.preventDefault();
-            }
-        },
-        handleComplete() {
-            alert('Form completed! ' + JSON.stringify(this.state.form));
+    }
+
+    handleStepChange(e) {
+        const detail = e.detail || {};
+        if (detail.step !== undefined) {
+            this.state.currentStep = detail.step;
         }
-    },
+    }
+
+    handleValidate(e) {
+        const detail = e.detail || {};
+        const step = detail.step;
+        if (step === 0 && !this.state.form.email) {
+            const stepper = this.querySelector('cl-stepper');
+            stepper.setError('Please enter an email address');
+            e.preventDefault();
+        }
+    }
+
+    handleComplete() {
+        alert('Form completed! ' + JSON.stringify(this.state.form));
+    }
+
     template() {
         return html`
             <div style="max-width: 700px;">
@@ -1412,10 +1569,12 @@ defineComponent('example-stepper', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-stepper', ExampleStepper);
 
 // Spinner Example
-defineComponent('example-spinner', {
+class ExampleSpinner extends Component {
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 32px;">
@@ -1459,18 +1618,23 @@ defineComponent('example-spinner', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-spinner', ExampleSpinner);
 
 // InputMask Example
-defineComponent('example-input-mask', {
-    data() {
-        return {
+class ExampleInputMask extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             phone: '',
             ssn: '',
             creditCard: '',
             date: ''
         };
-    },
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
@@ -1512,16 +1676,21 @@ defineComponent('example-input-mask', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-input-mask', ExampleInputMask);
 
 // InputPassword Example
-defineComponent('example-input-password', {
-    data() {
-        return {
+class ExampleInputPassword extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             password: '',
             confirmPassword: ''
         };
-    },
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
@@ -1547,12 +1716,16 @@ defineComponent('example-input-password', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-input-password', ExampleInputPassword);
 
 // Toggle Example
-defineComponent('example-toggle', {
-    data() {
-        return {
+class ExampleToggle extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             notifications: true,
             darkMode: false,
             autoSave: true,
@@ -1564,7 +1737,8 @@ defineComponent('example-toggle', {
             onOff: true,
             leftLabel: false
         };
-    },
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px;">
@@ -1621,24 +1795,29 @@ defineComponent('example-toggle', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-toggle', ExampleToggle);
 
 // InputSearch Example
-defineComponent('example-input-search', {
-    data() {
-        return {
+class ExampleInputSearch extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             query: '',
             suggestions: ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry', 'Fig', 'Grape', 'Honeydew']
         };
-    },
-    methods: {
-        handleSearch(e) {
-            console.log('Search:', e.detail.value);
-        },
-        handleSelect(e) {
-            console.log('Selected:', e.detail.suggestion);
-        }
-    },
+    }
+
+    handleSearch(e) {
+        console.log('Search:', e.detail.value);
+    }
+
+    handleSelect(e) {
+        console.log('Selected:', e.detail.suggestion);
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 500px;">
@@ -1668,12 +1847,16 @@ defineComponent('example-input-search', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-input-search', ExampleInputSearch);
 
 // VirtualList Example
-defineComponent('example-virtual-list', {
-    data() {
-        return {
+class ExampleVirtualList extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             items: untracked([]),  // Don't track 10000 items!
             selectedItem: null,
             scrollMode: 'self',  // 'self' | 'parent' | 'window'
@@ -1683,7 +1866,8 @@ defineComponent('example-virtual-list', {
             reorderItems: untracked([]),
             lastReorder: null
         };
-    },
+    }
+
     mounted() {
         // Generate 10000 items
         this.state.items = Array.from({ length: 10000 }, (_, i) => ({
@@ -1696,29 +1880,32 @@ defineComponent('example-virtual-list', {
             title: `Task ${i + 1}`,
             subtitle: `Drag to reorder task ${i + 1}`
         }));
-    },
-    methods: {
-        handleSelect(e) {
-            this.state.selectedItem = e.detail.item;
-        },
-        setScrollMode(mode) {
-            this.state.scrollMode = mode;
-        },
-        // Apply a reorder: the event gives us both the raw gap and a
-        // remove-then-insert `to` index - use `to` directly with splice.
-        handleReorder(e) {
-            const { from, to } = e.detail;
-            const next = this.state.reorderItems.slice();
-            const [moved] = next.splice(from, 1);
-            next.splice(to, 0, moved);
-            this.state.reorderItems = next;
-            this.state.lastReorder = `Moved "${moved.title}" from ${from} to ${to}`;
-        },
-        // Custom key function for memoization
-        getItemKey(item) {
-            return item.id;
-        }
-    },
+    }
+
+    handleSelect(e) {
+        this.state.selectedItem = e.detail.item;
+    }
+
+    setScrollMode(mode) {
+        this.state.scrollMode = mode;
+    }
+
+    // Apply a reorder: the event gives us both the raw gap and a
+    // remove-then-insert `to` index - use `to` directly with splice.
+    handleReorder(e) {
+        const { from, to } = e.detail;
+        const next = this.state.reorderItems.slice();
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        this.state.reorderItems = next;
+        this.state.lastReorder = `Moved "${moved.title}" from ${from} to ${to}`;
+    }
+
+    // Custom key function for memoization
+    getItemKey(item) {
+        return item.id;
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
@@ -1796,10 +1983,12 @@ defineComponent('example-virtual-list', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-virtual-list', ExampleVirtualList);
 
 // Badge Example
-defineComponent('example-badge', {
+class ExampleBadge extends Component {
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px;">
@@ -1863,10 +2052,12 @@ defineComponent('example-badge', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-badge', ExampleBadge);
 
 // Alert Example
-defineComponent('example-alert', {
+class ExampleAlert extends Component {
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px; max-width: 600px;">
@@ -1910,14 +2101,18 @@ defineComponent('example-alert', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-alert', ExampleAlert);
 
 // ============================================================================
 // ContextMenu Example - standalone, generic usage of cl-context-menu
 // ============================================================================
-defineComponent('example-context-menu', {
-    data() {
-        return {
+class ExampleContextMenu extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             lastPick: null,
             // A deliberately long menu so the "taller than viewport" scroll path
             // can be exercised when opened near the bottom of a small viewport.
@@ -1932,22 +2127,24 @@ defineComponent('example-context-menu', {
                 { label: 'Delete', icon: '🗑️', danger: true }
             ]
         };
-    },
-    methods: {
-        openMenu(e) {
-            // openAtEvent reads the pointer coords, suppresses the native menu,
-            // and opens here. The second arg is an opaque context echoed back.
-            this.refs.menu.openAtEvent(e, { source: 'target-area' });
-        },
-        openProgrammatic() {
-            // Open at a fixed spot near the top-left, no event needed.
-            const rect = this.refs.target.getBoundingClientRect();
-            this.refs.menu.open(rect.left + 20, rect.top + 20, { source: 'button' });
-        },
-        onPick(e) {
-            this.state.lastPick = `${e.detail.item.label} (context: ${e.detail.context ? e.detail.context.source : 'none'})`;
-        }
-    },
+    }
+
+    openMenu(e) {
+        // openAtEvent reads the pointer coords, suppresses the native menu,
+        // and opens here. The second arg is an opaque context echoed back.
+        this.refs.menu.openAtEvent(e, { source: 'target-area' });
+    }
+
+    openProgrammatic() {
+        // Open at a fixed spot near the top-left, no event needed.
+        const rect = this.refs.target.getBoundingClientRect();
+        this.refs.menu.open(rect.left + 20, rect.top + 20, { source: 'button' });
+    }
+
+    onPick(e) {
+        this.state.lastPick = `${e.detail.item.label} (context: ${e.detail.context ? e.detail.context.source : 'none'})`;
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
@@ -1981,8 +2178,9 @@ defineComponent('example-context-menu', {
                 </cl-context-menu>
             </div>
         `;
-    },
-    styles: /*css*/`
+    }
+
+    static styles = /*css*/`
         .ctx-target {
             display: flex;
             align-items: center;
@@ -1995,7 +2193,9 @@ defineComponent('example-context-menu', {
             user-select: none;
         }
     `
-});
+}
+
+defineComponent('example-context-menu', ExampleContextMenu);
 
 // ============================================================================
 // Reorderable playground - INNER windowed list
@@ -2007,15 +2207,17 @@ defineComponent('example-context-menu', {
 // data: it renders `items` + `selectedIds` props and emits gesture events; the
 // parent applies every change (consumer-owns-the-array contract).
 // ============================================================================
-defineComponent('example-reorder-list', {
-    props: {
+class ExampleReorderList extends Component {
+    static props = {
         items: [],
         selectedIds: [],
         selectionMode: false,
         itemHeight: 56
-    },
+    }
 
-    data() {
+    constructor(props) {
+        super(props);
+
         // Windowing controller - host ('self') is the scroller, so touch-drag
         // geometry (host rect + scrollTop) maps directly to absolute indices.
         this._win = createWindowing(this, {
@@ -2072,57 +2274,56 @@ defineComponent('example-reorder-list', {
             }
         });
 
-        return {};
-    },
+        this.state = {};
+    }
 
     mounted() {
         this._win.attach();
         this._win.setScrollContainer('self');
-    },
+    }
 
     unmounted() {
         this._win.detach();
         this._gestures.cancel();
-    },
+    }
 
     propsChanged(prop) {
         if (prop === 'items' || prop === 'itemHeight') {
             this._win.refresh();
         }
-    },
+    }
 
-    methods: {
-        _selectedSet() {
-            return new Set(this.props.selectedIds || []);
-        },
+    _selectedSet() {
+        return new Set(this.props.selectedIds || []);
+    }
 
-        _onContextMenu(index, e) {
-            if (e && typeof e.preventDefault === 'function') e.preventDefault();
-            const item = (this.props.items || [])[index];
-            this.dispatchEvent(new CustomEvent('row-menu', {
-                bubbles: true, composed: true,
-                detail: { index, id: item ? item.id : null, clientX: e.clientX, clientY: e.clientY }
-            }));
-        },
+    _onContextMenu(index, e) {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        const item = (this.props.items || [])[index];
+        this.dispatchEvent(new CustomEvent('row-menu', {
+            bubbles: true, composed: true,
+            detail: { index, id: item ? item.id : null, clientX: e.clientX, clientY: e.clientY }
+        }));
+    }
 
-        _onCheck(item, e) {
-            if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-            this.dispatchEvent(new CustomEvent('toggle-select', {
-                bubbles: true, composed: true,
-                detail: { id: item.id }
-            }));
-        },
+    _onCheck(item, e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        this.dispatchEvent(new CustomEvent('toggle-select', {
+            bubbles: true, composed: true,
+            detail: { id: item.id }
+        }));
+    }
 
-        _renderRow(item, isSelected, absIndex, selectionMode, itemHeight, g) {
-            // Selection-UX rules learned from production:
-            //  - In selection mode, ONLY selected rows are drag handles; unselected
-            //    rows scroll / tap-select. Outside selection mode every row drags.
-            //  - A touch that starts on the checkbox never starts a drag (the
-            //    checkbox is not the drag handle, and it stops propagation).
-            const isHandle = !selectionMode || isSelected;
-            const draggable = !g.isTouchDevice() && isHandle;
+    _renderRow(item, isSelected, absIndex, selectionMode, itemHeight, g) {
+        // Selection-UX rules learned from production:
+        //  - In selection mode, ONLY selected rows are drag handles; unselected
+        //    rows scroll / tap-select. Outside selection mode every row drags.
+        //  - A touch that starts on the checkbox never starts a drag (the
+        //    checkbox is not the drag handle, and it stops propagation).
+        const isHandle = !selectionMode || isSelected;
+        const draggable = !g.isTouchDevice() && isHandle;
 
-            return html`
+        return html`
                 <div
                     class="rl-row ${isSelected ? 'selected' : ''}"
                     style="height: ${itemHeight}px;"
@@ -2160,8 +2361,7 @@ defineComponent('example-reorder-list', {
                     </div>
                 </div>
             `;
-        }
-    },
+    }
 
     template() {
         const win = this._win;
@@ -2203,9 +2403,9 @@ defineComponent('example-reorder-list', {
             </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
             position: relative;
@@ -2297,7 +2497,9 @@ defineComponent('example-reorder-list', {
             margin-top: 2px;
         }
     `
-});
+}
+
+defineComponent('example-reorder-list', ExampleReorderList);
 
 // ============================================================================
 // Reorderable playground - OUTER component
@@ -2307,9 +2509,11 @@ defineComponent('example-reorder-list', {
 // checkboxes, group drag of the selection, and a right-click / long-press
 // context menu whose actions operate on the selection.
 // ============================================================================
-defineComponent('example-reorder-playground', {
-    data() {
-        return {
+class ExampleReorderPlayground extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             // untracked contents (replaced immutably on every structural change,
             // which re-renders the outer template and pushes new items down).
             items: untracked([]),
@@ -2324,7 +2528,7 @@ defineComponent('example-reorder-playground', {
                 { label: 'Clear selection', icon: '✖', action: () => this.clearSelection() }
             ]
         };
-    },
+    }
 
     mounted() {
         const items = [];
@@ -2333,97 +2537,93 @@ defineComponent('example-reorder-playground', {
         }
         this.state._nextId = 301;
         this.state.items = items;
-    },
+    }
 
-    computed: {
-        selectedCount() {
-            return this.state.selectedIds.length;
-        }
-    },
+    get selectedCount() {
+        return this.state.selectedIds.length;
+    }
 
-    methods: {
-        _idsSet() {
-            return new Set(this.state.selectedIds);
-        },
+    _idsSet() {
+        return new Set(this.state.selectedIds);
+    }
 
-        toggleMode() {
-            this.state.selectionMode = !this.state.selectionMode;
-        },
+    toggleMode() {
+        this.state.selectionMode = !this.state.selectionMode;
+    }
 
-        selectAll() {
-            this.state.selectionMode = true;
-            this.state.selectedIds = this.state.items.map(it => it.id);
-        },
+    selectAll() {
+        this.state.selectionMode = true;
+        this.state.selectedIds = this.state.items.map(it => it.id);
+    }
 
-        clearSelection() {
-            this.state.selectedIds = [];
-        },
+    clearSelection() {
+        this.state.selectedIds = [];
+    }
 
-        toggleId(id) {
-            const s = this._idsSet();
-            if (s.has(id)) s.delete(id); else s.add(id);
-            this.state.selectedIds = [...s];
-        },
+    toggleId(id) {
+        const s = this._idsSet();
+        if (s.has(id)) s.delete(id); else s.add(id);
+        this.state.selectedIds = [...s];
+    }
 
-        onRowTap(e) {
-            if (this.state.selectionMode) {
-                this.toggleId(e.detail.id);
-            }
-        },
-
-        onToggleSelect(e) {
+    onRowTap(e) {
+        if (this.state.selectionMode) {
             this.toggleId(e.detail.id);
-        },
-
-        onReorder(e) {
-            const { fromIndices, gap } = e.detail;
-            const items = this.state.items.slice();
-            const sorted = [...fromIndices].sort((a, b) => a - b);
-            const moving = sorted.map(i => items[i]);
-            // Remove from highest index down so lower indices stay valid.
-            for (let k = sorted.length - 1; k >= 0; k--) items.splice(sorted[k], 1);
-            const { target } = groupReorderTargets(sorted, gap);
-            items.splice(target, 0, ...moving);
-            this.state.items = items;
-            this.state.lastAction = moving.length > 1
-                ? `Moved ${moving.length} rows to position ${target}`
-                : `Moved "${moving[0].title}" to position ${target}`;
-        },
-
-        onRowMenu(e) {
-            const { id, clientX, clientY } = e.detail;
-            const sel = this._idsSet();
-            // If the right-clicked row is part of a selection, act on the whole
-            // selection; otherwise act on just that row.
-            const ids = (sel.size > 0 && sel.has(id)) ? [...sel] : [id];
-            this.refs.menu.open(clientX, clientY, { ids });
-        },
-
-        // NB: NOT named `remove` - that would shadow the native Element.remove()
-        // the framework calls when detaching this element during re-render.
-        removeRows(ctx) {
-            const ids = new Set(ctx.ids);
-            this.state.items = this.state.items.filter(it => !ids.has(it.id));
-            this.state.selectedIds = this.state.selectedIds.filter(id => !ids.has(id));
-            this.state.lastAction = `Removed ${ctx.ids.length} row(s)`;
-        },
-
-        duplicateRows(ctx) {
-            const ids = new Set(ctx.ids);
-            const out = [];
-            let nextId = this.state._nextId;
-            for (const it of this.state.items) {
-                out.push(it);
-                if (ids.has(it.id)) {
-                    out.push({ id: nextId, title: `${it.title} (copy)`, subtitle: it.subtitle });
-                    nextId++;
-                }
-            }
-            this.state._nextId = nextId;
-            this.state.items = out;
-            this.state.lastAction = `Duplicated ${ctx.ids.length} row(s)`;
         }
-    },
+    }
+
+    onToggleSelect(e) {
+        this.toggleId(e.detail.id);
+    }
+
+    onReorder(e) {
+        const { fromIndices, gap } = e.detail;
+        const items = this.state.items.slice();
+        const sorted = [...fromIndices].sort((a, b) => a - b);
+        const moving = sorted.map(i => items[i]);
+        // Remove from highest index down so lower indices stay valid.
+        for (let k = sorted.length - 1; k >= 0; k--) items.splice(sorted[k], 1);
+        const { target } = groupReorderTargets(sorted, gap);
+        items.splice(target, 0, ...moving);
+        this.state.items = items;
+        this.state.lastAction = moving.length > 1
+            ? `Moved ${moving.length} rows to position ${target}`
+            : `Moved "${moving[0].title}" to position ${target}`;
+    }
+
+    onRowMenu(e) {
+        const { id, clientX, clientY } = e.detail;
+        const sel = this._idsSet();
+        // If the right-clicked row is part of a selection, act on the whole
+        // selection; otherwise act on just that row.
+        const ids = (sel.size > 0 && sel.has(id)) ? [...sel] : [id];
+        this.refs.menu.open(clientX, clientY, { ids });
+    }
+
+    // NB: NOT named `remove` - that would shadow the native Element.remove()
+    // the framework calls when detaching this element during re-render.
+    removeRows(ctx) {
+        const ids = new Set(ctx.ids);
+        this.state.items = this.state.items.filter(it => !ids.has(it.id));
+        this.state.selectedIds = this.state.selectedIds.filter(id => !ids.has(id));
+        this.state.lastAction = `Removed ${ctx.ids.length} row(s)`;
+    }
+
+    duplicateRows(ctx) {
+        const ids = new Set(ctx.ids);
+        const out = [];
+        let nextId = this.state._nextId;
+        for (const it of this.state.items) {
+            out.push(it);
+            if (ids.has(it.id)) {
+                out.push({ id: nextId, title: `${it.title} (copy)`, subtitle: it.subtitle });
+                nextId++;
+            }
+        }
+        this.state._nextId = nextId;
+        this.state.items = out;
+        this.state.lastAction = `Duplicated ${ctx.ids.length} row(s)`;
+    }
 
     template() {
         return html`
@@ -2470,12 +2670,14 @@ defineComponent('example-reorder-playground', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-reorder-playground', ExampleReorderPlayground);
 
 // ============ Tier 1 display components ============
 
 // Divider Example
-defineComponent('example-divider', {
+class ExampleDivider extends Component {
     template() {
         return html`
             <div style="max-width: 520px;">
@@ -2498,12 +2700,16 @@ defineComponent('example-divider', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-divider', ExampleDivider);
 
 // Avatar Example
-defineComponent('example-avatar', {
-    data() {
-        return {
+class ExampleAvatar extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             team: [
                 { label: 'Ada Lovelace', status: 'online' },
                 { label: 'Alan Turing', status: 'busy' },
@@ -2512,7 +2718,8 @@ defineComponent('example-avatar', {
                 { label: 'Edsger Dijkstra' }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px;">
@@ -2531,16 +2738,20 @@ defineComponent('example-avatar', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-avatar', ExampleAvatar);
 
 // Skeleton Example
-defineComponent('example-skeleton', {
-    data() {
-        return { loading: true };
-    },
-    methods: {
-        toggle() { this.state.loading = !this.state.loading; }
-    },
+class ExampleSkeleton extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { loading: true };
+    }
+
+    toggle() { this.state.loading = !this.state.loading; }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 420px;">
@@ -2568,10 +2779,12 @@ defineComponent('example-skeleton', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-skeleton', ExampleSkeleton);
 
 // Empty Example
-defineComponent('example-empty', {
+class ExampleEmpty extends Component {
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 480px;">
@@ -2590,10 +2803,12 @@ defineComponent('example-empty', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-empty', ExampleEmpty);
 
 // Popover Example
-defineComponent('example-popover', {
+class ExamplePopover extends Component {
     template() {
         return html`
             <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
@@ -2617,14 +2832,18 @@ defineComponent('example-popover', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-popover', ExamplePopover);
 
 // ============ Tier 2 components ============
 
 // Segmented Example
-defineComponent('example-segmented', {
-    data() {
-        return {
+class ExampleSegmented extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             view: 'list',
             range: 'week',
             sizes: [
@@ -2633,7 +2852,8 @@ defineComponent('example-segmented', {
                 { label: 'Month', value: 'month' }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px; align-items: flex-start;">
@@ -2652,13 +2872,18 @@ defineComponent('example-segmented', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-segmented', ExampleSegmented);
 
 // Inplace Example
-defineComponent('example-inplace', {
-    data() {
-        return { name: 'Grace Hopper', title: '' };
-    },
+class ExampleInplace extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { name: 'Grace Hopper', title: '' };
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px; max-width: 420px;">
@@ -2670,13 +2895,18 @@ defineComponent('example-inplace', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-inplace', ExampleInplace);
 
 // Rating Example
-defineComponent('example-rating', {
-    data() {
-        return { score: 3, halfScore: 2.5 };
-    },
+class ExampleRating extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { score: 3, halfScore: 2.5 };
+    }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px;">
@@ -2686,13 +2916,18 @@ defineComponent('example-rating', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-rating', ExampleRating);
 
 // OTP Example
-defineComponent('example-otp', {
-    data() {
-        return { code: '' };
-    },
+class ExampleOtp extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { code: '' };
+    }
+
     template() {
         const complete = this.state.code.length === 6;
         return html`
@@ -2705,10 +2940,12 @@ defineComponent('example-otp', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-otp', ExampleOtp);
 
 // Copy Example
-defineComponent('example-copy', {
+class ExampleCopy extends Component {
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px; align-items: flex-start;">
@@ -2721,12 +2958,16 @@ defineComponent('example-copy', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-copy', ExampleCopy);
 
 // Timeline Example
-defineComponent('example-timeline', {
-    data() {
-        return {
+class ExampleTimeline extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             events: [
                 { time: '09:00', title: 'Order placed', description: 'Payment confirmed.', icon: '✓', status: 'success' },
                 { time: '11:30', title: 'Processing', description: 'Items picked and packed.', icon: '⚙' },
@@ -2734,7 +2975,8 @@ defineComponent('example-timeline', {
                 { time: '—', title: 'Delivered', description: 'Awaiting delivery.', status: 'muted' }
             ]
         };
-    },
+    }
+
     template() {
         return html`
             <div style="max-width: 480px;">
@@ -2742,19 +2984,23 @@ defineComponent('example-timeline', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-timeline', ExampleTimeline);
 
 // Meter Example
-defineComponent('example-meter', {
-    data() {
-        return {
+class ExampleMeter extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             cpu: 72,
             thresholds: [{ value: 70, color: '#f5b301' }, { value: 90, color: '#dc3545' }]
         };
-    },
-    methods: {
-        setCpu(e) { this.state.cpu = Number(e.target.value); }
-    },
+    }
+
+    setCpu(e) { this.state.cpu = Number(e.target.value); }
+
     template() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 28px; max-width: 520px;">
@@ -2771,4 +3017,6 @@ defineComponent('example-meter', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('example-meter', ExampleMeter);

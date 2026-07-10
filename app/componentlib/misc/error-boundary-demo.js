@@ -1,16 +1,16 @@
 /**
  * Error Boundary Demo - Shows cl-error-boundary in action
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 import './error-boundary.js';
 
 /**
  * Demo component that can intentionally throw an error
  */
-defineComponent('cl-error-demo-content', {
-    props: {
+class ClErrorDemoContent extends Component {
+    static props = {
         shouldError: false
-    },
+    }
 
     template() {
         if (this.props.shouldError) {
@@ -23,7 +23,7 @@ defineComponent('cl-error-demo-content', {
                 <p class="hint">Click "Trigger Error" to see the error boundary in action.</p>
             </div>
         `;
-    },
+    }
 
     // Use cl-error-boundary for pre-styled error display
     // Note: We use showRetry="true" and let the parent listen for the 'retry' event
@@ -37,9 +37,9 @@ defineComponent('cl-error-demo-content', {
                 showRetry="true">
             </cl-error-boundary>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -62,34 +62,36 @@ defineComponent('cl-error-demo-content', {
             opacity: 0.8;
         }
     `
-});
+}
+
+defineComponent('cl-error-demo-content', ClErrorDemoContent);
 
 /**
  * Error Boundary Demo Wrapper - Interactive demo of cl-error-boundary
  */
-export default defineComponent('cl-error-boundary-demo', {
-    data() {
-        return {
+export class ClErrorBoundaryDemo extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             hasError: false
         };
-    },
+    }
 
     mounted() {
         // Listen for retry events bubbling up from cl-error-boundary
         this.addEventListener('retry', () => {
             this.state.hasError = false;
         });
-    },
+    }
 
-    methods: {
-        triggerError() {
-            this.state.hasError = true;
-        },
+    triggerError() {
+        this.state.hasError = true;
+    }
 
-        resetError() {
-            this.state.hasError = false;
-        }
-    },
+    resetError() {
+        this.state.hasError = false;
+    }
 
     template() {
         return html`
@@ -115,9 +117,9 @@ export default defineComponent('cl-error-boundary-demo', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -197,4 +199,6 @@ export default defineComponent('cl-error-boundary-demo', {
             font-family: monospace;
         }
     `
-});
+}
+
+export default defineComponent('cl-error-boundary-demo', ClErrorBoundaryDemo);

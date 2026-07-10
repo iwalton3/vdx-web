@@ -1,69 +1,69 @@
 /**
  * Toast - Toast notification component
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-toast', {
-    props: {
+export class ClToast extends Component {
+    static props = {
         position: 'top-right', // 'top-right', 'top-left', 'bottom-right', 'bottom-left', 'top-center', 'bottom-center'
         life: 3000
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             messages: []
         };
-    },
+    }
 
-    methods: {
-        show(message) {
-            const id = Date.now() + Math.random();
-            const toast = {
-                id,
-                severity: message.severity || 'info',
-                summary: message.summary || '',
-                detail: message.detail || '',
-                life: message.life || this.props.life
-            };
+    show(message) {
+        const id = Date.now() + Math.random();
+        const toast = {
+            id,
+            severity: message.severity || 'info',
+            summary: message.summary || '',
+            detail: message.detail || '',
+            life: message.life || this.props.life
+        };
 
-            this.state.messages = [...this.state.messages, toast];
+        this.state.messages = [...this.state.messages, toast];
 
-            if (toast.life > 0) {
-                setTimeout(() => {
-                    this.remove(id);
-                }, toast.life);
-            }
-        },
-
-        remove(id) {
-            const msg = this.state.messages.find(m => m.id === id);
-            // Guard against double-remove (auto-dismiss timer + manual close both
-            // firing) so we don't restart the exit animation.
-            if (!msg || msg.leaving) return;
-
-            // Flag the toast as leaving so it plays the collapse/fade exit; the
-            // remaining toasts slide up as this one's row height animates to 0.
-            // Keep every other toast's identity/DOM node stable (keyed by id) so
-            // none of them re-run the slide-in animation.
-            this.state.messages = this.state.messages.map(m =>
-                m.id === id ? { ...m, leaving: true } : m
-            );
-
+        if (toast.life > 0) {
             setTimeout(() => {
-                this.state.messages = this.state.messages.filter(m => m.id !== id);
-            }, 300); // must match the exit transition duration below
-        },
-
-        getSeverityIcon(severity) {
-            const icons = {
-                success: '✓',
-                info: 'ℹ',
-                warn: '⚠',
-                error: '✕'
-            };
-            return icons[severity] || icons.info;
+                this.remove(id);
+            }, toast.life);
         }
-    },
+    }
+
+    remove(id) {
+        const msg = this.state.messages.find(m => m.id === id);
+        // Guard against double-remove (auto-dismiss timer + manual close both
+        // firing) so we don't restart the exit animation.
+        if (!msg || msg.leaving) return;
+
+        // Flag the toast as leaving so it plays the collapse/fade exit; the
+        // remaining toasts slide up as this one's row height animates to 0.
+        // Keep every other toast's identity/DOM node stable (keyed by id) so
+        // none of them re-run the slide-in animation.
+        this.state.messages = this.state.messages.map(m =>
+            m.id === id ? { ...m, leaving: true } : m
+        );
+
+        setTimeout(() => {
+            this.state.messages = this.state.messages.filter(m => m.id !== id);
+        }, 300); // must match the exit transition duration below
+    }
+
+    getSeverityIcon(severity) {
+        const icons = {
+            success: '✓',
+            info: 'ℹ',
+            warn: '⚠',
+            error: '✕'
+        };
+        return icons[severity] || icons.info;
+    }
 
     template() {
         const positionClass = this.props.position;
@@ -90,9 +90,9 @@ export default defineComponent('cl-toast', {
                 `, message => message.id)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: contents;
         }
@@ -267,4 +267,6 @@ export default defineComponent('cl-toast', {
             color: var(--text-color, #333);
         }
     `
-});
+}
+
+export default defineComponent('cl-toast', ClToast);

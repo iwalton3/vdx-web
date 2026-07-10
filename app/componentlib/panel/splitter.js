@@ -1,69 +1,68 @@
 /**
  * Splitter - Resizable split panel
  */
-import { defineComponent, html } from '../../lib/framework.js';
+import { defineComponent, html, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-splitter', {
-    props: {
+export class ClSplitter extends Component {
+    static props = {
         layout: 'horizontal', // 'horizontal' or 'vertical'
         panelsizes: [50, 50] // Percentage sizes
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             sizes: [50, 50],
             isDragging: false,
             startPos: 0,
             startSizes: []
         };
-    },
+    }
 
     mounted() {
         this.state.sizes = [...this.props.panelsizes];
-    },
+    }
 
-    methods: {
+    handleMouseDown(event) {
+        this.state.isDragging = true;
+        this.state.startPos = this.props.layout === 'horizontal' ? event.clientX : event.clientY;
+        this.state.startSizes = [...this.state.sizes];
 
-        handleMouseDown(event) {
-            this.state.isDragging = true;
-            this.state.startPos = this.props.layout === 'horizontal' ? event.clientX : event.clientY;
-            this.state.startSizes = [...this.state.sizes];
+        document.addEventListener('mousemove', this.handleMouseMove);
+        document.addEventListener('mouseup', this.handleMouseUp);
+        event.preventDefault();
+    }
 
-            document.addEventListener('mousemove', this.handleMouseMove);
-            document.addEventListener('mouseup', this.handleMouseUp);
-            event.preventDefault();
-        },
+    handleMouseMove(event) {
+        if (!this.state.isDragging) return;
 
-        handleMouseMove(event) {
-            if (!this.state.isDragging) return;
+        const rect = this.refs.container.getBoundingClientRect();
 
-            const rect = this.refs.container.getBoundingClientRect();
+        const currentPos = this.props.layout === 'horizontal' ? event.clientX : event.clientY;
+        const containerSize = this.props.layout === 'horizontal' ? rect.width : rect.height;
+        const delta = currentPos - this.state.startPos;
+        const deltaPercent = (delta / containerSize) * 100;
 
-            const currentPos = this.props.layout === 'horizontal' ? event.clientX : event.clientY;
-            const containerSize = this.props.layout === 'horizontal' ? rect.width : rect.height;
-            const delta = currentPos - this.state.startPos;
-            const deltaPercent = (delta / containerSize) * 100;
+        const newSize1 = Math.max(10, Math.min(90, this.state.startSizes[0] + deltaPercent));
+        const newSize2 = 100 - newSize1;
 
-            const newSize1 = Math.max(10, Math.min(90, this.state.startSizes[0] + deltaPercent));
-            const newSize2 = 100 - newSize1;
+        this.state.sizes = [newSize1, newSize2];
+    }
 
-            this.state.sizes = [newSize1, newSize2];
-        },
-
-        handleMouseUp() {
-            if (this.state.isDragging) {
-                this.state.isDragging = false;
-                document.removeEventListener('mousemove', this.handleMouseMove);
-                document.removeEventListener('mouseup', this.handleMouseUp);
-                this.emitChange(null, this.state.sizes);
-            }
+    handleMouseUp() {
+        if (this.state.isDragging) {
+            this.state.isDragging = false;
+            document.removeEventListener('mousemove', this.handleMouseMove);
+            document.removeEventListener('mouseup', this.handleMouseUp);
+            this.emitChange(null, this.state.sizes);
         }
-    },
+    }
 
     unmounted() {
         document.removeEventListener('mousemove', this.handleMouseMove);
         document.removeEventListener('mouseup', this.handleMouseUp);
-    },
+    }
 
     template() {
         const isHorizontal = this.props.layout === 'horizontal';
@@ -87,9 +86,9 @@ export default defineComponent('cl-splitter', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
             height: 400px;
@@ -136,4 +135,6 @@ export default defineComponent('cl-splitter', {
             background: var(--primary-color, #007bff);
         }
     `
-});
+}
+
+export default defineComponent('cl-splitter', ClSplitter);

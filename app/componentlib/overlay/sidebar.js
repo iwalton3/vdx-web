@@ -11,7 +11,7 @@
  * - Returns focus to trigger element on close
  * - aria-label on close button
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
 // Counter for unique IDs
 let sidebarIdCounter = 0;
@@ -19,20 +19,22 @@ let sidebarIdCounter = 0;
 // Selector for focusable elements
 const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
-export default defineComponent('cl-sidebar', {
-    props: {
+export class ClSidebar extends Component {
+    static props = {
         visible: false,
         position: 'left', // 'left', 'right', 'top', 'bottom'
         modal: true,
         dismissable: true,
         header: ''
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             sidebarId: `cl-sidebar-${++sidebarIdCounter}`
         };
-    },
+    }
 
     mounted() {
         // Global keydown for escape
@@ -42,7 +44,7 @@ export default defineComponent('cl-sidebar', {
             }
         };
         document.addEventListener('keydown', this._handleKeyDown);
-    },
+    }
 
     unmounted() {
         if (this._handleKeyDown) {
@@ -50,7 +52,7 @@ export default defineComponent('cl-sidebar', {
         }
         // Restore body scroll
         document.body.style.overflow = '';
-    },
+    }
 
     propsChanged(prop, newValue, oldValue) {
         if (prop === 'visible') {
@@ -75,66 +77,64 @@ export default defineComponent('cl-sidebar', {
                 }
             }
         }
-    },
+    }
 
-    methods: {
-        close() {
-            this.emitChange(null, false, 'visible');
-        },
+    close() {
+        this.emitChange(null, false, 'visible');
+    }
 
-        handleMaskClick() {
-            if (this.props.dismissable) {
-                this.close();
+    handleMaskClick() {
+        if (this.props.dismissable) {
+            this.close();
+        }
+    }
+
+    handleSidebarClick(e) {
+        e.stopPropagation();
+    }
+
+    /**
+     * Focus the first focusable element in the sidebar
+     */
+    _focusFirstElement() {
+        const sidebar = this.querySelector('.cl-sidebar');
+        if (!sidebar) return;
+
+        const focusable = sidebar.querySelectorAll(FOCUSABLE_SELECTOR);
+        if (focusable.length > 0) {
+            focusable[0].focus();
+        }
+    }
+
+    /**
+     * Handle Tab key for focus trapping
+     */
+    handleFocusTrap(e) {
+        if (e.key !== 'Tab' || !this.props.modal) return;
+
+        const sidebar = this.querySelector('.cl-sidebar');
+        if (!sidebar) return;
+
+        const focusable = Array.from(sidebar.querySelectorAll(FOCUSABLE_SELECTOR))
+            .filter(el => el.offsetParent !== null);
+
+        if (focusable.length === 0) return;
+
+        const firstFocusable = focusable[0];
+        const lastFocusable = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+            if (document.activeElement === firstFocusable) {
+                e.preventDefault();
+                lastFocusable.focus();
             }
-        },
-
-        handleSidebarClick(e) {
-            e.stopPropagation();
-        },
-
-        /**
-         * Focus the first focusable element in the sidebar
-         */
-        _focusFirstElement() {
-            const sidebar = this.querySelector('.cl-sidebar');
-            if (!sidebar) return;
-
-            const focusable = sidebar.querySelectorAll(FOCUSABLE_SELECTOR);
-            if (focusable.length > 0) {
-                focusable[0].focus();
-            }
-        },
-
-        /**
-         * Handle Tab key for focus trapping
-         */
-        handleFocusTrap(e) {
-            if (e.key !== 'Tab' || !this.props.modal) return;
-
-            const sidebar = this.querySelector('.cl-sidebar');
-            if (!sidebar) return;
-
-            const focusable = Array.from(sidebar.querySelectorAll(FOCUSABLE_SELECTOR))
-                .filter(el => el.offsetParent !== null);
-
-            if (focusable.length === 0) return;
-
-            const firstFocusable = focusable[0];
-            const lastFocusable = focusable[focusable.length - 1];
-
-            if (e.shiftKey) {
-                if (document.activeElement === firstFocusable) {
-                    e.preventDefault();
-                    lastFocusable.focus();
-                }
-            } else {
-                if (document.activeElement === lastFocusable) {
-                    e.preventDefault();
-                    firstFocusable.focus();
-                }
+        } else {
+            if (document.activeElement === lastFocusable) {
+                e.preventDefault();
+                firstFocusable.focus();
             }
         }
-    },
+    }
 
     template() {
         const titleId = `${this.state.sidebarId}-title`;
@@ -169,9 +169,9 @@ export default defineComponent('cl-sidebar', {
                 </div>
             `)}
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: contents;
         }
@@ -300,4 +300,6 @@ export default defineComponent('cl-sidebar', {
             flex: 1;
         }
     `
-});
+}
+
+export default defineComponent('cl-sidebar', ClSidebar);

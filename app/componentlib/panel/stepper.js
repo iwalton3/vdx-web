@@ -18,10 +18,10 @@
  *     <div slot="step-2">Review content...</div>
  * </cl-stepper>
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-stepper', {
-    props: {
+export class ClStepper extends Component {
+    static props = {
         steps: [],           // Array of { label: string, icon?: string, optional?: boolean }
         activeIndex: 0,      // Current step (0-indexed)
         linear: false,       // If true, must complete steps in order
@@ -30,177 +30,177 @@ export default defineComponent('cl-stepper', {
         nextLabel: 'Continue',
         completeLabel: 'Complete',
         orientation: 'horizontal' // 'horizontal' or 'vertical'
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             currentStep: 0,
             completedSteps: new Set(),
             validationError: ''
         };
-    },
+    }
 
     mounted() {
         this.state.currentStep = this.props.activeIndex || 0;
-    },
+    }
 
     propsChanged(prop, newValue) {
         if (prop === 'activeIndex') {
             this.state.currentStep = newValue;
         }
-    },
+    }
 
-    methods: {
-        /**
-         * Navigate to a specific step
-         * @param {number} index - Step index to navigate to
-         * @returns {boolean} Whether navigation succeeded
-         */
-        goToStep(index) {
-            const steps = this.props.steps || [];
-            if (index < 0 || index >= steps.length) return false;
+    /**
+     * Navigate to a specific step
+     * @param {number} index - Step index to navigate to
+     * @returns {boolean} Whether navigation succeeded
+     */
+    goToStep(index) {
+        const steps = this.props.steps || [];
+        if (index < 0 || index >= steps.length) return false;
 
-            // If linear, can only go forward one step at a time or back freely
-            if (this.props.linear && index > this.state.currentStep + 1) {
-                return false;
-            }
-
-            // If linear and going forward, validate current step
-            if (this.props.linear && index > this.state.currentStep) {
-                // Emit validation event, parent can call preventDefault
-                const event = new CustomEvent('validate', {
-                    detail: {
-                        step: this.state.currentStep,
-                        nextStep: index
-                    },
-                    cancelable: true
-                });
-                const allowed = this.dispatchEvent(event);
-                if (!allowed) {
-                    return false;
-                }
-            }
-
-            const oldStep = this.state.currentStep;
-            this.state.currentStep = index;
-            this.state.validationError = '';
-
-            // Mark previous step as completed when moving forward
-            if (index > oldStep) {
-                this.state.completedSteps.add(oldStep);
-            }
-
-            this.emitChange(null, {
-                step: index,
-                previousStep: oldStep,
-                direction: index > oldStep ? 'forward' : 'backward'
-            });
-
-            return true;
-        },
-
-        /**
-         * Go to next step
-         */
-        nextStep() {
-            const steps = this.props.steps || [];
-            if (this.state.currentStep < steps.length - 1) {
-                return this.goToStep(this.state.currentStep + 1);
-            }
+        // If linear, can only go forward one step at a time or back freely
+        if (this.props.linear && index > this.state.currentStep + 1) {
             return false;
-        },
+        }
 
-        /**
-         * Go to previous step
-         */
-        prevStep() {
-            if (this.state.currentStep > 0) {
-                return this.goToStep(this.state.currentStep - 1);
-            }
-            return false;
-        },
-
-        /**
-         * Mark current step as complete and emit complete event
-         */
-        complete() {
-            // Emit validation for final step
+        // If linear and going forward, validate current step
+        if (this.props.linear && index > this.state.currentStep) {
+            // Emit validation event, parent can call preventDefault
             const event = new CustomEvent('validate', {
-                detail: { step: this.state.currentStep, isComplete: true },
+                detail: {
+                    step: this.state.currentStep,
+                    nextStep: index
+                },
                 cancelable: true
             });
             const allowed = this.dispatchEvent(event);
             if (!allowed) {
                 return false;
             }
-
-            // Mark all steps as completed
-            const steps = this.props.steps || [];
-            this.state.completedSteps.clear();
-            this.state.completedSteps.addAll([...Array(steps.length).keys()]);
-
-            // Emit complete event
-            this.dispatchEvent(new CustomEvent('complete', {
-                detail: { completedSteps: Array.from(this.state.completedSteps) }
-            }));
-
-            return true;
-        },
-
-        /**
-         * Set validation error message
-         */
-        setError(message) {
-            this.state.validationError = message;
-        },
-
-        /**
-         * Clear validation error
-         */
-        clearError() {
-            this.state.validationError = '';
-        },
-
-        /**
-         * Check if a step can be clicked (for non-linear or completed steps)
-         */
-        canClickStep(index) {
-            if (!this.props.linear) return true;
-            // Can always go back
-            if (index <= this.state.currentStep) return true;
-            // Can go to next step only
-            if (index === this.state.currentStep + 1) return true;
-            return false;
-        },
-
-        /**
-         * Handle step header click
-         */
-        handleStepClick(index) {
-            if (this.canClickStep(index)) {
-                this.goToStep(index);
-            }
-        },
-
-        /**
-         * Check if step is completed
-         */
-        isCompleted(index) {
-            return this.state.completedSteps.has(index);
-        },
-
-        /**
-         * Handle next/complete button click
-         */
-        handleNextClick() {
-            const steps = this.props.steps || [];
-            if (this.state.currentStep === steps.length - 1) {
-                this.complete();
-            } else {
-                this.nextStep();
-            }
         }
-    },
+
+        const oldStep = this.state.currentStep;
+        this.state.currentStep = index;
+        this.state.validationError = '';
+
+        // Mark previous step as completed when moving forward
+        if (index > oldStep) {
+            this.state.completedSteps.add(oldStep);
+        }
+
+        this.emitChange(null, {
+            step: index,
+            previousStep: oldStep,
+            direction: index > oldStep ? 'forward' : 'backward'
+        });
+
+        return true;
+    }
+
+    /**
+     * Go to next step
+     */
+    nextStep() {
+        const steps = this.props.steps || [];
+        if (this.state.currentStep < steps.length - 1) {
+            return this.goToStep(this.state.currentStep + 1);
+        }
+        return false;
+    }
+
+    /**
+     * Go to previous step
+     */
+    prevStep() {
+        if (this.state.currentStep > 0) {
+            return this.goToStep(this.state.currentStep - 1);
+        }
+        return false;
+    }
+
+    /**
+     * Mark current step as complete and emit complete event
+     */
+    complete() {
+        // Emit validation for final step
+        const event = new CustomEvent('validate', {
+            detail: { step: this.state.currentStep, isComplete: true },
+            cancelable: true
+        });
+        const allowed = this.dispatchEvent(event);
+        if (!allowed) {
+            return false;
+        }
+
+        // Mark all steps as completed
+        const steps = this.props.steps || [];
+        this.state.completedSteps.clear();
+        this.state.completedSteps.addAll([...Array(steps.length).keys()]);
+
+        // Emit complete event
+        this.dispatchEvent(new CustomEvent('complete', {
+            detail: { completedSteps: Array.from(this.state.completedSteps) }
+        }));
+
+        return true;
+    }
+
+    /**
+     * Set validation error message
+     */
+    setError(message) {
+        this.state.validationError = message;
+    }
+
+    /**
+     * Clear validation error
+     */
+    clearError() {
+        this.state.validationError = '';
+    }
+
+    /**
+     * Check if a step can be clicked (for non-linear or completed steps)
+     */
+    canClickStep(index) {
+        if (!this.props.linear) return true;
+        // Can always go back
+        if (index <= this.state.currentStep) return true;
+        // Can go to next step only
+        if (index === this.state.currentStep + 1) return true;
+        return false;
+    }
+
+    /**
+     * Handle step header click
+     */
+    handleStepClick(index) {
+        if (this.canClickStep(index)) {
+            this.goToStep(index);
+        }
+    }
+
+    /**
+     * Check if step is completed
+     */
+    isCompleted(index) {
+        return this.state.completedSteps.has(index);
+    }
+
+    /**
+     * Handle next/complete button click
+     */
+    handleNextClick() {
+        const steps = this.props.steps || [];
+        if (this.state.currentStep === steps.length - 1) {
+            this.complete();
+        } else {
+            this.nextStep();
+        }
+    }
 
     template() {
         const steps = this.props.steps || [];
@@ -266,9 +266,9 @@ export default defineComponent('cl-stepper', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -486,4 +486,6 @@ export default defineComponent('cl-stepper', {
             }
         }
     `
-});
+}
+
+export default defineComponent('cl-stepper', ClStepper);

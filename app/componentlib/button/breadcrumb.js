@@ -1,32 +1,30 @@
 /**
  * Breadcrumb - Breadcrumb navigation
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-breadcrumb', {
-    props: {
+export class ClBreadcrumb extends Component {
+    static props = {
         model: [], // Array of {label: string, url: string, command: function}
         home: null, // Home item {icon: string, url: string, command: function}
         separator: '/'
-    },
+    }
 
-    methods: {
-        handleItemClick(item, event) {
-            event.preventDefault();
+    handleItemClick(item, event) {
+        event.preventDefault();
 
-            if (item.command) {
-                item.command();
-            }
-
-            if (item.url) {
-                this.emitEvent('item-click', { item, originalEvent: event });
-            }
-        },
-
-        emitEvent(name, detail) {
-            this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+        if (item.command) {
+            item.command();
         }
-    },
+
+        if (item.url) {
+            this.emitEvent('item-click', { item, originalEvent: event });
+        }
+    }
+
+    emitEvent(name, detail) {
+        this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+    }
 
     template() {
         const items = this.props.model || [];
@@ -70,9 +68,9 @@ export default defineComponent('cl-breadcrumb', {
                 </ol>
             </nav>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -128,4 +126,6 @@ export default defineComponent('cl-breadcrumb', {
             font-size: 16px;
         }
     `
-});
+}
+
+export default defineComponent('cl-breadcrumb', ClBreadcrumb);

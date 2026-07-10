@@ -22,7 +22,7 @@
  *     with integer/BigInt math, avoiding float error and the string
  *     concatenation bug (e.g. "100" + step 0.01 -> "1000.01").
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
 // Counter for unique IDs
 let inputNumberIdCounter = 0;
@@ -87,8 +87,8 @@ function isBounded(bound) {
     return bound !== null && bound !== undefined && bound !== '';
 }
 
-export default defineComponent('cl-input-number', {
-    props: {
+export class ClInputNumber extends Component {
+    static props = {
         value: 0,
         min: null,
         max: null,
@@ -99,92 +99,92 @@ export default defineComponent('cl-input-number', {
         orientation: 'auto',
         mode: 'number',
         error: ''
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             inputId: `cl-input-number-${++inputNumberIdCounter}`
         };
-    },
+    }
 
-    methods: {
-        isStringMode() {
-            return this.props.mode === 'string';
-        },
+    isStringMode() {
+        return this.props.mode === 'string';
+    }
 
-        // Current value as a decimal string (works for both modes)
-        valueString() {
-            const v = this.props.value;
-            return (v === null || v === undefined) ? '' : String(v);
-        },
+    // Current value as a decimal string (works for both modes)
+    valueString() {
+        const v = this.props.value;
+        return (v === null || v === undefined) ? '' : String(v);
+    }
 
-        // Clamp a decimal string to min/max; returns a decimal string.
-        // Partial / non-numeric input passes through untouched so users can
-        // still type "-" or "1." mid-entry.
-        clampString(str) {
-            if (!isNumericString(str)) return str;
-            if (isBounded(this.props.min) && compareDecimal(str, this.props.min) < 0) {
-                return String(this.props.min);
-            }
-            if (isBounded(this.props.max) && compareDecimal(str, this.props.max) > 0) {
-                return String(this.props.max);
-            }
-            return str;
-        },
-
-        // Convert an outgoing decimal string to the type the parent expects.
-        coerceOut(str) {
-            if (this.isStringMode()) return str;
-            const n = parseFloat(str);
-            return Number.isNaN(n) ? 0 : n;
-        },
-
-        handleInput(e) {
-            if (this.isStringMode()) {
-                // Keep the raw string so trailing zeros / partial entry survive;
-                // final clamping happens on change (blur/enter).
-                this.emitChange(null, e.target.value);
-                return;
-            }
-            const value = parseFloat(e.target.value) || 0;
-            this.emitValue(value);
-        },
-
-        handleChange(e) {
-            // Stop the native change event from bubbling up so x-model only
-            // sees our CustomEvent (which carries detail.value).
-            if (e && e.stopPropagation) {
-                e.stopPropagation();
-            }
-            if (this.isStringMode()) {
-                this.emitChange(e, this.clampString(e.target.value));
-                return;
-            }
-            const value = parseFloat(e.target.value) || 0;
-            this.emitChange(e, value);
-        },
-
-        increment() {
-            this.stepBy(1);
-        },
-
-        decrement() {
-            this.stepBy(-1);
-        },
-
-        stepBy(dir) {
-            if (this.props.disabled) return;
-            const next = decimalStep(this.valueString() || '0', String(this.props.step), dir);
-            const clamped = this.clampString(next);
-            this.emitChange(null, this.coerceOut(clamped));
-        },
-
-        emitValue(value) {
-            if (isBounded(this.props.min) && value < parseFloat(this.props.min)) value = parseFloat(this.props.min);
-            if (isBounded(this.props.max) && value > parseFloat(this.props.max)) value = parseFloat(this.props.max);
-            this.emitChange(null, value);
+    // Clamp a decimal string to min/max; returns a decimal string.
+    // Partial / non-numeric input passes through untouched so users can
+    // still type "-" or "1." mid-entry.
+    clampString(str) {
+        if (!isNumericString(str)) return str;
+        if (isBounded(this.props.min) && compareDecimal(str, this.props.min) < 0) {
+            return String(this.props.min);
         }
-    },
+        if (isBounded(this.props.max) && compareDecimal(str, this.props.max) > 0) {
+            return String(this.props.max);
+        }
+        return str;
+    }
+
+    // Convert an outgoing decimal string to the type the parent expects.
+    coerceOut(str) {
+        if (this.isStringMode()) return str;
+        const n = parseFloat(str);
+        return Number.isNaN(n) ? 0 : n;
+    }
+
+    handleInput(e) {
+        if (this.isStringMode()) {
+            // Keep the raw string so trailing zeros / partial entry survive;
+            // final clamping happens on change (blur/enter).
+            this.emitChange(null, e.target.value);
+            return;
+        }
+        const value = parseFloat(e.target.value) || 0;
+        this.emitValue(value);
+    }
+
+    handleChange(e) {
+        // Stop the native change event from bubbling up so x-model only
+        // sees our CustomEvent (which carries detail.value).
+        if (e && e.stopPropagation) {
+            e.stopPropagation();
+        }
+        if (this.isStringMode()) {
+            this.emitChange(e, this.clampString(e.target.value));
+            return;
+        }
+        const value = parseFloat(e.target.value) || 0;
+        this.emitChange(e, value);
+    }
+
+    increment() {
+        this.stepBy(1);
+    }
+
+    decrement() {
+        this.stepBy(-1);
+    }
+
+    stepBy(dir) {
+        if (this.props.disabled) return;
+        const next = decimalStep(this.valueString() || '0', String(this.props.step), dir);
+        const clamped = this.clampString(next);
+        this.emitChange(null, this.coerceOut(clamped));
+    }
+
+    emitValue(value) {
+        if (isBounded(this.props.min) && value < parseFloat(this.props.min)) value = parseFloat(this.props.min);
+        if (isBounded(this.props.max) && value > parseFloat(this.props.max)) value = parseFloat(this.props.max);
+        this.emitChange(null, value);
+    }
 
     template() {
         const valStr = this.valueString();
@@ -243,9 +243,9 @@ export default defineComponent('cl-input-number', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
             /* Establish a query container so the control can react to its own
@@ -424,4 +424,6 @@ export default defineComponent('cl-input-number', {
             color: var(--error-color, #dc3545);
         }
     `
-});
+}
+
+export default defineComponent('cl-input-number', ClInputNumber);

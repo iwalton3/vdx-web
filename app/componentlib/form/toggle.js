@@ -5,10 +5,10 @@
  * - Use `checked` for manual boolean binding
  * - Use `value` with x-model for automatic two-way binding
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-toggle', {
-    props: {
+export class ClToggle extends Component {
+    static props = {
         checked: false,
         value: null,             // Used for x-model compatibility - null means "not set by x-model"
         disabled: false,
@@ -17,65 +17,65 @@ export default defineComponent('cl-toggle', {
         size: 'medium',          // 'small', 'medium', 'large'
         checkedLabel: '',        // Text shown when on
         uncheckedLabel: ''       // Text shown when off
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             internalChecked: false,
             animated: false
         };
-    },
+    }
 
     mounted() {
         this.state.internalChecked = this._getCheckedState();
         // Enable the slide/colour transition only after the initial state has
         // painted, so mounting a checked toggle doesn't animate on -> off -> on.
         requestAnimationFrame(() => { this.state.animated = true; });
-    },
+    }
 
     propsChanged(prop, newValue, oldValue) {
         if (prop === 'checked' || prop === 'value') {
             this.state.internalChecked = this._getCheckedState();
         }
-    },
+    }
 
-    methods: {
-        _getCheckedState() {
-            // x-model sets 'value' prop, manual usage sets 'checked' prop
-            // If value is a boolean, use it; otherwise use checked
-            if (typeof this.props.value === 'boolean') {
-                return this.props.value;
-            }
-            return this.props.checked === true || this.props.checked === 'true';
-        },
-
-        toggle() {
-            if (this.props.disabled) return;
-
-            this.state.internalChecked = !this.state.internalChecked;
-
-            // x-model for custom elements listens to 'change' and expects detail.value
-            this.dispatchEvent(new CustomEvent('change', {
-                bubbles: true,
-                composed: true,
-                detail: { value: this.state.internalChecked, checked: this.state.internalChecked }
-            }));
-
-            // Also emit 'input' for additional compatibility
-            this.dispatchEvent(new CustomEvent('input', {
-                bubbles: true,
-                composed: true,
-                detail: { value: this.state.internalChecked }
-            }));
-        },
-
-        handleKeyDown(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                this.toggle();
-            }
+    _getCheckedState() {
+        // x-model sets 'value' prop, manual usage sets 'checked' prop
+        // If value is a boolean, use it; otherwise use checked
+        if (typeof this.props.value === 'boolean') {
+            return this.props.value;
         }
-    },
+        return this.props.checked === true || this.props.checked === 'true';
+    }
+
+    toggle() {
+        if (this.props.disabled) return;
+
+        this.state.internalChecked = !this.state.internalChecked;
+
+        // x-model for custom elements listens to 'change' and expects detail.value
+        this.dispatchEvent(new CustomEvent('change', {
+            bubbles: true,
+            composed: true,
+            detail: { value: this.state.internalChecked, checked: this.state.internalChecked }
+        }));
+
+        // Also emit 'input' for additional compatibility
+        this.dispatchEvent(new CustomEvent('input', {
+            bubbles: true,
+            composed: true,
+            detail: { value: this.state.internalChecked }
+        }));
+    }
+
+    handleKeyDown(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this.toggle();
+        }
+    }
 
     template() {
         const sizeClass = `size-${this.props.size}`;
@@ -104,9 +104,9 @@ export default defineComponent('cl-toggle', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: inline-block;
         }
@@ -226,4 +226,6 @@ export default defineComponent('cl-toggle', {
             opacity: 1;
         }
     `
-});
+}
+
+export default defineComponent('cl-toggle', ClToggle);

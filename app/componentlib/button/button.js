@@ -1,10 +1,10 @@
 /**
  * Button - Styled button component
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-button', {
-    props: {
+export class ClButton extends Component {
+    static props = {
         label: '',
         icon: '',
         iconpos: 'left', // 'left' or 'right'
@@ -13,22 +13,20 @@ export default defineComponent('cl-button', {
         text: false,
         disabled: false,
         loading: false
-    },
+    }
 
-    methods: {
-        handleClick(e) {
-            // Stop the native event from bubbling to prevent double firing
-            e.stopPropagation();
+    handleClick(e) {
+        // Stop the native event from bubbling to prevent double firing
+        e.stopPropagation();
 
-            if (!this.props.disabled && !this.props.loading) {
-                this.emitEvent('click', e);
-            }
-        },
-
-        emitEvent(name, detail) {
-            this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+        if (!this.props.disabled && !this.props.loading) {
+            this.emitEvent('click', e);
         }
-    },
+    }
+
+    emitEvent(name, detail) {
+        this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+    }
 
     template() {
         const classes = [
@@ -61,9 +59,9 @@ export default defineComponent('cl-button', {
                 `)}
             </button>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: inline-block;
         }
@@ -254,4 +252,6 @@ export default defineComponent('cl-button', {
             to { transform: rotate(360deg); }
         }
     `
-});
+}
+
+export default defineComponent('cl-button', ClButton);

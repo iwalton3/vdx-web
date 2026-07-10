@@ -1,51 +1,51 @@
 /**
  * SplitButton - Button with dropdown menu
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-split-button', {
-    props: {
+export class ClSplitButton extends Component {
+    static props = {
         label: '',
         model: [], // Array of {label: string, command: function}
         severity: 'primary',
         disabled: false
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             showMenu: false
         };
-    },
+    }
 
-    methods: {
-        closeMenu() {
-            this.state.showMenu = false;
-        },
+    closeMenu() {
+        this.state.showMenu = false;
+    }
 
-        handleClick() {
-            if (!this.props.disabled) {
-                this.emitEvent('click');
-            }
-        },
-
-        toggleMenu() {
-            if (!this.props.disabled) {
-                this.state.showMenu = !this.state.showMenu;
-            }
-        },
-
-        handleItemClick(item) {
-            this.state.showMenu = false;
-            if (item.command) {
-                item.command();
-            }
-            this.emitEvent('item-click', item);
-        },
-
-        emitEvent(name, detail) {
-            this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+    handleClick() {
+        if (!this.props.disabled) {
+            this.emitEvent('click');
         }
-    },
+    }
+
+    toggleMenu() {
+        if (!this.props.disabled) {
+            this.state.showMenu = !this.state.showMenu;
+        }
+    }
+
+    handleItemClick(item) {
+        this.state.showMenu = false;
+        if (item.command) {
+            item.command();
+        }
+        this.emitEvent('item-click', item);
+    }
+
+    emitEvent(name, detail) {
+        this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+    }
 
     template() {
         return html`
@@ -78,9 +78,9 @@ export default defineComponent('cl-split-button', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: inline-block;
         }
@@ -203,4 +203,6 @@ export default defineComponent('cl-split-button', {
             border-radius: 0 0 4px 4px;
         }
     `
-});
+}
+
+export default defineComponent('cl-split-button', ClSplitButton);

@@ -3,69 +3,69 @@
  * then swaps to an input; commits on Enter/blur, cancels on Escape.
  * x-model compatible.
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-inplace', {
-    props: {
+export class ClInplace extends Component {
+    static props = {
         value: '',
         placeholder: 'Click to edit',
         disabled: false,
         type: 'text',          // 'text' | 'number' | 'email' | ...
         emptyText: 'Click to edit'
-    },
+    }
 
-    data() {
-        return { editing: false, internalValue: '', draft: '' };
-    },
+    constructor(props) {
+        super(props);
+
+        this.state = { editing: false, internalValue: '', draft: '' };
+    }
 
     mounted() {
         this.state.internalValue = this.props.value != null ? this.props.value : '';
-    },
+    }
 
     propsChanged(prop, newValue) {
         if (prop === 'value' && !this.state.editing) {
             this.state.internalValue = newValue != null ? newValue : '';
         }
-    },
+    }
 
-    methods: {
-        startEdit() {
-            if (this.props.disabled) return;
-            this.state.draft = this.state.internalValue;
-            this.state.editing = true;
-            // The input mounts on the next render, so focus after the frame
-            // rather than synchronously (a ref isn't available yet here).
-            requestAnimationFrame(() => {
-                const input = this.querySelector('.inplace-input');
-                if (input) { input.focus(); input.select(); }
-            });
-        },
-
-        commit() {
-            if (!this.state.editing) return;
+    startEdit() {
+        if (this.props.disabled) return;
+        this.state.draft = this.state.internalValue;
+        this.state.editing = true;
+        // The input mounts on the next render, so focus after the frame
+        // rather than synchronously (a ref isn't available yet here).
+        requestAnimationFrame(() => {
             const input = this.querySelector('.inplace-input');
-            const val = input ? input.value : this.state.draft;
-            this.state.editing = false;
-            if (val !== this.state.internalValue) {
-                this.state.internalValue = val;
-                this.emitChange(null, val);
-            }
-        },
+            if (input) { input.focus(); input.select(); }
+        });
+    }
 
-        cancel() {
-            this.state.editing = false;
-        },
+    commit() {
+        if (!this.state.editing) return;
+        const input = this.querySelector('.inplace-input');
+        const val = input ? input.value : this.state.draft;
+        this.state.editing = false;
+        if (val !== this.state.internalValue) {
+            this.state.internalValue = val;
+            this.emitChange(null, val);
+        }
+    }
 
-        onKeydown(e) {
-            if (e.key === 'Enter') { e.preventDefault(); this.commit(); }
-            else if (e.key === 'Escape') { e.preventDefault(); this.cancel(); }
-        },
+    cancel() {
+        this.state.editing = false;
+    }
 
-        // Prevent the inner input's native input/change from bubbling to a
-        // parent on-change / x-model (they carry no detail). The component
-        // emits its own 'change' via commit().
-        stopNative(e) { e.stopPropagation(); }
-    },
+    onKeydown(e) {
+        if (e.key === 'Enter') { e.preventDefault(); this.commit(); }
+        else if (e.key === 'Escape') { e.preventDefault(); this.cancel(); }
+    }
+
+    // Prevent the inner input's native input/change from bubbling to a
+    // parent on-change / x-model (they carry no detail). The component
+    // emits its own 'change' via commit().
+    stopNative(e) { e.stopPropagation(); }
 
     template() {
         if (this.state.editing) {
@@ -95,9 +95,9 @@ export default defineComponent('cl-inplace', {
                 ${isEmpty ? this.props.emptyText : this.state.internalValue}
             </span>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host { display: inline-block; }
 
         .cl-inplace.display {
@@ -135,4 +135,6 @@ export default defineComponent('cl-inplace', {
             outline: none;
         }
     `
-});
+}
+
+export default defineComponent('cl-inplace', ClInplace);

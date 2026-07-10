@@ -1,12 +1,12 @@
 /**
  * FileUpload - File upload component
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 import './dropzone.js';
 import { filterFiles } from './dropzone.js';
 
-export default defineComponent('cl-fileupload', {
-    props: {
+export class ClFileupload extends Component {
+    static props = {
         multiple: false,
         accept: '',
         maxfilesize: 0, // in bytes
@@ -14,91 +14,91 @@ export default defineComponent('cl-fileupload', {
         auto: false,
         label: 'Choose Files',
         dropzone: false // render a drag & drop area instead of a choose button
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             files: []
         };
-    },
+    }
 
-    methods: {
-        handleFileSelect(event) {
-            const { accepted, rejected } = filterFiles(event.target.files, {
-                accept: this.props.accept,
-                maxSize: this.props.maxfilesize,
-                multiple: this.props.multiple
-            });
-            this.reportRejected(rejected);
-            this.addAccepted(accepted);
-            event.target.value = ''; // allow re-selecting the same file
-        },
+    handleFileSelect(event) {
+        const { accepted, rejected } = filterFiles(event.target.files, {
+            accept: this.props.accept,
+            maxSize: this.props.maxfilesize,
+            multiple: this.props.multiple
+        });
+        this.reportRejected(rejected);
+        this.addAccepted(accepted);
+        event.target.value = ''; // allow re-selecting the same file
+    }
 
-        // Files arriving already-validated from the composed cl-dropzone.
-        onDropzoneSelect(e) {
-            this.addAccepted(e.detail.files);
-        },
+    // Files arriving already-validated from the composed cl-dropzone.
+    onDropzoneSelect(e) {
+        this.addAccepted(e.detail.files);
+    }
 
-        onDropzoneReject(e) {
-            this.reportRejected(e.detail.files || []);
-        },
+    onDropzoneReject(e) {
+        this.reportRejected(e.detail.files || []);
+    }
 
-        reportRejected(rejected) {
-            rejected.forEach(r =>
-                this.emitEvent(r.reason === 'size' ? 'file-size-error' : 'file-type-error', { file: r.file })
-            );
-        },
+    reportRejected(rejected) {
+        rejected.forEach(r =>
+            this.emitEvent(r.reason === 'size' ? 'file-size-error' : 'file-type-error', { file: r.file })
+        );
+    }
 
-        addAccepted(files) {
-            if (!files || !files.length) return;
-            const infos = Array.from(files).map(file => ({
-                file,
-                name: file.name,
-                size: file.size,
-                type: file.type
-            }));
+    addAccepted(files) {
+        if (!files || !files.length) return;
+        const infos = Array.from(files).map(file => ({
+            file,
+            name: file.name,
+            size: file.size,
+            type: file.type
+        }));
 
-            if (!this.props.multiple) {
-                this.state.files = infos.slice(0, 1);
-            } else {
-                this.state.files = [...this.state.files, ...infos];
-            }
-
-            this.emitChange(null, this.state.files);
-
-            if (this.props.auto) {
-                this.upload();
-            }
-        },
-
-        removeFile(index) {
-            this.state.files = this.state.files.filter((_, i) => i !== index);
-            this.emitChange(null, this.state.files);
-        },
-
-        upload() {
-            this.emitEvent('upload', { files: this.state.files });
-        },
-
-        clear() {
-            this.state.files = [];
-            this.emitChange(null, this.state.files);
-        },
-
-        formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-        },
-
-        emitEvent(name, detail) {
-            this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+        if (!this.props.multiple) {
+            this.state.files = infos.slice(0, 1);
+        } else {
+            this.state.files = [...this.state.files, ...infos];
         }
-    },
+
+        this.emitChange(null, this.state.files);
+
+        if (this.props.auto) {
+            this.upload();
+        }
+    }
+
+    removeFile(index) {
+        this.state.files = this.state.files.filter((_, i) => i !== index);
+        this.emitChange(null, this.state.files);
+    }
+
+    upload() {
+        this.emitEvent('upload', { files: this.state.files });
+    }
+
+    clear() {
+        this.state.files = [];
+        this.emitChange(null, this.state.files);
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    emitEvent(name, detail) {
+        this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+    }
 
     template() {
         return html`
@@ -152,9 +152,9 @@ export default defineComponent('cl-fileupload', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -287,4 +287,6 @@ export default defineComponent('cl-fileupload', {
             color: var(--error-color, #dc3545);
         }
     `
-});
+}
+
+export default defineComponent('cl-fileupload', ClFileupload);

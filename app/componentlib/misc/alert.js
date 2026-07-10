@@ -1,46 +1,44 @@
 /**
  * Alert - Alert/banner component for messages and notifications
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-alert', {
-    props: {
+export class ClAlert extends Component {
+    static props = {
         severity: 'info',       // 'info', 'success', 'warning', 'error'
         title: '',
         closable: false,
         icon: '',               // Custom icon (auto-selected if not provided)
         outline: false          // Outlined style instead of filled
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             visible: true
         };
-    },
+    }
 
-    methods: {
-        close() {
-            this.state.visible = false;
-            this.dispatchEvent(new CustomEvent('close', {
-                bubbles: true,
-                composed: true
-            }));
-        }
-    },
+    close() {
+        this.state.visible = false;
+        this.dispatchEvent(new CustomEvent('close', {
+            bubbles: true,
+            composed: true
+        }));
+    }
 
-    computed: {
-        defaultIcon() {
-            if (this.props.icon) return this.props.icon;
+    get defaultIcon() {
+        if (this.props.icon) return this.props.icon;
 
-            const icons = {
-                info: 'ℹ️',
-                success: '✅',
-                warning: '⚠️',
-                error: '❌'
-            };
-            return icons[this.props.severity] || icons.info;
-        }
-    },
+        const icons = {
+            info: 'ℹ️',
+            success: '✅',
+            warning: '⚠️',
+            error: '❌'
+        };
+        return icons[this.props.severity] || icons.info;
+    }
 
     template() {
         if (!this.state.visible) {
@@ -69,9 +67,9 @@ export default defineComponent('cl-alert', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -172,4 +170,6 @@ export default defineComponent('cl-alert', {
             opacity: 1;
         }
     `
-});
+}
+
+export default defineComponent('cl-alert', ClAlert);

@@ -1,7 +1,7 @@
 /**
  * Component Showcase - VDX-UI Component Library
  */
-import { defineComponent, html, when, each, raw, contain } from '../lib/framework.js';
+import { defineComponent, html, when, each, raw, contain, Component } from '../lib/framework.js';
 
 // Import all example components (which also import the library components)
 import './example-components.js';
@@ -11,9 +11,11 @@ import './layout/shell.js';
 
 import { componentExamples } from './examples.js';
 
-export default defineComponent('component-showcase', {
-    data() {
-        return {
+export class ComponentShowcase extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             selectedComponent: null,
             selectedTab: 'demo',
             searchQuery: '',
@@ -29,7 +31,7 @@ export default defineComponent('component-showcase', {
                 { name: 'Misc', key: 'misc', icon: '🧩' }
             ]
         };
-    },
+    }
 
     mounted() {
         // Check for component in URL hash
@@ -37,124 +39,122 @@ export default defineComponent('component-showcase', {
 
         // Listen for hash changes
         window.addEventListener('hashchange', () => this.loadFromHash());
-    },
+    }
 
     unmounted() {
         window.removeEventListener('hashchange', () => this.loadFromHash());
-    },
+    }
 
-    methods: {
-        loadFromHash() {
-            const hash = window.location.hash.slice(1); // Remove the #
-            if (hash && componentExamples[hash]) {
-                this.state.selectedComponent = componentExamples[hash];
-            } else {
-                // Select first component by default
-                const firstComponent = Object.values(componentExamples)[0];
-                if (firstComponent) {
-                    this.state.selectedComponent = firstComponent;
-                    // Update URL without triggering hashchange
-                    history.replaceState(null, '', '#' + firstComponent.id);
-                }
+    loadFromHash() {
+        const hash = window.location.hash.slice(1); // Remove the #
+        if (hash && componentExamples[hash]) {
+            this.state.selectedComponent = componentExamples[hash];
+        } else {
+            // Select first component by default
+            const firstComponent = Object.values(componentExamples)[0];
+            if (firstComponent) {
+                this.state.selectedComponent = firstComponent;
+                // Update URL without triggering hashchange
+                history.replaceState(null, '', '#' + firstComponent.id);
             }
-        },
-
-        selectComponent(component) {
-            this.state.selectedComponent = component;
-            this.state.selectedTab = 'demo';
-            // Update URL hash
-            history.pushState(null, '', '#' + component.id);
-        },
-
-        selectTab(tab) {
-            this.state.selectedTab = tab;
-        },
-
-        getComponentsByCategory(category) {
-            if (!componentExamples) return [];
-            return Object.values(componentExamples).filter(c => c && c.category === category);
-        },
-
-        getFilteredComponents() {
-            if (!componentExamples) return {};
-            const query = this.state.searchQuery.toLowerCase();
-            if (!query) return componentExamples;
-
-            const filtered = {};
-            Object.entries(componentExamples).forEach(([key, comp]) => {
-                if (comp && comp.name && (comp.name.toLowerCase().includes(query) ||
-                    comp.description.toLowerCase().includes(query))) {
-                    filtered[key] = comp;
-                }
-            });
-            return filtered;
-        },
-
-        getMenuItems() {
-            const filteredComponents = this.getFilteredComponents();
-            const hasSearch = this.state.searchQuery.trim().length > 0;
-
-            // When searching, return flat list of matching components for easier browsing
-            if (hasSearch) {
-                return Object.values(filteredComponents).map(comp => ({
-                    label: comp.name,
-                    icon: this.getCategoryIcon(comp.category),
-                    key: comp.id
-                }));
-            }
-
-            // Normal view - show categories with sub-items
-            return this.state.categories
-                .map(category => {
-                    const components = this.getComponentsByCategory(category.key);
-                    const visibleComponents = components.filter(c => filteredComponents[c.id]);
-                    if (visibleComponents.length === 0) return null;
-
-                    return {
-                        label: category.name,
-                        icon: category.icon,
-                        key: category.key,
-                        items: visibleComponents.map(comp => ({
-                            label: comp.name,
-                            key: comp.id
-                        }))
-                    };
-                })
-                .filter(Boolean);
-        },
-
-        getCategoryIcon(categoryKey) {
-            const category = this.state.categories.find(c => c.key === categoryKey);
-            return category ? category.icon : '';
-        },
-
-        handleMenuChange(e, key) {
-            const component = componentExamples[key];
-            if (component) {
-                this.selectComponent(component);
-            }
-        },
-
-        handleSearch(e) {
-            this.state.searchQuery = e.target.value;
-        },
-
-        handleSearchKeydown(e) {
-            // On Enter key, open the sidebar on mobile to show search results
-            if (e.key === 'Enter') {
-                const shell = this.querySelector('cl-shell');
-                if (shell && shell.state && shell.state.isMobile && !shell.state.sidebarOpen) {
-                    shell.state.sidebarOpen = true;
-                }
-                e.preventDefault();
-            }
-        },
-
-        toggleDarkMode() {
-            this.state.darkMode = !this.state.darkMode;
-            document.body.classList.toggle('dark', this.state.darkMode);
         }
-    },
+    }
+
+    selectComponent(component) {
+        this.state.selectedComponent = component;
+        this.state.selectedTab = 'demo';
+        // Update URL hash
+        history.pushState(null, '', '#' + component.id);
+    }
+
+    selectTab(tab) {
+        this.state.selectedTab = tab;
+    }
+
+    getComponentsByCategory(category) {
+        if (!componentExamples) return [];
+        return Object.values(componentExamples).filter(c => c && c.category === category);
+    }
+
+    getFilteredComponents() {
+        if (!componentExamples) return {};
+        const query = this.state.searchQuery.toLowerCase();
+        if (!query) return componentExamples;
+
+        const filtered = {};
+        Object.entries(componentExamples).forEach(([key, comp]) => {
+            if (comp && comp.name && (comp.name.toLowerCase().includes(query) ||
+                comp.description.toLowerCase().includes(query))) {
+                filtered[key] = comp;
+            }
+        });
+        return filtered;
+    }
+
+    getMenuItems() {
+        const filteredComponents = this.getFilteredComponents();
+        const hasSearch = this.state.searchQuery.trim().length > 0;
+
+        // When searching, return flat list of matching components for easier browsing
+        if (hasSearch) {
+            return Object.values(filteredComponents).map(comp => ({
+                label: comp.name,
+                icon: this.getCategoryIcon(comp.category),
+                key: comp.id
+            }));
+        }
+
+        // Normal view - show categories with sub-items
+        return this.state.categories
+            .map(category => {
+                const components = this.getComponentsByCategory(category.key);
+                const visibleComponents = components.filter(c => filteredComponents[c.id]);
+                if (visibleComponents.length === 0) return null;
+
+                return {
+                    label: category.name,
+                    icon: category.icon,
+                    key: category.key,
+                    items: visibleComponents.map(comp => ({
+                        label: comp.name,
+                        key: comp.id
+                    }))
+                };
+            })
+            .filter(Boolean);
+    }
+
+    getCategoryIcon(categoryKey) {
+        const category = this.state.categories.find(c => c.key === categoryKey);
+        return category ? category.icon : '';
+    }
+
+    handleMenuChange(e, key) {
+        const component = componentExamples[key];
+        if (component) {
+            this.selectComponent(component);
+        }
+    }
+
+    handleSearch(e) {
+        this.state.searchQuery = e.target.value;
+    }
+
+    handleSearchKeydown(e) {
+        // On Enter key, open the sidebar on mobile to show search results
+        if (e.key === 'Enter') {
+            const shell = this.querySelector('cl-shell');
+            if (shell && shell.state && shell.state.isMobile && !shell.state.sidebarOpen) {
+                shell.state.sidebarOpen = true;
+            }
+            e.preventDefault();
+        }
+    }
+
+    toggleDarkMode() {
+        this.state.darkMode = !this.state.darkMode;
+        document.body.classList.toggle('dark', this.state.darkMode);
+    }
 
     template() {
         const current = this.state.selectedComponent;
@@ -224,9 +224,9 @@ export default defineComponent('component-showcase', {
                 </div>
             </cl-shell>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
             height: 100vh;
@@ -404,4 +404,6 @@ export default defineComponent('component-showcase', {
             }
         }
     `
-});
+}
+
+export default defineComponent('component-showcase', ComponentShowcase);

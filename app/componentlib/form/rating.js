@@ -2,69 +2,68 @@
  * Rating - Star rating input/display with hover preview and optional half steps.
  * x-model compatible (emits the numeric value).
  */
-import { defineComponent, html, each } from '../../lib/framework.js';
+import { defineComponent, html, each, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-rating', {
-    props: {
+export class ClRating extends Component {
+    static props = {
         value: 0,
         max: 5,
         precision: 1,        // 1 = whole stars, 0.5 = half stars
         readonly: false,
         disabled: false,
         icon: '★'
-    },
+    }
 
-    data() {
-        return { internalValue: 0, hover: null };
-    },
+    constructor(props) {
+        super(props);
+
+        this.state = { internalValue: 0, hover: null };
+    }
 
     mounted() {
         this.state.internalValue = Number(this.props.value) || 0;
-    },
+    }
 
     propsChanged(prop, newValue) {
         if (prop === 'value') this.state.internalValue = Number(newValue) || 0;
-    },
+    }
 
-    methods: {
-        interactive() {
-            return !this.props.readonly && !this.props.disabled;
-        },
+    interactive() {
+        return !this.props.readonly && !this.props.disabled;
+    }
 
-        // value contributed by star `index` (1-based) given a half flag
-        valueFor(index, half) {
-            return (Number(this.props.precision) === 0.5 && half) ? index - 0.5 : index;
-        },
+    // value contributed by star `index` (1-based) given a half flag
+    valueFor(index, half) {
+        return (Number(this.props.precision) === 0.5 && half) ? index - 0.5 : index;
+    }
 
-        setHover(index, half) {
-            if (!this.interactive()) return;
-            this.state.hover = this.valueFor(index, half);
-        },
+    setHover(index, half) {
+        if (!this.interactive()) return;
+        this.state.hover = this.valueFor(index, half);
+    }
 
-        clearHover() {
-            this.state.hover = null;
-        },
+    clearHover() {
+        this.state.hover = null;
+    }
 
-        select(index, half) {
-            if (!this.interactive()) return;
-            const v = this.valueFor(index, half);
-            // Clicking the current value again clears it.
-            this.state.internalValue = (v === this.state.internalValue) ? 0 : v;
-            this.emitChange(null, this.state.internalValue);
-            this.dispatchEvent(new CustomEvent('input', {
-                bubbles: true, composed: true, detail: { value: this.state.internalValue }
-            }));
-        }
-    },
+    select(index, half) {
+        if (!this.interactive()) return;
+        const v = this.valueFor(index, half);
+        // Clicking the current value again clears it.
+        this.state.internalValue = (v === this.state.internalValue) ? 0 : v;
+        this.emitChange(null, this.state.internalValue);
+        this.dispatchEvent(new CustomEvent('input', {
+            bubbles: true, composed: true, detail: { value: this.state.internalValue }
+        }));
+    }
 
-    computed: {
-        stars() {
-            return Array.from({ length: Math.max(1, Number(this.props.max) || 5) }, (_, i) => i + 1);
-        },
-        effective() {
-            return this.state.hover != null ? this.state.hover : this.state.internalValue;
-        }
-    },
+    get stars() {
+        return Array.from({ length: Math.max(1, Number(this.props.max) || 5) }, (_, i) => i + 1);
+    }
+
+    get effective() {
+        return this.state.hover != null ? this.state.hover : this.state.internalValue;
+    }
 
     template() {
         const eff = this.effective;
@@ -102,9 +101,9 @@ export default defineComponent('cl-rating', {
                 }, index => index)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host { display: inline-block; }
 
         .cl-rating {
@@ -152,4 +151,6 @@ export default defineComponent('cl-rating', {
         .hit-left { left: 0; width: 50%; }
         .hit-right { right: 0; width: 50%; }
     `
-});
+}
+
+export default defineComponent('cl-rating', ClRating);

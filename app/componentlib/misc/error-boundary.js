@@ -17,10 +17,10 @@
  *     }
  * });
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-error-boundary', {
-    props: {
+export class ClErrorBoundary extends Component {
+    static props = {
         // Error object or message string
         error: null,
         // Custom title (defaults to "Something went wrong")
@@ -33,44 +33,40 @@ export default defineComponent('cl-error-boundary', {
         compact: false,
         // Retry callback function (auto-shows retry button if provided)
         onRetry: null
-    },
+    }
 
-    methods: {
-        handleRetry() {
-            // Call the callback if provided
-            if (this.props.onRetry) {
-                this.props.onRetry();
-            }
-            // Also dispatch event for event listeners
-            this.dispatchEvent(new CustomEvent('retry', {
-                bubbles: true,
-                composed: true
-            }));
+    handleRetry() {
+        // Call the callback if provided
+        if (this.props.onRetry) {
+            this.props.onRetry();
         }
-    },
+        // Also dispatch event for event listeners
+        this.dispatchEvent(new CustomEvent('retry', {
+            bubbles: true,
+            composed: true
+        }));
+    }
 
-    computed: {
-        errorMessage() {
-            const err = this.props.error;
-            if (!err) return 'An unexpected error occurred';
-            if (typeof err === 'string') return err;
-            if (err.message) return err.message;
-            return String(err);
-        },
+    get errorMessage() {
+        const err = this.props.error;
+        if (!err) return 'An unexpected error occurred';
+        if (typeof err === 'string') return err;
+        if (err.message) return err.message;
+        return String(err);
+    }
 
-        errorStack() {
-            const err = this.props.error;
-            if (err && err.stack) {
-                // Clean up stack trace for display
-                return err.stack
-                    .split('\n')
-                    .slice(1, 6) // First 5 stack frames
-                    .map(line => line.trim())
-                    .join('\n');
-            }
-            return null;
+    get errorStack() {
+        const err = this.props.error;
+        if (err && err.stack) {
+            // Clean up stack trace for display
+            return err.stack
+                .split('\n')
+                .slice(1, 6) // First 5 stack frames
+                .map(line => line.trim())
+                .join('\n');
         }
-    },
+        return null;
+    }
 
     template() {
         const message = this.errorMessage;
@@ -96,9 +92,9 @@ export default defineComponent('cl-error-boundary', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -207,4 +203,6 @@ export default defineComponent('cl-error-boundary', {
             font-size: 13px;
         }
     `
-});
+}
+
+export default defineComponent('cl-error-boundary', ClErrorBoundary);

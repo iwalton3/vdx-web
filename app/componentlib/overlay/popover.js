@@ -10,71 +10,76 @@
  * Public methods: show(), hide(), toggle().
  * Emits 'popover-toggle' with detail { open }.
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-popover', {
-    props: {
+export class ClPopover extends Component {
+    static props = {
         position: 'bottom',   // 'top' | 'bottom' | 'left' | 'right'
         align: 'center',      // for top/bottom: 'start' | 'center' | 'end'
         trigger: 'click',     // 'click' | 'hover'
         closeOnContentClick: false,
         disabled: false
-    },
+    }
 
-    data() {
-        return { open: false };
-    },
+    constructor(props) {
+        super(props);
+
+        this.state = { open: false };
+    }
 
     mounted() {
         this._onKey = (e) => {
             if (e.key === 'Escape' && this.state.open) this.hide();
         };
         document.addEventListener('keydown', this._onKey);
-    },
+    }
 
     unmounted() {
         document.removeEventListener('keydown', this._onKey);
         if (this._leaveTimer) clearTimeout(this._leaveTimer);
-    },
+    }
 
-    methods: {
-        show() {
-            if (this.props.disabled || this.state.open) return;
-            this.state.open = true;
-            this._emit();
-        },
-        hide() {
-            if (!this.state.open) return;
-            this.state.open = false;
-            this._emit();
-        },
-        toggle() {
-            this.state.open ? this.hide() : this.show();
-        },
+    show() {
+        if (this.props.disabled || this.state.open) return;
+        this.state.open = true;
+        this._emit();
+    }
 
-        onTriggerClick() {
-            if (this.props.trigger === 'click') this.toggle();
-        },
-        onEnter() {
-            if (this.props.trigger !== 'hover') return;
-            if (this._leaveTimer) clearTimeout(this._leaveTimer);
-            this.show();
-        },
-        onLeave() {
-            if (this.props.trigger !== 'hover') return;
-            // Small grace period so moving into the panel doesn't close it.
-            this._leaveTimer = setTimeout(() => this.hide(), 120);
-        },
-        onContentClick() {
-            if (this.props.closeOnContentClick) this.hide();
-        },
+    hide() {
+        if (!this.state.open) return;
+        this.state.open = false;
+        this._emit();
+    }
 
-        _emit() {
-            this.dispatchEvent(new CustomEvent('popover-toggle', {
-                detail: { open: this.state.open }, bubbles: true, composed: true
-            }));
-        }
-    },
+    toggle() {
+        this.state.open ? this.hide() : this.show();
+    }
+
+    onTriggerClick() {
+        if (this.props.trigger === 'click') this.toggle();
+    }
+
+    onEnter() {
+        if (this.props.trigger !== 'hover') return;
+        if (this._leaveTimer) clearTimeout(this._leaveTimer);
+        this.show();
+    }
+
+    onLeave() {
+        if (this.props.trigger !== 'hover') return;
+        // Small grace period so moving into the panel doesn't close it.
+        this._leaveTimer = setTimeout(() => this.hide(), 120);
+    }
+
+    onContentClick() {
+        if (this.props.closeOnContentClick) this.hide();
+    }
+
+    _emit() {
+        this.dispatchEvent(new CustomEvent('popover-toggle', {
+            detail: { open: this.state.open }, bubbles: true, composed: true
+        }));
+    }
 
     template() {
         const content = (this.props.slots && this.props.slots.content) || [];
@@ -96,9 +101,9 @@ export default defineComponent('cl-popover', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host { display: inline-block; }
 
         .cl-popover-wrapper {
@@ -148,4 +153,6 @@ export default defineComponent('cl-popover', {
         .pos-right { left: 100%; top: 0; margin-left: 8px; }
         .pos-left { right: 100%; top: 0; margin-right: 8px; }
     `
-});
+}
+
+export default defineComponent('cl-popover', ClPopover);

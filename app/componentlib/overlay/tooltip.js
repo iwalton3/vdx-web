@@ -8,23 +8,25 @@
  * - Escape key to dismiss
  * - Unique IDs for proper ARIA relationships
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
 // Counter for unique IDs
 let tooltipIdCounter = 0;
 
-export default defineComponent('cl-tooltip', {
-    props: {
+export class ClTooltip extends Component {
+    static props = {
         text: '',
         position: 'top' // 'top', 'bottom', 'left', 'right'
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             visible: false,
             tooltipId: `cl-tooltip-${++tooltipIdCounter}`
         };
-    },
+    }
 
     mounted() {
         // Global keydown for escape
@@ -34,23 +36,21 @@ export default defineComponent('cl-tooltip', {
             }
         };
         document.addEventListener('keydown', this._handleGlobalKeyDown);
-    },
+    }
 
     unmounted() {
         if (this._handleGlobalKeyDown) {
             document.removeEventListener('keydown', this._handleGlobalKeyDown);
         }
-    },
+    }
 
-    methods: {
-        show() {
-            this.state.visible = true;
-        },
+    show() {
+        this.state.visible = true;
+    }
 
-        hide() {
-            this.state.visible = false;
-        }
-    },
+    hide() {
+        this.state.visible = false;
+    }
 
     template() {
         const tooltipContentId = `${this.state.tooltipId}-content`;
@@ -76,9 +76,9 @@ export default defineComponent('cl-tooltip', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: inline-block;
         }
@@ -173,4 +173,6 @@ export default defineComponent('cl-tooltip', {
             border-right-color: rgba(0, 0, 0, 0.9);
         }
     `
-});
+}
+
+export default defineComponent('cl-tooltip', ClTooltip);

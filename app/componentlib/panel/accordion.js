@@ -1,20 +1,22 @@
 /**
  * Accordion - Collapsible accordion panels
  */
-import { defineComponent, html, when, each, raw } from '../../lib/framework.js';
+import { defineComponent, html, when, each, raw, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-accordion', {
-    props: {
+export class ClAccordion extends Component {
+    static props = {
         tabs: [], // Array of {header: string, content: string}
         activeindex: 0,
         multiple: false
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             activeTabs: new Set()
         };
-    },
+    }
 
     mounted() {
         if (this.props.multiple) {
@@ -22,34 +24,32 @@ export default defineComponent('cl-accordion', {
         } else {
             this.state.activeTabs = new Set([this.props.activeindex]);
         }
-    },
+    }
 
-    methods: {
-        toggleTab(index) {
-            if (this.props.multiple) {
-                if (this.state.activeTabs.has(index)) {
-                    this.state.activeTabs.delete(index);
-                } else {
-                    this.state.activeTabs.add(index);
-                }
+    toggleTab(index) {
+        if (this.props.multiple) {
+            if (this.state.activeTabs.has(index)) {
+                this.state.activeTabs.delete(index);
             } else {
-                if (this.state.activeTabs.has(index)) {
-                    this.state.activeTabs.clear();
-                } else {
-                    this.state.activeTabs.clear();
-                    this.state.activeTabs.add(index);
-                }
+                this.state.activeTabs.add(index);
             }
-
-            this.emitChange(null, this.props.multiple
-                ? Array.from(this.state.activeTabs)
-                : Array.from(this.state.activeTabs)[0]);
-        },
-
-        isActive(index) {
-            return this.state.activeTabs.has(index);
+        } else {
+            if (this.state.activeTabs.has(index)) {
+                this.state.activeTabs.clear();
+            } else {
+                this.state.activeTabs.clear();
+                this.state.activeTabs.add(index);
+            }
         }
-    },
+
+        this.emitChange(null, this.props.multiple
+            ? Array.from(this.state.activeTabs)
+            : Array.from(this.state.activeTabs)[0]);
+    }
+
+    isActive(index) {
+        return this.state.activeTabs.has(index);
+    }
 
     template() {
         const tabs = this.props.tabs || [];
@@ -76,9 +76,9 @@ export default defineComponent('cl-accordion', {
                 })}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -136,4 +136,6 @@ export default defineComponent('cl-accordion', {
             line-height: 1.6;
         }
     `
-});
+}
+
+export default defineComponent('cl-accordion', ClAccordion);

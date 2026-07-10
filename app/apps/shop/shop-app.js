@@ -2,7 +2,7 @@
  * VDX Shop - E-commerce Demo Application
  * Showcases the VDX Web framework with routing, state management, and UI components
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 import { enableRouting } from '../../lib/router.js';
 import cartStore from './cart-store.js';
 
@@ -41,11 +41,13 @@ const router = enableRouting(outlet, {
     }
 });
 
-export default defineComponent('shop-app', {
-    stores: { cart: cartStore },
+export class ShopApp extends Component {
+    static stores = { cart: cartStore }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             routerConnected: false,
             menuItems: [
                 { label: 'Home', key: 'home', icon: '🏠' },
@@ -65,13 +67,11 @@ export default defineComponent('shop-app', {
                 { label: 'Cart', key: 'cart', icon: '🛒' }
             ]
         };
-    },
+    }
 
-    computed: {
-        cartCount() {
-            return this.stores.cart.items.reduce((sum, item) => sum + item.quantity, 0);
-        }
-    },
+    get cartCount() {
+        return this.stores.cart.items.reduce((sum, item) => sum + item.quantity, 0);
+    }
 
     mounted() {
         // Connect router to outlet after component renders
@@ -85,42 +85,40 @@ export default defineComponent('shop-app', {
         }
         // Trigger initial route handling
         router.handleRoute();
-    },
+    }
 
-    methods: {
-        handleMenuClick(e, key) {
-            switch(key) {
-                case 'home':
-                    router.navigate('/shop/');
-                    break;
-                case 'all':
-                    router.navigate('/shop/products/');
-                    break;
-                case 'electronics':
-                    router.navigate('/shop/products/electronics/');
-                    break;
-                case 'clothing':
-                    router.navigate('/shop/products/clothing/');
-                    break;
-                case 'home-garden':
-                    router.navigate('/shop/products/home/');
-                    break;
-                case 'sports':
-                    router.navigate('/shop/products/sports/');
-                    break;
-                case 'books':
-                    router.navigate('/shop/products/books/');
-                    break;
-                case 'cart':
-                    router.navigate('/shop/cart/');
-                    break;
-            }
-        },
-
-        goToCart() {
-            router.navigate('/shop/cart/');
+    handleMenuClick(e, key) {
+        switch(key) {
+            case 'home':
+                router.navigate('/shop/');
+                break;
+            case 'all':
+                router.navigate('/shop/products/');
+                break;
+            case 'electronics':
+                router.navigate('/shop/products/electronics/');
+                break;
+            case 'clothing':
+                router.navigate('/shop/products/clothing/');
+                break;
+            case 'home-garden':
+                router.navigate('/shop/products/home/');
+                break;
+            case 'sports':
+                router.navigate('/shop/products/sports/');
+                break;
+            case 'books':
+                router.navigate('/shop/products/books/');
+                break;
+            case 'cart':
+                router.navigate('/shop/cart/');
+                break;
         }
-    },
+    }
+
+    goToCart() {
+        router.navigate('/shop/cart/');
+    }
 
     template() {
         return html`
@@ -143,9 +141,9 @@ export default defineComponent('shop-app', {
                 <cl-toast position="top-right"></cl-toast>
             </cl-shell>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
             height: 100vh;
@@ -187,7 +185,9 @@ export default defineComponent('shop-app', {
             text-align: center;
         }
     `
-});
+}
+
+export default defineComponent('shop-app', ShopApp);
 
 // Export router for use in other components
 export { router };

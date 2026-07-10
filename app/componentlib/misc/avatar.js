@@ -2,7 +2,7 @@
  * Avatar - User avatar with image, initials fallback, and status dot.
  * Avatar Group - Overlapping stack of avatars with a "+N" overflow bubble.
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
 const SIZE_MAP = { xs: 24, sm: 28, md: 40, lg: 56, xl: 80 };
 
@@ -29,8 +29,8 @@ function colorFor(label) {
     return `hsl(${Math.abs(h) % 360}, 52%, 46%)`;
 }
 
-export default defineComponent('cl-avatar', {
-    props: {
+export class ClAvatar extends Component {
+    static props = {
         src: '',
         label: '',                 // name -> initials + alt text
         size: 'md',                // 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number(px)
@@ -38,27 +38,27 @@ export default defineComponent('cl-avatar', {
         status: '',                // 'online' | 'offline' | 'busy' | 'away'
         color: '',                 // override background for initials
         icon: ''                   // fallback icon when no src/label
-    },
+    }
 
-    data() {
-        return { imgFailed: false };
-    },
+    constructor(props) {
+        super(props);
+
+        this.state = { imgFailed: false };
+    }
 
     propsChanged(prop) {
         if (prop === 'src') this.state.imgFailed = false;
-    },
+    }
 
-    methods: {
-        onImgError() {
-            this.state.imgFailed = true;
-        }
-    },
+    onImgError() {
+        this.state.imgFailed = true;
+    }
 
-    computed: {
-        px() { return sizePx(this.props.size); },
-        initials() { return initialsFor(this.props.label); },
-        bg() { return this.props.color || colorFor(this.props.label || ''); }
-    },
+    get px() { return sizePx(this.props.size); }
+
+    get initials() { return initialsFor(this.props.label); }
+
+    get bg() { return this.props.color || colorFor(this.props.label || ''); }
 
     template() {
         const px = this.px;
@@ -86,9 +86,9 @@ export default defineComponent('cl-avatar', {
                 `)}
             </span>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host { display: inline-block; }
 
         .cl-avatar {
@@ -129,30 +129,31 @@ export default defineComponent('cl-avatar', {
         .status-busy { background: #dc3545; }
         .status-away { background: #ffc107; }
     `
-});
+}
 
-export const AvatarGroup = defineComponent('cl-avatar-group', {
-    props: {
+export default defineComponent('cl-avatar', ClAvatar);
+
+export class ClAvatarGroup extends Component {
+    static props = {
         avatars: [],       // array of { src, label, status, color }
         max: 0,            // 0 = show all; otherwise cap + show "+N"
         size: 'md',
         shape: 'circle'
-    },
+    }
 
-    computed: {
-        visible() {
-            const list = this.props.avatars || [];
-            if (this.props.max > 0 && list.length > this.props.max) {
-                return list.slice(0, this.props.max);
-            }
-            return list;
-        },
-        overflow() {
-            const list = this.props.avatars || [];
-            return (this.props.max > 0 && list.length > this.props.max)
-                ? list.length - this.props.max : 0;
+    get visible() {
+        const list = this.props.avatars || [];
+        if (this.props.max > 0 && list.length > this.props.max) {
+            return list.slice(0, this.props.max);
         }
-    },
+        return list;
+    }
+
+    get overflow() {
+        const list = this.props.avatars || [];
+        return (this.props.max > 0 && list.length > this.props.max)
+            ? list.length - this.props.max : 0;
+    }
 
     template() {
         const px = sizePx(this.props.size);
@@ -182,9 +183,9 @@ export const AvatarGroup = defineComponent('cl-avatar-group', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host { display: inline-block; }
 
         .cl-avatar-group {
@@ -207,4 +208,6 @@ export const AvatarGroup = defineComponent('cl-avatar-group', {
             box-sizing: border-box;
         }
     `
-});
+}
+
+export const AvatarGroup = defineComponent('cl-avatar-group', ClAvatarGroup);

@@ -1,18 +1,20 @@
 /**
  * Shop Home Page
  */
-import { defineComponent, html, when, each } from '../../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../../lib/framework.js';
 import '../../../componentlib/button/button.js';
 import '../../../componentlib/panel/card.js';
 
-export default defineComponent('shop-home-page', {
-    data() {
-        return {
+export class ShopHomePage extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             categories: [],
             featuredProducts: [],
             loading: true
         };
-    },
+    }
 
     async mounted() {
         try {
@@ -28,21 +30,19 @@ export default defineComponent('shop-home-page', {
             console.error('Failed to load products:', e);
             this.state.loading = false;
         }
-    },
+    }
 
-    methods: {
-        navigateToCategory(categoryId) {
-            window.location.hash = `/shop/products/${categoryId}/`;
-        },
+    navigateToCategory(categoryId) {
+        window.location.hash = `/shop/products/${categoryId}/`;
+    }
 
-        navigateToProducts() {
-            window.location.hash = '/shop/products/';
-        },
+    navigateToProducts() {
+        window.location.hash = '/shop/products/';
+    }
 
-        navigateToProduct(productId) {
-            window.location.hash = `/shop/product/${productId}/`;
-        }
-    },
+    navigateToProduct(productId) {
+        window.location.hash = `/shop/product/${productId}/`;
+    }
 
     template() {
         return html`
@@ -140,9 +140,9 @@ export default defineComponent('shop-home-page', {
                 </section>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .home-page {
             max-width: 1400px;
             margin: 0 auto;
@@ -374,4 +374,6 @@ export default defineComponent('shop-home-page', {
             }
         }
     `
-});
+}
+
+export default defineComponent('shop-home-page', ShopHomePage);

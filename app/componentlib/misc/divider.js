@@ -1,15 +1,15 @@
 /**
  * Divider - Horizontal or vertical separating line, with an optional label.
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-divider', {
-    props: {
+export class ClDivider extends Component {
+    static props = {
         orientation: 'horizontal', // 'horizontal' | 'vertical'
         label: '',
         align: 'center',           // horizontal label position: 'left' | 'center' | 'right'
         variant: 'solid'           // 'solid' | 'dashed' | 'dotted'
-    },
+    }
 
     template() {
         const vertical = this.props.orientation === 'vertical';
@@ -29,9 +29,9 @@ export default defineComponent('cl-divider', {
                 <span class="divider-label">${this.props.label}</span>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -89,4 +89,6 @@ export default defineComponent('cl-divider', {
             white-space: nowrap;
         }
     `
-});
+}
+
+export default defineComponent('cl-divider', ClDivider);

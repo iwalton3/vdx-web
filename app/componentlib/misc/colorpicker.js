@@ -1,23 +1,25 @@
 /**
  * ColorPicker - Color picker component
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-colorpicker', {
-    props: {
+export class ClColorpicker extends Component {
+    static props = {
         value: '#000000',
         disabled: false,
         label: '',
         inline: false,
         format: 'hex' // 'hex' or 'rgb'
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             showPicker: false,
             internalValue: '#000000' // Will be synced in mounted()
         };
-    },
+    }
 
     mounted() {
         // Initialize internal value from props
@@ -26,67 +28,63 @@ export default defineComponent('cl-colorpicker', {
         if (this.props.inline) {
             this.state.showPicker = true;
         }
-    },
+    }
 
     propsChanged(prop, newValue, oldValue) {
         // Sync internal value when prop changes (controlled mode)
         if (prop === 'value' && newValue !== this.state.internalValue) {
             this.state.internalValue = newValue || '#000000';
         }
-    },
+    }
 
-    methods: {
-        closePanel() {
-            if (!this.props.inline) {
-                this.state.showPicker = false;
-            }
-        },
-
-        handleColorInput(event) {
-            // Handle 'input' event from color picker (fires during selection)
-            const color = event.target.value;
-            this.state.internalValue = color;
-            // Emit change event with proper format
-            this.emitChange(event, color);
-        },
-
-        handleColorChange(event) {
-            // Handle native 'change' event from color input
-            // Stop it from bubbling to prevent x-model from receiving native event
-            if (event && event.stopPropagation) {
-                event.stopPropagation();
-            }
-            const color = event.target.value;
-            this.state.internalValue = color;
-            // Emit proper CustomEvent
-            this.emitChange(event, color);
-        },
-
-        togglePicker() {
-            if (!this.props.disabled && !this.props.inline) {
-                this.state.showPicker = !this.state.showPicker;
-            }
-        },
-
-        hexToRgb(hex) {
-            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-            return result ? {
-                r: parseInt(result[1], 16),
-                g: parseInt(result[2], 16),
-                b: parseInt(result[3], 16)
-            } : null;
+    closePanel() {
+        if (!this.props.inline) {
+            this.state.showPicker = false;
         }
-    },
+    }
 
-    computed: {
-        displayValue() {
-            if (this.props.format === 'rgb') {
-                const rgb = this.hexToRgb(this.state.internalValue);
-                return rgb ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` : this.state.internalValue;
-            }
-            return this.state.internalValue;
+    handleColorInput(event) {
+        // Handle 'input' event from color picker (fires during selection)
+        const color = event.target.value;
+        this.state.internalValue = color;
+        // Emit change event with proper format
+        this.emitChange(event, color);
+    }
+
+    handleColorChange(event) {
+        // Handle native 'change' event from color input
+        // Stop it from bubbling to prevent x-model from receiving native event
+        if (event && event.stopPropagation) {
+            event.stopPropagation();
         }
-    },
+        const color = event.target.value;
+        this.state.internalValue = color;
+        // Emit proper CustomEvent
+        this.emitChange(event, color);
+    }
+
+    togglePicker() {
+        if (!this.props.disabled && !this.props.inline) {
+            this.state.showPicker = !this.state.showPicker;
+        }
+    }
+
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
+    }
+
+    get displayValue() {
+        if (this.props.format === 'rgb') {
+            const rgb = this.hexToRgb(this.state.internalValue);
+            return rgb ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` : this.state.internalValue;
+        }
+        return this.state.internalValue;
+    }
 
     template() {
         const displayValue = this.displayValue;
@@ -130,9 +128,9 @@ export default defineComponent('cl-colorpicker', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -247,4 +245,6 @@ export default defineComponent('cl-colorpicker', {
             color: var(--text-muted, #6c757d);
         }
     `
-});
+}
+
+export default defineComponent('cl-colorpicker', ClColorpicker);

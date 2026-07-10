@@ -1,7 +1,7 @@
 /**
  * Shop Products Page with filtering, sorting, and pagination
  */
-import { defineComponent, html, when, each } from '../../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../../lib/framework.js';
 import cartStore from '../cart-store.js';
 
 // Import UI components
@@ -11,15 +11,17 @@ import '../../../componentlib/form/slider.js';
 import '../../../componentlib/form/checkbox.js';
 import '../../../componentlib/data/paginator.js';
 
-export default defineComponent('shop-products-page', {
-    props: {
+export class ShopProductsPage extends Component {
+    static props = {
         params: {}  // URL params from router
-    },
+    }
 
-    stores: { cart: cartStore },
+    static stores = { cart: cartStore }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             products: [],
             categories: [],
             loading: true,
@@ -42,168 +44,164 @@ export default defineComponent('shop-products-page', {
             currentPage: 0,
             itemsPerPage: 8
         };
-    },
+    }
 
     async mounted() {
         await this.loadProducts();
-    },
+    }
 
-    computed: {
-        // Current category comes from the URL params (reactive)
-        currentCategory() {
-            return this.props.params?.category || null;
-        },
+    // Current category comes from the URL params (reactive)
+    get currentCategory() {
+        return this.props.params?.category || null;
+    }
 
-        filteredProducts() {
-            let filtered = [...this.state.products];
+    get filteredProducts() {
+        let filtered = [...this.state.products];
 
-            // Filter by category
-            if (this.currentCategory) {
-                filtered = filtered.filter(p => p.category === this.currentCategory);
-            }
-
-            // Filter by price range
-            filtered = filtered.filter(p =>
-                p.price >= this.state.priceRange[0] &&
-                p.price <= this.state.priceRange[1]
-            );
-
-            // Filter by rating
-            if (this.state.minRating > 0) {
-                filtered = filtered.filter(p => p.rating >= this.state.minRating);
-            }
-
-            // Filter by stock
-            if (this.state.inStockOnly) {
-                filtered = filtered.filter(p => p.inStock);
-            }
-
-            // Sort
-            switch (this.state.sortBy) {
-                case 'price-asc':
-                    filtered.sort((a, b) => a.price - b.price);
-                    break;
-                case 'price-desc':
-                    filtered.sort((a, b) => b.price - a.price);
-                    break;
-                case 'rating-desc':
-                    filtered.sort((a, b) => b.rating - a.rating);
-                    break;
-                case 'reviews-desc':
-                    filtered.sort((a, b) => b.reviews - a.reviews);
-                    break;
-                case 'newest':
-                    filtered.sort((a, b) => b.id - a.id);
-                    break;
-                default:
-                    // Featured - badge products first
-                    filtered.sort((a, b) => (b.badge ? 1 : 0) - (a.badge ? 1 : 0));
-            }
-
-            return filtered;
-        },
-
-        paginatedProducts() {
-            const start = this.state.currentPage * this.state.itemsPerPage;
-            return this.filteredProducts.slice(start, start + this.state.itemsPerPage);
+        // Filter by category
+        if (this.currentCategory) {
+            filtered = filtered.filter(p => p.category === this.currentCategory);
         }
-    },
 
-    methods: {
-        async loadProducts() {
-            try {
-                const response = await fetch('./products.json');
-                const data = await response.json();
-                this.state.products = data.products;
-                this.state.categories = data.categories;
+        // Filter by price range
+        filtered = filtered.filter(p =>
+            p.price >= this.state.priceRange[0] &&
+            p.price <= this.state.priceRange[1]
+        );
 
-                // Set category from URL param if present, or clear it
-                if (this.props.params?.category) {
-                    this.state.selectedCategory = this.props.params.category;
-                } else {
-                    this.state.selectedCategory = null;
-                }
+        // Filter by rating
+        if (this.state.minRating > 0) {
+            filtered = filtered.filter(p => p.rating >= this.state.minRating);
+        }
 
-                this.state.loading = false;
-            } catch (e) {
-                console.error('Failed to load products:', e);
-                this.state.loading = false;
-            }
-        },
+        // Filter by stock
+        if (this.state.inStockOnly) {
+            filtered = filtered.filter(p => p.inStock);
+        }
 
-        handlePageChange(e, val) {
-            this.state.currentPage = Math.floor(val.first / this.state.itemsPerPage);
-        },
+        // Sort
+        switch (this.state.sortBy) {
+            case 'price-asc':
+                filtered.sort((a, b) => a.price - b.price);
+                break;
+            case 'price-desc':
+                filtered.sort((a, b) => b.price - a.price);
+                break;
+            case 'rating-desc':
+                filtered.sort((a, b) => b.rating - a.rating);
+                break;
+            case 'reviews-desc':
+                filtered.sort((a, b) => b.reviews - a.reviews);
+                break;
+            case 'newest':
+                filtered.sort((a, b) => b.id - a.id);
+                break;
+            default:
+                // Featured - badge products first
+                filtered.sort((a, b) => (b.badge ? 1 : 0) - (a.badge ? 1 : 0));
+        }
 
-        handleCategoryChange(categoryId) {
-            this.state.selectedCategory = categoryId;
-            this.state.currentPage = 0;
-            // Update URL
-            if (categoryId) {
-                window.location.hash = `/shop/products/${categoryId}/`;
+        return filtered;
+    }
+
+    get paginatedProducts() {
+        const start = this.state.currentPage * this.state.itemsPerPage;
+        return this.filteredProducts.slice(start, start + this.state.itemsPerPage);
+    }
+
+    async loadProducts() {
+        try {
+            const response = await fetch('./products.json');
+            const data = await response.json();
+            this.state.products = data.products;
+            this.state.categories = data.categories;
+
+            // Set category from URL param if present, or clear it
+            if (this.props.params?.category) {
+                this.state.selectedCategory = this.props.params.category;
             } else {
-                window.location.hash = '/shop/products/';
+                this.state.selectedCategory = null;
             }
-        },
 
-        handleSortChange(e, val) {
-            this.state.sortBy = val;
-            this.state.currentPage = 0;
-        },
-
-        handlePriceChange(e, val) {
-            // Get value from either the handler arg or event detail
-            const newValue = typeof val === 'number' ? val : (e?.detail ?? this.state.priceRange[1]);
-            // Must reassign array (not mutate) for reactivity
-            this.state.priceRange = [this.state.priceRange[0], newValue];
-            this.state.currentPage = 0;
-        },
-
-        handleRatingChange(rating) {
-            this.state.minRating = this.state.minRating === rating ? 0 : rating;
-            this.state.currentPage = 0;
-        },
-
-        handleStockChange(e, val) {
-            this.state.inStockOnly = val;
-            this.state.currentPage = 0;
-        },
-
-        clearFilters() {
-            this.state.selectedCategory = null;
-            this.state.priceRange = [0, 500];
-            this.state.minRating = 0;
-            this.state.inStockOnly = false;
-            this.state.sortBy = 'featured';
-            this.state.currentPage = 0;
-            window.location.hash = '/shop/products/';
-        },
-
-        navigateToProduct(productId) {
-            window.location.hash = `/shop/product/${productId}/`;
-        },
-
-        addToCart(product, e) {
-            e.stopPropagation();
-            cartStore.state.addItem(product);
-
-            // Show toast
-            const toast = document.querySelector('cl-toast');
-            if (toast) {
-                toast.show({
-                    severity: 'success',
-                    summary: 'Added to Cart',
-                    detail: `${product.name} added to your cart`,
-                    life: 3000
-                });
-            }
-        },
-
-        getCategoryName(categoryId) {
-            const category = this.state.categories.find(c => c.id === categoryId);
-            return category ? category.name : 'All Products';
+            this.state.loading = false;
+        } catch (e) {
+            console.error('Failed to load products:', e);
+            this.state.loading = false;
         }
-    },
+    }
+
+    handlePageChange(e, val) {
+        this.state.currentPage = Math.floor(val.first / this.state.itemsPerPage);
+    }
+
+    handleCategoryChange(categoryId) {
+        this.state.selectedCategory = categoryId;
+        this.state.currentPage = 0;
+        // Update URL
+        if (categoryId) {
+            window.location.hash = `/shop/products/${categoryId}/`;
+        } else {
+            window.location.hash = '/shop/products/';
+        }
+    }
+
+    handleSortChange(e, val) {
+        this.state.sortBy = val;
+        this.state.currentPage = 0;
+    }
+
+    handlePriceChange(e, val) {
+        // Get value from either the handler arg or event detail
+        const newValue = typeof val === 'number' ? val : (e?.detail ?? this.state.priceRange[1]);
+        // Must reassign array (not mutate) for reactivity
+        this.state.priceRange = [this.state.priceRange[0], newValue];
+        this.state.currentPage = 0;
+    }
+
+    handleRatingChange(rating) {
+        this.state.minRating = this.state.minRating === rating ? 0 : rating;
+        this.state.currentPage = 0;
+    }
+
+    handleStockChange(e, val) {
+        this.state.inStockOnly = val;
+        this.state.currentPage = 0;
+    }
+
+    clearFilters() {
+        this.state.selectedCategory = null;
+        this.state.priceRange = [0, 500];
+        this.state.minRating = 0;
+        this.state.inStockOnly = false;
+        this.state.sortBy = 'featured';
+        this.state.currentPage = 0;
+        window.location.hash = '/shop/products/';
+    }
+
+    navigateToProduct(productId) {
+        window.location.hash = `/shop/product/${productId}/`;
+    }
+
+    addToCart(product, e) {
+        e.stopPropagation();
+        cartStore.state.addItem(product);
+
+        // Show toast
+        const toast = document.querySelector('cl-toast');
+        if (toast) {
+            toast.show({
+                severity: 'success',
+                summary: 'Added to Cart',
+                detail: `${product.name} added to your cart`,
+                life: 3000
+            });
+        }
+    }
+
+    getCategoryName(categoryId) {
+        const category = this.state.categories.find(c => c.id === categoryId);
+        return category ? category.name : 'All Products';
+    }
 
     template() {
         const paginatedProducts = this.paginatedProducts;
@@ -370,9 +368,9 @@ export default defineComponent('shop-products-page', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .products-page {
             max-width: 1400px;
             margin: 0 auto;
@@ -641,4 +639,6 @@ export default defineComponent('shop-products-page', {
             }
         }
     `
-});
+}
+
+export default defineComponent('shop-products-page', ShopProductsPage);

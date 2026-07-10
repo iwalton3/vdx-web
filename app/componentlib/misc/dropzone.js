@@ -12,7 +12,7 @@
  *   reject  detail: { files: [{ file, reason }] }      - reason: 'size' | 'type'
  *   change  detail: { value: File[] }                  - accepted files (on-change)
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
 // Parse an `accept` string ("image/*,.pdf,text/plain") into matcher tokens.
 function parseAccept(accept) {
@@ -65,8 +65,8 @@ export function filterFiles(fileList, { accept = '', maxSize = 0, multiple = tru
     };
 }
 
-export default defineComponent('cl-dropzone', {
-    props: {
+export class ClDropzone extends Component {
+    static props = {
         multiple: false,
         accept: '',
         maxfilesize: 0,        // bytes; 0 = no limit
@@ -75,97 +75,97 @@ export default defineComponent('cl-dropzone', {
         label: 'Drag & drop files here',
         hint: 'or click to browse',
         icon: ''               // custom icon (emoji/text); default is a cloud SVG
-    },
+    }
 
-    data() {
-        return { dragging: false };
-    },
+    constructor(props) {
+        super(props);
 
-    methods: {
-        // --- click / keyboard to open the native picker ---
-        openBrowse(e) {
-            if (this.props.disabled) return;
-            // Ignore the click that the programmatic input.click() bubbles back
-            // up to the zone, otherwise we'd re-open the dialog in a loop.
-            if (e && e.target && e.target.tagName === 'INPUT') return;
+        this.state = { dragging: false };
+    }
+
+    // --- click / keyboard to open the native picker ---
+    openBrowse(e) {
+        if (this.props.disabled) return;
+        // Ignore the click that the programmatic input.click() bubbles back
+        // up to the zone, otherwise we'd re-open the dialog in a loop.
+        if (e && e.target && e.target.tagName === 'INPUT') return;
+        this.refs.input.click();
+    }
+
+    onKeydown(e) {
+        if (this.props.disabled) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
             this.refs.input.click();
-        },
+        }
+    }
 
-        onKeydown(e) {
-            if (this.props.disabled) return;
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                this.refs.input.click();
-            }
-        },
+    onInputChange(e) {
+        this.process(e.target.files);
+        e.target.value = ''; // allow re-selecting the same file
+    }
 
-        onInputChange(e) {
-            this.process(e.target.files);
-            e.target.value = ''; // allow re-selecting the same file
-        },
+    // --- drag & drop ---
+    // A depth counter tolerates dragenter/dragleave firing for child nodes.
+    onDragEnter() {
+        if (this.props.disabled) return;
+        this._dragDepth = (this._dragDepth || 0) + 1;
+        this.state.dragging = true;
+    }
 
-        // --- drag & drop ---
-        // A depth counter tolerates dragenter/dragleave firing for child nodes.
-        onDragEnter() {
-            if (this.props.disabled) return;
-            this._dragDepth = (this._dragDepth || 0) + 1;
-            this.state.dragging = true;
-        },
+    onDragOver() {
+        // Handler exists so on-dragover-prevent keeps the drop target valid.
+        if (this.props.disabled) return;
+        this.state.dragging = true;
+    }
 
-        onDragOver() {
-            // Handler exists so on-dragover-prevent keeps the drop target valid.
-            if (this.props.disabled) return;
-            this.state.dragging = true;
-        },
-
-        onDragLeave() {
-            this._dragDepth = (this._dragDepth || 1) - 1;
-            if (this._dragDepth <= 0) {
-                this._dragDepth = 0;
-                this.state.dragging = false;
-            }
-        },
-
-        onDrop(e) {
+    onDragLeave() {
+        this._dragDepth = (this._dragDepth || 1) - 1;
+        if (this._dragDepth <= 0) {
             this._dragDepth = 0;
             this.state.dragging = false;
-            if (this.props.disabled) return;
-            const dt = e.dataTransfer;
-            if (dt && dt.files && dt.files.length) {
-                this.process(dt.files);
-            }
-        },
-
-        // --- paste ---
-        onPaste(e) {
-            if (this.props.disabled || !this.props.paste) return;
-            const files = e.clipboardData && e.clipboardData.files;
-            if (files && files.length) {
-                e.preventDefault();
-                this.process(files);
-            }
-        },
-
-        process(fileList) {
-            const { accepted, rejected } = filterFiles(fileList, {
-                accept: this.props.accept,
-                maxSize: this.props.maxfilesize,
-                multiple: this.props.multiple
-            });
-
-            if (rejected.length) {
-                this.dispatchEvent(new CustomEvent('reject', {
-                    detail: { files: rejected }, bubbles: true, composed: true
-                }));
-            }
-            if (accepted.length) {
-                this.dispatchEvent(new CustomEvent('select', {
-                    detail: { files: accepted }, bubbles: true, composed: true
-                }));
-                this.emitChange(null, accepted);
-            }
         }
-    },
+    }
+
+    onDrop(e) {
+        this._dragDepth = 0;
+        this.state.dragging = false;
+        if (this.props.disabled) return;
+        const dt = e.dataTransfer;
+        if (dt && dt.files && dt.files.length) {
+            this.process(dt.files);
+        }
+    }
+
+    // --- paste ---
+    onPaste(e) {
+        if (this.props.disabled || !this.props.paste) return;
+        const files = e.clipboardData && e.clipboardData.files;
+        if (files && files.length) {
+            e.preventDefault();
+            this.process(files);
+        }
+    }
+
+    process(fileList) {
+        const { accepted, rejected } = filterFiles(fileList, {
+            accept: this.props.accept,
+            maxSize: this.props.maxfilesize,
+            multiple: this.props.multiple
+        });
+
+        if (rejected.length) {
+            this.dispatchEvent(new CustomEvent('reject', {
+                detail: { files: rejected }, bubbles: true, composed: true
+            }));
+        }
+        if (accepted.length) {
+            this.dispatchEvent(new CustomEvent('select', {
+                detail: { files: accepted }, bubbles: true, composed: true
+            }));
+            this.emitChange(null, accepted);
+        }
+    }
 
     template() {
         const classes = [
@@ -209,9 +209,9 @@ export default defineComponent('cl-dropzone', {
                 ${when(this.props.hint, html`<div class="dz-hint">${this.props.hint}</div>`)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -273,4 +273,6 @@ export default defineComponent('cl-dropzone', {
             font-size: 13px;
         }
     `
-});
+}
+
+export default defineComponent('cl-dropzone', ClDropzone);

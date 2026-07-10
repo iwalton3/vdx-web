@@ -1,7 +1,7 @@
 /**
  * Checkout Page
  */
-import { defineComponent, html, when, each } from '../../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../../lib/framework.js';
 import cartStore from '../cart-store.js';
 
 // Import UI components
@@ -11,11 +11,13 @@ import '../../../componentlib/selection/dropdown.js';
 import '../../../componentlib/form/checkbox.js';
 import '../../../componentlib/overlay/dialog.js';
 
-export default defineComponent('shop-checkout-page', {
-    stores: { cart: cartStore },
+export class ShopCheckoutPage extends Component {
+    static stores = { cart: cartStore }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             step: 1, // 1: Shipping, 2: Payment, 3: Review
             shipping: {
                 firstName: '',
@@ -40,110 +42,106 @@ export default defineComponent('shop-checkout-page', {
             orderId: null,
             errors: {}
         };
-    },
+    }
 
-    computed: {
-        shippingCost() {
-            return this.stores.cart.subtotal >= 50 ? 0 : 5.99;
-        },
+    get shippingCost() {
+        return this.stores.cart.subtotal >= 50 ? 0 : 5.99;
+    }
 
-        tax() {
-            return this.stores.cart.subtotal * 0.08;
-        },
+    get tax() {
+        return this.stores.cart.subtotal * 0.08;
+    }
 
-        total() {
-            return this.stores.cart.subtotal + this.shippingCost + this.tax;
+    get total() {
+        return this.stores.cart.subtotal + this.shippingCost + this.tax;
+    }
+
+    validateShipping() {
+        const errors = {};
+        const s = this.state.shipping;
+
+        if (!s.firstName.trim()) errors.firstName = 'First name is required';
+        if (!s.lastName.trim()) errors.lastName = 'Last name is required';
+        if (!s.email.trim()) errors.email = 'Email is required';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email)) errors.email = 'Invalid email';
+        if (!s.address.trim()) errors.address = 'Address is required';
+        if (!s.city.trim()) errors.city = 'City is required';
+        if (!s.state.trim()) errors.state = 'State is required';
+        if (!s.zip.trim()) errors.zip = 'ZIP code is required';
+
+        this.state.errors = errors;
+        return Object.keys(errors).length === 0;
+    }
+
+    validatePayment() {
+        const errors = {};
+        const p = this.state.payment;
+
+        if (!p.cardNumber.replace(/\s/g, '').match(/^\d{16}$/)) {
+            errors.cardNumber = 'Enter a valid 16-digit card number';
         }
-    },
-
-    methods: {
-        validateShipping() {
-            const errors = {};
-            const s = this.state.shipping;
-
-            if (!s.firstName.trim()) errors.firstName = 'First name is required';
-            if (!s.lastName.trim()) errors.lastName = 'Last name is required';
-            if (!s.email.trim()) errors.email = 'Email is required';
-            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email)) errors.email = 'Invalid email';
-            if (!s.address.trim()) errors.address = 'Address is required';
-            if (!s.city.trim()) errors.city = 'City is required';
-            if (!s.state.trim()) errors.state = 'State is required';
-            if (!s.zip.trim()) errors.zip = 'ZIP code is required';
-
-            this.state.errors = errors;
-            return Object.keys(errors).length === 0;
-        },
-
-        validatePayment() {
-            const errors = {};
-            const p = this.state.payment;
-
-            if (!p.cardNumber.replace(/\s/g, '').match(/^\d{16}$/)) {
-                errors.cardNumber = 'Enter a valid 16-digit card number';
-            }
-            if (!p.cardName.trim()) errors.cardName = 'Name on card is required';
-            if (!p.expiry.match(/^(0[1-9]|1[0-2])\/\d{2}$/)) {
-                errors.expiry = 'Enter expiry as MM/YY';
-            }
-            if (!p.cvv.match(/^\d{3,4}$/)) errors.cvv = 'Enter a valid CVV';
-
-            this.state.errors = errors;
-            return Object.keys(errors).length === 0;
-        },
-
-        nextStep() {
-            if (this.state.step === 1 && this.validateShipping()) {
-                this.state.step = 2;
-            } else if (this.state.step === 2 && this.validatePayment()) {
-                this.state.step = 3;
-            }
-        },
-
-        prevStep() {
-            if (this.state.step > 1) {
-                this.state.step--;
-                this.state.errors = {};
-            }
-        },
-
-        async placeOrder() {
-            this.state.processing = true;
-
-            // Simulate order processing
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Generate order ID
-            this.state.orderId = 'ORD-' + Date.now().toString(36).toUpperCase();
-            this.state.orderComplete = true;
-            this.state.processing = false;
-
-            // Clear cart
-            cartStore.state.clearCart();
-        },
-
-        goHome() {
-            window.location.hash = '/shop/';
-        },
-
-        goToCart() {
-            window.location.hash = '/shop/cart/';
-        },
-
-        formatCardNumber(e) {
-            let value = (e.detail?.value || '').replace(/\s/g, '').replace(/\D/g, '');
-            value = value.substring(0, 16);
-            value = value.replace(/(.{4})/g, '$1 ').trim();
-            this.state.payment.cardNumber = value;
-        },
-
-        formatExpiry(e) {
-            let value = (e.detail?.value || '').replace(/\D/g, '');
-            if (value.length >= 2) {
-                value = value.substring(0, 2) + '/' + value.substring(2, 4);
-            }
-            this.state.payment.expiry = value;
+        if (!p.cardName.trim()) errors.cardName = 'Name on card is required';
+        if (!p.expiry.match(/^(0[1-9]|1[0-2])\/\d{2}$/)) {
+            errors.expiry = 'Enter expiry as MM/YY';
         }
-    },
+        if (!p.cvv.match(/^\d{3,4}$/)) errors.cvv = 'Enter a valid CVV';
+
+        this.state.errors = errors;
+        return Object.keys(errors).length === 0;
+    }
+
+    nextStep() {
+        if (this.state.step === 1 && this.validateShipping()) {
+            this.state.step = 2;
+        } else if (this.state.step === 2 && this.validatePayment()) {
+            this.state.step = 3;
+        }
+    }
+
+    prevStep() {
+        if (this.state.step > 1) {
+            this.state.step--;
+            this.state.errors = {};
+        }
+    }
+
+    async placeOrder() {
+        this.state.processing = true;
+
+        // Simulate order processing
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Generate order ID
+        this.state.orderId = 'ORD-' + Date.now().toString(36).toUpperCase();
+        this.state.orderComplete = true;
+        this.state.processing = false;
+
+        // Clear cart
+        cartStore.state.clearCart();
+    }
+
+    goHome() {
+        window.location.hash = '/shop/';
+    }
+
+    goToCart() {
+        window.location.hash = '/shop/cart/';
+    }
+
+    formatCardNumber(e) {
+        let value = (e.detail?.value || '').replace(/\s/g, '').replace(/\D/g, '');
+        value = value.substring(0, 16);
+        value = value.replace(/(.{4})/g, '$1 ').trim();
+        this.state.payment.cardNumber = value;
+    }
+
+    formatExpiry(e) {
+        let value = (e.detail?.value || '').replace(/\D/g, '');
+        if (value.length >= 2) {
+            value = value.substring(0, 2) + '/' + value.substring(2, 4);
+        }
+        this.state.payment.expiry = value;
+    }
 
     template() {
         const items = this.stores.cart.items;
@@ -455,9 +453,9 @@ export default defineComponent('shop-checkout-page', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .checkout-page {
             max-width: 1100px;
             margin: 0 auto;
@@ -897,4 +895,6 @@ export default defineComponent('shop-checkout-page', {
             }
         }
     `
-});
+}
+
+export default defineComponent('shop-checkout-page', ShopCheckoutPage);

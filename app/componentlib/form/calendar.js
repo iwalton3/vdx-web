@@ -1,10 +1,10 @@
 /**
  * Calendar - Date picker component with typeable input and month/year picker
  */
-import { defineComponent, html, when, each } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 
-export default defineComponent('cl-calendar', {
-    props: {
+export class ClCalendar extends Component {
+    static props = {
         value: '',
         disabled: false,
         label: '',
@@ -14,10 +14,12 @@ export default defineComponent('cl-calendar', {
         dateFormat: 'MM/DD/YYYY',  // Display format
         placeholder: '',
         selectionMode: 'single'    // 'single' | 'range'
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             showPicker: false,
             viewDate: Date.now(),
             selectedDate: null,
@@ -30,7 +32,7 @@ export default defineComponent('cl-calendar', {
             rangeEnd: null,
             hoverDate: null        // previews the in-progress range on hover
         };
-    },
+    }
 
     mounted() {
         this.syncValueToState();
@@ -39,503 +41,499 @@ export default defineComponent('cl-calendar', {
         if (this.props.inline) {
             this.state.showPicker = true;
         }
-    },
+    }
 
     propsChanged(prop, newValue, oldValue) {
         if (prop === 'value' && newValue !== oldValue) {
             this.syncValueToState();
         }
-    },
+    }
 
-    methods: {
-        closePicker() {
-            if (!this.props.inline) {
-                this.state.showPicker = false;
+    closePicker() {
+        if (!this.props.inline) {
+            this.state.showPicker = false;
+        }
+    }
+
+    isRange() {
+        return this.props.selectionMode === 'range';
+    }
+
+    // Parse an ISO date (YYYY-MM-DD) as a local-time date, matching the
+    // single-date sync behaviour so day cells line up with what was picked.
+    parseISO(str) {
+        if (!str) return null;
+        const utc = new Date(str);
+        if (isNaN(utc.getTime())) return null;
+        return new Date(utc.getTime() + utc.getTimezoneOffset() * 60000);
+    }
+
+    syncValueToState() {
+        if (this.isRange()) {
+            const v = this.props.value;
+            let start = null, end = null;
+            if (v && typeof v === 'object') {
+                start = v.start; end = v.end;
+            } else if (typeof v === 'string' && v.includes('/')) {
+                [start, end] = v.split('/');
+            } else if (typeof v === 'string' && v) {
+                start = v;
             }
-        },
-
-        isRange() {
-            return this.props.selectionMode === 'range';
-        },
-
-        // Parse an ISO date (YYYY-MM-DD) as a local-time date, matching the
-        // single-date sync behaviour so day cells line up with what was picked.
-        parseISO(str) {
-            if (!str) return null;
-            const utc = new Date(str);
-            if (isNaN(utc.getTime())) return null;
-            return new Date(utc.getTime() + utc.getTimezoneOffset() * 60000);
-        },
-
-        syncValueToState() {
-            if (this.isRange()) {
-                const v = this.props.value;
-                let start = null, end = null;
-                if (v && typeof v === 'object') {
-                    start = v.start; end = v.end;
-                } else if (typeof v === 'string' && v.includes('/')) {
-                    [start, end] = v.split('/');
-                } else if (typeof v === 'string' && v) {
-                    start = v;
-                }
-                const sd = this.parseISO(start);
-                const ed = this.parseISO(end);
-                this.state.rangeStart = sd ? sd.getTime() : null;
-                this.state.rangeEnd = ed ? ed.getTime() : null;
-                this.state.hoverDate = null;
-                this.state.inputValue = this.formatRange();
-                if (sd) this.state.viewDate = sd.getTime();
-                return;
-            }
-
-            if (this.props.value && this.props.value !== '') {
-                // date in local timezone from ISO date e.g. 2023-08-15
-                const date = this.parseISO(this.props.value);
-                if (date && !isNaN(date.getTime())) {
-                    this.state.selectedDate = date.getTime();
-                    this.state.viewDate = date.getTime();
-                    this.state.inputValue = this.formatDisplayDate(date);
-                }
-            } else {
-                this.state.selectedDate = null;
-                this.state.inputValue = '';
-            }
-        },
-
-        togglePicker(e) {
-            if (e) e.stopPropagation();
-            if (!this.props.disabled && !this.props.inline) {
-                this.state.showPicker = !this.state.showPicker;
-                this.state.viewMode = 'days';
-                if (this.state.showPicker && this.state.selectedDate) {
-                    this.state.viewDate = this.state.selectedDate;
-                }
-            }
-        },
-
-        selectDate(date) {
-            if (this.isRange()) {
-                this.selectRangeDate(date);
-                return;
-            }
-            this.state.selectedDate = date.getTime();
-            this.state.viewDate = date.getTime();
-            this.state.inputValue = this.formatDisplayDate(date);
-            this.state.inputError = '';
-            const dateStr = this.toISODate(date);
-            this.emitChange(null, dateStr);
-
-            if (!this.props.inline) {
-                this.state.showPicker = false;
-            }
-        },
-
-        selectRangeDate(date) {
-            const t = date.getTime();
-            // First click, or starting a fresh range after a completed one.
-            if (this.state.rangeStart == null || this.state.rangeEnd != null) {
-                this.state.rangeStart = t;
-                this.state.rangeEnd = null;
-                this.state.hoverDate = null;
-                this.state.inputValue = this.formatRange();
-                return;
-            }
-            // Second click completes the range (order-independent).
-            let start = this.state.rangeStart;
-            let end = t;
-            if (end < start) { const tmp = start; start = end; end = tmp; }
-            this.state.rangeStart = start;
-            this.state.rangeEnd = end;
+            const sd = this.parseISO(start);
+            const ed = this.parseISO(end);
+            this.state.rangeStart = sd ? sd.getTime() : null;
+            this.state.rangeEnd = ed ? ed.getTime() : null;
             this.state.hoverDate = null;
-            this.state.viewDate = end;
             this.state.inputValue = this.formatRange();
-            this.emitRangeChange();
+            if (sd) this.state.viewDate = sd.getTime();
+            return;
+        }
 
-            if (!this.props.inline) {
-                this.state.showPicker = false;
+        if (this.props.value && this.props.value !== '') {
+            // date in local timezone from ISO date e.g. 2023-08-15
+            const date = this.parseISO(this.props.value);
+            if (date && !isNaN(date.getTime())) {
+                this.state.selectedDate = date.getTime();
+                this.state.viewDate = date.getTime();
+                this.state.inputValue = this.formatDisplayDate(date);
             }
-        },
-
-        hoverDay(date) {
-            if (this.isRange() && date &&
-                this.state.rangeStart != null && this.state.rangeEnd == null) {
-                this.state.hoverDate = date.getTime();
-            }
-        },
-
-        // Effective [lo, hi] bounds for highlighting; uses hoverDate as a live
-        // preview of the second endpoint while a range is being picked.
-        rangeBounds() {
-            const s = this.state.rangeStart;
-            if (s == null) return null;
-            let e = this.state.rangeEnd;
-            if (e == null) e = this.state.hoverDate;
-            if (e == null) return [s, null];
-            return e < s ? [e, s] : [s, e];
-        },
-
-        sameDay(date, ts) {
-            if (ts == null || !date) return false;
-            return new Date(date).toDateString() === new Date(ts).toDateString();
-        },
-
-        isRangeStart(date) {
-            const b = this.rangeBounds();
-            return !!(b && this.sameDay(date, b[0]));
-        },
-
-        isRangeEnd(date) {
-            const b = this.rangeBounds();
-            return !!(b && b[1] != null && this.sameDay(date, b[1]));
-        },
-
-        isInRange(date) {
-            const b = this.rangeBounds();
-            if (!b || b[1] == null || !date) return false;
-            const day = new Date(date); day.setHours(0, 0, 0, 0);
-            const lo = new Date(b[0]); lo.setHours(0, 0, 0, 0);
-            const hi = new Date(b[1]); hi.setHours(0, 0, 0, 0);
-            return day.getTime() > lo.getTime() && day.getTime() < hi.getTime();
-        },
-
-        formatRange() {
-            const s = this.state.rangeStart, e = this.state.rangeEnd;
-            if (s == null) return '';
-            const sf = this.formatDisplayDate(new Date(s));
-            if (e == null) return sf;
-            return `${sf} – ${this.formatDisplayDate(new Date(e))}`;
-        },
-
-        emitRangeChange() {
-            const s = this.state.rangeStart, e = this.state.rangeEnd;
-            const detail = {
-                start: s != null ? this.toISODate(new Date(s)) : null,
-                end: e != null ? this.toISODate(new Date(e)) : null
-            };
-            this.emitChange(null, detail);
-            this.dispatchEvent(new CustomEvent('range-change', {
-                detail, bubbles: true, composed: true
-            }));
-        },
-
-        toISODate(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        },
-
-        previousMonth() {
-            const current = new Date(this.state.viewDate);
-            current.setMonth(current.getMonth() - 1);
-            this.state.viewDate = current.getTime();
-        },
-
-        nextMonth() {
-            const current = new Date(this.state.viewDate);
-            current.setMonth(current.getMonth() + 1);
-            this.state.viewDate = current.getTime();
-        },
-
-        previousYear() {
-            const current = new Date(this.state.viewDate);
-            current.setFullYear(current.getFullYear() - 1);
-            this.state.viewDate = current.getTime();
-        },
-
-        nextYear() {
-            const current = new Date(this.state.viewDate);
-            current.setFullYear(current.getFullYear() + 1);
-            this.state.viewDate = current.getTime();
-        },
-
-        previousYearRange() {
-            this.state.yearRangeStart -= 12;
-        },
-
-        nextYearRange() {
-            this.state.yearRangeStart += 12;
-        },
-
-        selectMonth(month) {
-            const current = new Date(this.state.viewDate);
-            current.setMonth(month);
-            this.state.viewDate = current.getTime();
-            this.state.viewMode = 'days';
-        },
-
-        selectYear(year) {
-            const current = new Date(this.state.viewDate);
-            current.setFullYear(year);
-            this.state.viewDate = current.getTime();
-            this.state.viewMode = 'months';
-        },
-
-        switchToMonthView() {
-            this.state.viewMode = 'months';
-        },
-
-        switchToYearView() {
-            const current = new Date(this.state.viewDate);
-            this.state.yearRangeStart = Math.floor(current.getFullYear() / 12) * 12;
-            this.state.viewMode = 'years';
-        },
-
-        getDaysInMonth() {
-            const viewDate = new Date(this.state.viewDate);
-            const year = viewDate.getFullYear();
-            const month = viewDate.getMonth();
-            const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
-            const daysInMonth = lastDay.getDate();
-            const startingDayOfWeek = firstDay.getDay();
-
-            const days = [];
-
-            for (let i = 0; i < startingDayOfWeek; i++) {
-                days.push(null);
-            }
-
-            for (let day = 1; day <= daysInMonth; day++) {
-                days.push(new Date(year, month, day));
-            }
-
-            return days;
-        },
-
-        isSelectedDate(date) {
-            if (!date || !this.state.selectedDate) return false;
-            const selected = new Date(this.state.selectedDate);
-            return date.toDateString() === selected.toDateString();
-        },
-
-        isToday(date) {
-            if (!date) return false;
-            const today = new Date();
-            return date.toDateString() === today.toDateString();
-        },
-
-        isCurrentMonth(month) {
-            const viewDate = new Date(this.state.viewDate);
-            return viewDate.getMonth() === month;
-        },
-
-        isCurrentYear(year) {
-            const viewDate = new Date(this.state.viewDate);
-            return viewDate.getFullYear() === year;
-        },
-
-        isDateDisabled(date) {
-            if (!date) return false;
-
-            if (this.props.min) {
-                const minDate = new Date(this.props.min);
-                if (date < minDate) return true;
-            }
-
-            if (this.props.max) {
-                const maxDate = new Date(this.props.max);
-                if (date > maxDate) return true;
-            }
-
-            return false;
-        },
-
-        formatDisplayDate(date) {
-            if (!date) return '';
-            const d = date instanceof Date ? date : new Date(date);
-            if (isNaN(d.getTime())) return '';
-
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const year = d.getFullYear();
-
-            // Apply format
-            const format = this.props.dateFormat || 'MM/DD/YYYY';
-            return format
-                .replace('YYYY', year)
-                .replace('MM', month)
-                .replace('DD', day);
-        },
-
-        parseInputDate(value) {
-            if (!value) return null;
-
-            // Try various common formats
-            const formats = [
-                // MM/DD/YYYY
-                /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
-                // DD/MM/YYYY
-                /^(\d{1,2})-(\d{1,2})-(\d{4})$/,
-                // YYYY-MM-DD (ISO)
-                /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
-                // M/D/YY
-                /^(\d{1,2})\/(\d{1,2})\/(\d{2})$/
-            ];
-
-            for (const format of formats) {
-                const match = value.match(format);
-                if (match) {
-                    let year, month, day;
-
-                    if (format === formats[2]) {
-                        // YYYY-MM-DD
-                        [, year, month, day] = match;
-                    } else if (format === formats[3]) {
-                        // M/D/YY - assume 2000s
-                        [, month, day, year] = match;
-                        year = parseInt(year) + 2000;
-                    } else {
-                        // MM/DD/YYYY or DD-MM-YYYY
-                        [, month, day, year] = match;
-                    }
-
-                    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-                    if (!isNaN(date.getTime())) {
-                        // Validate the date is real (e.g., not Feb 31)
-                        if (date.getMonth() === parseInt(month) - 1 && date.getDate() === parseInt(day)) {
-                            return date;
-                        }
-                    }
-                }
-            }
-
-            // Try native Date parsing as fallback
-            const date = new Date(value);
-            if (!isNaN(date.getTime())) {
-                return date;
-            }
-
-            return null;
-        },
-
-        handleMaskInput(e) {
-            // Stop the input event from bubbling to prevent x-model interference
-            if (e && e.stopPropagation) {
-                e.stopPropagation();
-            }
-
-            // Get value from custom event detail - only update display, don't sync to parent
-            const value = e.detail ? e.detail.value : (e.target.value || '');
-            this.state.inputValue = value;
-
-            // Clear error while typing
-            this.state.inputError = '';
-        },
-
-        handleMaskChange(e) {
-            // Stop the change event from bubbling to prevent x-model interference
-            if (e && e.stopPropagation) {
-                e.stopPropagation();
-            }
-
-            // InputMask only emits change when value is complete (or empty)
-            const value = e.detail ? e.detail.value : '';
-
-            if (!value) {
-                // Empty - clear selection
-                this.state.selectedDate = null;
-                this.state.inputError = '';
-                this.emitChange(null, '');
-                return;
-            }
-
-            const date = this.parseInputDate(value);
-            if (date) {
-                if (this.isDateDisabled(date)) {
-                    this.state.inputError = 'Date is outside allowed range';
-                } else {
-                    this.state.selectedDate = date.getTime();
-                    this.state.viewDate = date.getTime();
-                    this.state.inputError = '';
-                    this.state.inputValue = this.formatDisplayDate(date);
-                    this.emitChange(null, this.toISODate(date));
-                }
-            } else {
-                this.state.inputError = 'Invalid date format';
-            }
-        },
-
-        handleInputKeydown(e) {
-            if (e.key === 'Enter') {
-                // Trigger validation by blurring the input
-                e.target.blur();
-                this.state.showPicker = false;
-            } else if (e.key === 'Escape') {
-                this.state.showPicker = false;
-            } else if (e.key === 'ArrowDown' && !this.state.showPicker) {
-                e.preventDefault();
-                this.togglePicker();
-            }
-        },
-
-        handleCalendarClick(e) {
-            // Prevent closing when clicking inside calendar
-            e.stopPropagation();
-        },
-
-        goToToday() {
-            const today = new Date();
-            this.selectDate(today);
-        },
-
-        clearDate() {
-            if (this.isRange()) {
-                this.state.rangeStart = null;
-                this.state.rangeEnd = null;
-                this.state.hoverDate = null;
-                this.state.inputValue = '';
-                this.state.inputError = '';
-                this.emitRangeChange();
-                return;
-            }
+        } else {
             this.state.selectedDate = null;
             this.state.inputValue = '';
+        }
+    }
+
+    togglePicker(e) {
+        if (e) e.stopPropagation();
+        if (!this.props.disabled && !this.props.inline) {
+            this.state.showPicker = !this.state.showPicker;
+            this.state.viewMode = 'days';
+            if (this.state.showPicker && this.state.selectedDate) {
+                this.state.viewDate = this.state.selectedDate;
+            }
+        }
+    }
+
+    selectDate(date) {
+        if (this.isRange()) {
+            this.selectRangeDate(date);
+            return;
+        }
+        this.state.selectedDate = date.getTime();
+        this.state.viewDate = date.getTime();
+        this.state.inputValue = this.formatDisplayDate(date);
+        this.state.inputError = '';
+        const dateStr = this.toISODate(date);
+        this.emitChange(null, dateStr);
+
+        if (!this.props.inline) {
+            this.state.showPicker = false;
+        }
+    }
+
+    selectRangeDate(date) {
+        const t = date.getTime();
+        // First click, or starting a fresh range after a completed one.
+        if (this.state.rangeStart == null || this.state.rangeEnd != null) {
+            this.state.rangeStart = t;
+            this.state.rangeEnd = null;
+            this.state.hoverDate = null;
+            this.state.inputValue = this.formatRange();
+            return;
+        }
+        // Second click completes the range (order-independent).
+        let start = this.state.rangeStart;
+        let end = t;
+        if (end < start) { const tmp = start; start = end; end = tmp; }
+        this.state.rangeStart = start;
+        this.state.rangeEnd = end;
+        this.state.hoverDate = null;
+        this.state.viewDate = end;
+        this.state.inputValue = this.formatRange();
+        this.emitRangeChange();
+
+        if (!this.props.inline) {
+            this.state.showPicker = false;
+        }
+    }
+
+    hoverDay(date) {
+        if (this.isRange() && date &&
+            this.state.rangeStart != null && this.state.rangeEnd == null) {
+            this.state.hoverDate = date.getTime();
+        }
+    }
+
+    // Effective [lo, hi] bounds for highlighting; uses hoverDate as a live
+    // preview of the second endpoint while a range is being picked.
+    rangeBounds() {
+        const s = this.state.rangeStart;
+        if (s == null) return null;
+        let e = this.state.rangeEnd;
+        if (e == null) e = this.state.hoverDate;
+        if (e == null) return [s, null];
+        return e < s ? [e, s] : [s, e];
+    }
+
+    sameDay(date, ts) {
+        if (ts == null || !date) return false;
+        return new Date(date).toDateString() === new Date(ts).toDateString();
+    }
+
+    isRangeStart(date) {
+        const b = this.rangeBounds();
+        return !!(b && this.sameDay(date, b[0]));
+    }
+
+    isRangeEnd(date) {
+        const b = this.rangeBounds();
+        return !!(b && b[1] != null && this.sameDay(date, b[1]));
+    }
+
+    isInRange(date) {
+        const b = this.rangeBounds();
+        if (!b || b[1] == null || !date) return false;
+        const day = new Date(date); day.setHours(0, 0, 0, 0);
+        const lo = new Date(b[0]); lo.setHours(0, 0, 0, 0);
+        const hi = new Date(b[1]); hi.setHours(0, 0, 0, 0);
+        return day.getTime() > lo.getTime() && day.getTime() < hi.getTime();
+    }
+
+    formatRange() {
+        const s = this.state.rangeStart, e = this.state.rangeEnd;
+        if (s == null) return '';
+        const sf = this.formatDisplayDate(new Date(s));
+        if (e == null) return sf;
+        return `${sf} – ${this.formatDisplayDate(new Date(e))}`;
+    }
+
+    emitRangeChange() {
+        const s = this.state.rangeStart, e = this.state.rangeEnd;
+        const detail = {
+            start: s != null ? this.toISODate(new Date(s)) : null,
+            end: e != null ? this.toISODate(new Date(e)) : null
+        };
+        this.emitChange(null, detail);
+        this.dispatchEvent(new CustomEvent('range-change', {
+            detail, bubbles: true, composed: true
+        }));
+    }
+
+    toISODate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    previousMonth() {
+        const current = new Date(this.state.viewDate);
+        current.setMonth(current.getMonth() - 1);
+        this.state.viewDate = current.getTime();
+    }
+
+    nextMonth() {
+        const current = new Date(this.state.viewDate);
+        current.setMonth(current.getMonth() + 1);
+        this.state.viewDate = current.getTime();
+    }
+
+    previousYear() {
+        const current = new Date(this.state.viewDate);
+        current.setFullYear(current.getFullYear() - 1);
+        this.state.viewDate = current.getTime();
+    }
+
+    nextYear() {
+        const current = new Date(this.state.viewDate);
+        current.setFullYear(current.getFullYear() + 1);
+        this.state.viewDate = current.getTime();
+    }
+
+    previousYearRange() {
+        this.state.yearRangeStart -= 12;
+    }
+
+    nextYearRange() {
+        this.state.yearRangeStart += 12;
+    }
+
+    selectMonth(month) {
+        const current = new Date(this.state.viewDate);
+        current.setMonth(month);
+        this.state.viewDate = current.getTime();
+        this.state.viewMode = 'days';
+    }
+
+    selectYear(year) {
+        const current = new Date(this.state.viewDate);
+        current.setFullYear(year);
+        this.state.viewDate = current.getTime();
+        this.state.viewMode = 'months';
+    }
+
+    switchToMonthView() {
+        this.state.viewMode = 'months';
+    }
+
+    switchToYearView() {
+        const current = new Date(this.state.viewDate);
+        this.state.yearRangeStart = Math.floor(current.getFullYear() / 12) * 12;
+        this.state.viewMode = 'years';
+    }
+
+    getDaysInMonth() {
+        const viewDate = new Date(this.state.viewDate);
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const startingDayOfWeek = firstDay.getDay();
+
+        const days = [];
+
+        for (let i = 0; i < startingDayOfWeek; i++) {
+            days.push(null);
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            days.push(new Date(year, month, day));
+        }
+
+        return days;
+    }
+
+    isSelectedDate(date) {
+        if (!date || !this.state.selectedDate) return false;
+        const selected = new Date(this.state.selectedDate);
+        return date.toDateString() === selected.toDateString();
+    }
+
+    isToday(date) {
+        if (!date) return false;
+        const today = new Date();
+        return date.toDateString() === today.toDateString();
+    }
+
+    isCurrentMonth(month) {
+        const viewDate = new Date(this.state.viewDate);
+        return viewDate.getMonth() === month;
+    }
+
+    isCurrentYear(year) {
+        const viewDate = new Date(this.state.viewDate);
+        return viewDate.getFullYear() === year;
+    }
+
+    isDateDisabled(date) {
+        if (!date) return false;
+
+        if (this.props.min) {
+            const minDate = new Date(this.props.min);
+            if (date < minDate) return true;
+        }
+
+        if (this.props.max) {
+            const maxDate = new Date(this.props.max);
+            if (date > maxDate) return true;
+        }
+
+        return false;
+    }
+
+    formatDisplayDate(date) {
+        if (!date) return '';
+        const d = date instanceof Date ? date : new Date(date);
+        if (isNaN(d.getTime())) return '';
+
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const year = d.getFullYear();
+
+        // Apply format
+        const format = this.props.dateFormat || 'MM/DD/YYYY';
+        return format
+            .replace('YYYY', year)
+            .replace('MM', month)
+            .replace('DD', day);
+    }
+
+    parseInputDate(value) {
+        if (!value) return null;
+
+        // Try various common formats
+        const formats = [
+            // MM/DD/YYYY
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
+            // DD/MM/YYYY
+            /^(\d{1,2})-(\d{1,2})-(\d{4})$/,
+            // YYYY-MM-DD (ISO)
+            /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
+            // M/D/YY
+            /^(\d{1,2})\/(\d{1,2})\/(\d{2})$/
+        ];
+
+        for (const format of formats) {
+            const match = value.match(format);
+            if (match) {
+                let year, month, day;
+
+                if (format === formats[2]) {
+                    // YYYY-MM-DD
+                    [, year, month, day] = match;
+                } else if (format === formats[3]) {
+                    // M/D/YY - assume 2000s
+                    [, month, day, year] = match;
+                    year = parseInt(year) + 2000;
+                } else {
+                    // MM/DD/YYYY or DD-MM-YYYY
+                    [, month, day, year] = match;
+                }
+
+                const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                if (!isNaN(date.getTime())) {
+                    // Validate the date is real (e.g., not Feb 31)
+                    if (date.getMonth() === parseInt(month) - 1 && date.getDate() === parseInt(day)) {
+                        return date;
+                    }
+                }
+            }
+        }
+
+        // Try native Date parsing as fallback
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+            return date;
+        }
+
+        return null;
+    }
+
+    handleMaskInput(e) {
+        // Stop the input event from bubbling to prevent x-model interference
+        if (e && e.stopPropagation) {
+            e.stopPropagation();
+        }
+
+        // Get value from custom event detail - only update display, don't sync to parent
+        const value = e.detail ? e.detail.value : (e.target.value || '');
+        this.state.inputValue = value;
+
+        // Clear error while typing
+        this.state.inputError = '';
+    }
+
+    handleMaskChange(e) {
+        // Stop the change event from bubbling to prevent x-model interference
+        if (e && e.stopPropagation) {
+            e.stopPropagation();
+        }
+
+        // InputMask only emits change when value is complete (or empty)
+        const value = e.detail ? e.detail.value : '';
+
+        if (!value) {
+            // Empty - clear selection
+            this.state.selectedDate = null;
             this.state.inputError = '';
             this.emitChange(null, '');
-        },
-
-        getMonthYear() {
-            const viewDate = new Date(this.state.viewDate);
-            return viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        },
-
-        getYear() {
-            const viewDate = new Date(this.state.viewDate);
-            return viewDate.getFullYear();
+            return;
         }
-    },
 
-    computed: {
-        months() {
-            return [
-                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-            ];
-        },
-
-        years() {
-            const years = [];
-            for (let i = 0; i < 12; i++) {
-                years.push(this.state.yearRangeStart + i);
+        const date = this.parseInputDate(value);
+        if (date) {
+            if (this.isDateDisabled(date)) {
+                this.state.inputError = 'Date is outside allowed range';
+            } else {
+                this.state.selectedDate = date.getTime();
+                this.state.viewDate = date.getTime();
+                this.state.inputError = '';
+                this.state.inputValue = this.formatDisplayDate(date);
+                this.emitChange(null, this.toISODate(date));
             }
-            return years;
-        },
-
-        dateMask() {
-            // Convert date format to mask format
-            // MM/DD/YYYY -> 99/99/9999
-            const format = this.props.dateFormat || 'MM/DD/YYYY';
-            return format
-                .replace(/M/g, '9')
-                .replace(/D/g, '9')
-                .replace(/Y/g, '9');
-        },
-
-        yearRangeLabel() {
-            return `${this.state.yearRangeStart} - ${this.state.yearRangeStart + 11}`;
+        } else {
+            this.state.inputError = 'Invalid date format';
         }
-    },
+    }
+
+    handleInputKeydown(e) {
+        if (e.key === 'Enter') {
+            // Trigger validation by blurring the input
+            e.target.blur();
+            this.state.showPicker = false;
+        } else if (e.key === 'Escape') {
+            this.state.showPicker = false;
+        } else if (e.key === 'ArrowDown' && !this.state.showPicker) {
+            e.preventDefault();
+            this.togglePicker();
+        }
+    }
+
+    handleCalendarClick(e) {
+        // Prevent closing when clicking inside calendar
+        e.stopPropagation();
+    }
+
+    goToToday() {
+        const today = new Date();
+        this.selectDate(today);
+    }
+
+    clearDate() {
+        if (this.isRange()) {
+            this.state.rangeStart = null;
+            this.state.rangeEnd = null;
+            this.state.hoverDate = null;
+            this.state.inputValue = '';
+            this.state.inputError = '';
+            this.emitRangeChange();
+            return;
+        }
+        this.state.selectedDate = null;
+        this.state.inputValue = '';
+        this.state.inputError = '';
+        this.emitChange(null, '');
+    }
+
+    getMonthYear() {
+        const viewDate = new Date(this.state.viewDate);
+        return viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    getYear() {
+        const viewDate = new Date(this.state.viewDate);
+        return viewDate.getFullYear();
+    }
+
+    get months() {
+        return [
+            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ];
+    }
+
+    get years() {
+        const years = [];
+        for (let i = 0; i < 12; i++) {
+            years.push(this.state.yearRangeStart + i);
+        }
+        return years;
+    }
+
+    get dateMask() {
+        // Convert date format to mask format
+        // MM/DD/YYYY -> 99/99/9999
+        const format = this.props.dateFormat || 'MM/DD/YYYY';
+        return format
+            .replace(/M/g, '9')
+            .replace(/D/g, '9')
+            .replace(/Y/g, '9');
+    }
+
+    get yearRangeLabel() {
+        return `${this.state.yearRangeStart} - ${this.state.yearRangeStart + 11}`;
+    }
 
     template() {
         const days = this.getDaysInMonth();
@@ -692,9 +690,9 @@ export default defineComponent('cl-calendar', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -995,4 +993,6 @@ export default defineComponent('cl-calendar', {
             color: var(--error-color, #dc3545);
         }
     `
-});
+}
+
+export default defineComponent('cl-calendar', ClCalendar);

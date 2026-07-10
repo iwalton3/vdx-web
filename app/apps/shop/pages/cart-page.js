@@ -1,7 +1,7 @@
 /**
  * Shopping Cart Page
  */
-import { defineComponent, html, when, each } from '../../../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../../../lib/framework.js';
 import cartStore from '../cart-store.js';
 
 // Import UI components
@@ -9,46 +9,42 @@ import '../../../componentlib/button/button.js';
 import '../../../componentlib/form/input-number.js';
 import '../../../componentlib/data/datatable.js';
 
-export default defineComponent('shop-cart-page', {
-    stores: { cart: cartStore },
+export class ShopCartPage extends Component {
+    static stores = { cart: cartStore }
 
-    computed: {
-        shippingCost() {
-            return this.stores.cart.subtotal >= 50 ? 0 : 5.99;
-        },
+    get shippingCost() {
+        return this.stores.cart.subtotal >= 50 ? 0 : 5.99;
+    }
 
-        tax() {
-            return this.stores.cart.subtotal * 0.08; // 8% tax
-        },
+    get tax() {
+        return this.stores.cart.subtotal * 0.08; // 8% tax
+    }
 
-        total() {
-            return this.stores.cart.subtotal + this.shippingCost + this.tax;
+    get total() {
+        return this.stores.cart.subtotal + this.shippingCost + this.tax;
+    }
+
+    updateQuantity(productId, e, val) {
+        cartStore.state.updateQuantity(productId, val);
+    }
+
+    removeItem(productId) {
+        cartStore.state.removeItem(productId);
+    }
+
+    clearCart() {
+        if (confirm('Are you sure you want to clear your cart?')) {
+            cartStore.state.clearCart();
         }
-    },
+    }
 
-    methods: {
-        updateQuantity(productId, e, val) {
-            cartStore.state.updateQuantity(productId, val);
-        },
+    continueShopping() {
+        window.location.hash = '/shop/products/';
+    }
 
-        removeItem(productId) {
-            cartStore.state.removeItem(productId);
-        },
-
-        clearCart() {
-            if (confirm('Are you sure you want to clear your cart?')) {
-                cartStore.state.clearCart();
-            }
-        },
-
-        continueShopping() {
-            window.location.hash = '/shop/products/';
-        },
-
-        proceedToCheckout() {
-            window.location.hash = '/shop/checkout/';
-        }
-    },
+    proceedToCheckout() {
+        window.location.hash = '/shop/checkout/';
+    }
 
     template() {
         const items = this.stores.cart.items;
@@ -176,9 +172,9 @@ export default defineComponent('shop-cart-page', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .cart-page {
             max-width: 1200px;
             margin: 0 auto;
@@ -483,4 +479,6 @@ export default defineComponent('shop-cart-page', {
             }
         }
     `
-});
+}
+
+export default defineComponent('shop-cart-page', ShopCartPage);
