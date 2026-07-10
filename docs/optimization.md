@@ -56,6 +56,9 @@ template() {
 | `--wrapped-only` | | Only optimize `eval(opt())` wrapped templates |
 | `--lint-only` | `-l` | Check for issues without transforming |
 | `--strict` | | With --lint-only: only show unfixable issues |
+| `--templates-only` | | Run only the template binding lint (implies --lint-only) |
+| `--disable` | | Skip template-lint checks by id, e.g. `--disable t1-handler` |
+| `--include-tests` | | Template-lint `tests/` trees too (skipped by default) |
 | `--auto-fix` | | Fix simple patterns in-place |
 | `--verbose` | `-v` | Show detailed processing info |
 | `--dry-run` | | Preview without writing files |
@@ -112,6 +115,72 @@ Auto-fix **cannot** handle:
 - Computed expressions: `const x = this.state.y + 1`
 - Logical operations: `const x = this.state.y || default`
 - Function calls: `const x = fn(this.state.y)`
+
+### Template Binding Lint
+
+TypeScript (with class components) checks every `${...}` interpolation, but the
+template HTML itself is an opaque string to it. The template lint covers the
+string-form bindings TS cannot reach. It runs automatically in both `--lint-only`
+modes, or by itself:
+
+```bash
+node optimize.js -i ./app --templates-only
+# or standalone (multiple directories allowed):
+node template-lint.js ./app
+```
+
+Checks (design spec: `docs/proposals/template-lint-spec.md`). Severities:
+**error** fails the run, **warn** is printed but never affects exit codes,
+**info** is shown only with `--verbose` (always shown by the standalone CLI):
+
+- **t1-handler** (error) — `on-*="name"` string handlers must name a callable
+  member of the enclosing component: a method, a class field / `this.x =`
+  assignment, a declared prop (props may hold functions), or a framework/native
+  element method. Computed getters and lifecycle hooks get dedicated error
+  messages since the runtime silently binds nothing for them.
+- **t2-xmodel** (error) — the root key of `x-model="a.b.c"` must be a declared
+  state key. Bails whenever state isn't statically knowable (dynamic
+  `this.state[key] =` anywhere, non-literal state initialization).
+- **t3-refs** (warn/info) — `this.refs.X` read with no `ref="X"` in any of the
+  component's templates → warn; a declared ref never read → info. Bails on
+  computed access (`this.refs[expr]`) or `this.refs` handed off wholesale.
+- **t4-modifiers** (error) — contradictory modifier combinations
+  (`-passive` with `-prevent`). Applies to every template, even detached ones.
+- **t5-props** (warn) — attributes on a registered component tag must map to a
+  declared prop (kebab-case `max-count` → `maxCount`, legacy smushed
+  `maxcount` too) or be a global HTML attribute / `data-*` / `aria-*`.
+  Components declaring zero props are skipped.
+- **t6-events** (info) — only for components documented with JSDoc `@fires`:
+  binding `on-<custom-event>` not in `@fires` ∪ `CustomEvent('...')` literals
+  ∪ native events. No JSDoc → no output.
+- **t6-prop-docs** (warn) — JSDoc `@prop` names that don't match any declared
+  prop (doc drift).
+
+Template HTML is parsed with the framework's own parser (`htmlParse`), so event
+name and modifier parsing (`on-status-change-prevent` → event `status-change` +
+`prevent`) cannot diverge from runtime behavior.
+
+The lint never guesses: components whose shape isn't statically knowable
+(spread into `methods`, inheritance chains that leave the analyzed file set,
+dynamic member names) are skipped entirely, as are templates rendered in
+another component's context (e.g. `render-item=${(item) => html\`...\`}`
+factories) and `tests/` trees (deliberate error cases; use `--include-tests`
+to check them). Imports are followed for `defineComponent('tag', Imported)`
+and for superclass chains across files.
+
+`--emit-registry registry.json` writes the component registry (tag → props,
+methods, getters, state keys, `@fires`/CustomEvent names) as JSON — the
+groundwork for future editor tooling.
+
+Suppress a finding with a comment on the line above it, naming the check id
+(or bare, to suppress all checks):
+
+```html
+<!-- vdx-lint-disable-next-line t1-handler -->
+<button on-click="attachedAtRuntime">OK</button>
+```
+
+Fixture suite: `node scripts/test-template-lint.mjs`.
 
 ## Error Categories
 
