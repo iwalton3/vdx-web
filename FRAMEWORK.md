@@ -4,41 +4,9 @@ Zero-dependency reactive web framework. No build step required.
 
 ## Component Pattern
 
-```javascript
-import { defineComponent, html, when, each } from 'vdx/lib/framework.js';
-
-export default defineComponent('my-component', {
-    props: { title: 'Default' },          // Observed attributes
-    data() { return { count: 0 }; },      // Reactive state. this.props exists here (values arrive later)
-
-    mounted() { /* DOM ready */ },
-    unmounted() { /* cleanup timers/subscriptions */ },
-
-    methods: {
-        increment() { this.state.count++; }
-    },
-
-    computed: {                           // Lazy cached values, auto-disposed
-        doubled() { return this.state.count * 2; }
-    },
-
-    template() {
-        return html`
-            <h1>${this.props.title}</h1>
-            <p>Count: ${this.state.count} (doubled: ${this.doubled})</p>
-            <button on-click="increment">+1</button>
-        `;
-    },
-
-    styles: /*css*/`button { background: #007bff; color: white; }`
-});
-```
-
-## Class Components
-
-Alternative authoring format with full IDE autocomplete for `this.state`/methods. Same runtime
-semantics: `this` **is the custom element** (all DOM APIs work), the class is translated into
-the options format at registration.
+Components are ES classes extending `Component`, registered with `defineComponent`. At runtime
+`this` **is the custom element** (all DOM APIs work); the class gives full IDE autocomplete
+for `this.state` and methods. (A legacy options-object format is also supported - see below.)
 
 ```javascript
 import { defineComponent, Component, html } from 'vdx/lib/framework.js';
@@ -97,6 +65,41 @@ export default defineComponent('todo-list', TodoList);   // import the class to 
   a bound method touching them throws if called pre-mount.
 - `data()` has no special meaning on classes (kept as a plain method, with a warning) - state
   initialization belongs in the constructor or a field.
+
+## Legacy Options Format
+
+The original object-based format remains fully supported (class components are translated into
+it internally). Existing code needs no migration; `scripts/convert-to-class.mjs` converts
+mechanically if wanted. Key semantic difference: `data()` runs at element construction, before
+prop *values* arrive - unlike the class constructor.
+
+```javascript
+export default defineComponent('my-component', {
+    props: { title: 'Default' },          // Observed attributes
+    data() { return { count: 0 }; },      // this.props exists here, but values arrive later
+
+    mounted() { /* DOM ready */ },
+    unmounted() { /* cleanup timers/subscriptions */ },
+
+    methods: {
+        increment() { this.state.count++; }
+    },
+
+    computed: {                           // Lazy cached values, auto-disposed
+        doubled() { return this.state.count * 2; }
+    },
+
+    template() {
+        return html`
+            <h1>${this.props.title}</h1>
+            <p>Count: ${this.state.count} (doubled: ${this.doubled})</p>
+            <button on-click="increment">+1</button>
+        `;
+    },
+
+    styles: /*css*/`button { background: #007bff; color: white; }`
+});
+```
 
 ## Event Binding
 

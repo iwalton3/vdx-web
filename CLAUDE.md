@@ -66,14 +66,15 @@ node test-runner.js
 
 ## Key Framework Conventions
 
-1. **Use `on-*` for ALL events** - Never use inline `onclick` or `addEventListener`
-2. **Use `x-model` for form inputs** - Two-way binding
-3. **Use `when()` and `each()`** - Not ternaries or manual loops
-4. **Call store methods on `.state`** - `store.state.method()`, not `store.method()`
-5. **Clean up in `unmounted()`** - Unsubscribe from stores, clear timers
-6. **Windowed lists**: use `createWindowing` (or `<cl-virtual-list>`) - never hand-roll spacer/range math
-7. **Row gestures** (drag-reorder, long-press): use `createRowGestures` and respect its passive-safety table
-8. **Touch/wheel handlers in scrollable UIs**: bind `-passive` unless the handler must preventDefault
+1. **New components are classes** - `class X extends Component` + `defineComponent('tag', X)`. The options-object format is legacy: fully supported, but don't write new code in it. Props go in `static props`, NEVER class fields; getters are cached computeds (read only state/stores/props)
+2. **Use `on-*` for ALL events** - Never use inline `onclick` or `addEventListener`
+3. **Use `x-model` for form inputs** - Two-way binding
+4. **Use `when()` and `each()`** - Not ternaries or manual loops
+5. **Call store methods on `.state`** - `store.state.method()`, not `store.method()`
+6. **Clean up in `unmounted()`** - Unsubscribe from stores, clear timers
+7. **Windowed lists**: use `createWindowing` (or `<cl-virtual-list>`) - never hand-roll spacer/range math
+8. **Row gestures** (drag-reorder, long-press): use `createRowGestures` and respect its passive-safety table
+9. **Touch/wheel handlers in scrollable UIs**: bind `-passive` unless the handler must preventDefault
 
 ## Common Gotchas
 
@@ -89,8 +90,8 @@ propsChanged(prop, newValue) {
 }
 ```
 
-### data() and props
-`this.props` exists during `data()` (safe for controller option factories like `itemHeight: () => this.props.itemHeight`), but attribute/property values arrive later - use function-form options, never read prop values eagerly in `data()`.
+### data() and props (legacy options format only)
+`this.props` exists during `data()` (safe for controller option factories like `itemHeight: () => this.props.itemHeight`), but attribute/property values arrive later - use function-form options, never read prop values eagerly in `data()`. Class components don't have this problem: the constructor runs at first connect and `constructor(props)` sees real values.
 
 ### Reactive Boundaries
 Variables captured outside `contain()` won't update:

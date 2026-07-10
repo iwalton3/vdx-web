@@ -129,7 +129,7 @@ app/lib/
 
 ## Typing Components
 
-### Class Components (best IDE experience)
+### Class Components (default format, best IDE experience)
 
 The class authoring format gives the strongest typing with the least annotation. The declared
 `Component` base extends `HTMLElement` - which is accurate, since at runtime `this` *is* the
@@ -188,7 +188,7 @@ class TaskList extends Component<TaskProps, TaskState> {
 The compiler enforces the class contract for free: a concrete subclass without `template()` is
 an error (`template` is abstract), and JS files with `// @ts-check` get the same inference.
 
-### Basic Component
+### Options Components (Legacy)
 
 ```typescript
 import { defineComponent, html } from './lib/framework.js';
