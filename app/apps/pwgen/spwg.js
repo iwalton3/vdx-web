@@ -2,7 +2,7 @@
  * SPWG - Secure Passphrase Generator
  * Generates cryptographically secure passphrases using a 55454-word dictionary
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
 // Wordlist cache
 let wordlist = null;
@@ -114,9 +114,11 @@ function timecalc(count, tests) {
     return time + " seconds";
 }
 
-export default defineComponent('spwg-page', {
-    data() {
-        return {
+export class SpwgPage extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             // Result state
             password: '',
             passwords: [],
@@ -138,146 +140,144 @@ export default defineComponent('spwg-page', {
             passwordInput: '',
             count: 10
         };
-    },
+    }
 
     async mounted() {
         await this.fromWords();
-    },
+    }
 
-    methods: {
-        calculateSecurity(count) {
-            this.state.onlineTime = timecalc(count, 1000);
-            this.state.slowHashTime = timecalc(count, 1000000);
-            this.state.fastHashTime = timecalc(count, 250000000000);
-        },
+    calculateSecurity(count) {
+        this.state.onlineTime = timecalc(count, 1000);
+        this.state.slowHashTime = timecalc(count, 1000000);
+        this.state.fastHashTime = timecalc(count, 250000000000);
+    }
 
-        async fromBits() {
-            this.state.error = '';
-            try {
-                await loadWordlist();
-                let bits = parseInt(this.state.entropy);
-                if (bits > 512) bits = 512;
+    async fromBits() {
+        this.state.error = '';
+        try {
+            await loadWordlist();
+            let bits = parseInt(this.state.entropy);
+            if (bits > 512) bits = 512;
 
-                const max = 2n ** BigInt(bits);
-                const inputnumber = secureRandomBigInt(max);
+            const max = 2n ** BigInt(bits);
+            const inputnumber = secureRandomBigInt(max);
 
-                this.state.password = convertToWords(inputnumber);
-                this.state.bits = bits;
-                this.state.resultType = 'single';
-                this.calculateSecurity(Math.pow(2, bits));
-            } catch (error) {
-                this.state.error = 'Error generating password from bits.';
+            this.state.password = convertToWords(inputnumber);
+            this.state.bits = bits;
+            this.state.resultType = 'single';
+            this.calculateSecurity(Math.pow(2, bits));
+        } catch (error) {
+            this.state.error = 'Error generating password from bits.';
+        }
+    }
+
+    async fromWords() {
+        this.state.error = '';
+        try {
+            await loadWordlist();
+            const wordCount = parseInt(this.state.words);
+
+            this.state.password = await generateWithLength(wordCount);
+            this.state.bits = Math.floor(Math.log2(Math.pow(55454, wordCount)));
+            this.state.resultType = 'single';
+            this.calculateSecurity(Math.pow(55454, wordCount));
+        } catch (error) {
+            this.state.error = 'Error generating password from word count.';
+        }
+    }
+
+    async fromMax() {
+        this.state.error = '';
+        try {
+            await loadWordlist();
+            const max = BigInt(this.state.combinations);
+
+            const inputnumber = secureRandomBigInt(max);
+            this.state.password = convertToWords(inputnumber);
+            this.state.bits = Math.floor(Math.log2(Number(max)));
+            this.state.resultType = 'single';
+            this.calculateSecurity(Number(max));
+        } catch (error) {
+            this.state.error = 'Error generating password from combinations.';
+        }
+    }
+
+    async toWordsSubmit() {
+        this.state.error = '';
+        try {
+            await loadWordlist();
+            const inputnumber = BigInt(this.state.number);
+
+            this.state.password = convertToWords(inputnumber);
+            this.state.bits = getBitLength(inputnumber);
+            this.state.resultType = 'single';
+            this.calculateSecurity(Number(inputnumber));
+        } catch (error) {
+            this.state.error = 'Error converting number to words.';
+        }
+    }
+
+    async fromPassword() {
+        this.state.error = '';
+        try {
+            await loadWordlist();
+            const number = convertToNumber(this.state.passwordInput);
+            this.state.conversionResult = String(number);
+            this.state.resultType = 'conversion';
+        } catch (error) {
+            this.state.error = 'That password cannot be converted to a number.';
+        }
+    }
+
+    async batchGenerate() {
+        this.state.error = '';
+        try {
+            await loadWordlist();
+            const wordCount = parseInt(this.state.words);
+            const passwordCount = parseInt(this.state.count);
+
+            if (passwordCount > 1000) {
+                this.state.error = `Do you really need ${passwordCount} passwords?`;
+                return;
             }
-        },
 
-        async fromWords() {
-            this.state.error = '';
-            try {
-                await loadWordlist();
-                const wordCount = parseInt(this.state.words);
-
-                this.state.password = await generateWithLength(wordCount);
-                this.state.bits = Math.floor(Math.log2(Math.pow(55454, wordCount)));
-                this.state.resultType = 'single';
-                this.calculateSecurity(Math.pow(55454, wordCount));
-            } catch (error) {
-                this.state.error = 'Error generating password from word count.';
+            const passwords = [];
+            for (let i = 0; i < passwordCount; i++) {
+                passwords.push(await generateWithLength(wordCount));
             }
-        },
 
-        async fromMax() {
-            this.state.error = '';
-            try {
-                await loadWordlist();
-                const max = BigInt(this.state.combinations);
+            this.state.passwords = passwords;
+            this.state.bits = Math.floor(Math.log2(Math.pow(55454, wordCount)));
+            this.state.resultType = 'batch';
+            this.calculateSecurity(Math.pow(55454, wordCount));
+        } catch (error) {
+            this.state.error = 'Error generating batch passwords.';
+        }
+    }
 
-                const inputnumber = secureRandomBigInt(max);
-                this.state.password = convertToWords(inputnumber);
-                this.state.bits = Math.floor(Math.log2(Number(max)));
-                this.state.resultType = 'single';
-                this.calculateSecurity(Number(max));
-            } catch (error) {
-                this.state.error = 'Error generating password from combinations.';
-            }
-        },
+    async regenerate() {
+        if (this.state.resultType === 'batch') {
+            await this.batchGenerate();
+        } else {
+            await this.fromWords();
+        }
+    }
 
-        async toWordsSubmit() {
-            this.state.error = '';
-            try {
-                await loadWordlist();
-                const inputnumber = BigInt(this.state.number);
+    handleWordsChange() {
+        this.fromWords();
+    }
 
-                this.state.password = convertToWords(inputnumber);
-                this.state.bits = getBitLength(inputnumber);
-                this.state.resultType = 'single';
-                this.calculateSecurity(Number(inputnumber));
-            } catch (error) {
-                this.state.error = 'Error converting number to words.';
-            }
-        },
-
-        async fromPassword() {
-            this.state.error = '';
-            try {
-                await loadWordlist();
-                const number = convertToNumber(this.state.passwordInput);
-                this.state.conversionResult = String(number);
-                this.state.resultType = 'conversion';
-            } catch (error) {
-                this.state.error = 'That password cannot be converted to a number.';
-            }
-        },
-
-        async batchGenerate() {
-            this.state.error = '';
-            try {
-                await loadWordlist();
-                const wordCount = parseInt(this.state.words);
-                const passwordCount = parseInt(this.state.count);
-
-                if (passwordCount > 1000) {
-                    this.state.error = `Do you really need ${passwordCount} passwords?`;
-                    return;
-                }
-
-                const passwords = [];
-                for (let i = 0; i < passwordCount; i++) {
-                    passwords.push(await generateWithLength(wordCount));
-                }
-
-                this.state.passwords = passwords;
-                this.state.bits = Math.floor(Math.log2(Math.pow(55454, wordCount)));
-                this.state.resultType = 'batch';
-                this.calculateSecurity(Math.pow(55454, wordCount));
-            } catch (error) {
-                this.state.error = 'Error generating batch passwords.';
-            }
-        },
-
-        async regenerate() {
-            if (this.state.resultType === 'batch') {
-                await this.batchGenerate();
-            } else {
-                await this.fromWords();
-            }
-        },
-
-        handleWordsChange() {
-            this.fromWords();
-        },
-
-        async copyPassword() {
-            try {
-                await navigator.clipboard.writeText(this.state.password);
-            } catch (e) {
-                const input = this.querySelector('.password-display');
-                if (input) {
-                    input.select();
-                    document.execCommand('copy');
-                }
+    async copyPassword() {
+        try {
+            await navigator.clipboard.writeText(this.state.password);
+        } catch (e) {
+            const input = this.querySelector('.password-display');
+            if (input) {
+                input.select();
+                document.execCommand('copy');
             }
         }
-    },
+    }
 
     template() {
         return html`
@@ -408,9 +408,9 @@ export default defineComponent('spwg-page', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .spwg {
             max-width: 700px;
         }
@@ -541,4 +541,6 @@ export default defineComponent('spwg-page', {
             background-color: var(--input-hover-bg, #f5f5f5);
         }
     `
-});
+}
+
+export default defineComponent('spwg-page', SpwgPage);

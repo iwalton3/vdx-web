@@ -1,12 +1,14 @@
 /**
  * Virtual Scrolling Demo - Demonstrates performance with large lists
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, each, when } from '../lib/framework.js';
 import '../components/virtual-list.js';
 
-export default defineComponent('virtual-scroll-demo', {
-    data() {
+export class VirtualScrollDemo extends Component {
+    constructor(props) {
+        super(props);
+
         // Start with 1000 items to demonstrate performance difference
         const items = [];
         for (let i = 0; i < 1000; i++) {
@@ -18,34 +20,33 @@ export default defineComponent('virtual-scroll-demo', {
             });
         }
 
-        return {
+        this.state = {
             items,
             mode: 'virtual', // 'virtual' or 'regular'
             itemHeight: 80  // Increased to accommodate 3 lines of content + padding
         };
-    },
+    }
 
-    methods: {
-        toggleMode() {
-            this.state.mode = this.state.mode === 'virtual' ? 'regular' : 'virtual';
-        },
+    toggleMode() {
+        this.state.mode = this.state.mode === 'virtual' ? 'regular' : 'virtual';
+    }
 
-        addItems() {
-            const newItems = [];
-            const startId = this.state.items.length;
-            for (let i = 0; i < 1000; i++) {
-                newItems.push({
-                    id: startId + i,
-                    title: `Item #${startId + i}`,
-                    subtitle: `Description for item ${startId + i}`,
-                    timestamp: new Date().toISOString()
-                });
-            }
-            this.state.items = [...this.state.items, ...newItems];
-        },
+    addItems() {
+        const newItems = [];
+        const startId = this.state.items.length;
+        for (let i = 0; i < 1000; i++) {
+            newItems.push({
+                id: startId + i,
+                title: `Item #${startId + i}`,
+                subtitle: `Description for item ${startId + i}`,
+                timestamp: new Date().toISOString()
+            });
+        }
+        this.state.items = [...this.state.items, ...newItems];
+    }
 
-        renderItem(item, index) {
-            return html`
+    renderItem(item, index) {
+        return html`
                 <div class="list-item" style="height: ${this.state.itemHeight}px;">
                     <div class="item-content">
                         <div class="item-title">${item.title}</div>
@@ -54,8 +55,7 @@ export default defineComponent('virtual-scroll-demo', {
                     </div>
                 </div>
             `;
-        }
-    },
+    }
 
     template() {
         const itemHeight = this.state.itemHeight;
@@ -119,9 +119,9 @@ export default defineComponent('virtual-scroll-demo', {
                 </ul>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -221,4 +221,6 @@ export default defineComponent('virtual-scroll-demo', {
             font-size: 0.9em;
         }
     `
-});
+}
+
+export default defineComponent('virtual-scroll-demo', VirtualScrollDemo);

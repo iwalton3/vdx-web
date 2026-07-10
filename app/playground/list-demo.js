@@ -1,12 +1,14 @@
 /**
  * List Demo - Demonstrates list rendering and manipulation
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, each, when } from '../lib/framework.js';
 
-export default defineComponent('list-demo', {
-    data() {
-        return {
+export class ListDemo extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             items: [
                 { id: 1, text: 'Learn framework', done: false },
                 { id: 2, text: 'Build playground', done: true },
@@ -15,44 +17,40 @@ export default defineComponent('list-demo', {
             nextId: 4,
             newItemText: ''
         };
-    },
+    }
 
-    computed: {
-        completedCount() {
-            return this.state.items.filter(i => i.done).length;
-        },
+    get completedCount() {
+        return this.state.items.filter(i => i.done).length;
+    }
 
-        activeCount() {
-            return this.state.items.length - this.completedCount;
-        }
-    },
+    get activeCount() {
+        return this.state.items.length - this.completedCount;
+    }
 
-    methods: {
-        addItem() {
-            const text = this.state.newItemText.trim();
-            if (!text) return;
+    addItem() {
+        const text = this.state.newItemText.trim();
+        if (!text) return;
 
-            this.state.items = [
-                ...this.state.items,
-                { id: this.state.nextId++, text, done: false }
-            ];
-            this.state.newItemText = '';
-        },
+        this.state.items = [
+            ...this.state.items,
+            { id: this.state.nextId++, text, done: false }
+        ];
+        this.state.newItemText = '';
+    }
 
-        removeItem(id) {
-            this.state.items = this.state.items.filter(item => item.id !== id);
-        },
+    removeItem(id) {
+        this.state.items = this.state.items.filter(item => item.id !== id);
+    }
 
-        toggleItem(id) {
-            this.state.items = this.state.items.map(item =>
-                item.id === id ? { ...item, done: !item.done } : item
-            );
-        },
+    toggleItem(id) {
+        this.state.items = this.state.items.map(item =>
+            item.id === id ? { ...item, done: !item.done } : item
+        );
+    }
 
-        clearCompleted() {
-            this.state.items = this.state.items.filter(item => !item.done);
-        }
-    },
+    clearCompleted() {
+        this.state.items = this.state.items.filter(item => !item.done);
+    }
 
     template() {
         return html`
@@ -106,11 +104,13 @@ export default defineComponent('list-demo', {
                 html`<p style="color: var(--text-secondary, #666); font-style: italic;">No items yet. Add one above!</p>`
             )}
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
     `
-});
+}
+
+export default defineComponent('list-demo', ListDemo);

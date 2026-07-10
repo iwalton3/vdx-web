@@ -5,15 +5,15 @@
  * These isolate performance characteristics without external dependencies.
  */
 
-import { defineComponent, html, when, each, memoEach, reactive } from '../../lib/framework.js';
+import { defineComponent, html, when, each, memoEach, reactive, Component } from '../../lib/framework.js';
 
 /**
  * Simple list component - tests each() rendering
  */
-defineComponent('bench-simple-list', {
-    props: {
+class BenchSimpleList extends Component {
+    static props = {
         items: []
-    },
+    }
 
     template() {
         return html`
@@ -24,15 +24,17 @@ defineComponent('bench-simple-list', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('bench-simple-list', BenchSimpleList);
 
 /**
  * Complex list item - tests many bindings per item
  */
-defineComponent('bench-complex-list', {
-    props: {
+class BenchComplexList extends Component {
+    static props = {
         items: []
-    },
+    }
 
     template() {
         return html`
@@ -50,15 +52,17 @@ defineComponent('bench-complex-list', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('bench-complex-list', BenchComplexList);
 
 /**
  * Memoized list - tests memoEach() pattern
  */
-defineComponent('bench-memo-list', {
-    props: {
+class BenchMemoList extends Component {
+    static props = {
         items: []
-    },
+    }
 
     template() {
         return html`
@@ -69,27 +73,29 @@ defineComponent('bench-memo-list', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('bench-memo-list', BenchMemoList);
 
 /**
  * Stateful list item - tests state updates
  */
-defineComponent('bench-stateful-list', {
-    props: {
+class BenchStatefulList extends Component {
+    static props = {
         items: []
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             selectedId: null
         };
-    },
+    }
 
-    methods: {
-        selectItem(id) {
-            this.state.selectedId = id;
-        }
-    },
+    selectItem(id) {
+        this.state.selectedId = id;
+    }
 
     template() {
         return html`
@@ -103,17 +109,19 @@ defineComponent('bench-stateful-list', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('bench-stateful-list', BenchStatefulList);
 
 /**
  * Deeply nested component - tests nesting depth
  */
-defineComponent('bench-nested-level', {
-    props: {
+class BenchNestedLevel extends Component {
+    static props = {
         depth: 0,
         maxDepth: 5,
         value: ''
-    },
+    }
 
     template() {
         const nextDepth = this.props.depth + 1;
@@ -130,15 +138,17 @@ defineComponent('bench-nested-level', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('bench-nested-level', BenchNestedLevel);
 
 /**
  * Many bindings component - tests effect count
  */
-defineComponent('bench-many-bindings', {
-    props: {
+class BenchManyBindings extends Component {
+    static props = {
         data: {}
-    },
+    }
 
     template() {
         const d = this.props.data;
@@ -161,15 +171,17 @@ defineComponent('bench-many-bindings', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('bench-many-bindings', BenchManyBindings);
 
 /**
  * Conditional rendering component - tests when()
  */
-defineComponent('bench-conditionals', {
-    props: {
+class BenchConditionals extends Component {
+    static props = {
         conditions: {}
-    },
+    }
 
     template() {
         const c = this.props.conditions;
@@ -183,14 +195,18 @@ defineComponent('bench-conditionals', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('bench-conditionals', BenchConditionals);
 
 /**
  * Form component - tests input bindings
  */
-defineComponent('bench-form', {
-    data() {
-        return {
+class BenchForm extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             field1: '',
             field2: '',
             field3: '',
@@ -200,7 +216,7 @@ defineComponent('bench-form', {
             checkbox2: false,
             select1: ''
         };
-    },
+    }
 
     template() {
         return html`
@@ -224,16 +240,18 @@ defineComponent('bench-form', {
             </form>
         `;
     }
-});
+}
+
+defineComponent('bench-form', BenchForm);
 
 /**
  * Grid component - tests table-like rendering
  */
-defineComponent('bench-grid', {
-    props: {
+class BenchGrid extends Component {
+    static props = {
         rows: [],
         columns: []
-    },
+    }
 
     template() {
         return html`
@@ -257,7 +275,9 @@ defineComponent('bench-grid', {
             </table>
         `;
     }
-});
+}
+
+defineComponent('bench-grid', BenchGrid);
 
 // Data generators for benchmarks
 

@@ -1,36 +1,36 @@
 /**
  * Conditional Demo - Demonstrates conditional rendering patterns
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, when } from '../lib/framework.js';
 
-export default defineComponent('conditional-demo', {
-    data() {
-        return {
+export class ConditionalDemo extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             isVisible: true,
             status: 'idle', // idle, loading, success, error
             loginState: 'loggedOut' // loggedOut, loggedIn, admin
         };
-    },
+    }
 
-    methods: {
-        toggleVisibility() {
-            this.state.isVisible = !this.state.isVisible;
-        },
+    toggleVisibility() {
+        this.state.isVisible = !this.state.isVisible;
+    }
 
-        simulateLoading() {
-            this.state.status = 'loading';
-            setTimeout(() => {
-                this.state.status = Math.random() > 0.3 ? 'success' : 'error';
-            }, 1500);
-        },
+    simulateLoading() {
+        this.state.status = 'loading';
+        setTimeout(() => {
+            this.state.status = Math.random() > 0.3 ? 'success' : 'error';
+        }, 1500);
+    }
 
-        cycleLoginState() {
-            const states = ['loggedOut', 'loggedIn', 'admin'];
-            const currentIndex = states.indexOf(this.state.loginState);
-            this.state.loginState = states[(currentIndex + 1) % states.length];
-        }
-    },
+    cycleLoginState() {
+        const states = ['loggedOut', 'loggedIn', 'admin'];
+        const currentIndex = states.indexOf(this.state.loginState);
+        this.state.loginState = states[(currentIndex + 1) % states.length];
+    }
 
     template() {
         return html`
@@ -87,9 +87,9 @@ export default defineComponent('conditional-demo', {
                 )}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -99,4 +99,6 @@ export default defineComponent('conditional-demo', {
             margin-bottom: 10px;
         }
     `
-});
+}
+
+export default defineComponent('conditional-demo', ConditionalDemo);

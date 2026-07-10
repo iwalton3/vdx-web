@@ -1,25 +1,23 @@
 /**
  * LogoffAll - Confirmation page for logging off all sessions
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html } from '../lib/framework.js';
 import { getRouter } from '../lib/router.js';
 import login from './auth.js';
 import { notify } from '../lib/utils.js';
 import '../components/icon.js';
 
-export default defineComponent('auth-logoff-all', {
-    methods: {
-        async logoffAll() {
-            const state = login.state;
-            await state.logoff_all();
-            notify('Logoff successful.');
-            const router = getRouter();
-            if (router) {
-                router.navigate('/');
-            }
+export class AuthLogoffAll extends Component {
+    async logoffAll() {
+        const state = login.state;
+        await state.logoff_all();
+        notify('Logoff successful.');
+        const router = getRouter();
+        if (router) {
+            router.navigate('/');
         }
-    },
+    }
 
     template() {
         return html`
@@ -37,4 +35,6 @@ export default defineComponent('auth-logoff-all', {
             </div>
         `;
     }
-});
+}
+
+export default defineComponent('auth-logoff-all', AuthLogoffAll);

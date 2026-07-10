@@ -1,9 +1,9 @@
 /**
  * 404 Page Not Found Component
  */
-import { defineComponent, html } from './lib/framework.js';
+import { defineComponent, html, Component } from './lib/framework.js';
 
-export default defineComponent('page-not-found', {
+export class PageNotFound extends Component {
     template() {
         return html`
             <div class="container">
@@ -12,9 +12,9 @@ export default defineComponent('page-not-found', {
                 <p><router-link to="/">Return to Home</router-link></p>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .container {
             text-align: center;
             padding: 60px 20px;
@@ -41,4 +41,6 @@ export default defineComponent('page-not-found', {
             text-decoration: underline;
         }
     `
-});
+}
+
+export default defineComponent('page-not-found', PageNotFound);

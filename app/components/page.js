@@ -1,16 +1,16 @@
 /**
  * Page wrapper component with header
  */
-import { defineComponent, html } from '../lib/framework.js';
+import { defineComponent, html, Component } from '../lib/framework.js';
 import conf from '../conf.js';
 
-export default defineComponent('page-wrapper', {
-    props: {
+export class PageWrapper extends Component {
+    static props = {
         title: 'Main Page',
         appName: 'Home',
         appRoot: '/',
         showHeader: true
-    },
+    }
 
     template() {
         return html`
@@ -29,9 +29,9 @@ export default defineComponent('page-wrapper', {
                 ${this.props.children}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
             margin: 0 auto;
@@ -51,4 +51,6 @@ export default defineComponent('page-wrapper', {
             margin-top: 20px;
         }
     `
-});
+}
+
+export default defineComponent('page-wrapper', PageWrapper);

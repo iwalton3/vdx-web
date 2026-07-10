@@ -1,46 +1,46 @@
 /**
  * Notification Demo - Demonstrates notification system
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, each } from '../lib/framework.js';
 import { notify } from '../lib/utils.js';
 
-export default defineComponent('notification-demo', {
-    data() {
-        return {
+export class NotificationDemo extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             message: 'Test notification',
             severity: 'info',
             duration: 3
         };
-    },
+    }
 
-    methods: {
-        showNotification() {
-            notify(this.state.message, this.state.severity, this.state.duration);
-        },
+    showNotification() {
+        notify(this.state.message, this.state.severity, this.state.duration);
+    }
 
-        showInfo() {
-            notify('This is an info message', 'info', 3);
-        },
+    showInfo() {
+        notify('This is an info message', 'info', 3);
+    }
 
-        showSuccess() {
-            notify('Operation completed successfully!', 'success', 3);
-        },
+    showSuccess() {
+        notify('Operation completed successfully!', 'success', 3);
+    }
 
-        showWarning() {
-            notify('Warning: Please review your settings', 'warn', 4);
-        },
+    showWarning() {
+        notify('Warning: Please review your settings', 'warn', 4);
+    }
 
-        showError() {
-            notify('Error: Something went wrong', 'error', 5);
-        },
+    showError() {
+        notify('Error: Something went wrong', 'error', 5);
+    }
 
-        showMultiple() {
-            notify('First notification', 'info', 3);
-            setTimeout(() => notify('Second notification', 'success', 3), 500);
-            setTimeout(() => notify('Third notification', 'warn', 3), 1000);
-        }
-    },
+    showMultiple() {
+        notify('First notification', 'info', 3);
+        setTimeout(() => notify('Second notification', 'success', 3), 500);
+        setTimeout(() => notify('Third notification', 'warn', 3), 1000);
+    }
 
     template() {
         return html`
@@ -89,9 +89,9 @@ export default defineComponent('notification-demo', {
 
             <button on-click="showNotification" style="width: 100%;">Show Custom Notification</button>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -101,4 +101,6 @@ export default defineComponent('notification-demo', {
             margin-bottom: 10px;
         }
     `
-});
+}
+
+export default defineComponent('notification-demo', NotificationDemo);

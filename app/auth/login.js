@@ -1,11 +1,11 @@
 /**
  * Login Page
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html } from '../lib/framework.js';
 import './login-component.js';
 
-export default defineComponent('auth-login', {
+export class AuthLogin extends Component {
     template() {
         return html`
             <div>
@@ -14,4 +14,6 @@ export default defineComponent('auth-login', {
             </div>
         `;
     }
-});
+}
+
+export default defineComponent('auth-login', AuthLogin);

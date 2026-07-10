@@ -2,7 +2,7 @@
  * APWG - Advanced Password Generator
  * Generates memorable passwords using phonetic segments
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 import { range } from '../../lib/utils.js';
 import '../../components/select-box.js';
 
@@ -78,9 +78,11 @@ function timecalc(count, tests) {
     return time + " seconds";
 }
 
-export default defineComponent('apwg-page', {
-    data() {
-        return {
+export class ApwgPage extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             // Result state
             password: '',
             bits: 0,
@@ -97,57 +99,55 @@ export default defineComponent('apwg-page', {
             lengthOptions: range(1, 9), // 1-8
             pwTypeOptions: ['simple', 'extended', 'complex']
         };
-    },
+    }
 
     async mounted() {
         await this.updatePassword();
-    },
+    }
 
-    methods: {
-        calculateSecurity(count) {
-            this.state.onlineTime = timecalc(count, 1000);
-            this.state.slowHashTime = timecalc(count, 1000000);
-            this.state.fastHashTime = timecalc(count, 250000000000);
-        },
+    calculateSecurity(count) {
+        this.state.onlineTime = timecalc(count, 1000);
+        this.state.slowHashTime = timecalc(count, 1000000);
+        this.state.fastHashTime = timecalc(count, 250000000000);
+    }
 
-        async updatePassword() {
-            this.state.error = '';
-            try {
-                let length = parseInt(this.state.length);
-                if (length > 10) length = 10;
+    async updatePassword() {
+        this.state.error = '';
+        try {
+            let length = parseInt(this.state.length);
+            if (length > 10) length = 10;
 
-                const bits = pwdef[this.state.pwType].bits(length);
-                const count = Math.pow(2, bits);
+            const bits = pwdef[this.state.pwType].bits(length);
+            const count = Math.pow(2, bits);
 
-                this.state.password = await genapw(this.state.pwType, length);
-                this.state.bits = bits;
-                this.calculateSecurity(count);
-            } catch (error) {
-                console.error('Failed to generate password:', error);
-                this.state.error = 'Failed to generate password';
-            }
-        },
+            this.state.password = await genapw(this.state.pwType, length);
+            this.state.bits = bits;
+            this.calculateSecurity(count);
+        } catch (error) {
+            console.error('Failed to generate password:', error);
+            this.state.error = 'Failed to generate password';
+        }
+    }
 
-        handleLengthChange() {
-            this.updatePassword();
-        },
+    handleLengthChange() {
+        this.updatePassword();
+    }
 
-        handleTypeChange() {
-            this.updatePassword();
-        },
+    handleTypeChange() {
+        this.updatePassword();
+    }
 
-        async copyPassword() {
-            try {
-                await navigator.clipboard.writeText(this.state.password);
-            } catch (e) {
-                const input = this.querySelector('.password-display');
-                if (input) {
-                    input.select();
-                    document.execCommand('copy');
-                }
+    async copyPassword() {
+        try {
+            await navigator.clipboard.writeText(this.state.password);
+        } catch (e) {
+            const input = this.querySelector('.password-display');
+            if (input) {
+                input.select();
+                document.execCommand('copy');
             }
         }
-    },
+    }
 
     template() {
         return html`
@@ -215,9 +215,9 @@ export default defineComponent('apwg-page', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .apwg {
             max-width: 700px;
         }
@@ -349,4 +349,6 @@ export default defineComponent('apwg-page', {
             margin-bottom: 10px;
         }
     `
-});
+}
+
+export default defineComponent('apwg-page', ApwgPage);

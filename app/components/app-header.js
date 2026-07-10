@@ -2,17 +2,19 @@
  * App Header Component
  * Displays site branding and current page info
  */
-import { defineComponent, html } from '../lib/framework.js';
+import { defineComponent, html, Component } from '../lib/framework.js';
 import conf from '../conf.js';
 
-export default defineComponent('app-header', {
-    data() {
-        return {
+export class AppHeader extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             currentRoute: '/',
             appName: 'Home',
             pageTitle: ''
         };
-    },
+    }
 
     template() {
         return html`
@@ -29,4 +31,6 @@ export default defineComponent('app-header', {
             </nav>
         `;
     }
-});
+}
+
+export default defineComponent('app-header', AppHeader);

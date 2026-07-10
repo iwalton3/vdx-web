@@ -55,7 +55,7 @@
     <simple-counter></simple-counter>
 
     <script type="module">
-        import { defineComponent, html, reactive, createEffect } from '../dist/framework.js';
+        import { defineComponent, Component, html, reactive, createEffect } from '../dist/framework.js';
 
         const tests = [];
 
@@ -97,11 +97,12 @@
         // Test 4: Component definition works
         let componentWorks = false;
         try {
-            defineComponent('test-component', {
+            class TestComponent extends Component {
                 template() {
                     return html`<div>Test</div>`;
                 }
-            });
+            }
+            defineComponent('test-component', TestComponent);
             componentWorks = customElements.get('test-component') !== undefined;
         } catch (e) {
             console.error('Component definition error:', e);
@@ -124,26 +125,25 @@
         });
 
         // Create interactive counter component
-        defineComponent('simple-counter', {
-            data() {
-                return {
+        class SimpleCounter extends Component {
+            constructor(props) {
+                super(props);
+                this.state = {
                     count: 0
                 };
-            },
+            }
 
-            methods: {
-                increment() {
-                    this.state.count++;
-                },
+            increment() {
+                this.state.count++;
+            }
 
-                decrement() {
-                    this.state.count--;
-                },
+            decrement() {
+                this.state.count--;
+            }
 
-                reset() {
-                    this.state.count = 0;
-                }
-            },
+            reset() {
+                this.state.count = 0;
+            }
 
             template() {
                 return html`
@@ -155,7 +155,8 @@
                     </div>
                 `;
             }
-        });
+        }
+        defineComponent('simple-counter', SimpleCounter);
     </script>
 </body>
 </html>

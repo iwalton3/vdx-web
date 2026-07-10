@@ -2,41 +2,41 @@
  * LazySelectBox Component - Inline editable select
  * Shows value as text, becomes dropdown on hover/click
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, each, when } from '../lib/framework.js';
 
-export default defineComponent('x-lazy-select-box', {
-    props: {
+export class XLazySelectBox extends Component {
+    static props = {
         options: [],
         value: ''
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             focus: false,
             editing: false
         };
-    },
+    }
 
-    methods: {
-        edit() {
-            this.state.focus = true;
-        },
+    edit() {
+        this.state.focus = true;
+    }
 
-        abandon() {
-            this.state.focus = false;
-        },
+    abandon() {
+        this.state.focus = false;
+    }
 
-        commit(e) {
-            this.emitChange(e, this.props.options[Number(e.target.value)]);
-            this.state.focus = false;
-            this.state.editing = false;
-        },
+    commit(e) {
+        this.emitChange(e, this.props.options[Number(e.target.value)]);
+        this.state.focus = false;
+        this.state.editing = false;
+    }
 
-        startEditing() {
-            this.state.editing = true;
-        }
-    },
+    startEditing() {
+        this.state.editing = true;
+    }
 
     template() {
         const showSelect = this.state.focus || this.state.editing;
@@ -59,4 +59,6 @@ export default defineComponent('x-lazy-select-box', {
             </span>
         `);
     }
-});
+}
+
+export default defineComponent('x-lazy-select-box', XLazySelectBox);

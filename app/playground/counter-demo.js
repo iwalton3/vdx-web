@@ -1,30 +1,30 @@
 /**
  * Counter Demo - Demonstrates basic reactive state
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html } from '../lib/framework.js';
 
-export default defineComponent('counter-demo', {
-    data() {
-        return {
+export class CounterDemo extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             count: 0,
             step: 1
         };
-    },
+    }
 
-    methods: {
-        increment() {
-            this.state.count += this.state.step;
-        },
+    increment() {
+        this.state.count += this.state.step;
+    }
 
-        decrement() {
-            this.state.count -= this.state.step;
-        },
+    decrement() {
+        this.state.count -= this.state.step;
+    }
 
-        reset() {
-            this.state.count = 0;
-        }
-    },
+    reset() {
+        this.state.count = 0;
+    }
 
     template() {
         return html`
@@ -50,11 +50,13 @@ export default defineComponent('counter-demo', {
                 </label>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
     `
-});
+}
+
+export default defineComponent('counter-demo', CounterDemo);

@@ -2,120 +2,120 @@
  * Fast Link - Quick URL sharing
  * Uses QNote backend with name "fl" for simple link storage
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 import { notify } from '../../lib/utils.js';
 
 const RW_API = '/theme/rw.php';
 
-export default defineComponent('fastlink-page', {
-    data() {
-        return {
+export class FastlinkPage extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             currentLink: '',
             newLink: '',
             loading: true,
             saving: false
         };
-    },
+    }
 
     async mounted() {
         await this.loadLink();
-    },
+    }
 
-    methods: {
-        async loadLink() {
-            this.state.loading = true;
-            try {
-                const response = await fetch(`${RW_API}?name=fl`);
-                const link = await response.text();
-                this.state.currentLink = link.trim();
-            } catch (error) {
-                console.error('Failed to load link:', error);
-                notify('Failed to load link', 'error');
-            }
-            this.state.loading = false;
-        },
+    async loadLink() {
+        this.state.loading = true;
+        try {
+            const response = await fetch(`${RW_API}?name=fl`);
+            const link = await response.text();
+            this.state.currentLink = link.trim();
+        } catch (error) {
+            console.error('Failed to load link:', error);
+            notify('Failed to load link', 'error');
+        }
+        this.state.loading = false;
+    }
 
-        async saveLink() {
-            if (!this.state.newLink.trim()) {
-                notify('Please enter a URL', 'error');
-                return;
-            }
+    async saveLink() {
+        if (!this.state.newLink.trim()) {
+            notify('Please enter a URL', 'error');
+            return;
+        }
 
-            this.state.saving = true;
-            try {
-                const formData = new FormData();
-                formData.append('name', 'fl');
-                formData.append('content', this.state.newLink.trim());
+        this.state.saving = true;
+        try {
+            const formData = new FormData();
+            formData.append('name', 'fl');
+            formData.append('content', this.state.newLink.trim());
 
-                const response = await fetch(RW_API, {
-                    method: 'POST',
-                    body: formData
-                });
+            const response = await fetch(RW_API, {
+                method: 'POST',
+                body: formData
+            });
 
-                const result = await response.text();
-                if (result.includes('Saved')) {
-                    this.state.currentLink = this.state.newLink.trim();
-                    this.state.newLink = '';
-                    notify('Link saved!');
-                } else {
-                    notify('Failed to save link', 'error');
-                }
-            } catch (error) {
-                console.error('Failed to save link:', error);
+            const result = await response.text();
+            if (result.includes('Saved')) {
+                this.state.currentLink = this.state.newLink.trim();
+                this.state.newLink = '';
+                notify('Link saved!');
+            } else {
                 notify('Failed to save link', 'error');
             }
-            this.state.saving = false;
-        },
+        } catch (error) {
+            console.error('Failed to save link:', error);
+            notify('Failed to save link', 'error');
+        }
+        this.state.saving = false;
+    }
 
-        async clearLink() {
-            this.state.saving = true;
-            try {
-                const formData = new FormData();
-                formData.append('name', 'fl');
-                formData.append('content', '');
+    async clearLink() {
+        this.state.saving = true;
+        try {
+            const formData = new FormData();
+            formData.append('name', 'fl');
+            formData.append('content', '');
 
-                const response = await fetch(RW_API, {
-                    method: 'POST',
-                    body: formData
-                });
+            const response = await fetch(RW_API, {
+                method: 'POST',
+                body: formData
+            });
 
-                const result = await response.text();
-                if (result.includes('Saved')) {
-                    this.state.currentLink = '';
-                    notify('Link cleared');
-                } else {
-                    notify('Failed to clear link', 'error');
-                }
-            } catch (error) {
-                console.error('Failed to clear link:', error);
+            const result = await response.text();
+            if (result.includes('Saved')) {
+                this.state.currentLink = '';
+                notify('Link cleared');
+            } else {
                 notify('Failed to clear link', 'error');
             }
-            this.state.saving = false;
-        },
-
-        async copyLink() {
-            if (this.state.currentLink) {
-                try {
-                    await navigator.clipboard.writeText(this.state.currentLink);
-                    notify('Link copied to clipboard!');
-                } catch (e) {
-                    // Fallback
-                    const input = document.createElement('input');
-                    input.value = this.state.currentLink;
-                    document.body.appendChild(input);
-                    input.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(input);
-                    notify('Link copied to clipboard!');
-                }
-            }
-        },
-
-        handleSubmit(e) {
-            e.preventDefault();
-            this.saveLink();
+        } catch (error) {
+            console.error('Failed to clear link:', error);
+            notify('Failed to clear link', 'error');
         }
-    },
+        this.state.saving = false;
+    }
+
+    async copyLink() {
+        if (this.state.currentLink) {
+            try {
+                await navigator.clipboard.writeText(this.state.currentLink);
+                notify('Link copied to clipboard!');
+            } catch (e) {
+                // Fallback
+                const input = document.createElement('input');
+                input.value = this.state.currentLink;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                notify('Link copied to clipboard!');
+            }
+        }
+    }
+
+    handleSubmit(e) {
+        e.preventDefault();
+        this.saveLink();
+    }
 
     template() {
         return html`
@@ -162,9 +162,9 @@ export default defineComponent('fastlink-page', {
                 `)}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .fastlink {
             max-width: 600px;
         }
@@ -298,4 +298,6 @@ export default defineComponent('fastlink-page', {
             cursor: not-allowed;
         }
     `
-});
+}
+
+export default defineComponent('fastlink-page', FastlinkPage);

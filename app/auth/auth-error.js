@@ -1,17 +1,19 @@
 /**
  * AuthError - Error page when permission is missing
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html } from '../lib/framework.js';
 import { getRouter } from '../lib/router.js';
 import './login-component.js';
 
-export default defineComponent('auth-error', {
-    data() {
-        return {
+export class AuthError extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             message: ''
         };
-    },
+    }
 
     mounted() {
         // Get message from URL query parameters
@@ -26,7 +28,7 @@ export default defineComponent('auth-error', {
         } else {
             this.state.message = 'You need to log in to access this page.';
         }
-    },
+    }
 
     template() {
         return html`
@@ -40,4 +42,6 @@ export default defineComponent('auth-error', {
             </div>
         `;
     }
-});
+}
+
+export default defineComponent('auth-error', AuthError);

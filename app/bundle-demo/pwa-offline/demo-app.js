@@ -5,16 +5,18 @@
  * It shows local state management and reactive updates.
  */
 
-import { defineComponent, html, each } from '../../dist/framework.js';
+import { defineComponent, html, each, Component } from '../../dist/framework.js';
 
-export default defineComponent('demo-app', {
-    data() {
-        return {
+export class DemoApp extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             notes: [],
             newNote: '',
             timestamp: new Date().toLocaleTimeString()
         };
-    },
+    }
 
     mounted() {
         // Load notes from localStorage
@@ -24,62 +26,60 @@ export default defineComponent('demo-app', {
         this.interval = setInterval(() => {
             this.state.timestamp = new Date().toLocaleTimeString();
         }, 1000);
-    },
+    }
 
     unmounted() {
         if (this.interval) {
             clearInterval(this.interval);
         }
-    },
+    }
 
-    methods: {
-        loadNotes() {
-            try {
-                const saved = localStorage.getItem('pwa-demo-notes');
-                if (saved) {
-                    this.state.notes = JSON.parse(saved);
-                }
-            } catch (e) {
-                console.error('Failed to load notes:', e);
+    loadNotes() {
+        try {
+            const saved = localStorage.getItem('pwa-demo-notes');
+            if (saved) {
+                this.state.notes = JSON.parse(saved);
             }
-        },
-
-        saveNotes() {
-            try {
-                localStorage.setItem('pwa-demo-notes', JSON.stringify(this.state.notes));
-            } catch (e) {
-                console.error('Failed to save notes:', e);
-            }
-        },
-
-        addNote() {
-            const text = this.state.newNote.trim();
-            if (!text) return;
-
-            this.state.notes = [
-                ...this.state.notes,
-                {
-                    id: Date.now(),
-                    text,
-                    created: new Date().toLocaleString()
-                }
-            ];
-            this.state.newNote = '';
-            this.saveNotes();
-        },
-
-        deleteNote(id) {
-            this.state.notes = this.state.notes.filter(n => n.id !== id);
-            this.saveNotes();
-        },
-
-        clearAll() {
-            if (confirm('Delete all notes?')) {
-                this.state.notes = [];
-                this.saveNotes();
-            }
+        } catch (e) {
+            console.error('Failed to load notes:', e);
         }
-    },
+    }
+
+    saveNotes() {
+        try {
+            localStorage.setItem('pwa-demo-notes', JSON.stringify(this.state.notes));
+        } catch (e) {
+            console.error('Failed to save notes:', e);
+        }
+    }
+
+    addNote() {
+        const text = this.state.newNote.trim();
+        if (!text) return;
+
+        this.state.notes = [
+            ...this.state.notes,
+            {
+                id: Date.now(),
+                text,
+                created: new Date().toLocaleString()
+            }
+        ];
+        this.state.newNote = '';
+        this.saveNotes();
+    }
+
+    deleteNote(id) {
+        this.state.notes = this.state.notes.filter(n => n.id !== id);
+        this.saveNotes();
+    }
+
+    clearAll() {
+        if (confirm('Delete all notes?')) {
+            this.state.notes = [];
+            this.saveNotes();
+        }
+    }
 
     template() {
         return html`
@@ -127,9 +127,9 @@ export default defineComponent('demo-app', {
                 `}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .demo-widget {
             background: #fff;
             border-radius: 12px;
@@ -265,4 +265,6 @@ export default defineComponent('demo-app', {
             margin: 0;
         }
     `
-});
+}
+
+export default defineComponent('demo-app', DemoApp);

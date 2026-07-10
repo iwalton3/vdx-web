@@ -19,6 +19,7 @@ A hands-on guide to building reactive web applications with zero dependencies.
 13. [Advanced Patterns](#advanced-patterns)
 14. [Performance Optimization](#performance-optimization)
 15. [Best Practices](#best-practices)
+16. [The Legacy Options Format](#the-legacy-options-format)
 
 ---
 
@@ -92,25 +93,25 @@ Let's create a simple counter component to understand the basics.
 Create `app/my-counter.js`:
 
 ```javascript
-import { defineComponent, html } from './lib/framework.js';
+import { defineComponent, Component, html } from './lib/framework.js';
 
-export default defineComponent('my-counter', {
+export class MyCounter extends Component {
     // Reactive state - changes trigger re-renders
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+        this.state = {
             count: 0
         };
-    },
+    }
 
-    // Methods accessible in the template
-    methods: {
-        increment() {
-            this.state.count++;
-        },
-        decrement() {
-            this.state.count--;
-        }
-    },
+    // Methods are auto-bound and callable from the template
+    increment() {
+        this.state.count++;
+    }
+
+    decrement() {
+        this.state.count--;
+    }
 
     // Template returns the component's HTML
     template() {
@@ -121,10 +122,10 @@ export default defineComponent('my-counter', {
                 <button on-click="increment">+</button>
             </div>
         `;
-    },
+    }
 
     // Scoped styles (optional)
-    styles: /*css*/`
+    static styles = /*css*/`
         .counter {
             text-align: center;
             padding: 20px;
@@ -134,8 +135,10 @@ export default defineComponent('my-counter', {
             padding: 10px 20px;
             margin: 0 5px;
         }
-    `
-});
+    `;
+}
+
+export default defineComponent('my-counter', MyCounter);
 ```
 
 ### Step 2: Use the Component
@@ -160,12 +163,18 @@ Create `app/counter-demo.html`:
 
 ### Key Concepts
 
-1. **`defineComponent(name, options)`** - Registers a custom element
-2. **`data()`** - Returns the component's reactive state
-3. **`methods`** - Functions callable from the template
-4. **`template()`** - Returns the HTML using the `html` template literal
-5. **`on-click="methodName"`** - Binds events to methods
-6. **`${this.state.property}`** - Interpolates reactive values
+1. **`class MyCounter extends Component`** - A component is a class extending `Component`
+2. **`defineComponent(name, MyCounter)`** - Registers the class as a custom element
+3. **`constructor(props)`** - Initializes reactive state on `this.state` (props hold real values here)
+4. **Methods** - Class methods are auto-bound to the element and callable from the template
+5. **`template()`** - Returns the HTML using the `html` template literal
+6. **`on-click="methodName"`** - Binds events to methods
+7. **`${this.state.property}`** - Interpolates reactive values
+
+Getters become cached computed properties, and `static props` / `static stores` / `static styles`
+declare props, stores, and scoped CSS. We'll cover each of these as we go. (An older
+options-object format also exists - see [The Legacy Options Format](#the-legacy-options-format)
+near the end.)
 
 ---
 
@@ -176,26 +185,25 @@ State is the heart of reactive components. When state changes, the component aut
 ### Accessing State
 
 ```javascript
-data() {
-    return {
+constructor(props) {
+    super(props);
+    this.state = {
         user: {
             name: 'Alice',
             age: 30
         },
         items: ['apple', 'banana']
     };
-},
+}
 
-methods: {
-    updateName() {
-        // Direct property assignment
-        this.state.user.name = 'Bob';
-    },
+updateName() {
+    // Direct property assignment
+    this.state.user.name = 'Bob';
+}
 
-    addItem() {
-        // Array methods work reactively
-        this.state.items.push('orange');
-    }
+addItem() {
+    // Array methods work reactively
+    this.state.items.push('orange');
 }
 ```
 
@@ -226,20 +234,19 @@ getSortedItems() {
 Sets and Maps are automatically wrapped to be reactive:
 
 ```javascript
-data() {
-    return {
+constructor(props) {
+    super(props);
+    this.state = {
         selectedIds: new Set(),  // ✅ Automatically reactive!
         userScores: new Map()    // ✅ Automatically reactive!
     };
-},
+}
 
-methods: {
-    toggleSelection(id) {
-        if (this.state.selectedIds.has(id)) {
-            this.state.selectedIds.delete(id);  // ✅ Triggers re-render
-        } else {
-            this.state.selectedIds.add(id);     // ✅ Triggers re-render
-        }
+toggleSelection(id) {
+    if (this.state.selectedIds.has(id)) {
+        this.state.selectedIds.delete(id);  // ✅ Triggers re-render
+    } else {
+        this.state.selectedIds.add(id);     // ✅ Triggers re-render
     }
 }
 ```
@@ -255,14 +262,12 @@ this.state.userScores.setAll([['alice', 100], ['bob', 85]]);
 Multiple state changes in the same synchronous function are automatically batched into a single render:
 
 ```javascript
-methods: {
-    updateMultiple() {
-        // These three changes result in ONE render, not three
-        this.state.firstName = 'John';
-        this.state.lastName = 'Doe';
-        this.state.fullName = 'John Doe';
-        // Render happens after this function completes
-    }
+updateMultiple() {
+    // These three changes result in ONE render, not three
+    this.state.firstName = 'John';
+    this.state.lastName = 'Doe';
+    this.state.fullName = 'John Doe';
+    // Render happens after this function completes
 }
 ```
 
@@ -273,23 +278,22 @@ This batching is automatic and happens via `queueMicrotask`. You don't need to d
 Sometimes you need the DOM to update immediately after a state change (e.g., to focus an element):
 
 ```javascript
-import { defineComponent, html, flushSync } from './lib/framework.js';
+import { defineComponent, Component, html, when, flushSync } from './lib/framework.js';
 
-defineComponent('my-form', {
-    data() {
-        return { showInput: false };
-    },
+defineComponent('my-form', class extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { showInput: false };
+    }
 
-    methods: {
-        showAndFocus() {
-            // Use flushSync to render immediately
-            flushSync(() => {
-                this.state.showInput = true;
-            });
-            // Now safe to focus - DOM is updated
-            this.refs.input.focus();
-        }
-    },
+    showAndFocus() {
+        // Use flushSync to render immediately
+        flushSync(() => {
+            this.state.showInput = true;
+        });
+        // Now safe to focus - DOM is updated
+        this.refs.input.focus();
+    }
 
     template() {
         return html`
@@ -313,14 +317,15 @@ The `x-model` directive provides automatic two-way binding, including with neste
 ### Basic Usage
 
 ```javascript
-defineComponent('user-form', {
-    data() {
-        return {
+defineComponent('user-form', class extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             username: '',
             age: 18,
             agreed: false
         };
-    },
+    }
 
     template() {
         return html`
@@ -361,9 +366,10 @@ defineComponent('user-form', {
 ### Complete Form Example
 
 ```javascript
-defineComponent('registration-form', {
-    data() {
-        return {
+defineComponent('registration-form', class extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             username: '',
             email: '',
             password: '',
@@ -372,20 +378,18 @@ defineComponent('registration-form', {
             newsletter: false,
             plan: 'free'
         };
-    },
+    }
 
-    methods: {
-        handleSubmit(e) {
-            console.log('Form data:', {
-                username: this.state.username,
-                email: this.state.email,
-                age: this.state.age,  // Already a number!
-                country: this.state.country,
-                newsletter: this.state.newsletter,  // Already a boolean!
-                plan: this.state.plan
-            });
-        }
-    },
+    handleSubmit(e) {
+        console.log('Form data:', {
+            username: this.state.username,
+            email: this.state.email,
+            age: this.state.age,  // Already a number!
+            country: this.state.country,
+            newsletter: this.state.newsletter,  // Already a boolean!
+            plan: this.state.plan
+        });
+    }
 
     template() {
         return html`
@@ -575,15 +579,13 @@ ${raw(this.state.userComment)}  // XSS vulnerability!
 ### Passing Event Data
 
 ```javascript
-methods: {
-    handleClick(e) {
-        console.log('Event target:', e.target);
-        console.log('Mouse position:', e.clientX, e.clientY);
-    },
+handleClick(e) {
+    console.log('Event target:', e.target);
+    console.log('Mouse position:', e.clientX, e.clientY);
+}
 
-    handleInput(e) {
-        console.log('Input value:', e.target.value);
-    }
+handleInput(e) {
+    console.log('Input value:', e.target.value);
 }
 ```
 
@@ -596,12 +598,12 @@ methods: {
 **Define props with defaults:**
 
 ```javascript
-defineComponent('user-card', {
-    props: {
+defineComponent('user-card', class extends Component {
+    static props = {
         name: 'Guest',
         role: 'user',
         isAdmin: false
-    },
+    };
 
     template() {
         return html`
@@ -643,7 +645,7 @@ template() {
 Components can accept children like React:
 
 ```javascript
-defineComponent('my-card', {
+defineComponent('my-card', class extends Component {
     template() {
         return html`
             <div class="card">
@@ -665,7 +667,7 @@ defineComponent('my-card', {
 **Named slots:**
 
 ```javascript
-defineComponent('my-dialog', {
+defineComponent('my-dialog', class extends Component {
     template() {
         const headerSlot = this.props.slots.header || [];
         const footerSlot = this.props.slots.footer || [];
@@ -696,15 +698,13 @@ defineComponent('my-dialog', {
 **Emit events from child:**
 
 ```javascript
-defineComponent('color-picker', {
-    methods: {
-        selectColor(color) {
-            this.dispatchEvent(new CustomEvent('color-change', {
-                bubbles: true,
-                detail: { color }
-            }));
-        }
-    },
+defineComponent('color-picker', class extends Component {
+    selectColor(color) {
+        this.dispatchEvent(new CustomEvent('color-change', {
+            bubbles: true,
+            detail: { color }
+        }));
+    }
 
     template() {
         return html`
@@ -723,7 +723,7 @@ defineComponent('color-picker', {
 // In template
 <color-picker on-color-change="${(e) => this.handleColorChange(e)}"></color-picker>
 
-// In methods
+// As a method on the component class
 handleColorChange(e) {
     this.state.selectedColor = e.detail.color;
 }
@@ -732,12 +732,10 @@ handleColorChange(e) {
 ### Refs (Direct DOM Access)
 
 ```javascript
-defineComponent('my-form', {
-    methods: {
-        focusInput() {
-            this.refs.nameInput.focus();
-        }
-    },
+defineComponent('my-form', class extends Component {
+    focusInput() {
+        this.refs.nameInput.focus();
+    }
 
     template() {
         return html`
@@ -863,21 +861,19 @@ const router = enableRouting(outlet, {
 
 ```javascript
 // Route: /users/:id/
-defineComponent('user-profile', {
-    props: {
+defineComponent('user-profile', class extends Component {
+    static props = {
         params: {},  // { id: '123' }
         query: {}    // Query string params
-    },
+    };
 
     mounted() {
         this.loadUser(this.props.params.id);
-    },
+    }
 
-    methods: {
-        async loadUser(userId) {
-            const response = await fetch(`/api/users/${userId}`);
-            this.state.user = await response.json();
-        }
+    async loadUser(userId) {
+        const response = await fetch(`/api/users/${userId}`);
+        this.state.user = await response.json();
     }
 });
 ```
@@ -887,11 +883,11 @@ defineComponent('user-profile', {
 ```javascript
 // URL: /search?q=hello&page=2
 
-defineComponent('search-page', {
-    props: {
+defineComponent('search-page', class extends Component {
+    static props = {
         params: {},
         query: {}  // { q: 'hello', page: '2' }
-    },
+    };
 
     mounted() {
         if (this.props.query.q) {
@@ -906,16 +902,15 @@ defineComponent('search-page', {
 ```javascript
 import { getRouter } from './lib/router.js';
 
-methods: {
-    goToUser(userId) {
-        const router = getRouter();
-        router.navigate(`/users/${userId}/`);
-    },
+// Methods on the component class
+goToUser(userId) {
+    const router = getRouter();
+    router.navigate(`/users/${userId}/`);
+}
 
-    searchWithParams(query) {
-        const router = getRouter();
-        router.navigate('/search/', { q: query, page: '1' });
-    }
+searchWithParams(query) {
+    const router = getRouter();
+    router.navigate('/search/', { q: query, page: '1' });
 }
 ```
 
@@ -1013,8 +1008,8 @@ const router = enableRouting(outlet, {
 ```javascript
 import authStore from './stores/auth.js';
 
-defineComponent('nav-bar', {
-    stores: { auth: authStore },
+defineComponent('nav-bar', class extends Component {
+    static stores = { auth: authStore };
 
     template() {
         return html`
@@ -1077,10 +1072,10 @@ The recommended approach - use the `stores` option:
 ```javascript
 import counterStore from './stores/counter.js';
 
-defineComponent('counter-display', {
-    stores: {
+defineComponent('counter-display', class extends Component {
+    static stores = {
         counter: counterStore
-    },
+    };
 
     template() {
         return html`
@@ -1100,18 +1095,19 @@ For more control:
 ```javascript
 import counterStore from './stores/counter.js';
 
-defineComponent('counter-display', {
-    data() {
-        return {
+defineComponent('counter-display', class extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             count: 0
         };
-    },
+    }
 
     mounted() {
         this.unsubscribe = counterStore.subscribe(state => {
             this.state.count = state.count;
         });
-    },
+    }
 
     unmounted() {
         if (this.unsubscribe) {
@@ -1159,35 +1155,34 @@ VDX components work seamlessly with static HTML pages, making them perfect for e
     <p>More static content...</p>
 
     <script type="module">
-        import { defineComponent, html } from './dist/framework.js';
+        import { defineComponent, Component, html } from './dist/framework.js';
 
-        defineComponent('unit-converter', {
-            props: {
+        defineComponent('unit-converter', class extends Component {
+            static props = {
                 fromUnit: 'gallons',
                 toUnit: 'liters',
                 initialValue: 1
-            },
+            };
 
-            data() {
-                return {
+            constructor(props) {
+                super(props);
+                this.state = {
                     inputValue: 1
                 };
-            },
+            }
 
             mounted() {
                 this.state.inputValue = parseFloat(this.props.initialValue) || 1;
-            },
+            }
 
-            methods: {
-                convert(value) {
-                    const factors = {
-                        'gallons': 3.78541,
-                        'liters': 1
-                    };
-                    const liters = value * factors[this.props.fromUnit];
-                    return (liters / factors[this.props.toUnit]).toFixed(4);
-                }
-            },
+            convert(value) {
+                const factors = {
+                    'gallons': 3.78541,
+                    'liters': 1
+                };
+                const liters = value * factors[this.props.fromUnit];
+                return (liters / factors[this.props.toUnit]).toFixed(4);
+            }
 
             template() {
                 return html`
@@ -1241,15 +1236,13 @@ counter.addEventListener('count-changed', (e) => {
 **Emitting events from components:**
 
 ```javascript
-defineComponent('event-counter', {
-    methods: {
-        increment() {
-            this.state.count++;
-            this.dispatchEvent(new CustomEvent('count-changed', {
-                bubbles: true,
-                detail: { count: this.state.count }
-            }));
-        }
+defineComponent('event-counter', class extends Component {
+    increment() {
+        this.state.count++;
+        this.dispatchEvent(new CustomEvent('count-changed', {
+            bubbles: true,
+            detail: { count: this.state.count }
+        }));
     }
 });
 ```
@@ -1259,12 +1252,12 @@ defineComponent('event-counter', {
 Props can hold any JavaScript value - arrays, objects, and functions. Just define them in your component and set them directly:
 
 ```javascript
-defineComponent('country-list', {
-    props: {
+defineComponent('country-list', class extends Component {
+    static props = {
         countries: [],    // Array prop
         title: 'Countries',
         onSelect: null    // Function prop
-    },
+    };
 
     template() {
         return html`
@@ -1373,20 +1366,34 @@ For static site generators, you can pass complex data using `json-*` attributes 
 
 ### Computed Properties
 
-Use `computed()` for expensive calculations:
+For most derived values, a **class getter** is the simplest option - it's lazy, cached on its
+reactive dependencies, and automatically disposed with the component:
 
-`computed(getter)` takes a zero-argument getter (dependencies are tracked automatically) and returns `{ get, dispose }`:
+```javascript
+get remaining() {
+    return this.state.items.filter(i => !i.done).length;
+}
+// ...used in the template as ${this.remaining}
+```
+
+(Getters must read only `state`/`stores`/`props` - never refs, DOM measurements, or non-reactive
+fields, or the cache goes stale.)
+
+When you need an explicitly managed computed - one you read outside `template()`, or whose lifetime
+you control by hand - use the standalone `computed()` function. `computed(getter)` takes a
+zero-argument getter (dependencies are tracked automatically) and returns `{ get, dispose }`:
 
 ```javascript
 import { computed } from './lib/framework.js';
 
-defineComponent('product-list', {
-    data() {
-        return {
+defineComponent('product-list', class extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             items: [...],  // 1000 items
             searchQuery: ''
         };
-    },
+    }
 
     mounted() {
         // Dependencies (items, searchQuery) are tracked automatically;
@@ -1397,11 +1404,11 @@ defineComponent('product-list', {
                 item.name.toLowerCase().includes(this.state.searchQuery.toLowerCase())
             );
         });
-    },
+    }
 
     unmounted() {
         if (this._filteredItems) this._filteredItems.dispose();
-    },
+    }
 
     template() {
         const filtered = this._filteredItems?.get() ?? [];
@@ -1429,7 +1436,7 @@ mounted() {
             }
         }
     );
-},
+}
 
 unmounted() {
     if (this._unwatch) this._unwatch();
@@ -1441,16 +1448,17 @@ unmounted() {
 ```javascript
 import { defineComponent, html, awaitThen } from './lib/framework.js';
 
-defineComponent('user-profile', {
-    data() {
-        return {
+defineComponent('user-profile', class extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             userPromise: null
         };
-    },
+    }
 
     mounted() {
         this.state.userPromise = fetch('/api/user/123').then(r => r.json());
-    },
+    }
 
     template() {
         return html`
@@ -1470,19 +1478,17 @@ defineComponent('user-profile', {
 Create components that work with `x-model`:
 
 ```javascript
-defineComponent('my-slider', {
-    props: {
+defineComponent('my-slider', class extends Component {
+    static props = {
         value: 50,
         min: 0,
         max: 100
-    },
+    };
 
-    methods: {
-        handleInput(e) {
-            // Use emitChange helper for x-model compatibility
-            this.emitChange(e, parseInt(e.target.value));
-        }
-    },
+    handleInput(e) {
+        // Use emitChange helper for x-model compatibility
+        this.emitChange(e, parseInt(e.target.value));
+    }
 
     template() {
         return html`
@@ -1523,23 +1529,22 @@ You no longer need special handling just for array iteration performance.
 Use `untracked()` when you want to **completely skip reactive proxying** for an object:
 
 ```javascript
-import { defineComponent, html, untracked } from './lib/framework.js';
+import { defineComponent, Component, html, untracked } from './lib/framework.js';
 
-defineComponent('song-library', {
-    data() {
-        return {
+defineComponent('song-library', class extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             // Skip proxying: 2000 items × 50 properties = expensive
             songs: untracked([]),
             // Normal reactivity for simple values
             currentIndex: 0
         };
-    },
+    }
 
-    methods: {
-        loadSongs(newSongs) {
-            // Reassign to trigger update (items aren't individually reactive)
-            this.state.songs = newSongs;
-        }
+    loadSongs(newSongs) {
+        // Reassign to trigger update (items aren't individually reactive)
+        this.state.songs = newSongs;
     }
 });
 ```
@@ -1558,14 +1563,15 @@ defineComponent('song-library', {
 For large lists or expensive item rendering, use `memoEach()` to cache rendered templates:
 
 ```javascript
-import { defineComponent, html, memoEach } from './lib/framework.js';
+import { defineComponent, Component, html, memoEach } from './lib/framework.js';
 
-defineComponent('playlist-view', {
-    data() {
-        return {
+defineComponent('playlist-view', class extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             songs: []
         };
-    },
+    }
 
     template() {
         return html`
@@ -1596,23 +1602,23 @@ defineComponent('playlist-view', {
 For very large lists (1000+ items), use the `cl-virtual-list` component:
 
 ```javascript
-import { defineComponent, html } from './lib/framework.js';
+import { defineComponent, Component, html } from './lib/framework.js';
 
-defineComponent('song-list', {
-    data() {
-        return {
+defineComponent('song-list', class extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
             songs: []  // Array iteration is O(1), no special handling needed
         };
-    },
+    }
 
-    methods: {
-        handleSelect(e) {
-            console.log('Selected:', e.detail.item);
-        },
-        getItemKey(item) {
-            return item.id;
-        }
-    },
+    handleSelect(e) {
+        console.log('Selected:', e.detail.item);
+    }
+
+    getItemKey(item) {
+        return item.id;
+    }
 
     template() {
         return html`
@@ -1702,32 +1708,40 @@ ${memoEach(this.state.songs, ...)}  // Not affected by player-time's updates
 Instead of manually wrapping each expression with `contain()`, you can use `opt()` to automatically wrap ALL template expressions:
 
 ```javascript
-import { defineComponent, html, when, each } from './lib/framework.js';
+import { defineComponent, Component, html, when, each } from './lib/framework.js';
 import { opt } from './lib/opt.js';
 
-defineComponent('music-player', {
-    stores: { player: playerStore },
+class MusicPlayer extends Component {
+    static stores = { player: playerStore };
 
-    data() {
-        return { songs: [] };
-    },
+    constructor(props) {
+        super(props);
+        this.state = { songs: [] };
+    }
+}
 
-    // opt() wraps every ${...} expression in contain() automatically
-    template: eval(opt(function() {
-        return html`
-            <div class="player">
-                <!-- Each expression is isolated - no manual contain() needed -->
-                <div class="time">${this.stores.player.currentTime}</div>
-                <div class="title">${this.stores.player.currentSong?.title}</div>
+// opt() transforms a function's source to wrap every ${...} expression in
+// contain() automatically. It returns a plain function, so assign the eval'd
+// result to the prototype's template (eval runs once here, at module load).
+MusicPlayer.prototype.template = eval(opt(function() {
+    return html`
+        <div class="player">
+            <!-- Each expression is isolated - no manual contain() needed -->
+            <div class="time">${this.stores.player.currentTime}</div>
+            <div class="title">${this.stores.player.currentSong?.title}</div>
 
-                ${each(this.state.songs, song => html`
-                    <div class="song">${song.title}</div>
-                `)}
-            </div>
-        `;
-    }))
-});
+            ${each(this.state.songs, song => html`
+                <div class="song">${song.title}</div>
+            `)}
+        </div>
+    `;
+}));
+
+defineComponent('music-player', MusicPlayer);
 ```
+
+For class components, the **build-time optimizer** (below) is usually the cleaner choice - it
+applies the same fine-grained wrapping to ordinary `template()` methods with no `eval()` at all.
 
 **What opt() does:**
 - Transforms `${this.state.count}` to `${html.contain(() => this.state.count)}`
@@ -1817,19 +1831,20 @@ template() {
 }
 ```
 
-**For computed values, use getter methods:**
+**For computed values, use class getters:**
 
 ```javascript
-methods: {
-    get doubled() {
-        return this.state.count * 2;
-    },
-    get fullName() {
-        return `${this.state.firstName} ${this.state.lastName}`;
-    }
-},
+get doubled() {
+    return this.state.count * 2;
+}
+
+get fullName() {
+    return `${this.state.firstName} ${this.state.lastName}`;
+}
+
 template() {
-    // Getters are called inside contain(), maintaining reactivity
+    // Getters are cached computed properties, re-read inside the reactive
+    // boundary - so their state access stays tracked
     return html`
         <p>${this.doubled}</p>
         <p>${this.fullName}</p>
@@ -1889,7 +1904,7 @@ Each component should do one thing well:
 mounted() {
     this._timer = setInterval(() => this.refresh(), 5000);
     this._unsubscribe = store.subscribe(s => this.state.data = s);
-},
+}
 
 unmounted() {
     clearInterval(this._timer);
@@ -1932,41 +1947,37 @@ ${this.state.loading ? html`<spinner>` : html`<content>`}
 ### 6. Validate User Input
 
 ```javascript
-methods: {
-    async handleSubmit(e) {
-        e.preventDefault();
+async handleSubmit(e) {
+    e.preventDefault();
 
-        const email = this.state.email.trim();
-        if (!this.isValidEmail(email)) {
-            notify('Invalid email', 'error');
-            return;
-        }
-
-        await this.saveEmail(email);
-    },
-
-    isValidEmail(email) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const email = this.state.email.trim();
+    if (!this.isValidEmail(email)) {
+        notify('Invalid email', 'error');
+        return;
     }
+
+    await this.saveEmail(email);
+}
+
+isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 ```
 
 ### 7. Handle Errors Gracefully
 
 ```javascript
-methods: {
-    async loadData() {
-        try {
-            this.state.loading = true;
-            const response = await fetch('/api/data');
-            this.state.data = await response.json();
-        } catch (error) {
-            console.error('Failed to load:', error);
-            notify('Failed to load data', 'error');
-            this.state.data = [];
-        } finally {
-            this.state.loading = false;
-        }
+async loadData() {
+    try {
+        this.state.loading = true;
+        const response = await fetch('/api/data');
+        this.state.data = await response.json();
+    } catch (error) {
+        console.error('Failed to load:', error);
+        notify('Failed to load data', 'error');
+        this.state.data = [];
+    } finally {
+        this.state.loading = false;
     }
 }
 ```
@@ -1984,8 +1995,58 @@ export const authStore = createStore({
 });
 
 // Any component can subscribe
-stores: { auth: authStore }
+static stores = { auth: authStore };
 ```
+
+---
+
+## The Legacy Options Format
+
+Before class components, VDX components were authored as a plain **options object** passed to
+`defineComponent`. This format is still fully supported - class components are translated into it
+internally - so you'll encounter it in older code and examples. It's worth being able to read.
+
+The same counter from [Your First Component](#your-first-component), written the old way:
+
+```javascript
+import { defineComponent, html } from './lib/framework.js';
+
+export default defineComponent('my-counter', {
+    data() {                       // -> constructor(props) { super(props); this.state = ... }
+        return { count: 0 };
+    },
+    methods: {                     // -> plain class methods
+        increment() { this.state.count++; },
+        decrement() { this.state.count--; }
+    },
+    computed: {                    // -> get accessors
+        doubled() { return this.state.count * 2; }
+    },
+    template() {
+        return html`
+            <h2>${this.state.count} (doubled: ${this.doubled})</h2>
+            <button on-click="decrement">-</button>
+            <button on-click="increment">+</button>
+        `;
+    }
+});
+```
+
+The mapping to class components is mechanical:
+
+| Options format | Class format |
+|----------------|--------------|
+| `data() { return {...} }` | `constructor(props) { super(props); this.state = {...} }` |
+| `methods: { foo() {...} }` | `foo() {...}` (class method) |
+| `computed: { bar() {...} }` | `get bar() {...}` |
+| `props: {...}` / `stores: {...}` / `styles: ...` | `static props` / `static stores` / `static styles` |
+| `template()` / `mounted()` / `unmounted()` / ... | same-named class methods |
+
+One semantic difference matters: options-format `data()` runs at element construction, **before**
+prop values arrive, so it only ever sees prop *defaults*. A class `constructor(props)` runs at first
+connect, **after** attributes are parsed, so it sees the *real* prop values and can copy them into
+state directly. See [docs/components.md](components.md) for the full class-component reference, and
+`scripts/convert-to-class.mjs` for a codemod that converts options components mechanically.
 
 ---
 
@@ -2012,10 +2073,11 @@ VDX provides a modern development experience without the complexity:
 | Lists | `each(array, item => html\`...\`)` |
 | Memoized lists | `memoEach(array, fn, keyFn)` |
 | Sets/Maps | `new Set()`, `new Map()` (auto-reactive) |
-| Props | `props: { name: 'default' }` |
+| Props | `static props = { name: 'default' }` |
 | Children | `this.props.children` |
 | Lifecycle | `mounted()`, `unmounted()` |
-| Stores | `stores: { name: store }` |
+| Computed | `get fullName() { ... }` |
+| Stores | `static stores = { name: store }` |
 
 **Key principles:**
 1. Zero dependencies - runs directly in browsers

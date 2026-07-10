@@ -1,16 +1,16 @@
 /**
  * Nested Demo - Demonstrates nested component composition
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, each } from '../lib/framework.js';
 
 // Child component: User Card
-defineComponent('user-card', {
-    props: {
+class UserCard extends Component {
+    static props = {
         name: '',
         role: '',
         status: 'inactive'
-    },
+    }
 
     template() {
         const statusClass = this.props.status === 'active' ? 'active' : 'inactive';
@@ -26,9 +26,9 @@ defineComponent('user-card', {
                 ${this.props.status}
             </span>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: flex;
             justify-content: space-between;
@@ -65,12 +65,16 @@ defineComponent('user-card', {
             color: #721c24;
         }
     `
-});
+}
+
+defineComponent('user-card', UserCard);
 
 // Parent component
-export default defineComponent('nested-demo', {
-    data() {
-        return {
+export class NestedDemo extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             users: [
                 { id: 1, name: 'Alice Johnson', role: 'Administrator', status: 'active' },
                 { id: 2, name: 'Bob Smith', role: 'Developer', status: 'active' },
@@ -78,23 +82,19 @@ export default defineComponent('nested-demo', {
                 { id: 4, name: 'David Brown', role: 'Manager', status: 'active' }
             ]
         };
-    },
+    }
 
-    computed: {
-        activeCount() {
-            return this.state.users.filter(u => u.status === 'active').length;
-        }
-    },
+    get activeCount() {
+        return this.state.users.filter(u => u.status === 'active').length;
+    }
 
-    methods: {
-        toggleUserStatus(id) {
-            this.state.users = this.state.users.map(user =>
-                user.id === id
-                    ? { ...user, status: user.status === 'active' ? 'inactive' : 'active' }
-                    : user
-            );
-        }
-    },
+    toggleUserStatus(id) {
+        this.state.users = this.state.users.map(user =>
+            user.id === id
+                ? { ...user, status: user.status === 'active' ? 'inactive' : 'active' }
+                : user
+        );
+    }
 
     template() {
         return html`
@@ -121,9 +121,9 @@ export default defineComponent('nested-demo', {
                 Click on a user card to toggle their status
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -132,4 +132,6 @@ export default defineComponent('nested-demo', {
             margin-top: 10px;
         }
     `
-});
+}
+
+export default defineComponent('nested-demo', NestedDemo);

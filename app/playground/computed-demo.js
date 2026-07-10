@@ -1,11 +1,13 @@
 /**
  * Computed Properties Demo - Demonstrates performance optimization with cached computations
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, each, when } from '../lib/framework.js';
 
-export default defineComponent('computed-demo', {
-    data() {
+export class ComputedDemo extends Component {
+    constructor(props) {
+        super(props);
+
         // Generate a large dataset to demonstrate performance benefits
         const items = [];
         for (let i = 0; i < 1000; i++) {
@@ -19,7 +21,7 @@ export default defineComponent('computed-demo', {
             });
         }
 
-        return {
+        this.state = {
             items,
             sortBy: 'name',
             filterCategory: 'all',
@@ -27,63 +29,57 @@ export default defineComponent('computed-demo', {
             minRating: 1,
             searchQuery: ''
         };
-    },
+    }
 
-    // Computed properties are lazy + cached: each only recomputes when the
-    // reactive state it reads actually changes (check the console).
-    computed: {
-        filteredItems() {
-            console.log('[Computed] Filtering items');
-            const category = this.state.filterCategory;
-            const inStock = this.state.filterInStock;
-            const minRating = this.state.minRating;
-            const searchQuery = this.state.searchQuery;
-            return this.state.items.filter(item => {
-                if (category !== 'all' && item.category !== category) return false;
-                if (inStock && !item.inStock) return false;
-                if (item.rating < minRating) return false;
-                if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-                return true;
-            });
-        },
+    get filteredItems() {
+        console.log('[Computed] Filtering items');
+        const category = this.state.filterCategory;
+        const inStock = this.state.filterInStock;
+        const minRating = this.state.minRating;
+        const searchQuery = this.state.searchQuery;
+        return this.state.items.filter(item => {
+            if (category !== 'all' && item.category !== category) return false;
+            if (inStock && !item.inStock) return false;
+            if (item.rating < minRating) return false;
+            if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            return true;
+        });
+    }
 
-        sortedItems() {
-            const sortBy = this.state.sortBy;
-            console.log('[Computed] Sorting items by', sortBy);
-            const sorted = [...this.filteredItems];
+    get sortedItems() {
+        const sortBy = this.state.sortBy;
+        console.log('[Computed] Sorting items by', sortBy);
+        const sorted = [...this.filteredItems];
 
-            if (sortBy === 'name') {
-                sorted.sort((a, b) => a.name.localeCompare(b.name));
-            } else if (sortBy === 'price-low') {
-                sorted.sort((a, b) => a.price - b.price);
-            } else if (sortBy === 'price-high') {
-                sorted.sort((a, b) => b.price - a.price);
-            } else if (sortBy === 'rating') {
-                sorted.sort((a, b) => b.rating - a.rating);
-            }
-
-            return sorted;
-        },
-
-        // Only show first 50 for performance
-        displayItems() {
-            return this.sortedItems.slice(0, 50);
+        if (sortBy === 'name') {
+            sorted.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (sortBy === 'price-low') {
+            sorted.sort((a, b) => a.price - b.price);
+        } else if (sortBy === 'price-high') {
+            sorted.sort((a, b) => b.price - a.price);
+        } else if (sortBy === 'rating') {
+            sorted.sort((a, b) => b.rating - a.rating);
         }
-    },
 
-    methods: {
-        addRandomItem() {
-            const newItem = {
-                id: this.state.items.length,
-                name: `New Item ${this.state.items.length}`,
-                price: Math.random() * 100,
-                category: ['Electronics', 'Books', 'Clothing', 'Food'][Math.floor(Math.random() * 4)],
-                rating: Math.floor(Math.random() * 5) + 1,
-                inStock: Math.random() > 0.3
-            };
-            this.state.items = [...this.state.items, newItem];
-        }
-    },
+        return sorted;
+    }
+
+    // Only show first 50 for performance
+    get displayItems() {
+        return this.sortedItems.slice(0, 50);
+    }
+
+    addRandomItem() {
+        const newItem = {
+            id: this.state.items.length,
+            name: `New Item ${this.state.items.length}`,
+            price: Math.random() * 100,
+            category: ['Electronics', 'Books', 'Clothing', 'Food'][Math.floor(Math.random() * 4)],
+            rating: Math.floor(Math.random() * 5) + 1,
+            inStock: Math.random() > 0.3
+        };
+        this.state.items = [...this.state.items, newItem];
+    }
 
     template() {
         // Reading a computed tracks it; the template re-renders only when the
@@ -189,9 +185,9 @@ export default defineComponent('computed-demo', {
                 html`<p style="text-align: center; color: var(--text-secondary, #666); font-style: italic;">No items match your filters</p>`
             )}
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -304,4 +300,6 @@ export default defineComponent('computed-demo', {
             color: #721c24;
         }
     `
-});
+}
+
+export default defineComponent('computed-demo', ComputedDemo);

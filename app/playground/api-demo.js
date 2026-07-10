@@ -4,7 +4,7 @@
  * Shows the simplified pattern: just pass a promise to awaitThen()
  * No async state management needed - x-await-then handles it all!
  */
-import { defineComponent, html, each, awaitThen } from '../lib/framework.js';
+import { defineComponent, html, each, awaitThen, Component } from '../lib/framework.js';
 
 // Simulated API calls with delays
 function fetchUser(id) {
@@ -36,30 +36,30 @@ function fetchPosts() {
     });
 }
 
-export default defineComponent('api-demo', {
-    data() {
-        return {
+export class ApiDemo extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             // Store promises in state to control when they're created
             // This prevents re-fetching on every parent re-render
             userPromise: fetchUser(1),
             postsPromise: fetchPosts()
         };
-    },
+    }
 
-    methods: {
-        loadUser(id) {
-            // Create new promise - x-await-then will detect the change and re-render
-            this.state.userPromise = fetchUser(id);
-        },
+    loadUser(id) {
+        // Create new promise - x-await-then will detect the change and re-render
+        this.state.userPromise = fetchUser(id);
+    }
 
-        loadError() {
-            this.state.userPromise = fetchUser('error');
-        },
+    loadError() {
+        this.state.userPromise = fetchUser('error');
+    }
 
-        reloadPosts() {
-            this.state.postsPromise = fetchPosts();
-        }
-    },
+    reloadPosts() {
+        this.state.postsPromise = fetchPosts();
+    }
 
     template() {
         return html`
@@ -123,9 +123,9 @@ export default defineComponent('api-demo', {
                 `
             )}
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
@@ -254,4 +254,6 @@ export default defineComponent('api-demo', {
             font-size: 0.9em;
         }
     `
-});
+}
+
+export default defineComponent('api-demo', ApiDemo);

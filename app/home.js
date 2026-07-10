@@ -1,17 +1,19 @@
 /**
  * Home Page
  */
-import { defineComponent, html, when } from './lib/framework.js';
+import { defineComponent, html, when, Component } from './lib/framework.js';
 import './auth/user-tools.js';
 import './components/tiles.js';
 
-export default defineComponent('home-page', {
-    data() {
-        return {
+export class HomePage extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             mainApps: { featured: [], other: [] },
             privateApps: []
         };
-    },
+    }
 
     async mounted() {
         // Load apps.json
@@ -31,7 +33,7 @@ export default defineComponent('home-page', {
         } catch (error) {
             console.error('Failed to load private apps:', error);
         }
-    },
+    }
 
     template() {
         const hasFeatured = this.state.mainApps.featured && this.state.mainApps.featured.length > 0;
@@ -69,4 +71,6 @@ export default defineComponent('home-page', {
             </div>
         `;
     }
-});
+}
+
+export default defineComponent('home-page', HomePage);

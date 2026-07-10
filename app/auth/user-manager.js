@@ -1,82 +1,82 @@
 /**
  * UserManager - Manage user roles and registration
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, each } from '../lib/framework.js';
 import { notify } from '../lib/utils.js';
 import * as api from '../api.js';
 import '../components/select-box.js';
 import '../components/lazy-select-box.js';
 
-export default defineComponent('user-manager', {
-    data() {
-        return {
+export class UserManager extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             users: [],
             roles: [],
             userToAdd: '',
             userToAddRole: ''
         };
-    },
+    }
 
     async mounted() {
         await this.updateUserList();
         await this.loadRoles();
-    },
+    }
 
-    methods: {
-        async loadRoles() {
-            try {
-                this.state.roles = await api.list_roles();
-            } catch (error) {
-                console.error('Failed to load roles:', error);
-            }
-        },
-
-        async updateUserList() {
-            try {
-                this.state.users = await api.get_all_users();
-            } catch (error) {
-                console.error('Failed to load users:', error);
-            }
-        },
-
-        async addUser(e) {
-            e.preventDefault();
-            if (!this.state.userToAdd) return;
-
-            try {
-                await api.register_user(this.state.userToAdd, this.state.userToAddRole);
-                notify(`Added user "${this.state.userToAdd}".`);
-                this.state.userToAdd = '';
-                this.state.userToAddRole = '';
-            } catch (error) {
-                notify('User registration failed.', 'error');
-            }
-
-            await this.updateUserList();
-        },
-
-        async updUser(user) {
-            if (!user) return;
-
-            try {
-                await api.set_user_role(user.username, user.role);
-                notify(`User "${user.username}" is now ${user.role}.`);
-            } catch (error) {
-                notify('User update failed.', 'error');
-            }
-
-            await this.updateUserList();
-        },
-
-        handleRoleChange(user, event) {
-            // Update the user's role and save
-            user.role = event.detail.value;
-            this.updUser(user);
+    async loadRoles() {
+        try {
+            this.state.roles = await api.list_roles();
+        } catch (error) {
+            console.error('Failed to load roles:', error);
         }
-    },
+    }
 
-    styles: /*css*/`
+    async updateUserList() {
+        try {
+            this.state.users = await api.get_all_users();
+        } catch (error) {
+            console.error('Failed to load users:', error);
+        }
+    }
+
+    async addUser(e) {
+        e.preventDefault();
+        if (!this.state.userToAdd) return;
+
+        try {
+            await api.register_user(this.state.userToAdd, this.state.userToAddRole);
+            notify(`Added user "${this.state.userToAdd}".`);
+            this.state.userToAdd = '';
+            this.state.userToAddRole = '';
+        } catch (error) {
+            notify('User registration failed.', 'error');
+        }
+
+        await this.updateUserList();
+    }
+
+    async updUser(user) {
+        if (!user) return;
+
+        try {
+            await api.set_user_role(user.username, user.role);
+            notify(`User "${user.username}" is now ${user.role}.`);
+        } catch (error) {
+            notify('User update failed.', 'error');
+        }
+
+        await this.updateUserList();
+    }
+
+    handleRoleChange(user, event) {
+        // Update the user's role and save
+        user.role = event.detail.value;
+        this.updUser(user);
+    }
+
+    static styles = /*css*/`
         table {
             width: 100%;
             border-collapse: collapse;
@@ -92,7 +92,7 @@ export default defineComponent('user-manager', {
                 padding: 4px;
             }
         }
-    `,
+    `
 
     template() {
         return html`
@@ -143,4 +143,6 @@ export default defineComponent('user-manager', {
             </div>
         `;
     }
-});
+}
+
+export default defineComponent('user-manager', UserManager);

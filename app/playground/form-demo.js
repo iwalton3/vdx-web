@@ -1,57 +1,57 @@
 /**
  * Form Demo - Demonstrates form handling and validation
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, when } from '../lib/framework.js';
 import { notify } from '../lib/utils.js';
 
-export default defineComponent('form-demo', {
-    data() {
-        return {
+export class FormDemo extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             username: '',
             email: '',
             errors: {},
             submitted: false
         };
-    },
+    }
 
-    methods: {
-        handleSubmit() {
-            // Validation
-            const errors = {};
-            if (!this.state.username || this.state.username.length < 3) {
-                errors.username = 'Username must be at least 3 characters';
-            }
-            if (!this.state.email || !this.isValidEmail(this.state.email)) {
-                errors.email = 'Please enter a valid email';
-            }
-
-            this.state.errors = errors;
-
-            if (Object.keys(errors).length === 0) {
-                notify(`Form submitted! User: ${this.state.username}`, 'info', 3);
-                this.state.submitted = true;
-                setTimeout(() => {
-                    this.state.submitted = false;
-                    this.state.username = '';
-                    this.state.email = '';
-                }, 2000);
-            } else {
-                notify('Please fix form errors', 'error', 3);
-            }
-        },
-
-        clearError(field) {
-            if (this.state.errors[field]) {
-                delete this.state.errors[field];
-                this.state.errors = { ...this.state.errors };
-            }
-        },
-
-        isValidEmail(email) {
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    handleSubmit() {
+        // Validation
+        const errors = {};
+        if (!this.state.username || this.state.username.length < 3) {
+            errors.username = 'Username must be at least 3 characters';
         }
-    },
+        if (!this.state.email || !this.isValidEmail(this.state.email)) {
+            errors.email = 'Please enter a valid email';
+        }
+
+        this.state.errors = errors;
+
+        if (Object.keys(errors).length === 0) {
+            notify(`Form submitted! User: ${this.state.username}`, 'info', 3);
+            this.state.submitted = true;
+            setTimeout(() => {
+                this.state.submitted = false;
+                this.state.username = '';
+                this.state.email = '';
+            }, 2000);
+        } else {
+            notify('Please fix form errors', 'error', 3);
+        }
+    }
+
+    clearError(field) {
+        if (this.state.errors[field]) {
+            delete this.state.errors[field];
+            this.state.errors = { ...this.state.errors };
+        }
+    }
+
+    isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
 
     template() {
         return html`
@@ -99,11 +99,13 @@ export default defineComponent('form-demo', {
                 </form>`
             )}
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
         }
     `
-});
+}
+
+export default defineComponent('form-demo', FormDemo);

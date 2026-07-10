@@ -2,13 +2,13 @@
  * Notification List Component
  * Displays toast notifications in the bottom-right corner
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, when, each, raw } from '../lib/framework.js';
 import { notifications } from '../lib/utils.js';
 import './icon.js';
 
-export default defineComponent('notification-list', {
-    stores: { notifications },
+export class NotificationList extends Component {
+    static stores = { notifications }
 
     template() {
         if (this.stores.notifications.list.length === 0) {
@@ -26,4 +26,6 @@ export default defineComponent('notification-list', {
             </div>
         `;
     }
-});
+}
+
+export default defineComponent('notification-list', NotificationList);

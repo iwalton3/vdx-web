@@ -3,7 +3,7 @@
  * Simple Japanese-style syllable password generator
  * DEPRECATED: Use SPWG or APWG for better security
  */
-import { defineComponent, html } from '../../lib/framework.js';
+import { defineComponent, html, Component } from '../../lib/framework.js';
 
 // Syllable pairs for password generation
 const pairs = [
@@ -32,34 +32,34 @@ function generatePassword() {
     return result;
 }
 
-export default defineComponent('v1-page', {
-    data() {
-        return {
+export class V1Page extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             password: ''
         };
-    },
+    }
 
     mounted() {
         this.generate();
-    },
+    }
 
-    methods: {
-        generate() {
-            this.state.password = generatePassword();
-        },
+    generate() {
+        this.state.password = generatePassword();
+    }
 
-        async copyPassword() {
-            try {
-                await navigator.clipboard.writeText(this.state.password);
-            } catch (e) {
-                const input = this.querySelector('.password-display');
-                if (input) {
-                    input.select();
-                    document.execCommand('copy');
-                }
+    async copyPassword() {
+        try {
+            await navigator.clipboard.writeText(this.state.password);
+        } catch (e) {
+            const input = this.querySelector('.password-display');
+            if (input) {
+                input.select();
+                document.execCommand('copy');
             }
         }
-    },
+    }
 
     template() {
         return html`
@@ -86,9 +86,9 @@ export default defineComponent('v1-page', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .v1 {
             max-width: 600px;
         }
@@ -172,4 +172,6 @@ export default defineComponent('v1-page', {
             background-color: var(--input-hover-bg, #f5f5f5);
         }
     `
-});
+}
+
+export default defineComponent('v1-page', V1Page);

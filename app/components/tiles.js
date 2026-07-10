@@ -1,13 +1,13 @@
 /**
  * Tiles Component - Grid of navigation tiles
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, each } from '../lib/framework.js';
 
-export default defineComponent('x-tiles', {
-    props: {
+export class XTiles extends Component {
+    static props = {
         tiles: []
-    },
+    }
 
     template() {
         const tiles = this.props.tiles || [];
@@ -35,4 +35,6 @@ export default defineComponent('x-tiles', {
             </div>
         `;
     }
-});
+}
+
+export default defineComponent('x-tiles', XTiles);

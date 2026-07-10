@@ -1,20 +1,18 @@
 /**
  * SelectBox Component - Simple select dropdown
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, each } from '../lib/framework.js';
 
-export default defineComponent('x-select-box', {
-    props: {
+export class XSelectBox extends Component {
+    static props = {
         options: [],
         value: ''
-    },
+    }
 
-    methods: {
-        handleChange(e) {
-            this.emitChange(e, this.props.options[Number(e.target.value)]);
-        }
-    },
+    handleChange(e) {
+        this.emitChange(e, this.props.options[Number(e.target.value)]);
+    }
 
     template() {
         const optionsList = this.props.options || [];
@@ -27,9 +25,9 @@ export default defineComponent('x-select-box', {
                 })}
             </select>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         select {
             font-family: inherit;
             font-size: 14px;
@@ -52,4 +50,6 @@ export default defineComponent('x-select-box', {
             background-color: var(--input-hover-bg, #f5f5f5);
         }
     `
-});
+}
+
+export default defineComponent('x-select-box', XSelectBox);

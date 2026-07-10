@@ -2,25 +2,27 @@
  * Virtual List Component
  * Efficiently renders large lists by only rendering visible items
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, each, when } from '../lib/framework.js';
 
-export default defineComponent('virtual-list', {
-    props: {
+export class VirtualList extends Component {
+    static props = {
         items: [],
         itemHeight: 50,        // Height of each item in pixels
         bufferSize: 5,         // Number of extra items to render above/below viewport
         renderItem: null       // Function to render each item (receives item, index)
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             scrollTop: 0,
             containerHeight: 0,
             visibleStart: 0,
             visibleEnd: 0
         };
-    },
+    }
 
     mounted() {
         // Get initial container height
@@ -38,7 +40,7 @@ export default defineComponent('virtual-list', {
 
         // Calculate initial visible range
         this.updateVisibleRange();
-    },
+    }
 
     unmounted() {
         if (this._scrollListener) {
@@ -47,49 +49,47 @@ export default defineComponent('virtual-list', {
         if (this._resizeObserver) {
             this._resizeObserver.disconnect();
         }
-    },
+    }
 
-    methods: {
-        updateDimensions() {
-            const newHeight = this.clientHeight || 400;
-            // Only update if height actually changed
-            if (this.state.containerHeight !== newHeight) {
-                this.state.containerHeight = newHeight;
-                this.updateVisibleRange();
-            }
-        },
-
-        handleScroll(e) {
-            this.state.scrollTop = e.target.scrollTop || this.scrollTop;
+    updateDimensions() {
+        const newHeight = this.clientHeight || 400;
+        // Only update if height actually changed
+        if (this.state.containerHeight !== newHeight) {
+            this.state.containerHeight = newHeight;
             this.updateVisibleRange();
-        },
-
-        updateVisibleRange() {
-            const itemHeight = this.props.itemHeight;
-            const bufferSize = this.props.bufferSize;
-            const totalItems = this.props.items.length;
-
-            // Calculate which items are visible
-            const visibleStart = Math.floor(this.state.scrollTop / itemHeight);
-            const visibleCount = Math.ceil(this.state.containerHeight / itemHeight);
-            const visibleEnd = visibleStart + visibleCount;
-
-            // Add buffer
-            const newStart = Math.max(0, visibleStart - bufferSize);
-            const newEnd = Math.min(totalItems, visibleEnd + bufferSize);
-
-            // Only update state if values actually changed (prevents unnecessary re-renders)
-            if (this.state.visibleStart !== newStart || this.state.visibleEnd !== newEnd) {
-                this.state.visibleStart = newStart;
-                this.state.visibleEnd = newEnd;
-            }
-        },
-
-        scrollToIndex(index) {
-            const itemHeight = this.props.itemHeight;
-            this.scrollTop = index * itemHeight;
         }
-    },
+    }
+
+    handleScroll(e) {
+        this.state.scrollTop = e.target.scrollTop || this.scrollTop;
+        this.updateVisibleRange();
+    }
+
+    updateVisibleRange() {
+        const itemHeight = this.props.itemHeight;
+        const bufferSize = this.props.bufferSize;
+        const totalItems = this.props.items.length;
+
+        // Calculate which items are visible
+        const visibleStart = Math.floor(this.state.scrollTop / itemHeight);
+        const visibleCount = Math.ceil(this.state.containerHeight / itemHeight);
+        const visibleEnd = visibleStart + visibleCount;
+
+        // Add buffer
+        const newStart = Math.max(0, visibleStart - bufferSize);
+        const newEnd = Math.min(totalItems, visibleEnd + bufferSize);
+
+        // Only update state if values actually changed (prevents unnecessary re-renders)
+        if (this.state.visibleStart !== newStart || this.state.visibleEnd !== newEnd) {
+            this.state.visibleStart = newStart;
+            this.state.visibleEnd = newEnd;
+        }
+    }
+
+    scrollToIndex(index) {
+        const itemHeight = this.props.itemHeight;
+        this.scrollTop = index * itemHeight;
+    }
 
     template() {
         const items = this.props.items || [];
@@ -132,9 +132,9 @@ export default defineComponent('virtual-list', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
             overflow-y: auto;
@@ -198,4 +198,6 @@ export default defineComponent('virtual-list', {
             color: var(--text-tertiary, #999);
         }
     `
-});
+}
+
+export default defineComponent('virtual-list', VirtualList);

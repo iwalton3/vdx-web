@@ -2,82 +2,82 @@
  * Autopassword - Generate deterministic passwords from a secret key and name
  * Uses Web Crypto API for SHA-256 (no external dependencies)
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 import { notify } from '../../lib/utils.js';
 
-export default defineComponent('autopassword-page', {
-    data() {
-        return {
+export class AutopasswordPage extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             key: '',
             keyVerify: '',
             name: '',
             response: '',
             keyError: ''
         };
-    },
+    }
 
-    methods: {
-        async refreshPasswords() {
-            if (this.state.key !== this.state.keyVerify && this.state.keyVerify !== '') {
-                this.state.keyError = 'Keys are Different!';
-                this.state.response = '';
-                return;
-            }
-
-            this.state.keyError = '';
-
-            if (this.state.name !== '' && this.state.key !== '') {
-                const hash = await this.sha256(this.state.name + this.state.key);
-                // Convert to base64 and clean up
-                let hashText = this.toBase64(hash);
-                hashText = hashText.replace(/[+/]/g, '');
-                this.state.response = hashText.substring(0, 8) + '-' + hashText.substring(8, 16);
-            } else {
-                this.state.response = '';
-            }
-        },
-
-        async sha256(message) {
-            const msgBuffer = new TextEncoder().encode(message);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-            return new Uint8Array(hashBuffer);
-        },
-
-        toBase64(bytes) {
-            let binary = '';
-            for (let i = 0; i < bytes.length; i++) {
-                binary += String.fromCharCode(bytes[i]);
-            }
-            return btoa(binary);
-        },
-
-        async copyResult() {
-            if (this.state.response) {
-                try {
-                    await navigator.clipboard.writeText(this.state.response);
-                    notify('Password copied to clipboard!');
-                } catch (e) {
-                    // Fallback for older browsers
-                    const input = this.querySelector('#response');
-                    input.select();
-                    document.execCommand('copy');
-                    notify('Password copied to clipboard!');
-                }
-            }
-        },
-
-        handleKeyInput() {
-            this.refreshPasswords();
-        },
-
-        handleKeyVerifyInput() {
-            this.refreshPasswords();
-        },
-
-        handleNameInput() {
-            this.refreshPasswords();
+    async refreshPasswords() {
+        if (this.state.key !== this.state.keyVerify && this.state.keyVerify !== '') {
+            this.state.keyError = 'Keys are Different!';
+            this.state.response = '';
+            return;
         }
-    },
+
+        this.state.keyError = '';
+
+        if (this.state.name !== '' && this.state.key !== '') {
+            const hash = await this.sha256(this.state.name + this.state.key);
+            // Convert to base64 and clean up
+            let hashText = this.toBase64(hash);
+            hashText = hashText.replace(/[+/]/g, '');
+            this.state.response = hashText.substring(0, 8) + '-' + hashText.substring(8, 16);
+        } else {
+            this.state.response = '';
+        }
+    }
+
+    async sha256(message) {
+        const msgBuffer = new TextEncoder().encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        return new Uint8Array(hashBuffer);
+    }
+
+    toBase64(bytes) {
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
+    async copyResult() {
+        if (this.state.response) {
+            try {
+                await navigator.clipboard.writeText(this.state.response);
+                notify('Password copied to clipboard!');
+            } catch (e) {
+                // Fallback for older browsers
+                const input = this.querySelector('#response');
+                input.select();
+                document.execCommand('copy');
+                notify('Password copied to clipboard!');
+            }
+        }
+    }
+
+    handleKeyInput() {
+        this.refreshPasswords();
+    }
+
+    handleKeyVerifyInput() {
+        this.refreshPasswords();
+    }
+
+    handleNameInput() {
+        this.refreshPasswords();
+    }
 
     template() {
         return html`
@@ -137,9 +137,9 @@ export default defineComponent('autopassword-page', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .autopassword {
             max-width: 600px;
         }
@@ -223,4 +223,6 @@ export default defineComponent('autopassword-page', {
             font-style: italic;
         }
     `
-});
+}
+
+export default defineComponent('autopassword-page', AutopasswordPage);

@@ -1,14 +1,14 @@
 /**
  * Icon Component - Displays icons with retina support
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html } from '../lib/framework.js';
 
-export default defineComponent('x-icon', {
-    props: {
+export class XIcon extends Component {
+    static props = {
         icon: '',
         alt: ''
-    },
+    }
 
     template() {
         // Map severity names to actual icon file names
@@ -27,4 +27,6 @@ export default defineComponent('x-icon', {
                  alt="${this.props.alt}">
         `;
     }
-});
+}
+
+export default defineComponent('x-icon', XIcon);

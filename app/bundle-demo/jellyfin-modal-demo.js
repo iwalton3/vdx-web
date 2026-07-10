@@ -1,4 +1,4 @@
-import { defineComponent, html, when, each } from '../dist/framework.js';
+import { defineComponent, html, when, each, Component } from '../dist/framework.js';
 import { notify, notifications } from '../dist/utils.js';
 
 // Mock settings data (similar to jmpInfo structure)
@@ -117,53 +117,54 @@ const mockSettingsDescriptions = {
 };
 
 // Define the settings modal component
-defineComponent('settings-modal', {
-    props: {
+class SettingsModal extends Component {
+    static props = {
         visible: false
-    },
+    }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             settings: mockSettings,
             sections: mockSections,
             descriptions: mockSettingsDescriptions
         };
-    },
+    }
 
-    methods: {
-        close() {
-            // Emit change event for parent to handle
-            this.emitChange(null, false, 'visible');
-            // Remove from DOM (this is a dynamically created modal)
-            this.remove();
-        },
+    close() {
+        // Emit change event for parent to handle
+        this.emitChange(null, false, 'visible');
+        // Remove from DOM (this is a dynamically created modal)
+        this.remove();
+    }
 
-        handleOverlayClick(e) {
-            if (e.target.classList.contains('modal-container')) {
-                this.close();
-            }
-        },
+    handleOverlayClick(e) {
+        if (e.target.classList.contains('modal-container')) {
+            this.close();
+        }
+    }
 
-        updateSetting(section, key, value) {
-            console.log(`Updated ${section}.${key} =`, value);
-            this.state.settings[section][key] = value;
-            notify(`Updated ${key}`, 'success', 2);
-        },
+    updateSetting(section, key, value) {
+        console.log(`Updated ${section}.${key} =`, value);
+        this.state.settings[section][key] = value;
+        notify(`Updated ${key}`, 'success', 2);
+    }
 
-        resetSavedServer() {
-            if (confirm('Are you sure you want to reset the saved server?')) {
-                this.state.settings.main.userWebClient = '';
-                notify('Saved server reset', 'info', 3);
-            }
-        },
+    resetSavedServer() {
+        if (confirm('Are you sure you want to reset the saved server?')) {
+            this.state.settings.main.userWebClient = '';
+            notify('Saved server reset', 'info', 3);
+        }
+    }
 
-        renderSetting(section, setting) {
-            const value = this.state.settings[section][setting.key];
-            const label = setting.displayName || setting.key;
+    renderSetting(section, setting) {
+        const value = this.state.settings[section][setting.key];
+        const label = setting.displayName || setting.key;
 
-            if (setting.options) {
-                // Select dropdown
-                return html`
+        if (setting.options) {
+            // Select dropdown
+            return html`
                     <div class="form-group">
                         <label class="form-label">
                             ${label}
@@ -186,9 +187,9 @@ defineComponent('settings-modal', {
                         </select>
                     </div>
                 `;
-            } else if (setting.inputType === 'textarea') {
-                // Textarea
-                return html`
+        } else if (setting.inputType === 'textarea') {
+            // Textarea
+            return html`
                     <div class="form-group">
                         <label class="form-label">
                             ${label}
@@ -203,9 +204,9 @@ defineComponent('settings-modal', {
                         >${value}</textarea>
                     </div>
                 `;
-            } else {
-                // Checkbox
-                return html`
+        } else {
+            // Checkbox
+            return html`
                     <div class="form-group">
                         <label class="checkbox-label">
                             <input
@@ -221,9 +222,8 @@ defineComponent('settings-modal', {
                         </label>
                     </div>
                 `;
-            }
         }
-    },
+    }
 
     template() {
         return html`
@@ -271,33 +271,37 @@ defineComponent('settings-modal', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         /* Component-specific styles can go here */
     `
-});
+}
+
+defineComponent('settings-modal', SettingsModal);
 
 // Define notification list component
-defineComponent('notification-list', {
-    data() {
-        return {
+class NotificationList extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             notificationList: []
         };
-    },
+    }
 
     mounted() {
         // Subscribe to notifications store
         this.unsubscribe = notifications.subscribe(state => {
             this.state.notificationList = state.list;
         });
-    },
+    }
 
     unmounted() {
         if (this.unsubscribe) {
             this.unsubscribe();
         }
-    },
+    }
 
     template() {
         return html`
@@ -308,7 +312,9 @@ defineComponent('notification-list', {
             `)}
         `;
     }
-});
+}
+
+defineComponent('notification-list', NotificationList);
 
 // Global function to open settings
 window.openSettings = function() {

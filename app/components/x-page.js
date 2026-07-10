@@ -2,14 +2,14 @@
  * Simple page wrapper component
  * Provides consistent page styling without the full header
  */
-import { defineComponent, html } from '../lib/framework.js';
+import { defineComponent, html, Component } from '../lib/framework.js';
 
-export default defineComponent('x-page', {
+export class XPage extends Component {
     template() {
         return html`${this.props.children}`;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         :host {
             display: block;
             margin: 0 auto;
@@ -17,4 +17,6 @@ export default defineComponent('x-page', {
             padding: 20px 0;
         }
     `
-});
+}
+
+export default defineComponent('x-page', XPage);

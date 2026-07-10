@@ -1,20 +1,22 @@
 /**
  * UserTools - Account widget showing login/logout options
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html, when } from '../lib/framework.js';
 import login from './auth.js';
 import { darkTheme } from '../lib/utils.js';
 import '../components/icon.js';
 
-export default defineComponent('user-tools', {
-    stores: { login },
+export class UserTools extends Component {
+    static stores = { login }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             darkThemeEnabled: false
         };
-    },
+    }
 
     mounted() {
         // Subscribe to darkTheme store (needs custom callback for DOM side effects)
@@ -28,22 +30,20 @@ export default defineComponent('user-tools', {
                 document.body.classList.remove('dark');
             }
         });
-    },
+    }
 
     unmounted() {
         if (this.themeUnsubscribe) this.themeUnsubscribe();
-    },
+    }
 
-    methods: {
-        async logoff() {
-            await login.state.logoff();
-        },
+    async logoff() {
+        await login.state.logoff();
+    }
 
-        handleDarkThemeChange() {
-            // Update store with current checkbox state
-            darkTheme.update(() => ({ enabled: this.state.darkThemeEnabled }));
-        }
-    },
+    handleDarkThemeChange() {
+        // Update store with current checkbox state
+        darkTheme.update(() => ({ enabled: this.state.darkThemeEnabled }));
+    }
 
     template() {
         return html`
@@ -74,4 +74,6 @@ export default defineComponent('user-tools', {
             </div>
         `;
     }
-});
+}
+
+export default defineComponent('user-tools', UserTools);

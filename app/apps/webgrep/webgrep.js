@@ -2,11 +2,13 @@
  * WebGrep - Filter text lines using regex patterns
  * A browser-based grep tool
  */
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
-export default defineComponent('webgrep-page', {
-    data() {
-        return {
+export class WebgrepPage extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             filter: '',
             content: '',
             originalContent: '',
@@ -14,60 +16,58 @@ export default defineComponent('webgrep-page', {
             totalLines: 0,
             regexError: ''
         };
-    },
+    }
 
-    methods: {
-        updateFilter() {
-            if (this.state.filter !== '') {
-                try {
-                    const re = new RegExp(this.state.filter, 'i');
-                    this.state.regexError = '';
-                    const lines = this.state.originalContent.split('\n');
-                    const filtered = lines.filter(str => re.test(str));
-                    this.state.content = filtered.join('\n');
-                    this.state.matchCount = filtered.length;
-                    this.state.totalLines = lines.length;
-                } catch (e) {
-                    this.state.regexError = 'Invalid regex: ' + e.message;
-                }
-            } else {
-                this.state.content = this.state.originalContent;
-                this.state.matchCount = 0;
-                this.state.totalLines = 0;
+    updateFilter() {
+        if (this.state.filter !== '') {
+            try {
+                const re = new RegExp(this.state.filter, 'i');
                 this.state.regexError = '';
+                const lines = this.state.originalContent.split('\n');
+                const filtered = lines.filter(str => re.test(str));
+                this.state.content = filtered.join('\n');
+                this.state.matchCount = filtered.length;
+                this.state.totalLines = lines.length;
+            } catch (e) {
+                this.state.regexError = 'Invalid regex: ' + e.message;
             }
-        },
-
-        updateContent() {
-            if (this.state.filter === '') {
-                this.state.originalContent = this.state.content;
-            }
-        },
-
-        handleFilterInput() {
-            this.updateFilter();
-        },
-
-        handleContentInput() {
-            this.updateContent();
-        },
-
-        clearFilter() {
-            this.state.filter = '';
+        } else {
             this.state.content = this.state.originalContent;
-            this.state.matchCount = 0;
-            this.state.regexError = '';
-        },
-
-        clearAll() {
-            this.state.filter = '';
-            this.state.content = '';
-            this.state.originalContent = '';
             this.state.matchCount = 0;
             this.state.totalLines = 0;
             this.state.regexError = '';
         }
-    },
+    }
+
+    updateContent() {
+        if (this.state.filter === '') {
+            this.state.originalContent = this.state.content;
+        }
+    }
+
+    handleFilterInput() {
+        this.updateFilter();
+    }
+
+    handleContentInput() {
+        this.updateContent();
+    }
+
+    clearFilter() {
+        this.state.filter = '';
+        this.state.content = this.state.originalContent;
+        this.state.matchCount = 0;
+        this.state.regexError = '';
+    }
+
+    clearAll() {
+        this.state.filter = '';
+        this.state.content = '';
+        this.state.originalContent = '';
+        this.state.matchCount = 0;
+        this.state.totalLines = 0;
+        this.state.regexError = '';
+    }
 
     template() {
         const isFiltering = this.state.filter !== '';
@@ -119,9 +119,9 @@ export default defineComponent('webgrep-page', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .webgrep {
             display: flex;
             flex-direction: column;
@@ -240,4 +240,6 @@ export default defineComponent('webgrep-page', {
             font-family: monospace;
         }
     `
-});
+}
+
+export default defineComponent('webgrep-page', WebgrepPage);

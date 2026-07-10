@@ -3,33 +3,33 @@
  * Displays hierarchical action tree with sections and areas
  */
 
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { get_actions_tree } from '../api.js';
 import { html, each, when } from '../lib/framework.js';
 import RemoteButton from './remote-button.js';
 
-export default defineComponent('remote-control', {
-    data() {
-        return {
+export class RemoteControl extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             controls: []
         };
-    },
+    }
 
     mounted() {
         this.loadControls();
-    },
+    }
 
-    methods: {
-        async loadControls() {
-            try {
-                this.state.controls = await get_actions_tree();
-            } catch (error) {
-                console.error('Failed to load action tree:', error);
-            }
+    async loadControls() {
+        try {
+            this.state.controls = await get_actions_tree();
+        } catch (error) {
+            console.error('Failed to load action tree:', error);
         }
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .section {
             margin-bottom: 3px;
             margin-top: 12px;
@@ -58,7 +58,7 @@ export default defineComponent('remote-control', {
             font-size: 18px;
             line-height: 18px;
         }
-    `,
+    `
 
     template() {
         return html`
@@ -84,4 +84,6 @@ export default defineComponent('remote-control', {
             })}
         `;
     }
-});
+}
+
+export default defineComponent('remote-control', RemoteControl);

@@ -1,52 +1,52 @@
 /**
  * LoginComponent - Two-step OTP login form
  */
-import { defineComponent } from '../lib/framework.js';
+import { defineComponent, Component } from '../lib/framework.js';
 import { html } from '../lib/framework.js';
 import { getRouter } from '../lib/router.js';
 import login from './auth.js';
 import { notify } from '../lib/utils.js';
 
-export default defineComponent('login-component', {
-    props: {
+export class LoginComponent extends Component {
+    static props = {
         after: '/'
-    },
+    }
 
-    stores: { login },
+    static stores = { login }
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             user: '',
             otp: ''
         };
-    },
+    }
 
-    methods: {
-        async sendOtp(e) {
-            e.preventDefault();
-            try {
-                await login.state.send_otp(this.state.user);
-            } catch (error) {
-                console.error('send_otp error:', error);
-                notify('Could not send email.', 'error');
-            }
-        },
+    async sendOtp(e) {
+        e.preventDefault();
+        try {
+            await login.state.send_otp(this.state.user);
+        } catch (error) {
+            console.error('send_otp error:', error);
+            notify('Could not send email.', 'error');
+        }
+    }
 
-        async loginAct(e) {
-            e.preventDefault();
-            const success = await login.state.login(this.state.otp);
+    async loginAct(e) {
+        e.preventDefault();
+        const success = await login.state.login(this.state.otp);
 
-            if (!success) {
-                notify('Login failed. Please try again.', 'error');
-            } else {
-                notify('Login successful.');
-                const router = getRouter();
-                if (this.props.after && router) {
-                    router.navigate(this.props.after);
-                }
+        if (!success) {
+            notify('Login failed. Please try again.', 'error');
+        } else {
+            notify('Login successful.');
+            const router = getRouter();
+            if (this.props.after && router) {
+                router.navigate(this.props.after);
             }
         }
-    },
+    }
 
     template() {
         if (!this.stores.login.partialLogin) {
@@ -70,4 +70,6 @@ export default defineComponent('login-component', {
             `;
         }
     }
-});
+}
+
+export default defineComponent('login-component', LoginComponent);

@@ -533,52 +533,52 @@
 
 <!-- Framework and component definitions -->
 <script type="module">
-    import { defineComponent, html, when, each } from '../dist/framework.js';
+    import { defineComponent, html, when, each, Component } from '../dist/framework.js';
 
     // =========================================================================
     // COMPONENT 1: Unit Converter (Gallons/Liters)
     // =========================================================================
-    defineComponent('unit-converter', {
-        props: {
+    class UnitConverter extends Component {
+        static props = {
             fromUnit: 'gallons',
             toUnit: 'liters',
             initialValue: 1
-        },
+        }
 
-        data() {
-            return {
+        constructor(props) {
+            super(props);
+
+            this.state = {
                 inputValue: 1,
                 reversed: false
             };
-        },
+        }
 
         mounted() {
             this.state.inputValue = parseFloat(this.props.initialValue) || 1;
-        },
+        }
 
-        methods: {
-            convert(value, from, to) {
-                // Conversion factors to liters
-                const toLiters = {
-                    'gallons': 3.78541,
-                    'liters': 1,
-                    'quarts': 0.946353,
-                    'pints': 0.473176
-                };
-                const liters = value * toLiters[from];
-                return liters / toLiters[to];
-            },
+        convert(value, from, to) {
+            // Conversion factors to liters
+            const toLiters = {
+                'gallons': 3.78541,
+                'liters': 1,
+                'quarts': 0.946353,
+                'pints': 0.473176
+            };
+            const liters = value * toLiters[from];
+            return liters / toLiters[to];
+        }
 
-            getResult() {
-                const from = this.state.reversed ? this.props.toUnit : this.props.fromUnit;
-                const to = this.state.reversed ? this.props.fromUnit : this.props.toUnit;
-                return this.convert(this.state.inputValue, from, to).toFixed(4);
-            },
+        getResult() {
+            const from = this.state.reversed ? this.props.toUnit : this.props.fromUnit;
+            const to = this.state.reversed ? this.props.fromUnit : this.props.toUnit;
+            return this.convert(this.state.inputValue, from, to).toFixed(4);
+        }
 
-            swap() {
-                this.state.reversed = !this.state.reversed;
-            }
-        },
+        swap() {
+            this.state.reversed = !this.state.reversed;
+        }
 
         template() {
             const fromLabel = this.state.reversed ? this.props.toUnit : this.props.fromUnit;
@@ -600,9 +600,9 @@
                     </div>
                 </div>
             `;
-        },
+        }
 
-        styles: /*css*/`
+        static styles = /*css*/`
             .converter {
                 font-family: system-ui, sans-serif;
             }
@@ -651,41 +651,43 @@
                 min-width: 100px;
             }
         `
-    });
+    }
+
+    defineComponent('unit-converter', UnitConverter);
 
     // =========================================================================
     // COMPONENT 2: Temperature Converter
     // =========================================================================
-    defineComponent('temp-converter', {
-        props: {
+    class TempConverter extends Component {
+        static props = {
             initialFahrenheit: 68
-        },
+        }
 
-        data() {
-            return {
+        constructor(props) {
+            super(props);
+
+            this.state = {
                 fahrenheit: 68
             };
-        },
+        }
 
         mounted() {
             this.state.fahrenheit = parseFloat(this.props.initialFahrenheit) || 68;
-        },
+        }
 
-        methods: {
-            toCelsius() {
-                return ((this.state.fahrenheit - 32) * 5 / 9).toFixed(1);
-            },
+        toCelsius() {
+            return ((this.state.fahrenheit - 32) * 5 / 9).toFixed(1);
+        }
 
-            getFeeling() {
-                const f = this.state.fahrenheit;
-                if (f < 32) return { emoji: '🥶', text: 'Freezing!' };
-                if (f < 50) return { emoji: '🧥', text: 'Cold' };
-                if (f < 68) return { emoji: '😊', text: 'Cool' };
-                if (f < 80) return { emoji: '😎', text: 'Comfortable' };
-                if (f < 90) return { emoji: '🥵', text: 'Warm' };
-                return { emoji: '🔥', text: 'Hot!' };
-            }
-        },
+        getFeeling() {
+            const f = this.state.fahrenheit;
+            if (f < 32) return { emoji: '🥶', text: 'Freezing!' };
+            if (f < 50) return { emoji: '🧥', text: 'Cold' };
+            if (f < 68) return { emoji: '😊', text: 'Cool' };
+            if (f < 80) return { emoji: '😎', text: 'Comfortable' };
+            if (f < 90) return { emoji: '🥵', text: 'Warm' };
+            return { emoji: '🔥', text: 'Hot!' };
+        }
 
         template() {
             const feeling = this.getFeeling();
@@ -710,9 +712,9 @@
                     </div>
                 </div>
             `;
-        },
+        }
 
-        styles: /*css*/`
+        static styles = /*css*/`
             .temp-converter {
                 font-family: system-ui, sans-serif;
                 text-align: center;
@@ -769,22 +771,26 @@
                 margin-top: 0.5rem;
             }
         `
-    });
+    }
+
+    defineComponent('temp-converter', TempConverter);
 
     // =========================================================================
     // COMPONENT 3: Greeting Card (Attribute reactive)
     // =========================================================================
-    defineComponent('greeting-card', {
-        props: {
+    class GreetingCard extends Component {
+        static props = {
             name: 'World',
             color: 'blue'
-        },
+        }
 
-        data() {
-            return {
+        constructor(props) {
+            super(props);
+
+            this.state = {
                 animating: false
             };
-        },
+        }
 
         propsChanged(prop, newValue, oldValue) {
             // Trigger animation when props change
@@ -792,19 +798,17 @@
             setTimeout(() => {
                 this.state.animating = false;
             }, 300);
-        },
+        }
 
-        methods: {
-            getColorStyle() {
-                const colors = {
-                    blue: '#3b82f6',
-                    red: '#ef4444',
-                    green: '#22c55e',
-                    purple: '#8b5cf6'
-                };
-                return colors[this.props.color] || colors.blue;
-            }
-        },
+        getColorStyle() {
+            const colors = {
+                blue: '#3b82f6',
+                red: '#ef4444',
+                green: '#22c55e',
+                purple: '#8b5cf6'
+            };
+            return colors[this.props.color] || colors.blue;
+        }
 
         template() {
             const bgColor = this.getColorStyle();
@@ -816,9 +820,9 @@
                     <div class="greeting-meta">Color: ${this.props.color}</div>
                 </div>
             `;
-        },
+        }
 
-        styles: /*css*/`
+        static styles = /*css*/`
             .greeting {
                 padding: 24px;
                 border-radius: 12px;
@@ -844,42 +848,44 @@
                 font-size: 0.9rem;
             }
         `
-    });
+    }
+
+    defineComponent('greeting-card', GreetingCard);
 
     // =========================================================================
     // COMPONENT 4: Event Counter (Emits custom events)
     // =========================================================================
-    defineComponent('event-counter', {
-        data() {
-            return {
+    class EventCounter extends Component {
+        constructor(props) {
+            super(props);
+
+            this.state = {
                 count: 0
             };
-        },
+        }
 
-        methods: {
-            increment() {
-                this.state.count++;
-                this.emitEvent('count-changed', { count: this.state.count, action: 'increment' });
-            },
+        increment() {
+            this.state.count++;
+            this.emitEvent('count-changed', { count: this.state.count, action: 'increment' });
+        }
 
-            decrement() {
-                this.state.count--;
-                this.emitEvent('count-changed', { count: this.state.count, action: 'decrement' });
-            },
+        decrement() {
+            this.state.count--;
+            this.emitEvent('count-changed', { count: this.state.count, action: 'decrement' });
+        }
 
-            reset() {
-                const oldCount = this.state.count;
-                this.state.count = 0;
-                this.emitEvent('count-reset', { previousCount: oldCount });
-            },
+        reset() {
+            const oldCount = this.state.count;
+            this.state.count = 0;
+            this.emitEvent('count-reset', { previousCount: oldCount });
+        }
 
-            emitEvent(name, detail) {
-                this.dispatchEvent(new CustomEvent(name, {
-                    bubbles: true,
-                    detail
-                }));
-            }
-        },
+        emitEvent(name, detail) {
+            this.dispatchEvent(new CustomEvent(name, {
+                bubbles: true,
+                detail
+            }));
+        }
 
         template() {
             return html`
@@ -892,9 +898,9 @@
                     </div>
                 </div>
             `;
-        },
+        }
 
-        styles: /*css*/`
+        static styles = /*css*/`
             .counter {
                 font-family: system-ui, sans-serif;
                 text-align: center;
@@ -934,17 +940,19 @@
                 color: white;
             }
         `
-    });
+    }
+
+    defineComponent('event-counter', EventCounter);
 
     // =========================================================================
     // COMPONENT 5: Country List (Props set directly from vanilla JS)
     // =========================================================================
-    defineComponent('country-list', {
+    class CountryList extends Component {
         // Props can be set directly on the element: element.countries = [...]
-        props: {
+        static props = {
             countries: [],
             title: 'Countries'
-        },
+        }
 
         template() {
             return html`
@@ -969,9 +977,9 @@
                     </div>
                 </div>
             `;
-        },
+        }
 
-        styles: /*css*/`
+        static styles = /*css*/`
             .country-list {
                 font-family: system-ui, sans-serif;
             }
@@ -1017,65 +1025,63 @@
                 font-size: 0.85rem;
             }
         `
-    });
+    }
+
+    defineComponent('country-list', CountryList);
 
     // =========================================================================
     // COMPONENT 6: Shopping Cart (Two-way external binding)
     // =========================================================================
-    defineComponent('shopping-cart', {
-        data() {
-            return {
+    class ShoppingCart extends Component {
+        constructor(props) {
+            super(props);
+
+            this.state = {
                 items: []
             };
-        },
+        }
 
-        computed: {
-            // Lazy + cached - recomputes only when items change
-            total() {
-                return this.state.items.reduce((sum, item) => sum + item.price, 0);
-            }
-        },
+        // Lazy + cached - recomputes only when items change
+        get total() {
+            return this.state.items.reduce((sum, item) => sum + item.price, 0);
+        }
 
-        // Every methods: entry is bound onto the element instance, so external
-        // vanilla JS can call them directly: el.addItem('Coffee', 4.99)
-        methods: {
-            addItem(name, price) {
-                this.state.items = [...this.state.items, {
-                    id: Date.now(),
-                    name,
-                    price
-                }];
-                this.notifyChange();
-            },
+        addItem(name, price) {
+            this.state.items = [...this.state.items, {
+                id: Date.now(),
+                name,
+                price
+            }];
+            this.notifyChange();
+        }
 
-            clearCart() {
-                this.state.items = [];
-                this.notifyChange();
-            },
+        clearCart() {
+            this.state.items = [];
+            this.notifyChange();
+        }
 
-            getState() {
-                return {
-                    items: [...this.state.items],
-                    total: this.total
-                };
-            },
+        getState() {
+            return {
+                items: [...this.state.items],
+                total: this.total
+            };
+        }
 
-            removeItem(id) {
-                this.state.items = this.state.items.filter(item => item.id !== id);
-                this.notifyChange();
-            },
+        removeItem(id) {
+            this.state.items = this.state.items.filter(item => item.id !== id);
+            this.notifyChange();
+        }
 
-            notifyChange() {
-                this.dispatchEvent(new CustomEvent('cart-updated', {
-                    bubbles: true,
-                    detail: { total: this.total, itemCount: this.state.items.length }
-                }));
-            },
+        notifyChange() {
+            this.dispatchEvent(new CustomEvent('cart-updated', {
+                bubbles: true,
+                detail: { total: this.total, itemCount: this.state.items.length }
+            }));
+        }
 
-            formatPrice(price) {
-                return '$' + price.toFixed(2);
-            }
-        },
+        formatPrice(price) {
+            return '$' + price.toFixed(2);
+        }
 
         template() {
             return html`
@@ -1105,9 +1111,9 @@
                     )}
                 </div>
             `;
-        },
+        }
 
-        styles: /*css*/`
+        static styles = /*css*/`
             .cart {
                 font-family: system-ui, sans-serif;
                 background: #f8f9fa;
@@ -1180,33 +1186,35 @@
                 font-size: 1.2rem;
             }
         `
-    });
+    }
+
+    defineComponent('shopping-cart', ShoppingCart);
 
     // =========================================================================
     // COMPONENT 7: Collapsible Section (Children demo)
     // =========================================================================
-    defineComponent('collapsible-section', {
-        props: {
+    class CollapsibleSection extends Component {
+        static props = {
             title: 'Section',
             expanded: false
-        },
+        }
 
-        data() {
-            return {
+        constructor(props) {
+            super(props);
+
+            this.state = {
                 isExpanded: false
             };
-        },
+        }
 
         mounted() {
             // Handle both string "true" and boolean true
             this.state.isExpanded = this.props.expanded === true || this.props.expanded === 'true';
-        },
+        }
 
-        methods: {
-            toggle() {
-                this.state.isExpanded = !this.state.isExpanded;
-            }
-        },
+        toggle() {
+            this.state.isExpanded = !this.state.isExpanded;
+        }
 
         template() {
             return html`
@@ -1222,9 +1230,9 @@
                     `)}
                 </div>
             `;
-        },
+        }
 
-        styles: /*css*/`
+        static styles = /*css*/`
             .collapsible {
                 font-family: system-ui, sans-serif;
                 border: 1px solid #ddd;
@@ -1262,7 +1270,9 @@
                 background: white;
             }
         `
-    });
+    }
+
+    defineComponent('collapsible-section', CollapsibleSection);
 
     // Make components globally accessible (optional, for demo purposes)
     window.components = {
@@ -1271,6 +1281,7 @@
         countryList: () => document.getElementById('countryList'),
         shoppingCart: () => document.getElementById('shoppingCart')
     };
+
 </script>
 
 <!-- Vanilla JavaScript that interacts with the components -->
