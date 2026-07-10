@@ -55,7 +55,7 @@
     <simple-counter></simple-counter>
 
     <script type="module">
-        import { defineComponent, Component, html, reactive, createEffect } from '../dist/framework.js';
+        import { defineComponent, Component, html, reactive, createEffect, flushEffects } from '../dist/framework.js';
 
         const tests = [];
 
@@ -76,6 +76,9 @@
             }
         });
         state.count = 5;
+        // Effect re-runs are batched (flushed on a microtask) by design -
+        // flush synchronously so the result can be read on the next line
+        flushEffects();
         tests.push({
             name: 'Reactive system works',
             pass: reactivityWorks
