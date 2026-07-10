@@ -7,113 +7,114 @@
  */
 // Import directly from core modules to avoid circular dependency with framework.js
 import { defineComponent } from './component.js';
+import { Component } from './component-class.js';
 import { html } from './template.js';
 
-export default defineComponent('x-await-then', {
-    props: {
+export class XAwaitThen extends Component {
+    static props = {
         promise: null,      // Promise or immediate value
         then: null,         // Function: (data) => html`...` - what to render on success
         pending: null,      // Loading content (html template)
         catch: null         // Error content (function or html template)
-    },
+    };  // trailing semicolon: keeps the field ASI-safe once the bundler minifies away the newline before constructor()
 
-    data() {
-        return {
+    constructor(props) {
+        super(props);
+
+        this.state = {
             status: 'pending',
             value: null,
             err: null
         };
-    },
+    }
 
-    methods: {
-        /**
-         * Track promise and subscribe to its resolution.
-         * Uses non-reactive _trackedPromise to avoid extra renders.
-         * Called on every render to detect prop changes.
-         */
-        _trackPromise() {
-            const promise = this.props.promise;
+    /**
+     * Track promise and subscribe to its resolution.
+     * Uses non-reactive _trackedPromise to avoid extra renders.
+     * Called on every render to detect prop changes.
+     */
+    _trackPromise() {
+        const promise = this.props.promise;
 
-            // Same promise reference - no action needed
-            if (promise === this._trackedPromise) {
-                return;
-            }
+        // Same promise reference - no action needed
+        if (promise === this._trackedPromise) {
+            return;
+        }
 
-            this._trackedPromise = promise;
+        this._trackedPromise = promise;
 
-            // Not a promise (including null/undefined) - treat as immediate value
-            if (promise == null || typeof promise.then !== 'function') {
-                this.state.status = 'resolved';
-                this.state.value = promise;
-                this.state.err = null;
-                return;
-            }
-
-            // New promise - reset to pending and subscribe
-            this.state.status = 'pending';
-            this.state.value = null;
+        // Not a promise (including null/undefined) - treat as immediate value
+        if (promise == null || typeof promise.then !== 'function') {
+            this.state.status = 'resolved';
+            this.state.value = promise;
             this.state.err = null;
+            return;
+        }
 
-            const tracked = promise;
-            promise.then(
-                resolvedValue => {
-                    // Only update if this is still the current promise
-                    if (this._trackedPromise === tracked) {
-                        // IMPORTANT: Set value BEFORE status to avoid render with null value
-                        // The reactive system triggers re-render on each state change
-                        this.state.value = resolvedValue;
-                        this.state.status = 'resolved';
-                    }
-                },
-                error => {
-                    if (this._trackedPromise === tracked) {
-                        this.state.err = error;
-                        this.state.status = 'rejected';
-                    }
+        // New promise - reset to pending and subscribe
+        this.state.status = 'pending';
+        this.state.value = null;
+        this.state.err = null;
+
+        const tracked = promise;
+        promise.then(
+            resolvedValue => {
+                // Only update if this is still the current promise
+                if (this._trackedPromise === tracked) {
+                    // IMPORTANT: Set value BEFORE status to avoid render with null value
+                    // The reactive system triggers re-render on each state change
+                    this.state.value = resolvedValue;
+                    this.state.status = 'resolved';
                 }
-            );
-        },
-
-        /**
-         * Get the content to render based on current status
-         */
-        _getContent() {
-            const { status, value, err } = this.state;
-            // Use props named after Promise methods: then, pending (loading), catch (error)
-            const thenFn = this.props.then;
-            const pendingContent = this.props.pending;
-            const catchFn = this.props.catch;
-
-            if (status === 'pending') {
-                return pendingContent || html``;
+            },
+            error => {
+                if (this._trackedPromise === tracked) {
+                    this.state.err = error;
+                    this.state.status = 'rejected';
+                }
             }
+        );
+    }
 
-            if (status === 'rejected') {
+    /**
+     * Get the content to render based on current status
+     */
+    _getContent() {
+        const { status, value, err } = this.state;
+        // Use props named after Promise methods: then, pending (loading), catch (error)
+        const thenFn = this.props.then;
+        const pendingContent = this.props.pending;
+        const catchFn = this.props.catch;
+
+        if (status === 'pending') {
+            return pendingContent || html``;
+        }
+
+        if (status === 'rejected') {
+            if (typeof catchFn === 'function') {
+                return catchFn(err);
+            }
+            return catchFn || html``;
+        }
+
+        // Resolved
+        if (typeof thenFn === 'function') {
+            try {
+                return thenFn(value);
+            } catch (err) {
+                // If thenFn throws (e.g., accessing property on null),
+                // show error content if available, otherwise re-throw
                 if (typeof catchFn === 'function') {
                     return catchFn(err);
                 }
-                return catchFn || html``;
-            }
-
-            // Resolved
-            if (typeof thenFn === 'function') {
-                try {
-                    return thenFn(value);
-                } catch (err) {
-                    // If thenFn throws (e.g., accessing property on null),
-                    // show error content if available, otherwise re-throw
-                    if (typeof catchFn === 'function') {
-                        return catchFn(err);
-                    }
-                    if (catchFn) {
-                        return catchFn;
-                    }
-                    throw err;
+                if (catchFn) {
+                    return catchFn;
                 }
+                throw err;
             }
-            return html``;
         }
-    },
+        return html``;
+    }
 
     template() {
         // Check for promise changes on every render
@@ -122,4 +123,6 @@ export default defineComponent('x-await-then', {
     }
 
     // No styles - renders to light DOM for easier composition
-});
+}
+
+export default defineComponent('x-await-then', XAwaitThen);
