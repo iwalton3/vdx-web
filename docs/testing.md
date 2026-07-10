@@ -301,15 +301,16 @@ describe('Reactivity', function(it) {
 
 ```javascript
 import { describe, assert } from './test-runner.js';
-import { defineComponent } from '../core/component.js';
+import { defineComponent, Component } from '../core/component.js';
 
 describe('Component', function(it) {
     it('defines custom element', () => {
-        defineComponent('test-component', {
+        class TestComponent extends Component {
             template() {
                 return html`<div>Hello</div>`;
             }
-        });
+        }
+        defineComponent('test-component', TestComponent);
 
         const el = document.createElement('test-component');
         document.body.appendChild(el);

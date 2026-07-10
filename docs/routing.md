@@ -125,24 +125,24 @@ const router = enableRouting(outlet, {
 Parameters are automatically passed to components as the `params` prop:
 
 ```javascript
-defineComponent('user-profile', {
-    props: {
+class UserProfile extends Component {
+    static props = {
         params: {},  // { id: '123' }
         query: {}    // Query string parameters
-    },
+    };
+
+    loadUser(userId) {
+        console.log('Loading user:', userId);
+        // Fetch user data...
+    }
 
     mounted() {
         // Access route params from props
         this.loadUser(this.props.params.id);
-    },
-
-    methods: {
-        loadUser(userId) {
-            console.log('Loading user:', userId);
-            // Fetch user data...
-        }
     }
-});
+}
+
+defineComponent('user-profile', UserProfile);
 ```
 
 ### Multiple Parameters
@@ -153,18 +153,20 @@ Routes can have multiple parameters:
 // Route: /products/:category/:sku/
 // URL: /products/electronics/ABC123/
 
-defineComponent('product-detail', {
-    props: {
+class ProductDetail extends Component {
+    static props = {
         params: {},
         query: {}
-    },
+    };
 
     mounted() {
         const { category, sku } = this.props.params;
         console.log(`Category: ${category}, SKU: ${sku}`);
         // category = 'electronics', sku = 'ABC123'
     }
-});
+}
+
+defineComponent('product-detail', ProductDetail);
 ```
 
 ### Wildcard Parameters
@@ -203,25 +205,25 @@ Query strings are parsed and passed as the `query` prop. This works in both hash
 ```javascript
 // URL: /search?q=hello&page=2
 
-defineComponent('search-page', {
-    props: {
+class SearchPage extends Component {
+    static props = {
         params: {},
         query: {}  // { q: 'hello', page: '2' }
-    },
+    };
+
+    performSearch(term) {
+        console.log('Searching for:', term);
+        // Use this.props.query.page for pagination
+    }
 
     mounted() {
         if (this.props.query.q) {
             this.performSearch(this.props.query.q);
         }
-    },
-
-    methods: {
-        performSearch(term) {
-            console.log('Searching for:', term);
-            // Use this.props.query.page for pagination
-        }
     }
-});
+}
+
+defineComponent('search-page', SearchPage);
 ```
 
 ### Hash Mode Query Strings
@@ -239,21 +241,24 @@ The router correctly parses both the path (`/search`) and query (`{ q: 'hello', 
 When navigating to the same component with different parameters or query strings, the router **updates the existing component's props** instead of recreating it. This enables reactive updates:
 
 ```javascript
-defineComponent('user-profile', {
-    props: {
+class UserProfile extends Component {
+    static props = {
         params: {},
         query: {}
-    },
+    };
 
-    data() {
-        return {
-            user: null
-        };
-    },
+    state = {
+        user: null
+    };
+
+    async loadUser() {
+        const userId = this.props.params.id;
+        this.state.user = await fetchUser(userId);
+    }
 
     mounted() {
         this.loadUser();
-    },
+    }
 
     // Watch for prop changes using the computed pattern
     template() {
@@ -275,15 +280,10 @@ defineComponent('user-profile', {
                 `)}
             </div>
         `;
-    },
-
-    methods: {
-        async loadUser() {
-            const userId = this.props.params.id;
-            this.state.user = await fetchUser(userId);
-        }
     }
-});
+}
+
+defineComponent('user-profile', UserProfile);
 ```
 
 ### Navigation Between Items
@@ -347,13 +347,15 @@ Each lazy-loaded component should import its own dependencies:
 
 ```javascript
 // In home.js
-import { defineComponent } from './lib/framework.js';
+import { defineComponent, Component } from './lib/framework.js';
 import './components/tiles.js';     // Component imports what it needs
 import './auth/user-tools.js';
 
-export default defineComponent('home-page', {
+class HomePage extends Component {
     // ...
-});
+}
+
+export default defineComponent('home-page', HomePage);
 ```
 
 The browser's ES module system automatically caches all imports, so there's no performance penalty for components importing their dependencies.
@@ -377,14 +379,12 @@ Navigate via JavaScript:
 import { Router } from './lib/router.js';
 
 // Assuming router is accessible (e.g., global or imported)
-methods: {
-    goToProfile(userId) {
-        router.navigate(`/users/${userId}/`);
-    },
+goToProfile(userId) {
+    router.navigate(`/users/${userId}/`);
+}
 
-    goToSearch(query) {
-        router.navigate('/search/', { q: query, page: '1' });
-    }
+goToSearch(query) {
+    router.navigate('/search/', { q: query, page: '1' });
 }
 ```
 

@@ -28,16 +28,12 @@ Complete guide to the reactivity system, stores, and computed properties.
 State changes automatically trigger re-renders through Vue 3-style proxy-based reactivity:
 
 ```javascript
-data() {
-    return {
-        count: 0
-    };
-},
+state = {
+    count: 0
+};
 
-methods: {
-    increment() {
-        this.state.count++; // Auto re-renders
-    }
+increment() {
+    this.state.count++; // Auto re-renders
 }
 ```
 
@@ -50,22 +46,18 @@ methods: {
 5. **Automatic batching** - Multiple state changes in the same function are batched into a single render
 
 ```javascript
-data() {
-    return {
-        user: {
-            name: 'Alice',
-            settings: {
-                theme: 'dark'
-            }
+state = {
+    user: {
+        name: 'Alice',
+        settings: {
+            theme: 'dark'
         }
-    };
-},
-
-methods: {
-    updateTheme() {
-        // Deep reactivity - this triggers re-render
-        this.state.user.settings.theme = 'light';
     }
+};
+
+updateTheme() {
+    // Deep reactivity - this triggers re-render
+    this.state.user.settings.theme = 'light';
 }
 ```
 
@@ -74,14 +66,12 @@ methods: {
 Multiple state changes within the same synchronous execution are automatically batched into a single render:
 
 ```javascript
-methods: {
-    updateMultiple() {
-        // All these changes result in ONE render, not three
-        this.state.a = 1;
-        this.state.b = 2;
-        this.state.c = 3;
-        // Render happens after this function completes (via queueMicrotask)
-    }
+updateMultiple() {
+    // All these changes result in ONE render, not three
+    this.state.a = 1;
+    this.state.b = 2;
+    this.state.c = 3;
+    // Render happens after this function completes (via queueMicrotask)
 }
 ```
 
@@ -97,33 +87,29 @@ Sometimes you need the DOM to update immediately after a state change, such as w
 Use `flushSync()` for these cases:
 
 ```javascript
-import { defineComponent, html, flushSync } from './lib/framework.js';
+import { defineComponent, Component, html, flushSync } from './lib/framework.js';
 
-defineComponent('my-component', {
-    data() {
-        return {
-            showInput: false
-        };
-    },
+class MyComponent extends Component {
+    state = {
+        showInput: false
+    };
 
-    methods: {
-        showAndFocus() {
-            // Show the input and immediately render
-            flushSync(() => {
-                this.state.showInput = true;
-            });
-            // DOM is now updated, safe to focus
-            this.refs.input.focus();
-        },
+    showAndFocus() {
+        // Show the input and immediately render
+        flushSync(() => {
+            this.state.showInput = true;
+        });
+        // DOM is now updated, safe to focus
+        this.refs.input.focus();
+    }
 
-        addItemAndScroll() {
-            flushSync(() => {
-                this.state.items.push(newItem);
-            });
-            // Scroll to bottom after item is rendered
-            this.refs.container.scrollTop = this.refs.container.scrollHeight;
-        }
-    },
+    addItemAndScroll() {
+        flushSync(() => {
+            this.state.items.push(newItem);
+        });
+        // Scroll to bottom after item is rendered
+        this.refs.container.scrollTop = this.refs.container.scrollHeight;
+    }
 
     template() {
         return html`
@@ -133,7 +119,9 @@ defineComponent('my-component', {
             `)}
         `;
     }
-});
+}
+
+defineComponent('my-component', MyComponent);
 ```
 
 **Use `flushSync()` sparingly** - it bypasses batching and forces immediate rendering, which can hurt performance if overused.
@@ -318,31 +306,27 @@ The framework automatically copies, sorts, and commits back in a single operatio
 **Sets and Maps are automatically reactive!** When you use a Set or Map in reactive state, the framework automatically wraps them to trigger updates on mutations:
 
 ```javascript
-import { defineComponent, html } from './lib/framework.js';
+import { defineComponent, Component, html } from './lib/framework.js';
 
-defineComponent('my-component', {
-    data() {
-        return {
-            selectedIds: new Set(),      // ✅ Auto-wrapped as reactive!
-            userScores: new Map()        // ✅ Auto-wrapped as reactive!
-        };
-    },
+class MyComponent extends Component {
+    state = {
+        selectedIds: new Set(),      // ✅ Auto-wrapped as reactive!
+        userScores: new Map()        // ✅ Auto-wrapped as reactive!
+    };
 
-    methods: {
-        toggleSelection(id) {
-            // ✅ Automatically triggers re-render!
-            if (this.state.selectedIds.has(id)) {
-                this.state.selectedIds.delete(id);
-            } else {
-                this.state.selectedIds.add(id);
-            }
-        },
-
-        updateScore(userId, score) {
-            // ✅ Automatically triggers re-render!
-            this.state.userScores.set(userId, score);
+    toggleSelection(id) {
+        // ✅ Automatically triggers re-render!
+        if (this.state.selectedIds.has(id)) {
+            this.state.selectedIds.delete(id);
+        } else {
+            this.state.selectedIds.add(id);
         }
-    },
+    }
+
+    updateScore(userId, score) {
+        // ✅ Automatically triggers re-render!
+        this.state.userScores.set(userId, score);
+    }
 
     template() {
         return html`
@@ -350,7 +334,9 @@ defineComponent('my-component', {
             <p>Alice's score: ${this.state.userScores.get('alice') || 0}</p>
         `;
     }
-});
+}
+
+defineComponent('my-component', MyComponent);
 ```
 
 **Supported operations (all trigger re-renders):**
@@ -382,23 +368,21 @@ this.state.userScores.deleteAll(['alice', 'bob']);
 If you have a large Set/Map that doesn't need reactivity, wrap it with `untracked()`:
 
 ```javascript
-import { defineComponent, html, untracked } from './lib/framework.js';
+import { defineComponent, Component, html, untracked } from './lib/framework.js';
 
-defineComponent('my-component', {
-    data() {
-        return {
-            // Large Set - not reactive, must reassign to trigger updates
-            cachedIds: untracked(new Set()),
-        };
-    },
+class MyComponent extends Component {
+    state = {
+        // Large Set - not reactive, must reassign to trigger updates
+        cachedIds: untracked(new Set()),
+    };
 
-    methods: {
-        updateCache(newIds) {
-            // Must reassign to trigger re-render
-            this.state.cachedIds = untracked(new Set(newIds));
-        }
+    updateCache(newIds) {
+        // Must reassign to trigger re-render
+        this.state.cachedIds = untracked(new Set(newIds));
     }
-});
+}
+
+defineComponent('my-component', MyComponent);
 ```
 
 **Advanced: Manual wrapping with `reactiveSet()` / `reactiveMap()`:**
@@ -424,16 +408,14 @@ globalSelectedIds.add(4);  // Effect re-runs
 
 **OK in event handlers** (not during render):
 ```javascript
-methods: {
-    addItem(item) {
-        // ✅ OK - Mutation in event handler
-        this.state.items.push(item);
-    },
+addItem(item) {
+    // ✅ OK - Mutation in event handler
+    this.state.items.push(item);
+}
 
-    removeItem(index) {
-        // ✅ OK - Mutation in event handler
-        this.state.items.splice(index, 1);
-    }
+removeItem(index) {
+    // ✅ OK - Mutation in event handler
+    this.state.items.splice(index, 1);
 }
 ```
 
@@ -466,26 +448,24 @@ You no longer need `untracked()` just for array iteration performance.
 Use `untracked()` when you want to **completely skip reactive proxying** for an object:
 
 ```javascript
-import { defineComponent, html, untracked } from './lib/framework.js';
+import { defineComponent, Component, html, untracked } from './lib/framework.js';
 
-defineComponent('playlist-view', {
-    data() {
-        return {
-            // Skip proxying: 2000 items × 50 properties = expensive
-            songs: untracked([]),
+class PlaylistView extends Component {
+    state = {
+        // Skip proxying: 2000 items × 50 properties = expensive
+        songs: untracked([]),
 
-            // Normal reactivity for simple values
-            currentIndex: 0
-        };
-    },
+        // Normal reactivity for simple values
+        currentIndex: 0
+    };
 
-    methods: {
-        loadSongs(newSongs) {
-            // Reassign to trigger update (items aren't individually reactive)
-            this.state.songs = newSongs;
-        }
+    loadSongs(newSongs) {
+        // Reassign to trigger update (items aren't individually reactive)
+        this.state.songs = newSongs;
     }
-});
+}
+
+defineComponent('playlist-view', PlaylistView);
 ```
 
 **When to use `untracked()`:**
@@ -511,16 +491,14 @@ defineComponent('playlist-view', {
 For large lists, use `memoEach()` to cache rendered items:
 
 ```javascript
-import { defineComponent, html, memoEach } from './lib/framework.js';
+import { defineComponent, Component, html, memoEach } from './lib/framework.js';
 
-defineComponent('song-list', {
-    data() {
-        return {
-            songs: [],  // Normal reactive array is fine now
-            visibleStart: 0,
-            visibleEnd: 50
-        };
-    },
+class SongList extends Component {
+    state = {
+        songs: [],  // Normal reactive array is fine now
+        visibleStart: 0,
+        visibleEnd: 50
+    };
 
     template() {
         const visible = this.state.songs.slice(
@@ -534,7 +512,9 @@ defineComponent('song-list', {
             `, song => song.uuid)}
         `;
     }
-});
+}
+
+defineComponent('song-list', SongList);
 ```
 
 `memoEach()` caches rendered templates so unchanged items don't re-render. Combined with O(1) array tracking, large lists are efficient by default.
@@ -544,28 +524,26 @@ defineComponent('song-list', {
 Use `withoutTracking()` to read reactive state without creating a dependency. The effect won't re-run when those values change.
 
 ```javascript
-import { defineComponent, withoutTracking } from './lib/framework.js';
+import { defineComponent, Component, withoutTracking } from './lib/framework.js';
 
-defineComponent('my-component', {
-    data() {
-        return { count: 0, name: '' };
-    },
+class MyComponent extends Component {
+    state = { count: 0, name: '' };
 
     mounted() {
         // Read initial value without tracking - effect won't re-run when count changes
         const initialCount = withoutTracking(() => this.state.count);
         console.log('Initial count:', initialCount);
-    },
-
-    methods: {
-        logState() {
-            // Log without creating dependencies
-            withoutTracking(() => {
-                console.log('Current state:', this.state.count, this.state.name);
-            });
-        }
     }
-});
+
+    logState() {
+        // Log without creating dependencies
+        withoutTracking(() => {
+            console.log('Current state:', this.state.count, this.state.name);
+        });
+    }
+}
+
+defineComponent('my-component', MyComponent);
 ```
 
 **When to use `withoutTracking()`:**
@@ -584,11 +562,9 @@ defineComponent('my-component', {
 
 ```javascript
 // untracked() - object won't be deeply proxied
-data() {
-    return {
-        songs: untracked([])  // Array items won't become reactive proxies
-    };
-}
+state = {
+    songs: untracked([])  // Array items won't become reactive proxies
+};
 
 // withoutTracking() - reads won't create dependencies
 mounted() {
@@ -617,12 +593,10 @@ Always call methods on `store.state`, not the original object:
 ```javascript
 import login from './auth/auth.js';
 
-export default defineComponent('my-component', {
-    data() {
-        return {
-            user: null
-        };
-    },
+class MyComponent extends Component {
+    state = {
+        user: null
+    };
 
     // ✅ CORRECT
     async mounted() {
@@ -630,20 +604,20 @@ export default defineComponent('my-component', {
         this.unsubscribe = login.subscribe(state => {
             this.state.user = state.user;
         });
-    },
+    }
 
-    methods: {
-        async logoff() {
-            // Call methods on .state!
-            await login.state.logoff();
-        }
-    },
+    async logoff() {
+        // Call methods on .state!
+        await login.state.logoff();
+    }
 
     unmounted() {
         // Always cleanup subscriptions
         if (this.unsubscribe) this.unsubscribe();
     }
-});
+}
+
+export default defineComponent('my-component', MyComponent);
 ```
 
 ### Store Methods
@@ -722,19 +696,15 @@ sum.dispose();
 
 ### Using Computed Values in Components
 
-The easiest way is the component-level `computed:` option - lifecycle (creation, disposal) is handled automatically and values are exposed as plain instance properties:
+The easiest way is a `get` accessor - lifecycle (creation, disposal) is handled automatically and values are exposed as plain instance properties:
 
 ```javascript
-import { defineComponent, html } from './lib/framework.js';
+import { defineComponent, Component, html } from './lib/framework.js';
 
-defineComponent('counter-sum', {
-    data() {
-        return { a: 1, b: 2 };
-    },
+class CounterSum extends Component {
+    state = { a: 1, b: 2 };
 
-    computed: {
-        sum() { return this.state.a + this.state.b; }
-    },
+    get sum() { return this.state.a + this.state.b; }
 
     template() {
         return html`
@@ -745,34 +715,36 @@ defineComponent('counter-sum', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('counter-sum', CounterSum);
 ```
 
-Computed properties are lazy and cached (the getter only re-runs when a dependency changed and the value is read again), invalidate on state, store, and prop changes, and are disposed on unmount. Use plain functions, not `get` accessors.
+Computed properties are lazy and cached (the getter only re-runs when a dependency changed and the value is read again), invalidate on state, store, and prop changes, and are disposed on unmount. (In the legacy options format, the equivalent is the `computed: { sum() {...} }` option, which requires plain functions rather than `get` accessors.)
 
 You can also use the standalone `computed()` manually when you need explicit control:
 
 ```javascript
-import { defineComponent, html, computed } from './lib/framework.js';
+import { defineComponent, Component, html, computed } from './lib/framework.js';
 
-defineComponent('counter-sum-manual', {
-    mounted() {
-        this._sum = computed(() => this.state.a + this.state.b);
-    },
-
-    unmounted() {
-        if (this._sum) this._sum.dispose();
-    },
-
-    data() {
-        return { a: 1, b: 2 };
-    },
+class CounterSumManual extends Component {
+    state = { a: 1, b: 2 };
 
     template() {
         // Note: mounted() runs after the first render, so guard the access
         return html`<p>Sum: ${this._sum?.get() ?? 0}</p>`;
     }
-});
+
+    mounted() {
+        this._sum = computed(() => this.state.a + this.state.b);
+    }
+
+    unmounted() {
+        if (this._sum) this._sum.dispose();
+    }
+}
+
+defineComponent('counter-sum-manual', CounterSumManual);
 ```
 
 ## Memo
@@ -805,21 +777,19 @@ For memoization based on function arguments (not reactive dependencies), use `me
 ```javascript
 import { memoize } from './lib/utils.js';
 
-defineComponent('product-list', {
-    data() {
-        return {
-            items: [...], // 1000 items
-            searchQuery: '',
+class ProductList extends Component {
+    state = {
+        items: [...], // 1000 items
+        searchQuery: '',
 
-            // Memoize based on arguments passed at call time
-            filteredItems: memoize((items, query) => {
-                console.log('[Memoize] Filtering...');  // Only logs when args change!
-                return items.filter(item =>
-                    item.name.toLowerCase().includes(query.toLowerCase())
-                );
-            })
-        };
-    },
+        // Memoize based on arguments passed at call time
+        filteredItems: memoize((items, query) => {
+            console.log('[Memoize] Filtering...');  // Only logs when args change!
+            return items.filter(item =>
+                item.name.toLowerCase().includes(query.toLowerCase())
+            );
+        })
+    };
 
     template() {
         // Pass current values as arguments - cached if same as last call
@@ -838,7 +808,9 @@ defineComponent('product-list', {
             </ul>
         `;
     }
-});
+}
+
+defineComponent('product-list', ProductList);
 ```
 
 **How it works:**
@@ -856,22 +828,20 @@ defineComponent('product-list', {
 ```javascript
 import { memoize } from './lib/utils.js';
 
-data() {
-    return {
-        items: [...],  // 1000 items
-        sortBy: 'name',
-        sortDirection: 'asc',
+state = {
+    items: [...],  // 1000 items
+    sortBy: 'name',
+    sortDirection: 'asc',
 
-        sortedItems: memoize((items, sortBy, direction) => {
-            const sorted = [...items].sort((a, b) => {
-                if (a[sortBy] < b[sortBy]) return direction === 'asc' ? -1 : 1;
-                if (a[sortBy] > b[sortBy]) return direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-            return sorted;
-        })
-    };
-},
+    sortedItems: memoize((items, sortBy, direction) => {
+        const sorted = [...items].sort((a, b) => {
+            if (a[sortBy] < b[sortBy]) return direction === 'asc' ? -1 : 1;
+            if (a[sortBy] > b[sortBy]) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+        return sorted;
+    })
+};
 
 template() {
     const sorted = this.state.sortedItems(
@@ -1002,16 +972,14 @@ Global dark theme store with automatic body class management:
 ```javascript
 import { darkTheme } from './lib/utils.js';
 
-methods: {
-    toggleDarkMode() {
-        darkTheme.update(s => ({ enabled: !s.enabled }));
-    }
+toggleDarkMode() {
+    darkTheme.update(s => ({ enabled: !s.enabled }));
 }
 ```
 
 **In component styles:**
 ```javascript
-styles: /*css*/`
+static styles = /*css*/`
     :host-context(body.dark) .element {
         background: #333;
         color: #ccc;
@@ -1021,7 +989,7 @@ styles: /*css*/`
         background: #444;
         border: 1px solid #666;
     }
-`
+`;
 ```
 
 **The dark theme store automatically:**
@@ -1036,14 +1004,12 @@ Toast notification system with severity levels:
 ```javascript
 import { notify } from './lib/utils.js';
 
-methods: {
-    async save() {
-        try {
-            await this.saveData();
-            notify('Saved!', 'info', 3); // message, severity, seconds
-        } catch (error) {
-            notify('Error saving!', 'error', 5);
-        }
+async save() {
+    try {
+        await this.saveData();
+        notify('Saved!', 'info', 3); // message, severity, seconds
+    } catch (error) {
+        notify('Error saving!', 'error', 5);
     }
 }
 ```
@@ -1075,13 +1041,11 @@ notifications.subscribe(notifs => {
 
 ```javascript
 // ✅ GOOD - Reactive state for UI
-data() {
-    return {
-        isOpen: false,
-        selectedTab: 'profile',
-        loading: false
-    };
-}
+state = {
+    isOpen: false,
+    selectedTab: 'profile',
+    loading: false
+};
 ```
 
 ### Use Stores for Shared State
@@ -1113,23 +1077,21 @@ unmounted() {
 
 ```javascript
 // ❌ BAD - No need for reactivity
-data() {
-    return {
-        API_URL: 'https://api.example.com'  // Constant, not reactive
-    };
-}
+state = {
+    API_URL: 'https://api.example.com'  // Constant, not reactive
+};
 
 // ✅ GOOD - Use const outside component
 const API_URL = 'https://api.example.com';
 
-defineComponent('my-component', {
-    methods: {
-        async fetchData() {
-            const response = await fetch(API_URL);
-            // ...
-        }
+class MyComponent extends Component {
+    async fetchData() {
+        const response = await fetch(API_URL);
+        // ...
     }
-});
+}
+
+defineComponent('my-component', MyComponent);
 ```
 
 ## See Also

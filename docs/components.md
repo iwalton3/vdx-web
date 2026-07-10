@@ -204,13 +204,13 @@ Components can define props that are reactive and can be set via HTML attributes
 Define props in the component definition with default values:
 
 ```javascript
-export default defineComponent('user-card', {
-    props: {
+class UserCard extends Component {
+    static props = {
         username: '',           // String prop
         userId: 0,              // Number prop
         tags: [],               // Array prop
         onSave: null           // Function prop
-    },
+    };
 
     template() {
         // Access props via this.props
@@ -222,7 +222,9 @@ export default defineComponent('user-card', {
             </div>
         `;
     }
-});
+}
+
+export default defineComponent('user-card', UserCard);
 ```
 
 ### Setting Props - Four Ways
@@ -323,22 +325,20 @@ el.props.username = 'charlie';
 
 ```javascript
 // Define component with props
-export default defineComponent('product-card', {
-    props: {
+class ProductCard extends Component {
+    static props = {
         name: '',
         price: 0,
         inStock: true,
         tags: [],
         onBuy: null
-    },
+    };
 
-    methods: {
-        handleBuyClick() {
-            if (this.props.onBuy) {
-                this.props.onBuy(this.props.name, this.props.price);
-            }
+    handleBuyClick() {
+        if (this.props.onBuy) {
+            this.props.onBuy(this.props.name, this.props.price);
         }
-    },
+    }
 
     template() {
         return html`
@@ -353,7 +353,9 @@ export default defineComponent('product-card', {
             </div>
         `;
     }
-});
+}
+
+export default defineComponent('product-card', ProductCard);
 
 // Use in HTML (textual props)
 <product-card name="Widget" price="29.99" inStock="true"></product-card>
@@ -421,11 +423,9 @@ template() {
 ### Examples
 
 ```javascript
-methods: {
-    handleItemRender(item, index) {
-        return html`<div>${item.name}</div>`;
-    }
-},
+handleItemRender(item, index) {
+    return html`<div>${item.name}</div>`;
+}
 
 template() {
     return html`
@@ -480,7 +480,7 @@ Children passed to a component are automatically available as `this.props.childr
 
 ```javascript
 // Define a wrapper component
-defineComponent('my-wrapper', {
+class MyWrapper extends Component {
     template() {
         return html`
             <div class="wrapper">
@@ -488,7 +488,9 @@ defineComponent('my-wrapper', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('my-wrapper', MyWrapper);
 
 // Usage
 <my-wrapper>
@@ -513,7 +515,7 @@ Use the `slot="name"` attribute to pass children to specific named slots. Named 
 </my-dialog>
 
 // Component definition
-defineComponent('my-dialog', {
+class MyDialog extends Component {
     template() {
         // children is always an array of default slot children
         // slots is an object with named slot children
@@ -530,7 +532,9 @@ defineComponent('my-dialog', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('my-dialog', MyDialog);
 ```
 
 ### Children and Slots API Reference
@@ -569,10 +573,10 @@ template() {
             ${this.props.slots.tab2}
         </div>
     `;
-},
-styles: /*css*/`
+}
+static styles = /*css*/`
     .hidden { display: none; }
-`
+`;
 
 // ❌ LOSES STATE - Unmounts component when hidden
 template() {
@@ -589,12 +593,10 @@ template() {
 The `raw()` function works with children for rendering dynamic HTML (password generators, markdown renderers, etc.):
 
 ```javascript
-defineComponent('password-generator', {
-    data() {
-        return {
-            passwordHtml: '<code>aB3$xY9!</code>'
-        };
-    },
+class PasswordGenerator extends Component {
+    state = {
+        passwordHtml: '<code>aB3$xY9!</code>'
+    };
 
     template() {
         return html`
@@ -605,7 +607,9 @@ defineComponent('password-generator', {
             </password-display>
         `;
     }
-});
+}
+
+defineComponent('password-generator', PasswordGenerator);
 ```
 
 **Security Note:** Only use `raw()` with HTML you trust (your own generated content). Never use it with user input without sanitization.
@@ -635,16 +639,14 @@ template() {
 Use the `ref` attribute to get direct references to DOM elements:
 
 ```javascript
-defineComponent('my-form', {
-    methods: {
-        focusInput() {
-            this.refs.nameInput.focus();
-        },
+class MyForm extends Component {
+    focusInput() {
+        this.refs.nameInput.focus();
+    }
 
-        playVideo() {
-            this.refs.videoPlayer.play();
-        }
-    },
+    playVideo() {
+        this.refs.videoPlayer.play();
+    }
 
     template() {
         return html`
@@ -657,7 +659,9 @@ defineComponent('my-form', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('my-form', MyForm);
 ```
 
 **Key points:**
@@ -685,11 +689,11 @@ The `stores` option automatically subscribes to external stores and syncs their 
 import { loginStore } from './auth/auth.js';
 import { themeStore } from './utils.js';
 
-defineComponent('user-dashboard', {
-    stores: {
+class UserDashboard extends Component {
+    static stores = {
         login: loginStore,
         theme: themeStore
-    },
+    };
 
     template() {
         return html`
@@ -702,14 +706,14 @@ defineComponent('user-dashboard', {
                 `)}
             </div>
         `;
-    },
-
-    methods: {
-        async handleLogout() {
-            await this.stores.login.logoff();
-        }
     }
-});
+
+    async handleLogout() {
+        await this.stores.login.logoff();
+    }
+}
+
+defineComponent('user-dashboard', UserDashboard);
 ```
 
 **How it works:**
@@ -731,36 +735,35 @@ unmounted() {
 }
 
 // ✅ NEW WAY - Automatic with stores option
-stores: {
+static stores = {
     login: loginStore
-}
+};
 // Access via this.stores.login.user
 // Cleanup is automatic!
 ```
 
 ## Computed Properties
 
-Declare derived values with the `computed:` option. Each entry becomes a read-only instance property (read `this.total`, not `this.total()`):
+Declare derived values as `get` accessors. Each getter becomes a lazy, cached computed - read it as a property (`this.total`, not `this.total()`):
 
 ```javascript
-defineComponent('cart-summary', {
-    data() {
-        return { items: [] };
-    },
+class CartSummary extends Component {
+    state = { items: [] };
 
-    computed: {
-        total() {
-            return this.state.items.reduce((sum, i) => sum + i.price, 0);
-        },
-        itemCount() {
-            return this.state.items.length;
-        }
-    },
+    get total() {
+        return this.state.items.reduce((sum, i) => sum + i.price, 0);
+    }
+
+    get itemCount() {
+        return this.state.items.length;
+    }
 
     template() {
         return html`<p>${this.itemCount} items - $${this.total}</p>`;
     }
-});
+}
+
+defineComponent('cart-summary', CartSummary);
 ```
 
 **Behavior:**
@@ -768,8 +771,10 @@ defineComponent('cart-summary', {
 - **Always fresh** - reading a computed right after mutating its dependencies returns the new value (safe to use in methods that mutate state then emit an event with a derived value)
 - **Tracked** - dependencies on state, stores, and props are detected automatically; templates reading a computed re-render when it invalidates
 - **Auto-disposed** - cleaned up on unmount (and recreated if the element reconnects)
-- **Plain functions only** - do not use `get` accessors (they are evaluated at construction time and throw)
+- **Read only state/stores/props** - a getter that mixes a reactive dependency with a non-reactive read (a ref, a DOM measurement, a plain instance field) caches on the reactive dependency and silently goes stale on the rest
 - Names that collide with props or methods are skipped with a console warning
+
+> In the legacy options format, computeds are declared with the `computed: { total() {...} }` option using **plain functions** - `get` accessors are not allowed there (they would be evaluated at construction time and throw). In class components, getters are the computed pattern.
 
 ## Lifecycle Hooks
 
@@ -890,11 +895,11 @@ Optional handler called when the component's `template()` or rendering throws an
 - Return nothing/null to render nothing (component will be empty)
 
 ```javascript
-defineComponent('data-widget', {
+class DataWidget extends Component {
     template() {
         // This might throw if data is malformed
         return html`<div>${this.processComplexData()}</div>`;
-    },
+    }
 
     // Optional: gracefully handle render errors
     renderError(error) {
@@ -905,14 +910,14 @@ defineComponent('data-widget', {
                 <button on-click="retry">Retry</button>
             </div>
         `;
-    },
-
-    methods: {
-        retry() {
-            this.state.forceRefresh = Date.now();
-        }
     }
-});
+
+    retry() {
+        this.state.forceRefresh = Date.now();
+    }
+}
+
+defineComponent('data-widget', DataWidget);
 ```
 
 **Behavior without renderError:**
@@ -928,14 +933,14 @@ defineComponent('data-widget', {
 Styles are automatically scoped to the component tag name:
 
 ```javascript
-defineComponent('my-button', {
+class MyButton extends Component {
     template() {
         return html`
             <button class="primary">Click Me</button>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         /* Scoped to my-button */
         .primary {
             background: #007bff;
@@ -960,8 +965,10 @@ defineComponent('my-button', {
             background: #444;
             color: #ccc;
         }
-    `
-});
+    `;
+}
+
+defineComponent('my-button', MyButton);
 ```
 
 ### :host Selector Transformation
@@ -970,7 +977,7 @@ The `:host` selector is transformed to the component's tag name at runtime. This
 
 ```javascript
 // In your component
-styles: /*css*/`
+static styles = /*css*/`
     :host {
         display: block;
         padding: 20px;
@@ -978,7 +985,7 @@ styles: /*css*/`
     :host(.active) {
         border: 2px solid blue;
     }
-`
+`;
 
 // Becomes (at runtime)
 // my-component {
@@ -1000,8 +1007,8 @@ styles: /*css*/`
 Keyframe animations defined in component styles are automatically namespaced to prevent conflicts between components:
 
 ```javascript
-defineComponent('cl-spinner', {
-    styles: /*css*/`
+class ClSpinner extends Component {
+    static styles = /*css*/`
         .spinner {
             animation: spin 1s linear infinite;
         }
@@ -1010,8 +1017,10 @@ defineComponent('cl-spinner', {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
-    `
-});
+    `;
+}
+
+defineComponent('cl-spinner', ClSpinner);
 ```
 
 The framework transforms this to:
@@ -1037,23 +1046,21 @@ cl-spinner .spinner {
 ### Naming Conventions
 
 ```javascript
-// ✅ Component names: kebab-case for custom elements
-defineComponent('user-profile', { ... })
-defineComponent('x-select-box', { ... })  // x- prefix for reusable UI components
+// ✅ Component names: kebab-case tag, PascalCase class
+class UserProfile extends Component { ... }
+defineComponent('user-profile', UserProfile);
+class XSelectBox extends Component { ... }  // x- prefix for reusable UI components
+defineComponent('x-select-box', XSelectBox);
 
 // ✅ Methods: descriptive camelCase
-methods: {
-    loadUserData() { ... },
-    handleFormSubmit() { ... },
-    updateUserProfile() { ... }
-}
+loadUserData() { ... }
+handleFormSubmit() { ... }
+updateUserProfile() { ... }
 
 // ❌ Avoid abbreviations
-methods: {
-    upd() { ... },          // Bad: unclear
-    ld() { ... },           // Bad: cryptic
-    hdlClick() { ... }      // Bad: hard to read
-}
+upd() { ... }          // Bad: unclear
+ld() { ... }           // Bad: cryptic
+hdlClick() { ... }     // Bad: hard to read
 
 // ✅ Private properties: underscore prefix
 this._interval = setInterval(...);
@@ -1065,41 +1072,35 @@ this._unsubscribe = null;
 
 ```javascript
 // ✅ CORRECT - Proper error handling
-methods: {
-    async loadData() {
-        try {
-            this.state.loading = true;
-            const data = await api.getData();
-            this.state.items = data;
-        } catch (error) {
-            console.error('[MyComponent] Failed to load data:', error);
-            notify(`Error: ${error.message}`, 'error');
-            this.state.items = [];  // Fallback state
-        } finally {
-            this.state.loading = false;
-        }
+async loadData() {
+    try {
+        this.state.loading = true;
+        const data = await api.getData();
+        this.state.items = data;
+    } catch (error) {
+        console.error('[MyComponent] Failed to load data:', error);
+        notify(`Error: ${error.message}`, 'error');
+        this.state.items = [];  // Fallback state
+    } finally {
+        this.state.loading = false;
     }
 }
 
 // ❌ WRONG - Silent failure
-methods: {
-    async loadData() {
-        const data = await api.getData();  // No error handling!
-        this.state.items = data;
-    }
+async loadData() {
+    const data = await api.getData();  // No error handling!
+    this.state.items = data;
 }
 ```
 
 ### Loading Data Pattern
 
 ```javascript
-data() {
-    return {
-        items: [],
-        loading: false,
-        error: null
-    };
-},
+state = {
+    items: [],
+    loading: false,
+    error: null
+};
 
 async mounted() {
     this.state.loading = true;
@@ -1115,7 +1116,7 @@ async mounted() {
     } finally {
         this.state.loading = false;
     }
-},
+}
 
 template() {
     return html`
@@ -1151,13 +1152,15 @@ template() {
  * @example
  * <user-profile userId="123" editable="true"></user-profile>
  */
-export default defineComponent('user-profile', {
-    props: {
+class UserProfile extends Component {
+    static props = {
         userId: '',
         editable: false
-    },
+    };
     // ...
-});
+}
+
+export default defineComponent('user-profile', UserProfile);
 ```
 
 ## Common Patterns
@@ -1195,12 +1198,10 @@ template() {
             `)}
         </select>
     `;
-},
+}
 
-methods: {
-    handleChange(e) {
-        this.state.selected = e.target.value;
-    }
+handleChange(e) {
+    this.state.selected = e.target.value;
 }
 ```
 

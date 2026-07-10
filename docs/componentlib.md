@@ -363,16 +363,14 @@ All selection components include comprehensive accessibility support:
 Single select dropdown with optional filtering.
 
 ```javascript
-data() {
-    return {
-        selected: '',
-        options: [
-            { label: 'Option 1', value: 'opt1' },
-            { label: 'Option 2', value: 'opt2' },
-            { label: 'Option 3', value: 'opt3' }
-        ]
-    };
-},
+state = {
+    selected: '',
+    options: [
+        { label: 'Option 1', value: 'opt1' },
+        { label: 'Option 2', value: 'opt2' },
+        { label: 'Option 3', value: 'opt3' }
+    ]
+};
 
 template() {
     return html`
@@ -455,20 +453,18 @@ Options may be strings or `{ label, value, icon }`.
 Advanced data table with sorting and selection.
 
 ```javascript
-data() {
-    return {
-        data: [
-            { id: 1, name: 'Alice', role: 'Admin' },
-            { id: 2, name: 'Bob', role: 'User' }
-        ],
-        columns: [
-            { field: 'id', header: 'ID' },
-            { field: 'name', header: 'Name', sortable: true },
-            { field: 'role', header: 'Role', sortable: true }
-        ],
-        selected: null
-    };
-},
+state = {
+    data: [
+        { id: 1, name: 'Alice', role: 'Admin' },
+        { id: 2, name: 'Bob', role: 'User' }
+    ],
+    columns: [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name', sortable: true },
+        { field: 'role', header: 'Role', sortable: true }
+    ],
+    selected: null
+};
 
 template() {
     return html`
@@ -509,20 +505,18 @@ The change event detail is `{ value: { first, page, rows } }` - custom-element h
 Hierarchical tree view with selection.
 
 ```javascript
-data() {
-    return {
-        nodes: [
-            {
-                key: '1',
-                label: 'Documents',
-                children: [
-                    { key: '1-1', label: 'Work' },
-                    { key: '1-2', label: 'Personal' }
-                ]
-            }
-        ]
-    };
-},
+state = {
+    nodes: [
+        {
+            key: '1',
+            label: 'Documents',
+            children: [
+                { key: '1-1', label: 'Work' },
+                { key: '1-2', label: 'Personal' }
+            ]
+        }
+    ]
+};
 
 template() {
     return html`
@@ -553,25 +547,22 @@ Efficiently renders large lists by only rendering visible items. Supports self-s
 This component packages the windowing patterns proven in a production music player. If you need features it doesn't provide (sparse lazily-loaded arrays, conditional windowing, gesture-heavy custom rows), build inline windowing with the same skeleton - see [performance.md](performance.md#windowed-virtual-scrolling).
 
 ```javascript
-data() {
-    return {
-        items: Array.from({ length: 10000 }, (_, i) => ({
-            id: i,
-            title: `Item ${i}`,
-            subtitle: `Description for item ${i}`
-        })),
-        selected: null
-    };
-},
+state = {
+    items: Array.from({ length: 10000 }, (_, i) => ({
+        id: i,
+        title: `Item ${i}`,
+        subtitle: `Description for item ${i}`
+    })),
+    selected: null
+};
 
-methods: {
-    handleSelect(e) {
-        this.state.selected = e.detail.item;
-    },
-    getItemKey(item) {
-        return item.id;
-    }
-},
+handleSelect(e) {
+    this.state.selected = e.detail.item;
+}
+
+getItemKey(item) {
+    return item.id;
+}
 
 template() {
     return html`
@@ -649,21 +640,19 @@ The `reorder` detail carries the move in two forms so you can use whichever fits
   this directly with a `splice(from, 1)` + `splice(to, 0, moved)` sequence.
 
 ```javascript
-data() {
-    return {
-        items: [/* ... your items ... */]
-    };
-},
-methods: {
-    handleReorder(e) {
-        // `to` is already the remove-then-insert index - splice straight in.
-        const { from, to } = e.detail;
-        const next = this.state.items.slice();
-        const [moved] = next.splice(from, 1);
-        next.splice(to, 0, moved);
-        this.state.items = next;   // pass the new array back down
-    }
-},
+state = {
+    items: [/* ... your items ... */]
+};
+
+handleReorder(e) {
+    // `to` is already the remove-then-insert index - splice straight in.
+    const { from, to } = e.detail;
+    const next = this.state.items.slice();
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    this.state.items = next;   // pass the new array back down
+}
+
 template() {
     return html`
         <cl-virtual-list
@@ -718,14 +707,12 @@ Recolors by `thresholds` (lower-bounds) as the value rises; or a fixed `color`. 
 Collapsible accordion panels.
 
 ```javascript
-data() {
-    return {
-        tabs: [
-            { header: 'Section 1', content: 'Content for section 1' },
-            { header: 'Section 2', content: 'Content for section 2' }
-        ]
-    };
-},
+state = {
+    tabs: [
+        { header: 'Section 1', content: 'Content for section 1' },
+        { header: 'Section 2', content: 'Content for section 2' }
+    ]
+};
 
 template() {
     return html`
@@ -795,9 +782,7 @@ Resizable split panel.
 Modal dialog component.
 
 ```javascript
-data() {
-    return { visible: false };
-},
+state = { visible: false };
 
 template() {
     return html`
@@ -893,26 +878,23 @@ It keeps itself fully inside the viewport (flip / clamp / internal scroll) and
 only one instance is ever open at a time.
 
 ```javascript
-data() {
-    return {
-        menuItems: [
-            { label: 'Edit', icon: '✏️' },
-            { label: 'Copy', icon: '📋', shortcut: '⌘C' },
-            { separator: true },
-            { label: 'Delete', icon: '🗑️', danger: true }
-        ]
-    };
-},
+state = {
+    menuItems: [
+        { label: 'Edit', icon: '✏️' },
+        { label: 'Copy', icon: '📋', shortcut: '⌘C' },
+        { separator: true },
+        { label: 'Delete', icon: '🗑️', danger: true }
+    ]
+};
 
-methods: {
-    // Wire any element's contextmenu event to open the menu at the pointer.
-    openMenu(e, row) {
-        this.refs.menu.openAtEvent(e, row);   // second arg = context echoed back
-    },
-    onPick(e) {
-        console.log('chose', e.detail.item.label, 'for', e.detail.context);
-    }
-},
+// Wire any element's contextmenu event to open the menu at the pointer.
+openMenu(e, row) {
+    this.refs.menu.openAtEvent(e, row);   // second arg = context echoed back
+}
+
+onPick(e) {
+    console.log('chose', e.detail.item.label, 'for', e.detail.context);
+}
 
 template() {
     return html`
@@ -1172,15 +1154,13 @@ These components exist in `app/componentlib/` and are used the same way; see the
 All form-like components support `x-model` for two-way data binding:
 
 ```javascript
-data() {
-    return {
-        username: '',
-        age: 18,
-        agreed: false,
-        selectedOption: '',
-        tags: []
-    };
-},
+state = {
+    username: '',
+    age: 18,
+    agreed: false,
+    selectedOption: '',
+    tags: []
+};
 
 template() {
     return html`

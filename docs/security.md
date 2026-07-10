@@ -198,31 +198,29 @@ The `html` template tag provides automatic context-aware escaping. Always use it
 **Always validate user input** before API calls:
 
 ```javascript
-methods: {
-    async saveEmail(e) {
-        e.preventDefault();
+async saveEmail(e) {
+    e.preventDefault();
 
-        const email = this.state.email.trim();
+    const email = this.state.email.trim();
 
-        // Validate email format
-        if (!this.isValidEmail(email)) {
-            notify('Invalid email address', 'error');
-            return;
-        }
-
-        // Validate email length
-        if (email.length > 255) {
-            notify('Email too long', 'error');
-            return;
-        }
-
-        await api.updateEmail(email);
-    },
-
-    isValidEmail(email) {
-        // Basic email validation
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    // Validate email format
+    if (!this.isValidEmail(email)) {
+        notify('Invalid email address', 'error');
+        return;
     }
+
+    // Validate email length
+    if (email.length > 255) {
+        notify('Email too long', 'error');
+        return;
+    }
+
+    await api.updateEmail(email);
+}
+
+isValidEmail(email) {
+    // Basic email validation
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 ```
 
@@ -291,11 +289,9 @@ sessionStorage:
 
 ```javascript
 // ❌ WRONG - API key in client code
-data() {
-    return {
-        apiKey: 'sk-1234567890abcdef'  // Exposed in source!
-    };
-}
+state = {
+    apiKey: 'sk-1234567890abcdef'  // Exposed in source!
+};
 
 // ✅ CORRECT - API key on backend only
 // Client never has access to secret keys

@@ -121,7 +121,7 @@ never call `preventDefault()` (ignored; the framework warns if combined with `-p
 ## Two-Way Binding (x-model)
 
 ```javascript
-data() { return { name: '', age: 0, agreed: false }; },
+state = { name: '', age: 0, agreed: false };
 template() {
     return html`
         <input type="text" x-model="name">
@@ -231,10 +231,8 @@ return html`
 ```javascript
 template() {
     return html`<input ref="myInput" type="text">`;
-},
-methods: {
-    focus() { this.refs.myInput.focus(); }
 }
+focus() { this.refs.myInput.focus(); }
 ```
 
 **Refs are for already-mounted nodes.** A `ref` on a node that is *conditionally shown this
@@ -264,7 +262,7 @@ this.state.items.reverse()  // ✅ Works
 
 **Sets/Maps are automatically reactive:**
 ```javascript
-data() { return { ids: new Set(), scores: new Map() }; }
+state = { ids: new Set(), scores: new Map() };
 this.state.ids.add(1);        // ✅ Triggers re-render
 this.state.scores.set('a', 1); // ✅ Triggers re-render
 
@@ -288,18 +286,14 @@ return html`<p>${count}</p>`;  // contain(() => count) has no dependencies!
 // ✅ GOOD - Reactive access inside template
 return html`<p>${this.state.count}</p>`;  // contain(() => this.state.count) works
 
-// ✅ GOOD - Use the computed: option (lazy, cached, auto-disposed; read as a property)
-computed: {
-    doubled() { return this.state.count * 2; }
-},
+// ✅ GOOD - Use a getter (computed: lazy, cached, auto-disposed; read as a property)
+get doubled() { return this.state.count * 2; }
 template() {
     return html`<p>${this.doubled}</p>`;  // Tracked inside contain()
 }
 
-// ✅ ALSO GOOD - Plain methods (NOT get accessors - they break method binding)
-methods: {
-    doubled() { return this.state.count * 2; }
-},
+// ✅ ALSO GOOD - Plain method (recomputed on every call, not cached)
+doubled() { return this.state.count * 2; }
 template() {
     return html`<p>${this.doubled()}</p>`;  // Called inside contain()
 }
@@ -318,7 +312,7 @@ ${when(this.stores.auth.isAdmin, () => html`<admin-panel></admin-panel>`)}
 **Optional: untracked() to skip proxying entirely:**
 ```javascript
 import { untracked } from 'vdx/lib/framework.js';
-data() { return { songs: untracked([]) }; }  // Items aren't reactive
+state = { songs: untracked([]) };  // Items aren't reactive
 ```
 
 **Computed values are never stale** - invalidation is synchronous on writes, so reading a computed right after mutating its deps is safe (mutate-then-emit-event patterns):
@@ -342,15 +336,14 @@ this.refs.input.focus();
 // Auto-subscribe pattern (recommended)
 import userStore from './stores/user.js';
 
-defineComponent('my-component', {
-    stores: { userStore },
+class MyComponent extends Component {
+    static stores = { userStore };
     template() {
         return html`<p>${this.stores.userStore.name}</p>`;
-    },
-    methods: {
-        logout() { userStore.state.logout(); }  // Call methods on .state
     }
-});
+    logout() { userStore.state.logout(); }  // Call methods on .state
+}
+defineComponent('my-component', MyComponent);
 ```
 
 ## Router
@@ -376,12 +369,13 @@ enableRouting(outlet, {
 ## Error Boundaries
 
 ```javascript
-defineComponent('my-component', {
-    template() { /* may throw */ },
+class MyComponent extends Component {
+    template() { /* may throw */ }
     renderError(error) {
         return html`<cl-error-boundary error="${error}" showRetry="true"></cl-error-boundary>`;
     }
-});
+}
+defineComponent('my-component', MyComponent);
 ```
 
 ## Component Library (cl-*)
@@ -412,17 +406,18 @@ Common components from `vdx/componentlib/`:
 ```javascript
 import { createWindowing } from 'vdx/lib/windowing.js';
 
-data() {
-    // Created in data() so window state exists for the first render
+constructor(props) {
+    super(props);
+    // Created in the constructor so window state exists for the first render
     this._win = createWindowing(this, {
         itemHeight: 52,
         count: () => this.state.items.length,
         scrollContainer: 'self',   // 'self' | 'parent' | 'window' | selector
         onRange: (start, end) => this.maybeLoadMore(end)   // optional
     });
-    return { items: untracked([]) };
-},
-unmounted() { this._win.destroy(); },
+    this.state = { items: untracked([]) };
+}
+unmounted() { this._win.destroy(); }
 template() {
     const win = this._win;
     return html`
@@ -444,7 +439,8 @@ Drag-reorder, long-press, and touch-drag for list rows - composes with windowing
 ```javascript
 import { createRowGestures } from 'vdx/lib/gestures.js';
 
-data() {
+constructor(props) {
+    super(props);
     this._g = createRowGestures(this, {
         itemHeight: 52,
         windowing: this._win,                       // optional composition

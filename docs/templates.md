@@ -105,34 +105,34 @@ Custom events with hyphens in their names (like `status-change` or `item-delete`
 
 ```javascript
 // Child component emits custom event
-defineComponent('status-indicator', {
-    methods: {
-        updateStatus(newStatus) {
-            this.dispatchEvent(new CustomEvent('status-change', {
-                detail: { status: newStatus },
-                bubbles: true
-            }));
-        }
-    },
+class StatusIndicator extends Component {
+    updateStatus(newStatus) {
+        this.dispatchEvent(new CustomEvent('status-change', {
+            detail: { status: newStatus },
+            bubbles: true
+        }));
+    }
+
     template() {
         return html`<button on-click="${() => this.updateStatus('active')}">Activate</button>`;
     }
-});
+}
+defineComponent('status-indicator', StatusIndicator);
 
 // Parent listens with on-status-change
-defineComponent('parent-component', {
-    methods: {
-        handleStatusChange(e) {
-            console.log('New status:', e.detail.status);
-        }
-    },
+class ParentComponent extends Component {
+    handleStatusChange(e) {
+        console.log('New status:', e.detail.status);
+    }
+
     template() {
         return html`
             <status-indicator on-status-change="handleStatusChange">
             </status-indicator>
         `;
     }
-});
+}
+defineComponent('parent-component', ParentComponent);
 ```
 
 **Modifiers work with custom events too:**
@@ -164,13 +164,11 @@ afterRender() {
 Simply add `x-model="propertyName"` to any input element:
 
 ```javascript
-data() {
-    return {
-        username: '',
-        age: 0,
-        agreed: false
-    };
-},
+state = {
+    username: '',
+    age: 0,
+    agreed: false
+};
 
 template() {
     return html`
@@ -254,37 +252,33 @@ That's it! The framework automatically:
 ### Complete Example
 
 ```javascript
-export default defineComponent('registration-form', {
-    data() {
-        return {
-            username: '',
-            email: '',
-            age: 18,
-            country: 'us',
-            newsletter: false,
-            plan: 'free',
-            bio: ''
-        };
-    },
+class RegistrationForm extends Component {
+    state = {
+        username: '',
+        email: '',
+        age: 18,
+        country: 'us',
+        newsletter: false,
+        plan: 'free',
+        bio: ''
+    };
 
-    methods: {
-        async handleSubmit(e) {
-            e.preventDefault();
+    async handleSubmit(e) {
+        e.preventDefault();
 
-            console.log('Form data:', {
-                username: this.state.username,
-                email: this.state.email,
-                age: this.state.age,          // Already a number!
-                country: this.state.country,
-                newsletter: this.state.newsletter,  // Already a boolean!
-                plan: this.state.plan,
-                bio: this.state.bio
-            });
+        console.log('Form data:', {
+            username: this.state.username,
+            email: this.state.email,
+            age: this.state.age,          // Already a number!
+            country: this.state.country,
+            newsletter: this.state.newsletter,  // Already a boolean!
+            plan: this.state.plan,
+            bio: this.state.bio
+        });
 
-            // All values are ready to send - no parsing needed!
-            await api.register(this.state);
-        }
-    },
+        // All values are ready to send - no parsing needed!
+        await api.register(this.state);
+    }
 
     template() {
         return html`
@@ -333,7 +327,8 @@ export default defineComponent('registration-form', {
             </form>
         `;
     }
-});
+}
+export default defineComponent('registration-form', RegistrationForm);
 ```
 
 ### x-model vs Manual Binding
@@ -412,18 +407,16 @@ Use manual binding if you need:
 **Example: Creating a reusable input component**
 
 ```javascript
-export default defineComponent('my-input', {
-    props: {
+class MyInput extends Component {
+    static props = {
         value: '',
         placeholder: ''
-    },
+    };
 
-    methods: {
-        handleInput(e) {
-            // Use emitChange helper - handles stopPropagation, prop update, and CustomEvent
-            this.emitChange(e, e.target.value);
-        }
-    },
+    handleInput(e) {
+        // Use emitChange helper - handles stopPropagation, prop update, and CustomEvent
+        this.emitChange(e, e.target.value);
+    }
 
     template() {
         return html`
@@ -434,7 +427,8 @@ export default defineComponent('my-input', {
                 on-input="handleInput">
         `;
     }
-});
+}
+export default defineComponent('my-input', MyInput);
 ```
 
 **The `emitChange()` helper** handles all the boilerplate for you:
@@ -626,13 +620,11 @@ template() {
 **Same array rendered differently - use explicit caches:**
 ```javascript
 // When rendering the SAME array with different templates, use explicit caches
-data() {
-    return {
-        items: [],
-        _cacheA: new Map(),  // Explicit cache
-        _cacheB: new Map()   // Explicit cache
-    };
-},
+state = {
+    items: [],
+    _cacheA: new Map(),  // Explicit cache
+    _cacheB: new Map()   // Explicit cache
+};
 template() {
     return html`
         <div class="view-a">
@@ -769,25 +761,28 @@ Use `contain()` when you just need isolation without the overhead of defining a 
 The `opt()` function enables Solid-style fine-grained reactivity by automatically wrapping ALL template expressions in `html.contain()`. This gives you the benefits of `contain()` without manually wrapping each expression.
 
 ```javascript
-import { defineComponent, html, when } from './lib/framework.js';
+import { defineComponent, Component, html, when } from './lib/framework.js';
 import { opt } from './lib/opt.js';
 
-export default defineComponent('counter', {
-    data() {
-        return { count: 0, name: 'Counter' };
-    },
+class Counter extends Component {
+    state = { count: 0, name: 'Counter' };
+}
 
-    // Wrap template function in eval(opt(...))
-    template: eval(opt(function() {
-        return html`
-            <div>
-                <h1>${this.state.name}</h1>
-                <p>Count: ${this.state.count}</p>
-                <button on-click="${() => this.state.count++}">+</button>
-            </div>
-        `;
-    }))
-});
+// Assign the optimized template to the PROTOTYPE after the class declaration.
+// A `template = eval(opt(...))` class FIELD would silently not render - the
+// framework harvests template() from the prototype at registration time, before
+// any instance field exists.
+Counter.prototype.template = eval(opt(function() {
+    return html`
+        <div>
+            <h1>${this.state.name}</h1>
+            <p>Count: ${this.state.count}</p>
+            <button on-click="${() => this.state.count++}">+</button>
+        </div>
+    `;
+}));
+
+export default defineComponent('counter', Counter);
 ```
 
 **What opt() does:**
@@ -930,31 +925,28 @@ template() {
     `;
 }
 
-// ✅ GOOD Option 2 - The computed: option (lazy, cached, read as properties)
-computed: {
-    doubled() {
-        return this.state.count * 2;
-    },
-    fullName() {
-        return `${this.state.firstName} ${this.state.lastName}`;
-    }
-},
+// ✅ GOOD Option 2 - Getters become computeds (lazy, cached, read as properties)
+get doubled() {
+    return this.state.count * 2;
+}
+get fullName() {
+    return `${this.state.firstName} ${this.state.lastName}`;
+}
 template() {
     return html`<p>${this.doubled}</p><p>${this.fullName}</p>`;
 }
 
 // ✅ GOOD Option 3 - Plain methods (recomputed on every call)
-methods: {
-    doubled() {
-        return this.state.count * 2;
-    }
-},
+doubled() {
+    return this.state.count * 2;
+}
 template() {
     return html`<p>${this.doubled()}</p>`;
 }
 
-// ⚠️ Do NOT use `get` accessors in methods: or computed: - method binding
-// evaluates them at construction time (before state exists) and throws.
+// ⚠️ Legacy options format: computeds go in the `computed: {}` option and
+// methods in `methods: {}`, both as plain functions - `get` accessors are not
+// allowed there (method binding evaluates them at construction time and throws).
 ```
 
 **Exception - memoEach external state:**
@@ -1068,16 +1060,14 @@ template() {
             <input type="submit" value="Submit">
         </form>
     `;
-},
+}
 
-methods: {
-    async handleSubmit(e) {
-        // preventDefault already called by on-submit-prevent
-        const input = this.querySelector('#username');
-        this.state.username = input.value;
+async handleSubmit(e) {
+    // preventDefault already called by on-submit-prevent
+    const input = this.querySelector('#username');
+    this.state.username = input.value;
 
-        await this.saveData();
-    }
+    await this.saveData();
 }
 
 // ✅ No afterRender() needed! Framework handles value syncing automatically
@@ -1095,25 +1085,21 @@ template() {
             <option value="opt2">Option 2</option>
         </select>
     `;
-},
+}
 
-methods: {
-    handleChange(e) {
-        this.state.selected = e.target.value;
-    }
+handleChange(e) {
+    this.state.selected = e.target.value;
 }
 ```
 
 ### Form with x-model
 
 ```javascript
-data() {
-    return {
-        username: '',
-        email: '',
-        agreed: false
-    };
-},
+state = {
+    username: '',
+    email: '',
+    agreed: false
+};
 
 template() {
     return html`
@@ -1129,16 +1115,14 @@ template() {
             </button>
         </form>
     `;
-},
+}
 
-methods: {
-    async handleSubmit(e) {
-        // All form values are already in this.state!
-        await api.register({
-            username: this.state.username,
-            email: this.state.email
-        });
-    }
+async handleSubmit(e) {
+    // All form values are already in this.state!
+    await api.register({
+        username: this.state.username,
+        email: this.state.email
+    });
 }
 ```
 

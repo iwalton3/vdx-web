@@ -173,42 +173,37 @@ this.state.count = 10;
 Object mapping `ref="name"` template attributes to DOM elements.
 
 ```javascript
-template() { return html`<input ref="nameInput">`; },
-methods: {
-    focus() { this.refs.nameInput.focus(); }
-}
+template() { return html`<input ref="nameInput">`; }
+focus() { this.refs.nameInput.focus(); }
 ```
 
 #### this.stores
 Direct references to the reactive state of stores declared via the `stores:` component option. Template reads like `this.stores.user.name` are tracked fine-grained.
 
 ```javascript
-stores: { user: userStore },
+static stores = { user: userStore };
 template() { return html`<p>${this.stores.user.name}</p>`; }
 ```
 
-#### Computed properties (from the `computed:` option)
-Each entry in the `computed:` option becomes a read-only instance property (read `this.total`, not `this.total()`). Values are lazy and cached: the getter re-runs only when a reactive dependency (state, stores, or props) changes and the property is read again. Reading one inside a template or effect subscribes it to updates. Disposed automatically on unmount.
+#### Computed properties (`get` accessors)
+Each `get` accessor becomes a read-only computed instance property (read `this.total`, not `this.total()`). Values are lazy and cached: the getter re-runs only when a reactive dependency (state, stores, or props) changes and the property is read again. Reading one inside a template or effect subscribes it to updates. Disposed automatically on unmount.
 
 ```javascript
-computed: {
-    total() { return this.state.items.reduce((s, i) => s + i.price, 0); }
-},
+get total() { return this.state.items.reduce((s, i) => s + i.price, 0); }
+
 template() {
     return html`<p>Total: ${this.total}</p>`;  // re-renders when items change
 }
 ```
 
-**Note:** Use plain functions, not `get` accessors. Names that collide with props or methods are skipped with a warning.
+**Note:** Getters must be pure derivations of state/stores/props. Names that collide with props or methods are skipped with a warning. (In the legacy options format, the equivalent is the `computed: { total() {...} }` option, which uses plain functions rather than `get` accessors.)
 
 #### this.emitChange(event, value, [propName])
 Helper to emit change events for x-model compatibility. Stops propagation of the original event and dispatches a `change` CustomEvent with `detail: { value }`. `propName` defaults to `'value'`.
 
 ```javascript
-methods: {
-    handleInput(e) {
-        this.emitChange(e, e.target.value);
-    }
+handleInput(e) {
+    this.emitChange(e, e.target.value);
 }
 ```
 
@@ -363,13 +358,11 @@ Renders async content with loading and error states. Handles both Promises and i
 
 **Example with Promise:**
 ```javascript
-data() {
-    return { userPromise: null };
-},
+state = { userPromise: null };
 
 mounted() {
     this.state.userPromise = fetchUser(123);
-},
+}
 
 template() {
     return html`
@@ -415,13 +408,13 @@ Lazy load a component module. Returns a cached promise that resolves when the co
 
 **Example - Basic usage:**
 ```javascript
-import { awaitThen, html } from './lib/framework.js';
+import { awaitThen, Component, html } from './lib/framework.js';
 import { lazy } from './lib/utils.js';
 
 // Define lazy component at module level (cached)
 const LazyChart = lazy(() => import('./chart-component.js'));
 
-defineComponent('dashboard', {
+class Dashboard extends Component {
     template() {
         return html`
             <h1>Dashboard</h1>
@@ -431,7 +424,8 @@ defineComponent('dashboard', {
             )}
         `;
     }
-});
+}
+defineComponent('dashboard', Dashboard);
 ```
 
 **Example - Multiple lazy components:**
@@ -457,9 +451,7 @@ template() {
 
 **Example - Conditional lazy loading:**
 ```javascript
-data() {
-    return { showAdvanced: false };
-},
+state = { showAdvanced: false };
 
 template() {
     return html`
@@ -743,25 +735,22 @@ Wraps a value to opt out of deep reactivity tracking. Use for large arrays/objec
 
 **Example:**
 ```javascript
-import { defineComponent, untracked } from './lib/framework.js';
+import { defineComponent, Component, untracked } from './lib/framework.js';
 
-defineComponent('song-list', {
-    data() {
-        return {
-            // Large array - only track replacement, not individual items
-            songs: untracked([]),
-            // Normal reactive values
-            currentIndex: 0
-        };
-    },
+class SongList extends Component {
+    state = {
+        // Large array - only track replacement, not individual items
+        songs: untracked([]),
+        // Normal reactive values
+        currentIndex: 0
+    };
 
-    methods: {
-        loadSongs(newSongs) {
-            // Reassign to trigger update (auto-applies untracked)
-            this.state.songs = newSongs;
-        }
+    loadSongs(newSongs) {
+        // Reassign to trigger update (auto-applies untracked)
+        this.state.songs = newSongs;
     }
-});
+}
+defineComponent('song-list', SongList);
 ```
 
 **When to use:** Arrays with 100+ items, deeply nested objects, API response data.
@@ -777,31 +766,28 @@ Execute a function and immediately flush any pending renders. Use when you need 
 
 **Example:**
 ```javascript
-import { defineComponent, html, flushSync } from './lib/framework.js';
+import { defineComponent, Component, html, flushSync } from './lib/framework.js';
 
-defineComponent('my-form', {
-    data() {
-        return { showInput: false };
-    },
+class MyForm extends Component {
+    state = { showInput: false };
 
-    methods: {
-        showAndFocus() {
-            flushSync(() => {
-                this.state.showInput = true;
-            });
-            // DOM is now updated, safe to focus
-            this.refs.input.focus();
-        },
-
-        addAndScroll() {
-            flushSync(() => {
-                this.state.items.push(newItem);
-            });
-            // Scroll to bottom
-            this.refs.list.scrollTop = this.refs.list.scrollHeight;
-        }
+    showAndFocus() {
+        flushSync(() => {
+            this.state.showInput = true;
+        });
+        // DOM is now updated, safe to focus
+        this.refs.input.focus();
     }
-});
+
+    addAndScroll() {
+        flushSync(() => {
+            this.state.items.push(newItem);
+        });
+        // Scroll to bottom
+        this.refs.list.scrollTop = this.refs.list.scrollHeight;
+    }
+}
+defineComponent('my-form', MyForm);
 ```
 
 **When to use:** Focusing elements, scrolling after adding items, measuring elements after state change.
@@ -1150,25 +1136,27 @@ Enables fine-grained reactivity by transforming a template function to wrap all 
 
 **Example:**
 ```javascript
-import { defineComponent, html } from './lib/framework.js';
+import { defineComponent, Component, html } from './lib/framework.js';
 import { opt } from './lib/opt.js';
 
-defineComponent('my-counter', {
-    data() {
-        return { count: 0, name: 'Counter' };
-    },
+class MyCounter extends Component {
+    state = { count: 0, name: 'Counter' };
+}
 
-    // Wrap template function in eval(opt(...))
-    template: eval(opt(function() {
-        return html`
-            <div>
-                <h1>${this.state.name}</h1>
-                <p>Count: ${this.state.count}</p>
-                <button on-click="${() => this.state.count++}">+</button>
-            </div>
-        `;
-    }))
-});
+// Assign the optimized template to the PROTOTYPE after the class declaration.
+// A `template = eval(opt(...))` class FIELD would silently not render - the
+// framework harvests template() from the prototype at registration time.
+MyCounter.prototype.template = eval(opt(function() {
+    return html`
+        <div>
+            <h1>${this.state.name}</h1>
+            <p>Count: ${this.state.count}</p>
+            <button on-click="${() => this.state.count++}">+</button>
+        </div>
+    `;
+}));
+
+defineComponent('my-counter', MyCounter);
 ```
 
 **What it does:**

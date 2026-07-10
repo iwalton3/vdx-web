@@ -24,12 +24,10 @@ Complete framework bundle including:
 **Usage:**
 ```html
 <script type="module">
-  import { defineComponent, html, when } from './dist/framework.js';
+  import { defineComponent, Component, html, when } from './dist/framework.js';
 
-  defineComponent('my-app', {
-    data() {
-      return { count: 0 };
-    },
+  class MyApp extends Component {
+    state = { count: 0 };
 
     template() {
       return html`
@@ -39,7 +37,9 @@ Complete framework bundle including:
         </div>
       `;
     }
-  });
+  }
+
+  defineComponent('my-app', MyApp);
 </script>
 
 <my-app></my-app>
@@ -115,29 +115,10 @@ Runtime `opt()` transformer for fine-grained reactivity (`eval(opt(...))` patter
     <my-counter></my-counter>
 
     <script type="module">
-        import { defineComponent, html } from './dist/framework.js';
+        import { defineComponent, Component, html } from './dist/framework.js';
 
-        defineComponent('my-counter', {
-            data() {
-                return { count: 0 };
-            },
-
-            methods: {
-                increment() {
-                    this.state.count++;
-                }
-            },
-
-            template() {
-                return html`
-                    <div>
-                        <h2>Count: ${this.state.count}</h2>
-                        <button on-click="increment">Increment</button>
-                    </div>
-                `;
-            },
-
-            styles: /*css*/`
+        class MyCounter extends Component {
+            static styles = /*css*/`
                 div {
                     padding: 20px;
                     border: 1px solid #ccc;
@@ -151,8 +132,25 @@ Runtime `opt()` transformer for fine-grained reactivity (`eval(opt(...))` patter
                     border-radius: 4px;
                     cursor: pointer;
                 }
-            `
-        });
+            `;
+
+            state = { count: 0 };
+
+            increment() {
+                this.state.count++;
+            }
+
+            template() {
+                return html`
+                    <div>
+                        <h2>Count: ${this.state.count}</h2>
+                        <button on-click="increment">Increment</button>
+                    </div>
+                `;
+            }
+        }
+
+        defineComponent('my-counter', MyCounter);
     </script>
 </body>
 </html>
@@ -167,27 +165,23 @@ Runtime `opt()` transformer for fine-grained reactivity (`eval(opt(...))` patter
     <user-form></user-form>
 
     <script type="module">
-        import { defineComponent, html } from './dist/framework.js';
+        import { defineComponent, Component, html } from './dist/framework.js';
 
-        defineComponent('user-form', {
-            data() {
-                return {
-                    username: '',
-                    email: '',
-                    agreed: false
-                };
-            },
+        class UserForm extends Component {
+            state = {
+                username: '',
+                email: '',
+                agreed: false
+            };
 
-            methods: {
-                handleSubmit(e) {
-                    e.preventDefault();
-                    console.log({
-                        username: this.state.username,
-                        email: this.state.email,
-                        agreed: this.state.agreed
-                    });
-                }
-            },
+            handleSubmit(e) {
+                e.preventDefault();
+                console.log({
+                    username: this.state.username,
+                    email: this.state.email,
+                    agreed: this.state.agreed
+                });
+            }
 
             template() {
                 return html`
@@ -223,7 +217,9 @@ Runtime `opt()` transformer for fine-grained reactivity (`eval(opt(...))` patter
                     </pre>
                 `;
             }
-        });
+        }
+
+        defineComponent('user-form', UserForm);
     </script>
 </body>
 </html>
@@ -233,39 +229,35 @@ Runtime `opt()` transformer for fine-grained reactivity (`eval(opt(...))` patter
 
 ```html
 <script type="module">
-    import { defineComponent, html, when, each } from './dist/framework.js';
+    import { defineComponent, Component, html, when, each } from './dist/framework.js';
 
-    defineComponent('todo-list', {
-        data() {
-            return {
-                todos: [],
-                newTodo: ''
-            };
-        },
+    class TodoList extends Component {
+        state = {
+            todos: [],
+            newTodo: ''
+        };
 
-        methods: {
-            addTodo(e) {
-                e.preventDefault();
-                if (this.state.newTodo.trim()) {
-                    this.state.todos.push({
-                        id: Date.now(),
-                        text: this.state.newTodo,
-                        done: false
-                    });
-                    this.state.newTodo = '';
-                }
-            },
-
-            toggleTodo(id) {
-                const todo = this.state.todos.find(t => t.id === id);
-                if (todo) todo.done = !todo.done;
-            },
-
-            removeTodo(id) {
-                const index = this.state.todos.findIndex(t => t.id === id);
-                this.state.todos.splice(index, 1);
+        addTodo(e) {
+            e.preventDefault();
+            if (this.state.newTodo.trim()) {
+                this.state.todos.push({
+                    id: Date.now(),
+                    text: this.state.newTodo,
+                    done: false
+                });
+                this.state.newTodo = '';
             }
-        },
+        }
+
+        toggleTodo(id) {
+            const todo = this.state.todos.find(t => t.id === id);
+            if (todo) todo.done = !todo.done;
+        }
+
+        removeTodo(id) {
+            const index = this.state.todos.findIndex(t => t.id === id);
+            this.state.todos.splice(index, 1);
+        }
 
         template() {
             return html`
@@ -301,7 +293,9 @@ Runtime `opt()` transformer for fine-grained reactivity (`eval(opt(...))` patter
                 </div>
             `;
         }
-    });
+    }
+
+    defineComponent('todo-list', TodoList);
 </script>
 
 <todo-list></todo-list>

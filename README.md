@@ -56,12 +56,10 @@ styles: /*css*/`
     <my-counter></my-counter>
 
     <script type="module">
-        import { defineComponent, html } from './lib/framework.js';
+        import { defineComponent, Component, html } from './lib/framework.js';
 
-        defineComponent('my-counter', {
-            data() {
-                return { count: 0 };
-            },
+        class MyCounter extends Component {
+            state = { count: 0 };
 
             template() {
                 return html`
@@ -73,7 +71,9 @@ styles: /*css*/`
                     </div>
                 `;
             }
-        });
+        }
+
+        defineComponent('my-counter', MyCounter);
     </script>
 </body>
 </html>
@@ -86,14 +86,12 @@ No compilation. No bundling. Just refresh your browser.
 A feature even React doesn't have - automatic two-way binding with type conversion:
 
 ```javascript
-defineComponent('user-form', {
-    data() {
-        return {
-            username: '',
-            age: 18,
-            newsletter: false
-        };
-    },
+class UserForm extends Component {
+    state = {
+        username: '',
+        age: 18,
+        newsletter: false
+    };
 
     template() {
         return html`
@@ -113,18 +111,18 @@ defineComponent('user-form', {
                 Newsletter: ${this.state.newsletter}
             </pre>
         `;
-    },
-
-    methods: {
-        handleSubmit(e) {
-            console.log({
-                username: this.state.username,
-                age: this.state.age,          // Already a number!
-                newsletter: this.state.newsletter  // Already a boolean!
-            });
-        }
     }
-});
+
+    handleSubmit(e) {
+        console.log({
+            username: this.state.username,
+            age: this.state.age,          // Already a number!
+            newsletter: this.state.newsletter  // Already a boolean!
+        });
+    }
+}
+
+defineComponent('user-form', UserForm);
 ```
 
 The framework automatically uses the correct attribute (`value` or `checked`), sets up the right event, and converts types.

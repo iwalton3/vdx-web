@@ -61,20 +61,16 @@ ${memoEach(items, item => html`...`, keyFn, { deps: [this.state.displayMode] })}
 **Version counter** - for editable windowed lists where immutable updates are too expensive (you cannot afford to copy a 5,000-item array on every drag-over event). Keep the array `untracked()`, mutate it in place, and bump an integer on every structural change; fold it into the key:
 
 ```javascript
-data() {
-    return {
-        songs: untracked([]),   // large, mutated in place
-        listVersion: 0          // bumped on reorder/insert/delete
-    };
-},
+state = {
+    songs: untracked([]),   // large, mutated in place
+    listVersion: 0          // bumped on reorder/insert/delete
+};
 
-methods: {
-    moveSong(from, to) {
-        const [song] = this.state.songs.splice(from, 1);
-        this.state.songs.splice(to, 0, song);
-        this.state.listVersion++;   // invalidates every cached row
-    }
-},
+moveSong(from, to) {
+    const [song] = this.state.songs.splice(from, 1);
+    this.state.songs.splice(to, 0, song);
+    this.state.listVersion++;   // invalidates every cached row
+}
 
 // In the template:
 ${memoEach(visible, song => html`...`,
@@ -105,9 +101,10 @@ For lists past ~50-100 items, render only the visible window. Use [`cl-virtual-l
 ```javascript
 import { createWindowing } from './lib/windowing.js';
 
-defineComponent('song-list', {
-    data() {
-        // Created in data() so windowing state exists for the first render
+class SongList extends Component {
+    constructor(props) {
+        super(props);
+        // Created in the constructor so windowing state exists for the first render
         this._win = createWindowing(this, {
             itemHeight: 52,
             buffer: 10,
@@ -115,12 +112,12 @@ defineComponent('song-list', {
             scrollContainer: 'self',    // 'self' | 'parent' | 'window' | selector
             onRange: (start, end) => this.maybeLoadMore(end)  // on-demand loading hook
         });
-        return { songs: untracked([]) };
-    },
+        this.state = { songs: untracked([]) };
+    }
 
     unmounted() {
         this._win.destroy();
-    },
+    }
 
     template() {
         const win = this._win;
@@ -134,7 +131,9 @@ defineComponent('song-list', {
             </div>
         `;
     }
-});
+}
+
+defineComponent('song-list', SongList);
 ```
 
 The controller's getters (`visibleStart`, `visibleEnd`, `offsetY`, `totalHeight`) are reactive - reading them in the template tracks them. Call `refresh()` after changing an `untracked()` item source (reactive sources are tracked automatically through `count()`); `scrollToIndex`/`scrollToTop`/`scrollToBottom` handle position math per scroll mode; `setScrollContainer()` re-wires the scroll mode; `attach()`/`detach()` support element reconnection (`destroy()` is full teardown).

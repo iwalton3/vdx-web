@@ -268,14 +268,14 @@ export default authStore;
 When using the `stores` option, store states are accessed directly via `this.stores.storeName` (not `this.stores.storeName.state`). The framework automatically unwraps `Store<T>` to `T`.
 
 ```typescript
-import { defineComponent, html } from './lib/framework.js';
+import { defineComponent, Component, html } from './lib/framework.js';
 import authStore from './stores/auth.js';
 
 // Define stores as a const - TypeScript infers the unwrapped types
 const stores = { auth: authStore };
 
-defineComponent('user-profile', {
-  stores,  // Clean - no casting needed!
+class UserProfile extends Component {
+  static stores = stores;  // Clean - no casting needed!
 
   template() {
     // Access state directly - TypeScript knows this is AuthState
@@ -290,7 +290,9 @@ defineComponent('user-profile', {
       </div>
     `;
   }
-});
+}
+
+defineComponent('user-profile', UserProfile);
 ```
 
 **How it works:** The framework provides `UnwrapStores<T>` utility type that converts `{ auth: Store<AuthState> }` to `{ auth: AuthState }` automatically. By defining stores as a const outside the component, TypeScript infers the correct types.
@@ -501,7 +503,7 @@ template() {
 Use `computed()` from framework for memoized calculations:
 
 ```typescript
-import { defineComponent, html, computed } from './lib/framework.js';
+import { defineComponent, Component, html, computed } from './lib/framework.js';
 
 interface Item {
   id: string;
@@ -509,19 +511,17 @@ interface Item {
   price: number;
 }
 
-defineComponent('product-list', {
-  data() {
-    return {
-      items: [] as Item[],
-      searchQuery: '',
-      // Typed computed property
-      filteredItems: computed((items: Item[], query: string) => {
-        return items.filter(item =>
-          item.name.toLowerCase().includes(query.toLowerCase())
-        );
-      })
-    };
-  },
+class ProductList extends Component {
+  state = {
+    items: [] as Item[],
+    searchQuery: '',
+    // Typed computed property
+    filteredItems: computed((items: Item[], query: string) => {
+      return items.filter(item =>
+        item.name.toLowerCase().includes(query.toLowerCase())
+      );
+    })
+  };
 
   template() {
     // Call with dependencies - result is cached until they change
@@ -535,7 +535,9 @@ defineComponent('product-list', {
       <p>${filtered.length} items</p>
     `;
   }
-});
+}
+
+defineComponent('product-list', ProductList);
 ```
 
 ### Custom x-model Components
@@ -543,26 +545,24 @@ defineComponent('product-list', {
 Create components that work with `x-model` using `emitChange`:
 
 ```typescript
-import { defineComponent, html } from './lib/framework.js';
+import { defineComponent, Component, html } from './lib/framework.js';
 
 interface RatingProps {
   value: number;
   max: number;
 }
 
-defineComponent('star-rating', {
-  props: {
+class StarRating extends Component {
+  static props = {
     value: 0,
     max: 5
-  } as RatingProps,
+  } as RatingProps;
 
-  methods: {
-    setRating(rating: number): void {
-      // emitChange makes the component x-model compatible
-      // Parameters: (event, newValue, propName)
-      this.emitChange(null, rating, 'value');
-    }
-  },
+  setRating(rating: number): void {
+    // emitChange makes the component x-model compatible
+    // Parameters: (event, newValue, propName)
+    this.emitChange(null, rating, 'value');
+  }
 
   template() {
     const stars = Array.from({ length: this.props.max }, (_, i) => i + 1);
@@ -579,7 +579,9 @@ defineComponent('star-rating', {
       </div>
     `;
   }
-});
+}
+
+defineComponent('star-rating', StarRating);
 
 // Usage with x-model - automatically syncs value
 // <star-rating x-model="userRating" max="5"></star-rating>
@@ -588,15 +590,18 @@ defineComponent('star-rating', {
 ### Watch for Side Effects
 
 ```typescript
-import { defineComponent, watch } from './lib/framework.js';
+import { defineComponent, Component, watch } from './lib/framework.js';
 
-defineComponent('user-loader', {
-  data() {
-    return {
-      userId: null as string | null,
-      userData: null as { name: string; email: string } | null
-    };
-  },
+class UserLoader extends Component {
+  state = {
+    userId: null as string | null,
+    userData: null as { name: string; email: string } | null
+  };
+
+  async fetchUser(id: string): Promise<{ name: string; email: string }> {
+    const res = await fetch(`/api/users/${id}`);
+    return res.json();
+  }
 
   mounted() {
     // Watch returns a cleanup function
@@ -608,19 +613,14 @@ defineComponent('user-loader', {
         }
       }
     );
-  },
+  }
 
   unmounted() {
     this._unwatch?.();
-  },
-
-  methods: {
-    async fetchUser(id: string): Promise<{ name: string; email: string }> {
-      const res = await fetch(`/api/users/${id}`);
-      return res.json();
-    }
   }
-});
+}
+
+defineComponent('user-loader', UserLoader);
 ```
 
 ## Limitations

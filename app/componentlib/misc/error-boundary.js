@@ -5,7 +5,7 @@
  * user-friendly error messages that match the componentlib style.
  *
  * @example
- * defineComponent('my-component', {
+ * class MyComponent extends Component {
  *     renderError(error) {
  *         return html`
  *             <cl-error-boundary
@@ -15,7 +15,8 @@
  *             </cl-error-boundary>
  *         `;
  *     }
- * });
+ * }
+ * defineComponent('my-component', MyComponent);
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
 

@@ -10,10 +10,8 @@ export const componentExamples = {
         category: 'form',
         description: 'Text input with validation support',
         demo: `<example-input-text></example-input-text>`,
-        source: `defineComponent('example-input-text', {
-    data() {
-        return { value: '', email: '', pattern: '' };
-    },
+        source: `class ExampleInputText extends Component {
+    state = { value: '', email: '', pattern: '' };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
@@ -42,7 +40,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-input-text', ExampleInputText);`
     },
 
     inputNumber: {
@@ -51,10 +50,8 @@ export const componentExamples = {
         category: 'form',
         description: 'Number input with increment/decrement buttons',
         demo: `<example-input-number></example-input-number>`,
-        source: `defineComponent('example-input-number', {
-    data() {
-        return { value: 0, quantity: 1, price: 9.99, vertical: 5, amount: '100.00' };
-    },
+        source: `class ExampleInputNumber extends Component {
+    state = { value: 0, quantity: 1, price: 9.99, vertical: 5, amount: '100.00' };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
@@ -99,7 +96,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-input-number', ExampleInputNumber);`
     },
 
     textarea: {
@@ -108,10 +106,8 @@ export const componentExamples = {
         category: 'form',
         description: 'Multi-line text input with auto-resize',
         demo: `<example-textarea></example-textarea>`,
-        source: `defineComponent('example-textarea', {
-    data() {
-        return { text: '', limited: '' };
-    },
+        source: `class ExampleTextarea extends Component {
+    state = { text: '', limited: '' };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 600px;">
@@ -133,7 +129,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-textarea', ExampleTextarea);`
     },
 
     checkbox: {
@@ -142,10 +139,8 @@ export const componentExamples = {
         category: 'form',
         description: 'Checkbox input with label',
         demo: `<example-checkbox></example-checkbox>`,
-        source: `defineComponent('example-checkbox', {
-    data() {
-        return { checked: false, terms: true };
-    },
+        source: `class ExampleCheckbox extends Component {
+    state = { checked: false, terms: true };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 16px;">
@@ -171,7 +166,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-checkbox', ExampleCheckbox);`
     },
 
     radioButton: {
@@ -180,10 +176,8 @@ export const componentExamples = {
         category: 'form',
         description: 'Radio button input',
         demo: `<example-radio-button></example-radio-button>`,
-        source: `defineComponent('example-radio-button', {
-    data() {
-        return { size: 'medium' };
-    },
+        source: `class ExampleRadioButton extends Component {
+    state = { size: 'medium' };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -219,7 +213,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-radio-button', ExampleRadioButton);`
     },
 
     slider: {
@@ -228,10 +223,8 @@ export const componentExamples = {
         category: 'form',
         description: 'Range slider input',
         demo: `<example-slider></example-slider>`,
-        source: `defineComponent('example-slider', {
-    data() {
-        return { value: 50, volume: 75 };
-    },
+        source: `class ExampleSlider extends Component {
+    state = { value: 50, volume: 75 };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 500px;">
@@ -250,7 +243,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-slider', ExampleSlider);`
     },
 
     calendar: {
@@ -259,18 +253,14 @@ export const componentExamples = {
         category: 'form',
         description: 'Date picker with masked input, month/year picker, range selection, and inline mode',
         demo: `<example-calendar></example-calendar>`,
-        source: `defineComponent('example-calendar', {
-    data() {
-        return { date: '', inline: new Date().toISOString().split('T')[0], rangeText: 'None' };
-    },
-    methods: {
-        handleRange(e) {
-            const v = e.detail && e.detail.value;
-            this.state.rangeText = (v && v.start)
-                ? \`\${v.start} → \${v.end || '…'}\`
-                : 'None';
-        }
-    },
+        source: `class ExampleCalendar extends Component {
+    state = { date: '', inline: new Date().toISOString().split('T')[0], rangeText: 'None' };
+    handleRange(e) {
+        const v = e.detail && e.detail.value;
+        this.state.rangeText = (v && v.start)
+            ? \`\${v.start} → \${v.end || '…'}\`
+            : 'None';
+    }
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 500px;">
@@ -298,7 +288,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-calendar', ExampleCalendar);`
     },
 
     // SELECTION COMPONENTS
@@ -308,20 +299,18 @@ export const componentExamples = {
         category: 'selection',
         description: 'Single select dropdown with search',
         demo: `<example-dropdown></example-dropdown>`,
-        source: `defineComponent('example-dropdown', {
-    data() {
-        return {
-            selected: 'javascript',
-            cities: ['New York', 'London', 'Paris', 'Tokyo', 'Sydney'],
-            selectedCity: null,
-            languages: [
-                { label: 'JavaScript', value: 'javascript' },
-                { label: 'Python', value: 'python' },
-                { label: 'Java', value: 'java' },
-                { label: 'C++', value: 'cpp' }
-            ]
-        };
-    },
+        source: `class ExampleDropdown extends Component {
+    state = {
+        selected: 'javascript',
+        cities: ['New York', 'London', 'Paris', 'Tokyo', 'Sydney'],
+        selectedCity: null,
+        languages: [
+            { label: 'JavaScript', value: 'javascript' },
+            { label: 'Python', value: 'python' },
+            { label: 'Java', value: 'java' },
+            { label: 'C++', value: 'cpp' }
+        ]
+    };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
@@ -341,7 +330,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-dropdown', ExampleDropdown);`
     },
 
     multiselect: {
@@ -350,19 +340,17 @@ export const componentExamples = {
         category: 'selection',
         description: 'Multi-select dropdown with chips',
         demo: `<example-multiselect></example-multiselect>`,
-        source: `defineComponent('example-multiselect', {
-    data() {
-        return {
-            selected: ['red', 'blue'],
-            colors: [
-                { label: 'Red', value: 'red' },
-                { label: 'Green', value: 'green' },
-                { label: 'Blue', value: 'blue' },
-                { label: 'Yellow', value: 'yellow' },
-                { label: 'Purple', value: 'purple' }
-            ]
-        };
-    },
+        source: `class ExampleMultiselect extends Component {
+    state = {
+        selected: ['red', 'blue'],
+        colors: [
+            { label: 'Red', value: 'red' },
+            { label: 'Green', value: 'green' },
+            { label: 'Blue', value: 'blue' },
+            { label: 'Yellow', value: 'yellow' },
+            { label: 'Purple', value: 'purple' }
+        ]
+    };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 600px;">
@@ -379,7 +367,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-multiselect', ExampleMultiselect);`
     },
 
     autocomplete: {
@@ -388,14 +377,12 @@ export const componentExamples = {
         category: 'selection',
         description: 'Text input with autocomplete suggestions',
         demo: `<example-autocomplete></example-autocomplete>`,
-        source: `defineComponent('example-autocomplete', {
-    data() {
-        return {
-            value: '',
-            countries: ['United States', 'Canada', 'Mexico', 'Brazil', 'Argentina',
-                      'United Kingdom', 'France', 'Germany', 'Spain', 'Italy']
-        };
-    },
+        source: `class ExampleAutocomplete extends Component {
+    state = {
+        value: '',
+        countries: ['United States', 'Canada', 'Mexico', 'Brazil', 'Argentina',
+                  'United Kingdom', 'France', 'Germany', 'Spain', 'Italy']
+    };
     template() {
         return html\`
             <div style="max-width: 500px;">
@@ -412,7 +399,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-autocomplete', ExampleAutocomplete);`
     },
 
     chips: {
@@ -421,10 +409,8 @@ export const componentExamples = {
         category: 'selection',
         description: 'Tag input component',
         demo: `<example-chips></example-chips>`,
-        source: `defineComponent('example-chips', {
-    data() {
-        return { tags: ['javascript', 'react', 'vue'] };
-    },
+        source: `class ExampleChips extends Component {
+    state = { tags: ['javascript', 'react', 'vue'] };
     template() {
         return html\`
             <div style="max-width: 600px;">
@@ -440,7 +426,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-chips', ExampleChips);`
     },
 
     // DATA COMPONENTS
@@ -450,24 +437,22 @@ export const componentExamples = {
         category: 'data',
         description: 'Advanced data table with sorting and selection',
         demo: `<example-datatable></example-datatable>`,
-        source: `defineComponent('example-datatable', {
-    data() {
-        return {
-            selected: null,
-            products: [
-                { id: 1, name: 'Laptop', category: 'Electronics', price: 999 },
-                { id: 2, name: 'Phone', category: 'Electronics', price: 599 },
-                { id: 3, name: 'Desk', category: 'Furniture', price: 299 },
-                { id: 4, name: 'Chair', category: 'Furniture', price: 199 },
-                { id: 5, name: 'Monitor', category: 'Electronics', price: 399 }
-            ],
-            columns: [
-                { field: 'name', header: 'Name', sortable: true },
-                { field: 'category', header: 'Category', sortable: true },
-                { field: 'price', header: 'Price', sortable: true }
-            ]
-        };
-    },
+        source: `class ExampleDatatable extends Component {
+    state = {
+        selected: null,
+        products: [
+            { id: 1, name: 'Laptop', category: 'Electronics', price: 999 },
+            { id: 2, name: 'Phone', category: 'Electronics', price: 599 },
+            { id: 3, name: 'Desk', category: 'Furniture', price: 299 },
+            { id: 4, name: 'Chair', category: 'Furniture', price: 199 },
+            { id: 5, name: 'Monitor', category: 'Electronics', price: 399 }
+        ],
+        columns: [
+            { field: 'name', header: 'Name', sortable: true },
+            { field: 'category', header: 'Category', sortable: true },
+            { field: 'price', header: 'Price', sortable: true }
+        ]
+    };
     template() {
         return html\`
             <div>
@@ -485,7 +470,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-datatable', ExampleDatatable);`
     },
 
     paginator: {
@@ -494,10 +480,8 @@ export const componentExamples = {
         category: 'data',
         description: 'Pagination controls',
         demo: `<example-paginator></example-paginator>`,
-        source: `defineComponent('example-paginator', {
-    data() {
-        return { first: 0, rows: 10 };
-    },
+        source: `class ExamplePaginator extends Component {
+    state = { first: 0, rows: 10 };
     template() {
         return html\`
             <div>
@@ -510,7 +494,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-paginator', ExamplePaginator);`
     },
 
     tree: {
@@ -519,32 +504,30 @@ export const componentExamples = {
         category: 'data',
         description: 'Hierarchical tree view',
         demo: `<example-tree></example-tree>`,
-        source: `defineComponent('example-tree', {
-    data() {
-        return {
-            selected: null,
-            nodes: [
-                {
-                    key: '0',
-                    label: 'Documents',
-                    icon: '📁',
-                    children: [
-                        { key: '0-0', label: 'Work', icon: '📄' },
-                        { key: '0-1', label: 'Home', icon: '📄' }
-                    ]
-                },
-                {
-                    key: '1',
-                    label: 'Photos',
-                    icon: '📁',
-                    children: [
-                        { key: '1-0', label: 'Vacation', icon: '🖼️' },
-                        { key: '1-1', label: 'Family', icon: '🖼️' }
-                    ]
-                }
-            ]
-        };
-    },
+        source: `class ExampleTree extends Component {
+    state = {
+        selected: null,
+        nodes: [
+            {
+                key: '0',
+                label: 'Documents',
+                icon: '📁',
+                children: [
+                    { key: '0-0', label: 'Work', icon: '📄' },
+                    { key: '0-1', label: 'Home', icon: '📄' }
+                ]
+            },
+            {
+                key: '1',
+                label: 'Photos',
+                icon: '📁',
+                children: [
+                    { key: '1-0', label: 'Vacation', icon: '🖼️' },
+                    { key: '1-1', label: 'Family', icon: '🖼️' }
+                ]
+            }
+        ]
+    };
     template() {
         return html\`
             <div style="max-width: 500px;">
@@ -557,7 +540,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-tree', ExampleTree);`
     },
 
     orderableList: {
@@ -566,12 +550,10 @@ export const componentExamples = {
         category: 'data',
         description: 'Drag and drop reorderable list',
         demo: `<example-orderable-list></example-orderable-list>`,
-        source: `defineComponent('example-orderable-list', {
-    data() {
-        return {
-            items: ['First Item', 'Second Item', 'Third Item', 'Fourth Item', 'Fifth Item']
-        };
-    },
+        source: `class ExampleOrderableList extends Component {
+    state = {
+        items: ['First Item', 'Second Item', 'Third Item', 'Fourth Item', 'Fifth Item']
+    };
     template() {
         return html\`
             <div style="max-width: 500px;">
@@ -583,7 +565,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-orderable-list', ExampleOrderableList);`
     },
 
     // PANEL COMPONENTS
@@ -593,25 +576,23 @@ export const componentExamples = {
         category: 'panel',
         description: 'Collapsible accordion panels',
         demo: `<example-accordion></example-accordion>`,
-        source: `defineComponent('example-accordion', {
-    data() {
-        return {
-            tabs: [
-                {
-                    header: 'What is Lorem Ipsum?',
-                    content: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.'
-                },
-                {
-                    header: 'Why do we use it?',
-                    content: 'It is a long established fact that a reader will be distracted by the readable content.'
-                },
-                {
-                    header: 'Where does it come from?',
-                    content: 'Contrary to popular belief, Lorem Ipsum is not simply random text.'
-                }
-            ]
-        };
-    },
+        source: `class ExampleAccordion extends Component {
+    state = {
+        tabs: [
+            {
+                header: 'What is Lorem Ipsum?',
+                content: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.'
+            },
+            {
+                header: 'Why do we use it?',
+                content: 'It is a long established fact that a reader will be distracted by the readable content.'
+            },
+            {
+                header: 'Where does it come from?',
+                content: 'Contrary to popular belief, Lorem Ipsum is not simply random text.'
+            }
+        ]
+    };
     template() {
         return html\`
             <div style="max-width: 700px;">
@@ -622,7 +603,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-accordion', ExampleAccordion);`
     },
 
     tabview: {
@@ -631,25 +613,23 @@ export const componentExamples = {
         category: 'panel',
         description: 'Tabbed interface component',
         demo: `<example-tabview></example-tabview>`,
-        source: `defineComponent('example-tabview', {
-    data() {
-        return {
-            tabs: [
-                {
-                    header: 'Profile',
-                    content: '<h3>User Profile</h3><p>Manage your account settings and preferences.</p>'
-                },
-                {
-                    header: 'Settings',
-                    content: '<h3>Settings</h3><p>Configure application settings.</p>'
-                },
-                {
-                    header: 'Help',
-                    content: '<h3>Help & Support</h3><p>Get help and support.</p>'
-                }
-            ]
-        };
-    },
+        source: `class ExampleTabview extends Component {
+    state = {
+        tabs: [
+            {
+                header: 'Profile',
+                content: '<h3>User Profile</h3><p>Manage your account settings and preferences.</p>'
+            },
+            {
+                header: 'Settings',
+                content: '<h3>Settings</h3><p>Configure application settings.</p>'
+            },
+            {
+                header: 'Help',
+                content: '<h3>Help & Support</h3><p>Get help and support.</p>'
+            }
+        ]
+    };
     template() {
         return html\`
             <div style="max-width: 700px;">
@@ -660,7 +640,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-tabview', ExampleTabview);`
     },
 
     card: {
@@ -669,7 +650,7 @@ export const componentExamples = {
         category: 'panel',
         description: 'Content card container',
         demo: `<example-card></example-card>`,
-        source: `defineComponent('example-card', {
+        source: `class ExampleCard extends Component {
     template() {
         return html\`
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
@@ -691,7 +672,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-card', ExampleCard);`
     },
 
     fieldset: {
@@ -714,7 +696,7 @@ export const componentExamples = {
         category: 'panel',
         description: 'Resizable split panel',
         demo: `<example-splitter></example-splitter>`,
-        source: `defineComponent('example-splitter', {
+        source: `class ExampleSplitter extends Component {
     template() {
         return html\`
             <div style="height: 400px;">
@@ -731,7 +713,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-splitter', ExampleSplitter);`
     },
 
     stepper: {
@@ -740,38 +723,34 @@ export const componentExamples = {
         category: 'panel',
         description: 'Multi-step wizard/form component with validation',
         demo: `<example-stepper></example-stepper>`,
-        source: `defineComponent('example-stepper', {
-    data() {
-        return {
-            steps: [
-                { label: 'Account', icon: '👤' },
-                { label: 'Profile', icon: '📝' },
-                { label: 'Confirm', icon: '✓' }
-            ],
-            currentStep: 0,
-            form: {
-                email: '',
-                password: '',
-                name: '',
-                bio: ''
-            }
-        };
-    },
-    methods: {
-        handleStepChange(e, detail) {
-            this.state.currentStep = detail.step;
-        },
-        handleValidate(e) {
-            const step = e.detail.step;
-            if (step === 0 && !this.state.form.email) {
-                alert('Please enter an email');
-                e.preventDefault();
-            }
-        },
-        handleComplete() {
-            alert('Form completed! ' + JSON.stringify(this.state.form));
+        source: `class ExampleStepper extends Component {
+    state = {
+        steps: [
+            { label: 'Account', icon: '👤' },
+            { label: 'Profile', icon: '📝' },
+            { label: 'Confirm', icon: '✓' }
+        ],
+        currentStep: 0,
+        form: {
+            email: '',
+            password: '',
+            name: '',
+            bio: ''
         }
-    },
+    };
+    handleStepChange(e, detail) {
+        this.state.currentStep = detail.step;
+    }
+    handleValidate(e) {
+        const step = e.detail.step;
+        if (step === 0 && !this.state.form.email) {
+            alert('Please enter an email');
+            e.preventDefault();
+        }
+    }
+    handleComplete() {
+        alert('Form completed! ' + JSON.stringify(this.state.form));
+    }
     template() {
         return html\`
             <cl-stepper
@@ -803,7 +782,8 @@ export const componentExamples = {
             </cl-stepper>
         \`;
     }
-});`
+}
+defineComponent('example-stepper', ExampleStepper);`
     },
 
     // OVERLAY COMPONENTS
@@ -813,20 +793,16 @@ export const componentExamples = {
         category: 'overlay',
         description: 'Modal dialog component with optional footer buttons',
         demo: `<example-dialog></example-dialog>`,
-        source: `defineComponent('example-dialog', {
-    data() {
-        return { basicVisible: false, confirmVisible: false, formVisible: false };
-    },
-    methods: {
-        handleConfirm() {
-            alert('Confirmed!');
-            this.state.confirmVisible = false;
-        },
-        handleFormSubmit() {
-            alert('Form submitted!');
-            this.state.formVisible = false;
-        }
-    },
+        source: `class ExampleDialog extends Component {
+    state = { basicVisible: false, confirmVisible: false, formVisible: false };
+    handleConfirm() {
+        alert('Confirmed!');
+        this.state.confirmVisible = false;
+    }
+    handleFormSubmit() {
+        alert('Form submitted!');
+        this.state.formVisible = false;
+    }
     template() {
         return html\`
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -868,7 +844,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-dialog', ExampleDialog);`
     },
 
     sidebar: {
@@ -877,16 +854,12 @@ export const componentExamples = {
         category: 'overlay',
         description: 'Slide-out sidebar panel',
         demo: `<example-sidebar></example-sidebar>`,
-        source: `defineComponent('example-sidebar', {
-    data() {
-        return { visible: false, position: 'left' };
-    },
-    methods: {
-        show(pos) {
-            this.state.position = pos;
-            this.state.visible = true;
-        }
-    },
+        source: `class ExampleSidebar extends Component {
+    state = { visible: false, position: 'left' };
+    show(pos) {
+        this.state.position = pos;
+        this.state.visible = true;
+    }
     template() {
         return html\`
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -906,7 +879,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-sidebar', ExampleSidebar);`
     },
 
     toast: {
@@ -915,19 +889,17 @@ export const componentExamples = {
         category: 'overlay',
         description: 'Toast notification component',
         demo: `<example-toast></example-toast>`,
-        source: `defineComponent('example-toast', {
-    methods: {
-        showToast(severity) {
-            const toast = this.querySelector('cl-toast');
-            const messages = {
-                success: { severity: 'success', summary: 'Success', detail: 'Operation completed successfully' },
-                info: { severity: 'info', summary: 'Info', detail: 'This is an informational message' },
-                warn: { severity: 'warn', summary: 'Warning', detail: 'Please proceed with caution' },
-                error: { severity: 'error', summary: 'Error', detail: 'Something went wrong' }
-            };
-            toast.show(messages[severity]);
-        }
-    },
+        source: `class ExampleToast extends Component {
+    showToast(severity) {
+        const toast = this.querySelector('cl-toast');
+        const messages = {
+            success: { severity: 'success', summary: 'Success', detail: 'Operation completed successfully' },
+            info: { severity: 'info', summary: 'Info', detail: 'This is an informational message' },
+            warn: { severity: 'warn', summary: 'Warning', detail: 'Please proceed with caution' },
+            error: { severity: 'error', summary: 'Error', detail: 'Something went wrong' }
+        };
+        toast.show(messages[severity]);
+    }
     template() {
         return html\`
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -940,7 +912,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-toast', ExampleToast);`
     },
 
     tooltip: {
@@ -949,7 +922,7 @@ export const componentExamples = {
         category: 'overlay',
         description: 'Tooltip component',
         demo: `<example-tooltip></example-tooltip>`,
-        source: `defineComponent('example-tooltip', {
+        source: `class ExampleTooltip extends Component {
     template() {
         return html\`
             <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: center;">
@@ -971,7 +944,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-tooltip', ExampleTooltip);`
     },
 
     'action-menu': {
@@ -1041,16 +1015,12 @@ export const componentExamples = {
         category: 'button',
         description: 'Styled button component',
         demo: `<example-button></example-button>`,
-        source: `defineComponent('example-button', {
-    data() {
-        return { loading: false };
-    },
-    methods: {
-        handleLoad() {
-            this.state.loading = true;
-            setTimeout(() => this.state.loading = false, 2000);
-        }
-    },
+        source: `class ExampleButton extends Component {
+    state = { loading: false };
+    handleLoad() {
+        this.state.loading = true;
+        setTimeout(() => this.state.loading = false, 2000);
+    }
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 20px;">
@@ -1081,7 +1051,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-button', ExampleButton);`
     },
 
     splitButton: {
@@ -1090,16 +1061,14 @@ export const componentExamples = {
         category: 'button',
         description: 'Button with dropdown menu',
         demo: `<example-split-button></example-split-button>`,
-        source: `defineComponent('example-split-button', {
-    data() {
-        return {
-            items: [
-                { label: 'Update', command: () => console.log('Update') },
-                { label: 'Delete', command: () => console.log('Delete') },
-                { label: 'Archive', command: () => console.log('Archive') }
-            ]
-        };
-    },
+        source: `class ExampleSplitButton extends Component {
+    state = {
+        items: [
+            { label: 'Update', command: () => console.log('Update') },
+            { label: 'Delete', command: () => console.log('Delete') },
+            { label: 'Archive', command: () => console.log('Archive') }
+        ]
+    };
     template() {
         return html\`
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -1117,7 +1086,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-split-button', ExampleSplitButton);`
     },
 
     menu: {
@@ -1126,32 +1096,30 @@ export const componentExamples = {
         category: 'button',
         description: 'Menu component',
         demo: `<example-menu></example-menu>`,
-        source: `defineComponent('example-menu', {
-    data() {
-        return {
-            items: [
-                {
-                    label: 'File',
-                    icon: '📁',
-                    items: [
-                        { label: 'New', icon: '➕' },
-                        { label: 'Open', icon: '📂' },
-                        { label: 'Save', icon: '💾' }
-                    ]
-                },
-                {
-                    label: 'Edit',
-                    icon: '✏️',
-                    items: [
-                        { label: 'Cut', icon: '✂️' },
-                        { label: 'Copy', icon: '📋' },
-                        { label: 'Paste', icon: '📄' }
-                    ]
-                },
-                { label: 'Help', icon: '❓' }
-            ]
-        };
-    },
+        source: `class ExampleMenu extends Component {
+    state = {
+        items: [
+            {
+                label: 'File',
+                icon: '📁',
+                items: [
+                    { label: 'New', icon: '➕' },
+                    { label: 'Open', icon: '📂' },
+                    { label: 'Save', icon: '💾' }
+                ]
+            },
+            {
+                label: 'Edit',
+                icon: '✏️',
+                items: [
+                    { label: 'Cut', icon: '✂️' },
+                    { label: 'Copy', icon: '📋' },
+                    { label: 'Paste', icon: '📄' }
+                ]
+            },
+            { label: 'Help', icon: '❓' }
+        ]
+    };
     template() {
         return html\`
             <div style="max-width: 400px;">
@@ -1159,7 +1127,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-menu', ExampleMenu);`
     },
 
     breadcrumb: {
@@ -1168,17 +1137,15 @@ export const componentExamples = {
         category: 'button',
         description: 'Breadcrumb navigation',
         demo: `<example-breadcrumb></example-breadcrumb>`,
-        source: `defineComponent('example-breadcrumb', {
-    data() {
-        return {
-            items: [
-                { label: 'Electronics', url: '#' },
-                { label: 'Computers', url: '#' },
-                { label: 'Laptops', url: '#' }
-            ],
-            home: { icon: '🏠', url: '#' }
-        };
-    },
+        source: `class ExampleBreadcrumb extends Component {
+    state = {
+        items: [
+            { label: 'Electronics', url: '#' },
+            { label: 'Computers', url: '#' },
+            { label: 'Laptops', url: '#' }
+        ],
+        home: { icon: '🏠', url: '#' }
+    };
     template() {
         return html\`
             <div>
@@ -1189,7 +1156,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-breadcrumb', ExampleBreadcrumb);`
     },
 
     // MISC COMPONENTS
@@ -1199,10 +1167,8 @@ export const componentExamples = {
         category: 'misc',
         description: 'Progress indicator',
         demo: `<example-progressbar></example-progressbar>`,
-        source: `defineComponent('example-progressbar', {
-    data() {
-        return { value: 60 };
-    },
+        source: `class ExampleProgressbar extends Component {
+    state = { value: 60 };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 600px;">
@@ -1212,7 +1178,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-progressbar', ExampleProgressbar);`
     },
 
     fileupload: {
@@ -1243,17 +1210,15 @@ export const componentExamples = {
         category: 'misc',
         description: 'Drag & drop, paste, or click-to-browse file capture target with accept/size validation',
         demo: `<example-dropzone></example-dropzone>`,
-        source: `defineComponent('my-uploader', {
-    methods: {
-        onSelect(e) {
-            // e.detail.files is a File[] that passed accept + maxfilesize
-            console.log('accepted', e.detail.files);
-        },
-        onReject(e) {
-            // e.detail.files is [{ file, reason: 'size' | 'type' }]
-            console.log('rejected', e.detail.files);
-        }
-    },
+        source: `class MyUploader extends Component {
+    onSelect(e) {
+        // e.detail.files is a File[] that passed accept + maxfilesize
+        console.log('accepted', e.detail.files);
+    }
+    onReject(e) {
+        // e.detail.files is [{ file, reason: 'size' | 'type' }]
+        console.log('rejected', e.detail.files);
+    }
     template() {
         return html\`
             <cl-dropzone
@@ -1273,7 +1238,8 @@ export const componentExamples = {
             </cl-dropzone>
         \`;
     }
-});`
+}
+defineComponent('my-uploader', MyUploader);`
     },
 
     divider: {
@@ -1479,10 +1445,8 @@ export const componentExamples = {
         category: 'misc',
         description: 'Color picker component',
         demo: `<example-colorpicker></example-colorpicker>`,
-        source: `defineComponent('my-component', {
-    data() {
-        return { color: '#3498db', inlineColor: '#e74c3c' };
-    },
+        source: `class MyComponent extends Component {
+    state = { color: '#3498db', inlineColor: '#e74c3c' };
     template() {
         return html\`
             <cl-colorpicker
@@ -1501,7 +1465,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('my-component', MyComponent);`
     },
 
     spinner: {
@@ -1540,31 +1505,29 @@ export const componentExamples = {
         category: 'layout',
         description: 'Responsive application shell with top bar, sidebar, and hamburger menu',
         demo: `<example-shell></example-shell>`,
-        source: `defineComponent('my-app', {
-    data() {
-        return {
-            activeItem: 'dashboard',
-            menuItems: [
-                {
-                    label: 'Main',
-                    icon: '🏠',
-                    items: [
-                        { label: 'Dashboard', key: 'dashboard' },
-                        { label: 'Analytics', key: 'analytics' }
-                    ]
-                },
-                {
-                    label: 'Settings',
-                    icon: '⚙️',
-                    items: [
-                        { label: 'Profile', key: 'profile' },
-                        { label: 'Preferences', key: 'preferences' }
-                    ]
-                },
-                { label: 'Help', icon: '❓', key: 'help' }
-            ]
-        };
-    },
+        source: `class MyApp extends Component {
+    state = {
+        activeItem: 'dashboard',
+        menuItems: [
+            {
+                label: 'Main',
+                icon: '🏠',
+                items: [
+                    { label: 'Dashboard', key: 'dashboard' },
+                    { label: 'Analytics', key: 'analytics' }
+                ]
+            },
+            {
+                label: 'Settings',
+                icon: '⚙️',
+                items: [
+                    { label: 'Profile', key: 'profile' },
+                    { label: 'Preferences', key: 'preferences' }
+                ]
+            },
+            { label: 'Help', icon: '❓', key: 'help' }
+        ]
+    };
     template() {
         return html\`
             <cl-shell
@@ -1583,7 +1546,8 @@ export const componentExamples = {
             </cl-shell>
         \`;
     }
-});`
+}
+defineComponent('my-app', MyApp);`
     },
 
     // FORM EXAMPLE (Complete Form)
@@ -1593,52 +1557,48 @@ export const componentExamples = {
         category: 'form',
         description: 'Full form example with multiple component types, labels, and submit button',
         demo: `<example-complete-form></example-complete-form>`,
-        source: `defineComponent('example-complete-form', {
-    data() {
-        return {
-            form: {
-                firstName: '',
-                lastName: '',
-                email: '',
-                phone: '',
-                birthDate: '',
-                gender: 'other',
-                country: null,
-                interests: [],
-                bio: '',
-                newsletter: false,
-                notifications: true,
-                experience: 3
-            },
-            countries: [
-                { label: 'United States', value: 'us' },
-                { label: 'United Kingdom', value: 'uk' },
-                { label: 'Canada', value: 'ca' },
-                { label: 'Australia', value: 'au' },
-                { label: 'Germany', value: 'de' }
-            ],
-            interestOptions: [
-                { label: 'Technology', value: 'tech' },
-                { label: 'Design', value: 'design' },
-                { label: 'Business', value: 'business' },
-                { label: 'Science', value: 'science' }
-            ]
-        };
-    },
-    methods: {
-        handleSubmit() {
-            console.log('Form submitted:', this.state.form);
-            alert('Form submitted! Check console for data.');
+        source: `class ExampleCompleteForm extends Component {
+    state = {
+        form: {
+            firstName: '',
+            lastName: '',
+            email: '',
+            phone: '',
+            birthDate: '',
+            gender: 'other',
+            country: null,
+            interests: [],
+            bio: '',
+            newsletter: false,
+            notifications: true,
+            experience: 3
         },
-        handleReset() {
-            this.state.form = {
-                firstName: '', lastName: '', email: '', phone: '',
-                birthDate: '', gender: 'other', country: null,
-                interests: [], bio: '', newsletter: false,
-                notifications: true, experience: 3
-            };
-        }
-    },
+        countries: [
+            { label: 'United States', value: 'us' },
+            { label: 'United Kingdom', value: 'uk' },
+            { label: 'Canada', value: 'ca' },
+            { label: 'Australia', value: 'au' },
+            { label: 'Germany', value: 'de' }
+        ],
+        interestOptions: [
+            { label: 'Technology', value: 'tech' },
+            { label: 'Design', value: 'design' },
+            { label: 'Business', value: 'business' },
+            { label: 'Science', value: 'science' }
+        ]
+    };
+    handleSubmit() {
+        console.log('Form submitted:', this.state.form);
+        alert('Form submitted! Check console for data.');
+    }
+    handleReset() {
+        this.state.form = {
+            firstName: '', lastName: '', email: '', phone: '',
+            birthDate: '', gender: 'other', country: null,
+            interests: [], bio: '', newsletter: false,
+            notifications: true, experience: 3
+        };
+    }
     template() {
         return html\`
             <cl-card header="User Registration">
@@ -1707,7 +1667,8 @@ export const componentExamples = {
             </style>
         \`;
     }
-});`
+}
+defineComponent('example-complete-form', ExampleCompleteForm);`
     },
 
     // NEW COMPONENTS
@@ -1718,15 +1679,13 @@ export const componentExamples = {
         category: 'form',
         description: 'Masked input for phone, SSN, and formatted data',
         demo: `<example-input-mask></example-input-mask>`,
-        source: `defineComponent('example-input-mask', {
-    data() {
-        return {
-            phone: '',
-            ssn: '',
-            creditCard: '',
-            date: ''
-        };
-    },
+        source: `class ExampleInputMask extends Component {
+    state = {
+        phone: '',
+        ssn: '',
+        creditCard: '',
+        date: ''
+    };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
@@ -1768,7 +1727,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-input-mask', ExampleInputMask);`
     },
 
     inputPassword: {
@@ -1777,13 +1737,11 @@ export const componentExamples = {
         category: 'form',
         description: 'Password input with visibility toggle and strength meter',
         demo: `<example-input-password></example-input-password>`,
-        source: `defineComponent('example-input-password', {
-    data() {
-        return {
-            password: '',
-            confirmPassword: ''
-        };
-    },
+        source: `class ExampleInputPassword extends Component {
+    state = {
+        password: '',
+        confirmPassword: ''
+    };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px;">
@@ -1809,7 +1767,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-input-password', ExampleInputPassword);`
     },
 
     toggle: {
@@ -1818,21 +1777,19 @@ export const componentExamples = {
         category: 'form',
         description: 'Modern toggle/switch component',
         demo: `<example-toggle></example-toggle>`,
-        source: `defineComponent('example-toggle', {
-    data() {
-        return {
-            notifications: true,
-            darkMode: false,
-            autoSave: true,
-            // Size demos
-            sizeSmall: true,
-            sizeMedium: true,
-            sizeLarge: true,
-            // With labels demos
-            onOff: true,
-            leftLabel: false
-        };
-    },
+        source: `class ExampleToggle extends Component {
+    state = {
+        notifications: true,
+        darkMode: false,
+        autoSave: true,
+        // Size demos
+        sizeSmall: true,
+        sizeMedium: true,
+        sizeLarge: true,
+        // With labels demos
+        onOff: true,
+        leftLabel: false
+    };
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 24px;">
@@ -1889,7 +1846,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-toggle', ExampleToggle);`
     },
 
     inputSearch: {
@@ -1898,21 +1856,17 @@ export const componentExamples = {
         category: 'form',
         description: 'Search input with clear button and suggestions',
         demo: `<example-input-search></example-input-search>`,
-        source: `defineComponent('example-input-search', {
-    data() {
-        return {
-            query: '',
-            suggestions: ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry', 'Fig', 'Grape', 'Honeydew']
-        };
-    },
-    methods: {
-        handleSearch(e) {
-            console.log('Search:', e.detail.value);
-        },
-        handleSelect(e) {
-            console.log('Selected:', e.detail.suggestion);
-        }
-    },
+        source: `class ExampleInputSearch extends Component {
+    state = {
+        query: '',
+        suggestions: ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry', 'Fig', 'Grape', 'Honeydew']
+    };
+    handleSearch(e) {
+        console.log('Search:', e.detail.value);
+    }
+    handleSelect(e) {
+        console.log('Selected:', e.detail.suggestion);
+    }
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 500px;">
@@ -1942,7 +1896,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-input-search', ExampleInputSearch);`
     },
 
     virtualList: {
@@ -1951,14 +1906,12 @@ export const componentExamples = {
         category: 'data',
         description: 'Efficiently render large lists with virtualization. Supports self-scrolling, parent scrolling, or window scrolling.',
         demo: `<example-virtual-list></example-virtual-list>`,
-        source: `defineComponent('example-virtual-list', {
-    data() {
-        return {
-            items: untracked([]),  // Don't track 10000 items!
-            selectedItem: null,
-            scrollMode: 'self'  // 'self' | 'parent' | 'window'
-        };
-    },
+        source: `class ExampleVirtualList extends Component {
+    state = {
+        items: untracked([]),  // Don't track 10000 items!
+        selectedItem: null,
+        scrollMode: 'self'  // 'self' | 'parent' | 'window'
+    };
     mounted() {
         // Generate 10000 items
         this.state.items = Array.from({ length: 10000 }, (_, i) => ({
@@ -1966,19 +1919,17 @@ export const componentExamples = {
             title: \`Item \${i + 1}\`,
             subtitle: \`Description for item \${i + 1}\`
         }));
-    },
-    methods: {
-        handleSelect(e) {
-            this.state.selectedItem = e.detail.item;
-        },
-        setScrollMode(mode) {
-            this.state.scrollMode = mode;
-        },
-        // Custom key function for memoization
-        getItemKey(item) {
-            return item.id;
-        }
-    },
+    }
+    handleSelect(e) {
+        this.state.selectedItem = e.detail.item;
+    }
+    setScrollMode(mode) {
+        this.state.scrollMode = mode;
+    }
+    // Custom key function for memoization
+    getItemKey(item) {
+        return item.id;
+    }
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 16px;">
@@ -2037,7 +1988,8 @@ export const componentExamples = {
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-virtual-list', ExampleVirtualList);`
     },
 
     reorderPlayground: {
@@ -2085,7 +2037,7 @@ memoEach(items.slice(win.visibleStart, win.visibleEnd),
         category: 'misc',
         description: 'Badge/pill for labels, counts, and status indicators',
         demo: `<example-badge></example-badge>`,
-        source: `defineComponent('example-badge', {
+        source: `class ExampleBadge extends Component {
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 24px;">
@@ -2149,7 +2101,8 @@ memoEach(items.slice(win.visibleStart, win.visibleEnd),
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-badge', ExampleBadge);`
     },
 
     alert: {
@@ -2158,7 +2111,7 @@ memoEach(items.slice(win.visibleStart, win.visibleEnd),
         category: 'misc',
         description: 'Alert/banner for messages and notifications',
         demo: `<example-alert></example-alert>`,
-        source: `defineComponent('example-alert', {
+        source: `class ExampleAlert extends Component {
     template() {
         return html\`
             <div style="display: flex; flex-direction: column; gap: 16px; max-width: 600px;">
@@ -2202,7 +2155,8 @@ memoEach(items.slice(win.visibleStart, win.visibleEnd),
             </div>
         \`;
     }
-});`
+}
+defineComponent('example-alert', ExampleAlert);`
     },
 
     errorBoundary: {
@@ -2214,10 +2168,8 @@ memoEach(items.slice(win.visibleStart, win.visibleEnd),
         source: `// cl-error-boundary provides pre-styled error display
 // Use it in your renderError() handlers for consistent error UI
 
-defineComponent('my-component', {
-    data() {
-        return { data: null };
-    },
+class MyComponent extends Component {
+    state = { data: null };
 
     template() {
         // If this throws, renderError() will be called instead
@@ -2227,7 +2179,7 @@ defineComponent('my-component', {
                 <p>\${this.state.data.content}</p>
             </div>
         \`;
-    },
+    }
 
     // Use cl-error-boundary for pre-styled error display
     renderError(error) {
@@ -2239,14 +2191,13 @@ defineComponent('my-component', {
                 onRetry="\${() => this.loadData()}">
             </cl-error-boundary>
         \`;
-    },
-
-    methods: {
-        loadData() {
-            this.state.data = { title: 'Loaded', content: 'Content loaded successfully' };
-        }
     }
-});
+
+    loadData() {
+        this.state.data = { title: 'Loaded', content: 'Content loaded successfully' };
+    }
+}
+defineComponent('my-component', MyComponent);
 
 // Props:
 // - error: Error object or message string
