@@ -4,7 +4,7 @@
 
 const puppeteer = require('puppeteer');
 
-const BASE_URL = process.env.TEST_URL || 'http://localhost:9000/componentlib/';
+const BASE_URL = process.env.TEST_URL || ((process.env.E2E_ORIGIN || 'http://localhost:9000') + '/componentlib/');
 const VIEWPORT = { width: 1400, height: 900 };
 
 class TestHelper {
