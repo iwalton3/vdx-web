@@ -77,9 +77,15 @@ export default defineComponent('todo-list', TodoList);   // import the class to 
 - **Props go in `static props`, never class fields** - a prop-named field would shadow the
   generated accessor; the framework deletes it at mount and warns (`optimize.js --lint-only`
   also flags it). Same for fields named `children`, `slots`, or `style`.
-- **Getters must be pure derivations** of `state`/`stores`/`props`. A getter that tracks no
-  reactive dependency (and never reads props) is detected at mount and re-evaluated on every
-  read instead of cached - nothing could ever invalidate it.
+- **Getters must read ONLY `state`/`stores`/`props`** - never refs, DOM measurements, or
+  non-reactive instance fields. A getter mixing a reactive dep with a non-reactive read caches
+  on the reactive dep and silently goes stale on the rest. A getter with NO reactive dep at
+  all (and no props read) is detected at mount and re-evaluated per read instead of cached.
+- **Migrating `data()` to a constructor changes timing**: `data()` saw prop *defaults* (values
+  arrive later); the constructor sees *real* prop values. `data(){ return {v: this.props.value} }`
+  moved to `constructor(props){ ...this.state = {v: props.value}; }` now seeds real data on
+  first render - usually an improvement, but audit any `propsChanged`/`mounted` logic that
+  assumed the initial state held defaults.
 - **Inheritance works**: `class Fancy extends TodoList` - `static props`/`stores`/`styles`
   merge parent-first, `super.method()` works, getters can be overridden. Registering only the
   subclass is fine.

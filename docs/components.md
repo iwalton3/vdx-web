@@ -165,9 +165,25 @@ export default defineComponent('user-card', UserCard);
   not re-run it, and `mounted()`/`unmounted()` may fire multiple times around it.
 - **Don't write to `el.state` before the element is connected** - class components create their
   state at first connect; pre-connect writes are discarded. Pass props instead.
-- **Getters must be pure derivations** of `state`/`stores`/`props` - they're cached and only
-  invalidated by reactive changes. Dependency-free getters are detected at mount and re-run on
-  every read instead (correct, but uncached).
+- **Getters must read only `state`/`stores`/`props`** - they're cached and only invalidated by
+  reactive changes. Never read refs, DOM measurements, or non-reactive instance fields in a
+  getter: mixed reads cache on the reactive part and silently go stale on the rest (use a
+  method instead). Getters with no reactive dependency at all are detected at mount and re-run
+  on every read (correct, but uncached).
+- **Migrating from `data()`? The timing differs.** `data()` ran at element construction and saw
+  prop *defaults*; the class constructor runs at first connect and sees *real* prop values:
+
+  ```javascript
+  // Options: v is 'default' on first render, real value arrives via propsChanged
+  data() { return { v: this.props.value }; }
+
+  // Class: v is the real attribute/property value on first render
+  constructor(props) { super(props); this.state = { v: props.value }; }
+  ```
+
+  This is usually the behavior you wanted all along, but when converting a component that
+  *also* re-derives in `propsChanged()` or `mounted()`, check that seeding real data earlier
+  doesn't double-apply or skip an initialization path.
 - **`el instanceof MyComponent` is false** - the registered element class is a framework
   internal. Don't rely on component class identity at runtime.
 - Store access, refs, `emitChange`, `propsChanged`, `renderError`, and every other instance
