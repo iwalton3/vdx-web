@@ -213,7 +213,16 @@ For development without a build step:
 ```javascript
 import { opt } from './lib/opt.js';
 
+// Legacy options format:
 template: eval(opt(() => html`<div>${this.state.count}</div>`))
+
+// Class components: assign to the PROTOTYPE after the class declaration.
+// A `template = eval(opt(...))` class FIELD will silently not render:
+// the framework harvests template() from the prototype at registration
+// time, and instance fields don't exist until construction.
+MyComponent.prototype.template = eval(opt(function() {
+    return html`<div>${this.state.count}</div>`;
+}));
 ```
 
 **Requires:** `'unsafe-eval'` in Content-Security-Policy
