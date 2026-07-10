@@ -72,7 +72,6 @@ export class ClInplace extends Component {
             return html`
                 <span class="cl-inplace editing">
                     <input
-                        ref="input"
                         class="inplace-input"
                         type="${this.props.type}"
                         value="${this.state.draft}"
