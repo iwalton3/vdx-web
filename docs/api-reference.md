@@ -110,6 +110,46 @@ export default defineComponent('my-component', {
 });
 ```
 
+### defineComponent(name, componentClass)
+
+`defineComponent` also accepts a class extending `Component` (see below). The class is
+translated into the options format at registration; runtime semantics are identical.
+
+```javascript
+import { defineComponent, Component, html } from './lib/framework.js';
+
+export class MyCounter extends Component {
+    static props = { title: 'Counter' };
+    state = { count: 0 };
+    increment() { this.state.count++; }
+    template() { return html`<button on-click="increment">${this.state.count}</button>`; }
+}
+export default defineComponent('my-counter', MyCounter);
+```
+
+Registration is idempotent for the same class/options; a *different* definition under an
+already-registered name logs a warning and keeps the first definition (the registered class is
+returned either way).
+
+### Component
+
+Base class for class-authored components. Mapping to the options format:
+
+| Class member | Equivalent option |
+|--------------|-------------------|
+| `static props = {...}` | `props` (merged parent-first across inheritance) |
+| `static stores = {...}` | `stores` (merged) |
+| `static styles = '...'` | `styles` (concatenated) |
+| `constructor(props)` | `data()` - but runs at **first connect** with real prop values |
+| `get x() {...}` | `computed: { x() {...} }` |
+| class methods | `methods` (auto-bound) |
+| `template/mounted/unmounted/afterRender/propsChanged/renderError` | same-named options |
+
+Constraints: never declare props as class fields (shadowing - removed at mount with a warning);
+getters must be pure derivations (dependency-free getters fall back to per-read evaluation);
+the constructor runs once per element (not re-run on reconnect); `el instanceof MyClass` is
+false (the element class is a framework internal); direct `new MyClass()` throws.
+
 ### Component Instance Properties
 
 #### this.props

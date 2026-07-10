@@ -5,6 +5,7 @@ Complete guide to building components with the framework.
 ## Table of Contents
 
 - [Basic Component Pattern](#basic-component-pattern)
+- [Class Components](#class-components)
 - [Props System](#props-system)
 - [Passing Props to Child Components](#passing-props-to-child-components)
 - [Children Props (React-style Composition)](#children-props-react-style-composition)
@@ -89,6 +90,88 @@ export default defineComponent('my-component', {
     `
 });
 ```
+
+## Class Components
+
+`defineComponent` also accepts an ES class extending `Component`. This is an **authoring
+format**, not a different runtime: the class is translated into the options format at
+registration, and `this` in your methods, template, and lifecycle hooks is the custom element
+itself - all DOM APIs (`this.dispatchEvent`, `this.querySelector`, ...) are real. The payoff is
+IDE support: `this.state.` and method names autocomplete, and TypeScript/JSDoc checking works
+without annotations (see [typescript.md](typescript.md)).
+
+```javascript
+import { defineComponent, Component, html } from '../lib/framework.js';
+
+export class UserCard extends Component {
+    static props = { name: 'Anonymous', role: 'guest' };
+    static stores = { auth: authStore };
+    static styles = /*css*/`.card { padding: 12px; }`;
+
+    // Runs at FIRST CONNECT, after attributes are parsed - props has real values
+    constructor(props) {
+        super(props);
+        this.state = {
+            expanded: false,
+            displayName: props.name.trim() || 'Anonymous'
+        };
+    }
+
+    // Getters become computed properties (lazy, cached, disposed on unmount)
+    get initials() {
+        return this.state.displayName.split(' ').map(w => w[0]).join('');
+    }
+
+    // Methods are auto-bound - safe to pass as ${this.toggle}
+    toggle() {
+        this.state.expanded = !this.state.expanded;
+    }
+
+    template() {
+        return html`
+            <div class="card" on-click="toggle">
+                <span>${this.initials}</span>
+                ${when(this.state.expanded, () => html`<p>${this.props.role}</p>`)}
+            </div>
+        `;
+    }
+
+    mounted() { /* DOM ready */ }
+    unmounted() { /* cleanup */ }
+}
+
+// Default export registers; the named export lets consumers inherit
+// or register under their own tag name to avoid collisions
+export default defineComponent('user-card', UserCard);
+```
+
+### Differences from the options format
+
+| Concern | Options format | Class format |
+|---------|---------------|--------------|
+| State init | `data()` at element construction (prop *values* not yet set) | `constructor(props)` / field initializers at **first connect** - props are real |
+| Computed | `computed: { total() {...} }` | plain `get total() {...}` |
+| Methods | `methods: { ... }` | class methods (auto-bound) |
+| Props | `props: { ... }` | `static props = { ... }` |
+| Reuse | spread options objects | `class Sub extends Base` - statics merge, `super.*` works |
+
+### Class component rules
+
+- **Never declare a prop as a class field.** Props get generated accessors; a same-named field
+  shadows them. The framework deletes the field at mount and warns, and
+  `node optimize.js --lint-only` flags it statically. Ditto fields named `children`, `slots`,
+  or `style`.
+- **The constructor runs once per element** - reconnection (moving the element in the DOM) does
+  not re-run it, and `mounted()`/`unmounted()` may fire multiple times around it.
+- **Don't write to `el.state` before the element is connected** - class components create their
+  state at first connect; pre-connect writes are discarded. Pass props instead.
+- **Getters must be pure derivations** of `state`/`stores`/`props` - they're cached and only
+  invalidated by reactive changes. Dependency-free getters are detected at mount and re-run on
+  every read instead (correct, but uncached).
+- **`el instanceof MyComponent` is false** - the registered element class is a framework
+  internal. Don't rely on component class identity at runtime.
+- Store access, refs, `emitChange`, `propsChanged`, `renderError`, and every other instance
+  feature documented on this page work identically in both formats.
 
 ## Props System
 

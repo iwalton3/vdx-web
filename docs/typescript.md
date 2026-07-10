@@ -129,6 +129,65 @@ app/lib/
 
 ## Typing Components
 
+### Class Components (best IDE experience)
+
+The class authoring format gives the strongest typing with the least annotation. The declared
+`Component` base extends `HTMLElement` - which is accurate, since at runtime `this` *is* the
+custom element - so DOM APIs on `this` type-check, and members that clash with HTMLElement's
+own properties (e.g. a field `title = 5`) surface as type errors.
+
+**Field-style state needs zero annotations** - the field declaration shadows the base's
+generic and TypeScript infers everything:
+
+```typescript
+import { defineComponent, Component, html } from './lib/framework.js';
+
+class TaskList extends Component {
+    static props = { title: 'Tasks' };
+
+    state = { items: [] as Task[], filter: '' };
+
+    get remaining(): number {
+        return this.state.items.filter(t => !t.done).length;  // ✅ fully typed
+    }
+
+    addTask(name: string) {
+        this.state.items.push({ name, done: false });
+        this.dispatchEvent(new CustomEvent('task-added'));     // ✅ DOM APIs real + typed
+    }
+
+    template() {
+        return html`<div>${this.remaining} left</div>`;
+    }
+}
+export default defineComponent('task-list', TaskList);
+```
+
+**Constructor-style state** uses the generics `Component<Props, State, Stores>` (same order as
+`ComponentOptions`):
+
+```typescript
+interface TaskProps { title: string; }
+interface TaskState { items: Task[]; filter: string; }
+
+class TaskList extends Component<TaskProps, TaskState> {
+    static props = { title: 'Tasks' };
+
+    constructor(props: TaskProps) {
+        super(props);
+        // Runs at first connect - props has real values
+        this.state = { items: [], filter: props.title };
+    }
+
+    template() {
+        return html`<div>${this.props.title}</div>`;  // ✅ props typed
+    }
+}
+```
+
+The compiler enforces the class contract for free: a concrete subclass without `template()` is
+an error (`template` is abstract), and JS files with `// @ts-check` get the same inference.
+
 ### Basic Component
 
 ```typescript

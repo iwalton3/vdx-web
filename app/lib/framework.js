@@ -51,6 +51,14 @@
 export { defineComponent, flushRenders, flushSync } from './core/component.js';
 
 /**
+ * Base class for class-authored components. Extend it, then register with
+ * defineComponent('tag-name', MyClass). At runtime `this` is the custom
+ * element itself; see core/component-class.js for the authoring contract
+ * (static props/stores/styles, getters as computed, constructor as data()).
+ */
+export { Component } from './core/component-class.js';
+
+/**
  * Create a reactive proxy that tracks dependencies and triggers effects on change
  *
  * @template T

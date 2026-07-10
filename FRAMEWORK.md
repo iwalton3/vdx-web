@@ -34,6 +34,64 @@ export default defineComponent('my-component', {
 });
 ```
 
+## Class Components
+
+Alternative authoring format with full IDE autocomplete for `this.state`/methods. Same runtime
+semantics: `this` **is the custom element** (all DOM APIs work), the class is translated into
+the options format at registration.
+
+```javascript
+import { defineComponent, Component, html } from 'vdx/lib/framework.js';
+
+export class TodoList extends Component {
+    static props = { title: 'Todos' };      // Observed attributes - NEVER declare props as class fields
+    static stores = { cart: cartStore };    // access via this.stores.cart
+    static styles = /*css*/`button { color: white; }`;
+
+    constructor(props) {                    // Runs at FIRST CONNECT: props has real values
+        super(props);
+        this.state = { items: [], filter: props.title };  // wrapped reactive after constructor
+    }
+
+    get remaining() {                       // Getters become computed: lazy, cached, auto-disposed
+        return this.state.items.filter(i => !i.done).length;
+    }
+
+    addItem(name) {                         // Methods auto-bound to the element
+        this.state.items.push({ name, done: false });
+    }
+
+    template() { return html`<h1>${this.props.title}: ${this.remaining}</h1>`; }
+    mounted() { /* DOM ready */ }
+    unmounted() { /* cleanup */ }
+}
+
+export default defineComponent('todo-list', TodoList);   // import the class to inherit or re-namespace
+```
+
+**Rules and contracts:**
+- **Constructor timing**: runs once per element at first connect (after attributes/children are
+  captured), so `constructor(props)` can copy real prop values into state - React-style. It is
+  NOT re-run on disconnect/reconnect (e.g. drag-reorder moves). Field-style
+  `state = { n: this.props.start }` also works and sees real props.
+- **Props go in `static props`, never class fields** - a prop-named field would shadow the
+  generated accessor; the framework deletes it at mount and warns (`optimize.js --lint-only`
+  also flags it). Same for fields named `children`, `slots`, or `style`.
+- **Getters must be pure derivations** of `state`/`stores`/`props`. A getter that tracks no
+  reactive dependency (and never reads props) is detected at mount and re-evaluated on every
+  read instead of cached - nothing could ever invalidate it.
+- **Inheritance works**: `class Fancy extends TodoList` - `static props`/`stores`/`styles`
+  merge parent-first, `super.method()` works, getters can be overridden. Registering only the
+  subclass is fine.
+- **Tag collisions**: re-registering the same class/options is silent and idempotent; a
+  *different* definition under an existing name warns and keeps the first. Export the class so
+  consumers can `defineComponent('their-prefix-todo', TodoList)` under their own name.
+- **Not real instances**: `el instanceof TodoList` is false (the element class is a framework
+  internal - do not rely on component class identity). Private `#fields` work after mount, but
+  a bound method touching them throws if called pre-mount.
+- `data()` has no special meaning on classes (kept as a plain method, with a warning) - state
+  initialization belongs in the constructor or a field.
+
 ## Event Binding
 
 **Always use `on-*` attributes:**

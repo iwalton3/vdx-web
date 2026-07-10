@@ -3,7 +3,8 @@
  * Web Components-based system with fine-grained reactive rendering
  */
 
-import { reactive, createEffect, trackMutations, flushEffects, runAsEffect, computed, withoutTracking } from './reactivity.js';
+import { reactive, createEffect, trackMutations, flushEffects, runAsEffect, computed, withoutTracking, isReactive } from './reactivity.js';
+import { classToOptions, constructInstance } from './component-class.js';
 import { compileTemplate } from './template-compiler.js';
 import { setRenderContext } from './template.js';
 import { instantiateTemplate, createDeferredChild, VALUE_GETTER, flushDOMUpdates } from './template-renderer.js';
@@ -338,6 +339,17 @@ function scopeSelector(selector, tagName) {
  * Define a custom component
  */
 export function defineComponent(name, options) {
+    // Identity of this definition (the user's class or options object) -
+    // used to keep re-registration of the same definition silent
+    const source = options;
+
+    // Class-authored components: translate the class into the options format
+    // (see component-class.js). The class is an authoring surface - at
+    // runtime `this` is the custom element, exactly as with options.
+    if (typeof options === 'function') {
+        options = classToOptions(options);
+    }
+
     // Security: Reserved property names that should not be overwritten
     const reservedNames = new Set([
         'constructor', '__proto__', 'prototype', 'toString',
@@ -535,6 +547,44 @@ export function defineComponent(name, options) {
             // directly references store.state. Templates access this.stores.name.property
             // which tracks the store's reactive state directly (fine-grained reactivity).
 
+            // Class-authored components: run the user constructor now - after
+            // attributes are parsed and children captured, so constructor(props)
+            // sees real values (deferred timing is part of the class API
+            // contract, unlike data() which runs at element construction).
+            // Runs once per element; reconnection does not re-run it.
+            if (options._class && !this._classConstructed) {
+                this._classConstructed = true;
+
+                // Snapshot own properties so class fields (which appear during
+                // construction) can be told apart from pre-existing properties
+                const ownBefore = new Set(Object.getOwnPropertyNames(this));
+                constructInstance(this, options._class);
+
+                // Class fields land as own properties via [[DefineOwnProperty]],
+                // which would shadow the prototype prop accessors (and the
+                // native style/children APIs). Remove them - prop defaults
+                // belong in `static props`.
+                for (const key of Object.getOwnPropertyNames(this)) {
+                    if (ownBefore.has(key)) continue;
+                    const isDeclaredProp = options.props &&
+                        Object.prototype.hasOwnProperty.call(options.props, key);
+                    if (isDeclaredProp || key === 'children' || key === 'slots' || key === 'style') {
+                        delete this[key];
+                        console.warn(
+                            `[${name}] Class field "${key}" conflicts with a ` +
+                            `${isDeclaredProp ? 'declared prop' : 'reserved property'} and was removed - ` +
+                            'set prop defaults in static props instead'
+                        );
+                    }
+                }
+
+                // The constructor assigned a plain object to this.state - wrap
+                // it now (replaces the placeholder from the element constructor)
+                if (!isReactive(this.state)) {
+                    this.state = reactive(this.state || {});
+                }
+            }
+
             // Create computed properties (lazy, cached; disposed on disconnect).
             // Created inside withoutTracking so they are root-owned effects -
             // NOT children of whatever parent effect is instantiating this
@@ -545,13 +595,49 @@ export function defineComponent(name, options) {
                 withoutTracking(() => {
                     for (const cname of computedNames) {
                         const getter = options.computed[cname];
-                        component._computeds[cname] = computed(() => {
-                            // Track props version so prop changes invalidate the computed
-                            if (component._propsVersion) {
-                                const _ = component._propsVersion.v;
-                            }
-                            return getter.call(component);
+
+                        // The computed's creation runs the getter eagerly once.
+                        // Instrument this.props for that first run: props is a
+                        // plain object (invalidation rides on _propsVersion),
+                        // so props reads are invisible to the dependency tracker.
+                        let touchedProps = false;
+                        const realProps = component.props;
+                        Object.defineProperty(component, 'props', {
+                            get() { touchedProps = true; return realProps; },
+                            configurable: true,
+                            enumerable: true
                         });
+                        let c;
+                        try {
+                            c = computed(() => {
+                                // Track props version so prop changes invalidate the computed
+                                if (component._propsVersion) {
+                                    const _ = component._propsVersion.v;
+                                }
+                                return getter.call(component);
+                            });
+                        } finally {
+                            Object.defineProperty(component, 'props', {
+                                value: realProps,
+                                writable: true,
+                                configurable: true,
+                                enumerable: true
+                            });
+                        }
+
+                        // Footgun lessener: a getter that tracked no reactive
+                        // dependency beyond the props version - and never
+                        // touched props - can never be invalidated; a cached
+                        // computed would return its first value forever.
+                        // Fall back to re-evaluating on every read.
+                        if (!touchedProps && c._depCount() <= 1) {
+                            c.dispose();
+                            c = {
+                                get: () => getter.call(component),
+                                dispose() {}
+                            };
+                        }
+                        component._computeds[cname] = c;
                     }
                 });
             }
@@ -1344,11 +1430,27 @@ export function defineComponent(name, options) {
         });
     }
 
-    // Register the custom element
-    if (!customElements.get(name)) {
-        customElements.define(name, Component);
-        componentDefinitions.set(name, Component);
+    // Register the custom element. On a name collision, keep the existing
+    // definition and warn loudly - silently registering nothing (and
+    // returning a class that isn't the one in the registry) hides the
+    // conflict until components render as the wrong thing.
+    const existing = customElements.get(name);
+    if (existing) {
+        const registered = componentDefinitions.get(name) || existing;
+        // Re-registering the SAME definition (same class or options object,
+        // e.g. a defineComponent call that runs twice) is idempotent and
+        // silent; a different definition under the same name is a collision
+        if (registered._vdxSource !== source) {
+            console.warn(
+                `[defineComponent] <${name}> is already defined - keeping the existing definition. ` +
+                'Register this component under a different tag name to resolve the collision.'
+            );
+        }
+        return registered;
     }
+    Component._vdxSource = source;
+    customElements.define(name, Component);
+    componentDefinitions.set(name, Component);
 
     return Component;
 }

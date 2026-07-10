@@ -1199,6 +1199,238 @@ function lintStaleArgumentPatterns(source, filename = '') {
 }
 
 /**
+ * Mask string literals, template literals, and comments with spaces
+ * (preserving length and newlines) so structural scans can use regex/brace
+ * matching without false positives from quoted text.
+ */
+function maskStringsAndComments(source) {
+    const chars = source.split('');
+    const len = chars.length;
+    let i = 0;
+    // Template literals nest via ${...}; track a stack of "inside template" states
+    const templateStack = [];
+
+    const blank = (from, to) => {
+        for (let k = from; k < to; k++) {
+            if (chars[k] !== '\n') chars[k] = ' ';
+        }
+    };
+
+    while (i < len) {
+        const c = source[i];
+        if (c === '/' && source[i + 1] === '/') {
+            const start = i;
+            while (i < len && source[i] !== '\n') i++;
+            blank(start, i);
+        } else if (c === '/' && source[i + 1] === '*') {
+            const start = i;
+            i += 2;
+            while (i < len && !(source[i] === '*' && source[i + 1] === '/')) i++;
+            i = Math.min(i + 2, len);
+            blank(start, i);
+        } else if (c === "'" || c === '"') {
+            const quote = c;
+            const start = i;
+            i++;
+            while (i < len && (source[i] !== quote || isEscaped(source, i))) i++;
+            i = Math.min(i + 1, len);
+            blank(start + 1, i - 1);
+        } else if (c === '`') {
+            const start = i;
+            i++;
+            while (i < len) {
+                if (source[i] === '`' && !isEscaped(source, i)) break;
+                if (source[i] === '$' && source[i + 1] === '{' && !isEscaped(source, i)) {
+                    // Blank up to the interpolation, then recurse conceptually:
+                    // push template state and let the main loop handle the expression
+                    blank(start + 1, i);
+                    templateStack.push(true);
+                    i += 2;
+                    // Scan the ${...} expression with the main loop by tracking depth
+                    let depth = 1;
+                    while (i < len && depth > 0) {
+                        const e = source[i];
+                        if (e === '{') { depth++; i++; }
+                        else if (e === '}') { depth--; i++; }
+                        else if (e === "'" || e === '"' || e === '`' || (e === '/' && (source[i + 1] === '/' || source[i + 1] === '*'))) {
+                            // Mask nested literals inside the interpolation via recursion
+                            const rest = maskStringsAndComments(source.slice(i));
+                            // Copy masked chars until we can resume (one literal's worth):
+                            // simplest correct approach: mask the whole remainder once and splice
+                            for (let k = 0; k < rest.length; k++) chars[i + k] = rest[k];
+                            // Recompute depth over the masked remainder
+                            let d = depth, j = i;
+                            while (j < len && d > 0) {
+                                if (chars[j] === '{') d++;
+                                else if (chars[j] === '}') d--;
+                                j++;
+                            }
+                            depth = 0;
+                            i = j;
+                            break;
+                        } else {
+                            i++;
+                        }
+                    }
+                    templateStack.pop();
+                    // Continue scanning the rest of the template literal
+                    continue;
+                }
+                i++;
+            }
+            // Blank remaining template text up to closing backtick
+            blank(start + 1, i);
+            i = Math.min(i + 1, len);
+        } else {
+            i++;
+        }
+    }
+
+    return chars.join('');
+}
+
+/**
+ * Lint class-authored components for class fields that shadow declared props
+ * (or the reserved children/slots/style properties). The framework removes
+ * such fields at mount with a console warning; the correct pattern is to put
+ * the default value in `static props`. Understands same-file inheritance
+ * (class Sub extends Base extends Component).
+ */
+function lintClassComponentFields(source, filename = '') {
+    const issues = [];
+    if (!/class\s+[A-Za-z_$][\w$]*\s+extends\s+/.test(source)) return issues;
+
+    const masked = maskStringsAndComments(source);
+
+    // Collect class declarations: name, superclass, body span
+    const classes = new Map(); // name -> { superName, bodyStart, bodyEnd, props: Set }
+    const classPattern = /class\s+([A-Za-z_$][\w$]*)\s+extends\s+([A-Za-z_$][\w$.]*)\s*\{/g;
+    let match;
+    while ((match = classPattern.exec(masked)) !== null) {
+        const bodyStart = match.index + match[0].length;
+        let depth = 1;
+        let i = bodyStart;
+        while (i < masked.length && depth > 0) {
+            if (masked[i] === '{') depth++;
+            else if (masked[i] === '}') depth--;
+            i++;
+        }
+        classes.set(match[1], {
+            superName: match[2],
+            bodyStart,
+            bodyEnd: i - 1,
+            props: new Set()
+        });
+    }
+
+    // A class is a component class if its superclass chain (within this file)
+    // reaches `Component`
+    const isComponentClass = (name, seen = new Set()) => {
+        if (seen.has(name)) return false;
+        seen.add(name);
+        const cls = classes.get(name);
+        if (!cls) return false;
+        if (cls.superName === 'Component') return true;
+        return isComponentClass(cls.superName, seen);
+    };
+
+    // Parse `static props = { key: ..., ... }` keys (top level of the object)
+    const collectStaticProps = (cls) => {
+        const body = masked.slice(cls.bodyStart, cls.bodyEnd);
+        const propsMatch = /(?:^|[\n;{}])\s*static\s+props\s*=\s*\{/.exec(body);
+        if (!propsMatch) return;
+        let i = propsMatch.index + propsMatch[0].length;
+        let depth = 1;
+        const objStart = i;
+        while (i < body.length && depth > 0) {
+            if (body[i] === '{' || body[i] === '[' || body[i] === '(') depth++;
+            else if (body[i] === '}' || body[i] === ']' || body[i] === ')') depth--;
+            i++;
+        }
+        const objBody = body.slice(objStart, i - 1);
+        // Keys at depth 0 of the object: identifier followed by `:` (values may
+        // be nested objects - only scan where nesting depth is zero)
+        let d = 0;
+        let segStart = 0;
+        const segments = [];
+        for (let k = 0; k < objBody.length; k++) {
+            const ch = objBody[k];
+            if (ch === '{' || ch === '[' || ch === '(') d++;
+            else if (ch === '}' || ch === ']' || ch === ')') d--;
+            else if (ch === ',' && d === 0) {
+                segments.push(objBody.slice(segStart, k));
+                segStart = k + 1;
+            }
+        }
+        segments.push(objBody.slice(segStart));
+        for (const seg of segments) {
+            const keyMatch = /^\s*([A-Za-z_$][\w$]*)\s*:/.exec(seg);
+            if (keyMatch) cls.props.add(keyMatch[1]);
+        }
+    };
+
+    for (const cls of classes.values()) collectStaticProps(cls);
+
+    // Effective props = own + inherited (same-file chain)
+    const effectiveProps = (name) => {
+        const result = new Set();
+        let current = name;
+        const seen = new Set();
+        while (current && classes.has(current) && !seen.has(current)) {
+            seen.add(current);
+            for (const p of classes.get(current).props) result.add(p);
+            current = classes.get(current).superName;
+        }
+        return result;
+    };
+
+    const RESERVED_FIELDS = new Set(['children', 'slots', 'style']);
+
+    for (const [name, cls] of classes) {
+        if (!isComponentClass(name)) continue;
+        const propNames = effectiveProps(name);
+        const body = masked.slice(cls.bodyStart, cls.bodyEnd);
+
+        // Class fields at body depth 0: `identifier =` (not `static`, not a
+        // method, not `==`). Member starts follow a newline or `;`.
+        let d = 0;
+        for (let k = 0; k < body.length; k++) {
+            const ch = body[k];
+            if (ch === '{' || ch === '(' || ch === '[') { d++; continue; }
+            if (ch === '}' || ch === ')' || ch === ']') { d--; continue; }
+            if (d !== 0) continue;
+            if (k > 0 && body[k - 1] !== '\n' && body[k - 1] !== ';' && body[k - 1] !== ' ') continue;
+
+            const fieldMatch = /^([A-Za-z_$][\w$]*)\s*=[^=]/.exec(body.slice(k, k + 200));
+            if (!fieldMatch) continue;
+            const fieldName = fieldMatch[1];
+            // Skip keywords that precede members, and skip non-member positions
+            if (fieldName === 'static' || fieldName === 'get' || fieldName === 'set' || fieldName === 'async') continue;
+            // Only consider positions at line start (fields are members, not
+            // expressions inside a method - those are at depth > 0 anyway)
+            const lineStart = body.lastIndexOf('\n', k) + 1;
+            if (body.slice(lineStart, k).trim() !== '') continue;
+
+            if (propNames.has(fieldName) || RESERVED_FIELDS.has(fieldName)) {
+                const absolutePos = cls.bodyStart + k;
+                const line = (masked.slice(0, absolutePos).match(/\n/g) || []).length + 1;
+                const kind = propNames.has(fieldName) ? 'declared prop' : 'reserved property';
+                issues.push({
+                    line,
+                    variable: fieldName,
+                    path: `static props = { ${fieldName}: ... }`,
+                    fixable: false,
+                    message: `[${name}] Class field "${fieldName}" shadows a ${kind} - the framework removes it at mount; move the default into static props`
+                });
+            }
+            k += fieldMatch[1].length;
+        }
+    }
+
+    return issues;
+}
+
+/**
  * Check if an expression will be modified (either wrapped or fixed).
  */
 function willBeModified(exprText, varToPath) {
@@ -2838,6 +3070,8 @@ function runLintOnly(inputDir, options) {
         } else {
             issues = lintEarlyDereferences(content, relativePath);
         }
+        // Class component checks apply in both modes (always a real defect)
+        issues = issues.concat(lintClassComponentFields(content, relativePath));
 
         const unfixable = issues.filter(i => !i.fixable);
         const fixable = issues.filter(i => i.fixable);

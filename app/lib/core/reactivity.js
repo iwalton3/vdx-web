@@ -850,7 +850,12 @@ export function computed(getter) {
         return value;
     };
 
-    return { get, dispose };
+    // Internal: number of dependency sets the getter tracked (used by the
+    // component system to detect dependency-free getters that could never
+    // invalidate). Reflects the most recent run.
+    const _depCount = () => effect.deps.size;
+
+    return { get, dispose, _depCount };
 }
 
 /**
