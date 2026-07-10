@@ -141,6 +141,23 @@ function objectMembers(src, openIdx) {
         if (text.trim() !== '') members.push({ raw: text });
         start = b + 1;
     }
+    // Guard: the scanner does not understand TypeScript generics, so a comma
+    // inside a signature-level annotation like `counts(): Record<A, B> {...}`
+    // would mis-split the member and mangle the output. Detect the symptom
+    // (unbalanced <> in the pre-body part of a fragment) and abort loudly.
+    for (const m of members) {
+        const braceIdx = m.raw.indexOf('{');
+        const sig = (braceIdx === -1 ? m.raw : m.raw.slice(0, braceIdx)).replace(/=>/g, '');
+        const lt = (sig.match(/</g) || []).length;
+        const gt = (sig.match(/>/g) || []).length;
+        if (lt !== gt) {
+            throw new Error(
+                'member signature contains a generic type annotation with a comma ' +
+                '(e.g. Record<A, B>) which the splitter cannot parse - alias the ' +
+                'type (type X = Record<A, B>) or convert this component manually'
+            );
+        }
+    }
     return { end, members };
 }
 
@@ -469,12 +486,18 @@ for (const f of collectFiles(inputs)) {
             console.log('SKIP ' + f + ' (no options-format defineComponent)');
             continue;
         }
-        const syntaxError = validateModuleSyntax(output);
-        if (syntaxError) {
-            throw new Error('transformed output failed module-goal syntax check:\n' + syntaxError);
+        // node can't parse TypeScript - .ts outputs are validated by tsc
+        // instead (run your project's tsc after converting; note the
+        // generated constructor(props) will need a type annotation in strict mode)
+        const isTs = /\.ts$/.test(f);
+        if (!isTs) {
+            const syntaxError = validateModuleSyntax(output);
+            if (syntaxError) {
+                throw new Error('transformed output failed module-goal syntax check:\n' + syntaxError);
+            }
         }
         if (!dryRun) fs.writeFileSync(f, output);
-        console.log((dryRun ? 'OK (dry) ' : 'OK   ') + f);
+        console.log((dryRun ? 'OK (dry) ' : 'OK   ') + f + (isTs ? ' (TypeScript: validate with tsc)' : ''));
     } catch (e) {
         failures++;
         console.error('FAIL ' + f + ' :: ' + e.message);

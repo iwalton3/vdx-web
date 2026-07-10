@@ -1,7 +1,7 @@
 /**
  * Tasks Page - Task list with filtering and CRUD operations
  */
-import { defineComponent, html, when, each } from '../lib/framework.js';
+import { defineComponent, html, when, each, Component } from '../lib/framework.js';
 import { getRouter } from '../lib/router.js';
 import tasksStore, { taskActions } from '../stores/tasks.js';
 import type { Task, TasksState as TasksStoreState, TaskStatus, TaskPriority } from '../stores/tasks.js';
@@ -26,6 +26,8 @@ interface TasksPageState {
     newPriority: TaskPriority;
 }
 
+type TaskCounts = Record<TaskStatus | 'all', number>;
+
 // =============================================================================
 // Component Definition
 // =============================================================================
@@ -33,100 +35,98 @@ interface TasksPageState {
 // Define stores - TypeScript infers the unwrapped types automatically
 const stores = { tasks: tasksStore };
 
-export default defineComponent('demo-tasks', {
-    props: {
+export class DemoTasks extends Component<TasksProps, TasksPageState, typeof stores> {
+    static props: TasksProps = {
         params: {},
         query: {}
-    } as TasksProps,
+    };
 
-    stores,
+    static stores = stores;
 
-    data(): TasksPageState {
-        return {
+    constructor(props: TasksProps) {
+        super(props);
+
+        this.state = {
             showAddForm: false,
             newTitle: '',
             newDescription: '',
             newPriority: 'medium'
         };
-    },
+    }
 
-    computed: {
-        // Derived from the tasks store - recomputes only when tasks/filter change
-        filteredTasks(): Task[] {
-            return taskActions.getFilteredTasks();
-        },
+    // Derived from the tasks store - recomputes only when tasks/filter change
+    get filteredTasks(): Task[] {
+        return taskActions.getFilteredTasks();
+    }
 
-        counts(): Record<TaskStatus | 'all', number> {
-            return taskActions.getTaskCounts();
-        }
-    },
+    get counts(): TaskCounts {
+        return taskActions.getTaskCounts();
+    }
 
-    methods: {
-        // Type-safe event handlers using function references
+    // Type-safe event handlers using function references
 
-        toggleAddForm(): void {
-            this.state.showAddForm = !this.state.showAddForm;
-            if (this.state.showAddForm) {
-                this.state.newTitle = '';
-                this.state.newDescription = '';
-                this.state.newPriority = 'medium';
-            }
-        },
-
-        handleTitleInput(e: Event): void {
-            const target = e.target as HTMLInputElement;
-            this.state.newTitle = target.value;
-        },
-
-        handleDescriptionInput(e: Event): void {
-            const target = e.target as HTMLTextAreaElement;
-            this.state.newDescription = target.value;
-        },
-
-        handlePriorityChange(e: Event): void {
-            const target = e.target as HTMLSelectElement;
-            this.state.newPriority = target.value as TaskPriority;
-        },
-
-        handleAddTask(e: Event): void {
-            e.preventDefault();
-
-            if (!this.state.newTitle.trim()) {
-                return;
-            }
-
-            taskActions.addTask(
-                this.state.newTitle.trim(),
-                this.state.newDescription.trim(),
-                this.state.newPriority
-            );
-
-            this.state.showAddForm = false;
+    toggleAddForm(): void {
+        this.state.showAddForm = !this.state.showAddForm;
+        if (this.state.showAddForm) {
             this.state.newTitle = '';
             this.state.newDescription = '';
-        },
-
-        handleFilterChange(filter: TaskStatus | 'all'): void {
-            taskActions.setFilter(filter);
-        },
-
-        handleTaskClick(task: Task): void {
-            const router = getRouter();
-            if (router) {
-                router.navigate(`/tasks/${task.id}/`);
-            }
-        },
-
-        handleStatusChange(taskId: string, e: CustomEvent): void {
-            taskActions.updateTaskStatus(taskId, e.detail.status);
-        },
-
-        handleDeleteTask(taskId: string): void {
-            if (confirm('Are you sure you want to delete this task?')) {
-                taskActions.deleteTask(taskId);
-            }
+            this.state.newPriority = 'medium';
         }
-    },
+    }
+
+    handleTitleInput(e: Event): void {
+        const target = e.target as HTMLInputElement;
+        this.state.newTitle = target.value;
+    }
+
+    handleDescriptionInput(e: Event): void {
+        const target = e.target as HTMLTextAreaElement;
+        this.state.newDescription = target.value;
+    }
+
+    handlePriorityChange(e: Event): void {
+        const target = e.target as HTMLSelectElement;
+        this.state.newPriority = target.value as TaskPriority;
+    }
+
+    handleAddTask(e: Event): void {
+        e.preventDefault();
+
+        if (!this.state.newTitle.trim()) {
+            return;
+        }
+
+        taskActions.addTask(
+            this.state.newTitle.trim(),
+            this.state.newDescription.trim(),
+            this.state.newPriority
+        );
+
+        this.state.showAddForm = false;
+        this.state.newTitle = '';
+        this.state.newDescription = '';
+    }
+
+    handleFilterChange(filter: TaskStatus | 'all'): void {
+        taskActions.setFilter(filter);
+    }
+
+    handleTaskClick(task: Task): void {
+        const router = getRouter();
+        if (router) {
+            router.navigate(`/tasks/${task.id}/`);
+        }
+    }
+
+    handleStatusChange(taskId: string, e: CustomEvent): void {
+        taskActions.updateTaskStatus(taskId, e.detail.status);
+    }
+
+    handleDeleteTask(taskId: string): void {
+        if (confirm('Are you sure you want to delete this task?')) {
+            taskActions.deleteTask(taskId);
+        }
+    }
 
     template() {
         const tasks: Task[] = this.filteredTasks;
@@ -213,9 +213,9 @@ export default defineComponent('demo-tasks', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .tasks-page {
             display: flex;
             flex-direction: column;
@@ -341,4 +341,6 @@ export default defineComponent('demo-tasks', {
             border-radius: 8px;
         }
     `
-});
+}
+
+export default defineComponent('demo-tasks', DemoTasks);

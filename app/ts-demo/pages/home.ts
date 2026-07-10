@@ -1,7 +1,7 @@
 /**
  * Home Page - Landing page with overview
  */
-import { defineComponent, html, each } from '../lib/framework.js';
+import { defineComponent, html, each, Component } from '../lib/framework.js';
 import tasksStore, { taskActions } from '../stores/tasks.js';
 
 // =============================================================================
@@ -11,14 +11,12 @@ import tasksStore, { taskActions } from '../stores/tasks.js';
 // Define stores - TypeScript infers the unwrapped types automatically
 const stores = { tasks: tasksStore };
 
-export default defineComponent('demo-home', {
-    stores,
+export class DemoHome extends Component<{}, {}, typeof stores> {
+    static stores = stores;
 
-    computed: {
-        counts() {
-            return taskActions.getTaskCounts();
-        }
-    },
+    get counts() {
+        return taskActions.getTaskCounts();
+    }
 
     template() {
         const counts = this.counts;
@@ -61,9 +59,9 @@ export default defineComponent('demo-home', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .home-page {
             display: flex;
             flex-direction: column;
@@ -164,4 +162,6 @@ export default defineComponent('demo-home', {
             background: #2563eb;
         }
     `
-});
+}
+
+export default defineComponent('demo-home', DemoHome);

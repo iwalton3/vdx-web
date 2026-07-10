@@ -438,10 +438,15 @@ template() {
 }
 ```
 
-### Function Reference (Type-Checked)
+### Function Reference (Type-Checked in Class Components)
 
 ```typescript
-// TypeScript verifies this.handleClick exists and is callable
+// Class components: TypeScript verifies this.handleClick exists and is
+// callable (a typo like this.handleClik is a compile error).
+// Legacy options components: NOT actually checked - ComponentInstance
+// carries an index signature (methods land on `this` dynamically), so any
+// member access silently types as `any`. This is a structural limitation of
+// the options format and one of the main reasons to prefer classes in TS.
 template() {
   return html`<button on-click="${this.handleClick}">Click</button>`;
 }

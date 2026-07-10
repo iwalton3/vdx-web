@@ -381,7 +381,10 @@ export function defineComponent<P = any, S = any, St = any>(
  * export default defineComponent('task-list', TaskList);
  */
 export abstract class Component<P = any, S = any, St = any> extends HTMLElement {
-  constructor(props?: P & BuiltinProps);
+  // Declared as P (not P & BuiltinProps) so `super(props)` type-checks when
+  // the subclass annotates `constructor(props: MyProps)`. At runtime the
+  // object also carries children/slots - annotate with BuiltinProps if needed.
+  constructor(props?: P);
 
   /** Reactive props (read-only from the component's perspective) */
   readonly props: P & BuiltinProps;

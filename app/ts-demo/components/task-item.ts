@@ -1,7 +1,7 @@
 /**
  * Task Item Component - Displays a single task with actions
  */
-import { defineComponent, html, when, each } from '../lib/framework.js';
+import { defineComponent, Component, html, when, each } from '../lib/framework.js';
 import type { Task, TaskStatus } from '../stores/tasks.js';
 
 // =============================================================================
@@ -51,47 +51,39 @@ function getStatusLabel(status: TaskStatus): string {
 // Component Definition
 // =============================================================================
 
-export default defineComponent('demo-task-item', {
-    props: {
-        task: null
-    } as TaskItemProps,
+export class DemoTaskItem extends Component<TaskItemProps> {
+    static props = { task: null };
 
-    data(): TaskItemState {
-        return {
-            showActions: false
-        };
-    },
+    state: TaskItemState = { showActions: false };
 
-    methods: {
-        handleClick(): void {
-            // Dispatch click event - parent will handle navigation
-            this.dispatchEvent(new CustomEvent('click', { bubbles: true }));
-        },
+    handleClick(): void {
+        // Dispatch click event - parent will handle navigation
+        this.dispatchEvent(new CustomEvent('click', { bubbles: true }));
+    }
 
-        toggleActions(e: Event): void {
-            e.stopPropagation();
-            this.state.showActions = !this.state.showActions;
-        },
+    toggleActions(e: Event): void {
+        e.stopPropagation();
+        this.state.showActions = !this.state.showActions;
+    }
 
-        handleStatusChange(e: Event, status: TaskStatus): void {
-            e.stopPropagation();
-            this.state.showActions = false;
+    handleStatusChange(e: Event, status: TaskStatus): void {
+        e.stopPropagation();
+        this.state.showActions = false;
 
-            this.dispatchEvent(new CustomEvent('status-change', {
-                bubbles: true,
-                detail: { status }
-            }));
-        },
+        this.dispatchEvent(new CustomEvent('status-change', {
+            bubbles: true,
+            detail: { status }
+        }));
+    }
 
-        handleDelete(e: Event): void {
-            e.stopPropagation();
-            this.state.showActions = false;
+    handleDelete(e: Event): void {
+        e.stopPropagation();
+        this.state.showActions = false;
 
-            this.dispatchEvent(new CustomEvent('task-delete', {
-                bubbles: true
-            }));
-        }
-    },
+        this.dispatchEvent(new CustomEvent('task-delete', {
+            bubbles: true
+        }));
+    }
 
     template() {
         const task = this.props.task;
@@ -154,9 +146,9 @@ export default defineComponent('demo-task-item', {
                 </div>
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .task-item {
             display: flex;
             justify-content: space-between;
@@ -320,4 +312,6 @@ export default defineComponent('demo-task-item', {
             border-top: 1px solid var(--border-color, #e5e7eb);
         }
     `
-});
+}
+
+export default defineComponent('demo-task-item', DemoTaskItem);

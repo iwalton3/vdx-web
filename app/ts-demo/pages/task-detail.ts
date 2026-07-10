@@ -1,7 +1,7 @@
 /**
  * Task Detail Page - View and edit a single task
  */
-import { defineComponent, html, when } from '../lib/framework.js';
+import { defineComponent, html, when, Component } from '../lib/framework.js';
 import { getRouter } from '../lib/router.js';
 import tasksStore, { taskActions } from '../stores/tasks.js';
 import type { Task, TasksState, TaskStatus, TaskPriority } from '../stores/tasks.js';
@@ -46,96 +46,94 @@ function formatDate(date: Date | null): string {
 // Define stores - TypeScript infers the unwrapped types automatically
 const stores = { tasks: tasksStore };
 
-export default defineComponent('demo-task-detail', {
-    props: {
+export class DemoTaskDetail extends Component<TaskDetailProps, TaskDetailState, typeof stores> {
+    static props: TaskDetailProps = {
         params: {},
         query: {}
-    } as TaskDetailProps,
+    };
 
-    stores,
+    static stores = stores;
 
-    data(): TaskDetailState {
-        return {
+    constructor(props: TaskDetailProps) {
+        super(props);
+
+        this.state = {
             isEditing: false,
             editTitle: '',
             editDescription: '',
             editPriority: 'medium',
             editStatus: 'todo'
         };
-    },
+    }
 
-    computed: {
-        task(): Task | undefined {
-            const taskId = this.props.params.id;
-            if (!taskId) return undefined;
-            return taskActions.getTask(taskId);
+    get task(): Task | undefined {
+        const taskId = this.props.params.id;
+        if (!taskId) return undefined;
+        return taskActions.getTask(taskId);
+    }
+
+    goBack(): void {
+        const router = getRouter();
+        if (router) {
+            router.navigate('/tasks/');
         }
-    },
+    }
 
-    methods: {
-        goBack(): void {
-            const router = getRouter();
-            if (router) {
-                router.navigate('/tasks/');
-            }
-        },
+    startEditing(): void {
+        const task = this.task;
+        if (!task) return;
 
-        startEditing(): void {
-            const task = this.task;
-            if (!task) return;
+        this.state.isEditing = true;
+        this.state.editTitle = task.title;
+        this.state.editDescription = task.description;
+        this.state.editPriority = task.priority;
+        this.state.editStatus = task.status;
+    }
 
-            this.state.isEditing = true;
-            this.state.editTitle = task.title;
-            this.state.editDescription = task.description;
-            this.state.editPriority = task.priority;
-            this.state.editStatus = task.status;
-        },
+    cancelEditing(): void {
+        this.state.isEditing = false;
+    }
 
-        cancelEditing(): void {
-            this.state.isEditing = false;
-        },
+    handleTitleInput(e: Event): void {
+        this.state.editTitle = (e.target as HTMLInputElement).value;
+    }
 
-        handleTitleInput(e: Event): void {
-            this.state.editTitle = (e.target as HTMLInputElement).value;
-        },
+    handleDescriptionInput(e: Event): void {
+        this.state.editDescription = (e.target as HTMLTextAreaElement).value;
+    }
 
-        handleDescriptionInput(e: Event): void {
-            this.state.editDescription = (e.target as HTMLTextAreaElement).value;
-        },
+    handlePriorityChange(e: Event): void {
+        this.state.editPriority = (e.target as HTMLSelectElement).value as TaskPriority;
+    }
 
-        handlePriorityChange(e: Event): void {
-            this.state.editPriority = (e.target as HTMLSelectElement).value as TaskPriority;
-        },
+    handleStatusChange(e: Event): void {
+        this.state.editStatus = (e.target as HTMLSelectElement).value as TaskStatus;
+    }
 
-        handleStatusChange(e: Event): void {
-            this.state.editStatus = (e.target as HTMLSelectElement).value as TaskStatus;
-        },
+    saveChanges(): void {
+        const task = this.task;
+        if (!task) return;
 
-        saveChanges(): void {
-            const task = this.task;
-            if (!task) return;
+        taskActions.updateTask(task.id, {
+            title: this.state.editTitle,
+            description: this.state.editDescription,
+            priority: this.state.editPriority,
+            status: this.state.editStatus,
+            completedAt: this.state.editStatus === 'done' ? new Date() : null
+        });
 
-            taskActions.updateTask(task.id, {
-                title: this.state.editTitle,
-                description: this.state.editDescription,
-                priority: this.state.editPriority,
-                status: this.state.editStatus,
-                completedAt: this.state.editStatus === 'done' ? new Date() : null
-            });
+        this.state.isEditing = false;
+    }
 
-            this.state.isEditing = false;
-        },
+    deleteTask(): void {
+        const task = this.task;
+        if (!task) return;
 
-        deleteTask(): void {
-            const task = this.task;
-            if (!task) return;
-
-            if (confirm('Are you sure you want to delete this task? This cannot be undone.')) {
-                taskActions.deleteTask(task.id);
-                this.goBack();
-            }
+        if (confirm('Are you sure you want to delete this task? This cannot be undone.')) {
+            taskActions.deleteTask(task.id);
+            this.goBack();
         }
-    },
+    }
 
     template() {
         const task = this.task;
@@ -262,9 +260,9 @@ export default defineComponent('demo-task-detail', {
                 )}
             </div>
         `;
-    },
+    }
 
-    styles: /*css*/`
+    static styles = /*css*/`
         .task-detail {
             display: flex;
             flex-direction: column;
@@ -493,4 +491,6 @@ export default defineComponent('demo-task-detail', {
             gap: 16px;
         }
     `
-});
+}
+
+export default defineComponent('demo-task-detail', DemoTaskDetail);
