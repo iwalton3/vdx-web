@@ -91,6 +91,9 @@ export class TutApp extends Component {
                 <header class="tut-topbar">
                     <button class="tut-burger" on-click="toggleMenu" aria-label="Toggle chapters">☰</button>
                     <a class="tut-brand" href="#${chapters[0].id}">VDX · Interactive Tutorial</a>
+                    <span class="tut-top-spacer"></span>
+                    <a class="tut-toplink" href="./tutorial/playground.html">Playground ↗</a>
+                    <a class="tut-toplink" href="./componentlib/">Components ↗</a>
                     <button class="tut-theme" on-click="toggleTheme" aria-label="Toggle theme">🌓</button>
                 </header>
 
@@ -158,8 +161,19 @@ export class TutApp extends Component {
             border-right: 1px solid var(--border-color, #e1e4e8);
             background: var(--hover-bg, #f6f8fa);
         }
+        .tut-top-spacer { flex: 1; }
+        .tut-toplink {
+            font-size: 13px;
+            font-weight: 550;
+            text-decoration: none;
+            color: var(--text-secondary, #57606a);
+            padding: 6px 10px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+        .tut-toplink:hover { background: var(--hover-bg, #f6f8fa); color: var(--text-color, #24292e); }
+
         .tut-theme, .tut-burger {
-            margin-left: auto;
             font-size: 18px;
             line-height: 1;
             background: none;
@@ -168,7 +182,7 @@ export class TutApp extends Component {
             padding: 6px;
             border-radius: 6px;
         }
-        .tut-burger { display: none; margin-left: 0; }
+        .tut-burger { display: none; }
         .tut-theme:hover, .tut-burger:hover { background: var(--hover-bg, #f6f8fa); }
 
         .tut-sidebar {

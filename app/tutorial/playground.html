@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VDX · Playground</title>
+    <link rel="stylesheet" href="../styles/theme.css">
+    <style>
+        html, body { height: 100%; }
+        body { margin: 0; display: flex; flex-direction: column; background: var(--shell-bg, #f5f5f5); }
+
+        .pg-top {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border-color, #e1e4e8);
+            background: var(--card-bg, #fff);
+        }
+        .pg-top .brand { font-weight: 650; font-size: 14px; color: var(--text-color, #24292e); }
+        .pg-top .spacer { flex: 1; }
+        .pg-top a, .pg-top button {
+            font: inherit; font-size: 13px; text-decoration: none; cursor: pointer;
+            color: var(--text-secondary, #57606a);
+            background: none; border: none; padding: 6px 10px; border-radius: 6px;
+        }
+        .pg-top a:hover, .pg-top button:hover { background: var(--hover-bg, #f6f8fa); color: var(--text-color, #24292e); }
+
+        .pg-main { flex: 1; min-height: 0; padding: 14px; }
+        cl-code-runner { display: block; height: 100%; }
+    </style>
+</head>
+<body>
+    <div class="pg-top">
+        <span class="brand">VDX · Playground</span>
+        <span class="pg-hint" style="font-size:13px;color:var(--text-muted,#6c757d)">Edit freely — saved in your browser</span>
+        <span class="spacer"></span>
+        <a href="../tutorial.html">Tutorial</a>
+        <a href="../componentlib/">Components</a>
+        <button id="theme" type="button" aria-label="Toggle theme">🌓</button>
+    </div>
+
+    <div class="pg-main">
+        <cl-code-runner id="runner" persist-key="vdx-playground" height="100%" preview-label="Preview"></cl-code-runner>
+    </div>
+
+    <script type="module">
+        import '../componentlib/misc/code-runner.js';
+
+        const runner = document.getElementById('runner');
+        const files = ['App.js', 'index.html'];
+        Promise.all(files.map((n) =>
+            fetch('./examples/playground/' + n)
+                .then((r) => r.text())
+                .then((t) => [n, t.replace(/\s+$/, '\n')])
+        )).then((entries) => {
+            runner.files = Object.fromEntries(entries);
+        });
+
+        document.getElementById('theme').addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+        });
+    </script>
+</body>
+</html>

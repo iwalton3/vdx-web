@@ -101,15 +101,21 @@ async function runTests() {
         // Switch to Source Code tab
         await test.page.evaluate(() => {
             const tabs = Array.from(document.querySelectorAll('.tab'));
-            const sourceTab = tabs.find(tab => tab.textContent.includes('Source Code'));
+            const sourceTab = tabs.find(tab => tab.textContent.includes('Edit'));
             if (sourceTab) sourceTab.click();
         });
 
-        await test.page.waitForTimeout(300);
+        await test.page.waitForFunction(() => {
+
+            const ta = document.querySelector('.source-section cl-code-runner textarea');
+
+            return ta && ta.value.length > 0;
+
+        }, { timeout: 5000 });
 
         const sourceCode = await test.page.evaluate(() => {
-            const sourceSection = document.querySelector('.source-section code');
-            return sourceSection ? sourceSection.textContent : '';
+            const sourceSection = document.querySelector('.source-section cl-code-runner textarea');
+            return sourceSection ? sourceSection.value : '';
         });
 
         // Check for proper patterns in source code (class authoring style)
@@ -126,15 +132,21 @@ async function runTests() {
         // Switch to Source Code tab
         await test.page.evaluate(() => {
             const tabs = Array.from(document.querySelectorAll('.tab'));
-            const sourceTab = tabs.find(tab => tab.textContent.includes('Source Code'));
+            const sourceTab = tabs.find(tab => tab.textContent.includes('Edit'));
             if (sourceTab) sourceTab.click();
         });
 
-        await test.page.waitForTimeout(300);
+        await test.page.waitForFunction(() => {
+
+            const ta = document.querySelector('.source-section cl-code-runner textarea');
+
+            return ta && ta.value.length > 0;
+
+        }, { timeout: 5000 });
 
         const sourceCode = await test.page.evaluate(() => {
-            const sourceSection = document.querySelector('.source-section code');
-            return sourceSection ? sourceSection.textContent : '';
+            const sourceSection = document.querySelector('.source-section cl-code-runner textarea');
+            return sourceSection ? sourceSection.value : '';
         });
 
         // Check for visibility toggling pattern - source uses basicVisible, confirmVisible, formVisible
@@ -152,15 +164,21 @@ async function runTests() {
         // Switch to Source Code tab
         await test.page.evaluate(() => {
             const tabs = Array.from(document.querySelectorAll('.tab'));
-            const sourceTab = tabs.find(tab => tab.textContent.includes('Source Code'));
+            const sourceTab = tabs.find(tab => tab.textContent.includes('Edit'));
             if (sourceTab) sourceTab.click();
         });
 
-        await test.page.waitForTimeout(300);
+        await test.page.waitForFunction(() => {
+
+            const ta = document.querySelector('.source-section cl-code-runner textarea');
+
+            return ta && ta.value.length > 0;
+
+        }, { timeout: 5000 });
 
         const sourceCode = await test.page.evaluate(() => {
-            const sourceSection = document.querySelector('.source-section code');
-            return sourceSection ? sourceSection.textContent : '';
+            const sourceSection = document.querySelector('.source-section cl-code-runner textarea');
+            return sourceSection ? sourceSection.value : '';
         });
 
         // Check for array initialization and x-model handling

@@ -78,17 +78,21 @@ async function runTests() {
         await test.assertExists('.tab:nth-child(1)');
         await test.assertExists('.tab:nth-child(2)');
 
-        await test.clickTab('Source Code');
+        await test.clickTab('Edit & Run');
         await test.assertExists('.source-section');
 
         await test.clickTab('Demo');
         await test.assertExists('.demo-section');
     });
 
-    await test.test('Source code tab shows code', async () => {
-        await test.clickTab('Source Code');
-        const code = await test.page.$eval('.source-section code', el => el.textContent);
-        await test.assert(code.length > 0, 'Source code should be displayed');
+    await test.test('Edit & Run tab shows editable code', async () => {
+        await test.clickTab('Edit & Run');
+        await test.page.waitForFunction(() => {
+            const ta = document.querySelector('.source-section cl-code-runner textarea');
+            return ta && ta.value.length > 0;
+        }, { timeout: 5000 });
+        const code = await test.page.$eval('.source-section cl-code-runner textarea', el => el.value);
+        await test.assert(code.length > 0, 'Editable source code should be displayed');
     });
 
     await test.test('Search filters components', async () => {

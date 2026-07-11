@@ -9,8 +9,8 @@ import './example-components.js';
 // Import shell component
 import './layout/shell.js';
 
-// Syntax-highlighted source panels
-import './misc/code-block.js';
+// Editable, runnable source panels
+import './misc/code-runner.js';
 
 import { componentExamples } from './examples.js';
 
@@ -159,6 +159,41 @@ export class ComponentShowcase extends Component {
         document.body.classList.toggle('dark', this.state.darkMode);
     }
 
+    // Turn an example (source + demo) into a runnable project for cl-code-runner.
+    // A raw-HTML source runs as-is (all cl-* are available via the barrel); a
+    // JS-class source defines the example component and the demo mounts it.
+    exampleFiles(comp) {
+        if (!comp) return {};
+        const source = comp.source || '';
+        const demo = comp.demo || '';
+        const page = (body, importScript) =>
+            `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"></head>\n<body>\n${body}\n`
+            + `<script type="module">${importScript}<\/script>\n</body>\n</html>\n`;
+
+        // Strip leading whitespace + comments before deciding: a source can be
+        // raw usage HTML introduced by an explanatory comment.
+        const stripped = source.replace(/^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*/, '').trimStart();
+        if (stripped.startsWith('<')) {
+            return { 'index.html': page(source, "import 'vdx/componentlib/all.js';") };
+        }
+        let preamble =
+            "import { defineComponent, Component, html, when, each, raw, contain, memoEach, "
+            + "untracked, awaitThen, computed, createStore, flushSync } from 'vdx/lib/framework.js';\n"
+            + "import 'vdx/componentlib/all.js';\n";
+        // Pull in the list controllers only when a source actually uses them.
+        if (/\bcreateWindowing\b/.test(source)) {
+            preamble += "import { createWindowing } from 'vdx/lib/windowing.js';\n";
+        }
+        if (/\bcreateRowGestures\b|\bgroupReorderTargets\b|\bgapTo\w+\b/.test(source)) {
+            preamble += "import { createRowGestures, groupReorderTargets, gapToRemoveInsertIndex, gapToGapIndex } from 'vdx/lib/gestures.js';\n";
+        }
+        preamble += "\n";
+        return {
+            'App.js': preamble + source,
+            'index.html': page(demo, "import './App.js';")
+        };
+    }
+
     template() {
         const current = this.state.selectedComponent;
         const menuItems = this.getMenuItems();
@@ -179,6 +214,8 @@ export class ComponentShowcase extends Component {
                         value="${this.state.searchQuery}"
                         on-input="handleSearch"
                         on-keydown="handleSearchKeydown">
+                    <a class="topbar-link" href="/tutorial.html">Tutorial ↗</a>
+                    <a class="topbar-link" href="/tutorial/playground.html">Playground ↗</a>
                     <button class="dark-mode-btn" on-click="toggleDarkMode" title="Toggle dark mode">
                         ${this.state.darkMode ? '☀️' : '🌙'}
                     </button>
@@ -201,7 +238,7 @@ export class ComponentShowcase extends Component {
                                 <div
                                     class="tab ${this.state.selectedTab === 'source' ? 'active' : ''}"
                                     on-click="${() => this.selectTab('source')}">
-                                    Source Code
+                                    Edit &amp; Run
                                 </div>
                             </div>
 
@@ -214,7 +251,7 @@ export class ComponentShowcase extends Component {
                                     const comp = this.state.selectedComponent;
                                     return this.state.selectedTab === 'demo'
                                         ? html`<div class="demo-section">${comp ? raw(comp.demo) : ''}</div>`
-                                        : html`<div class="source-section"><cl-code-block code="${comp ? comp.source : ''}"></cl-code-block></div>`;
+                                        : html`<div class="source-section"><cl-code-runner files="${this.exampleFiles(comp)}" previewLabel="Preview"></cl-code-runner></div>`;
                                 })}
                             </div>
                         </div>
@@ -259,6 +296,17 @@ export class ComponentShowcase extends Component {
             outline: none;
             background: rgba(255,255,255,0.3);
         }
+
+        .topbar-link {
+            color: white;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 550;
+            padding: 6px 10px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+        .topbar-link:hover { background: rgba(255,255,255,0.2); }
 
         .dark-mode-btn {
             background: rgba(255,255,255,0.2);
@@ -344,8 +392,10 @@ export class ComponentShowcase extends Component {
             gap: 24px;
         }
 
-        .source-section cl-code-block {
+        .source-section { max-width: 100%; }
+        .source-section cl-code-runner {
             display: block;
+            height: 520px;
             max-width: 100%;
         }
 
