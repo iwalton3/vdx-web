@@ -1,8 +1,7 @@
-import { defineComponent, Component, html } from '/lib/framework.js';
+import { defineComponent, Component, html } from 'vdx/lib/framework.js';
 
-// A reactive counter. `state` changes re-render automatically - no setState,
-// no virtual DOM. Try editing the styles or adding a "reset" button, then hit
-// Run (or just pause typing) to see it live.
+// A reactive counter. Assigning to `this.state` re-renders automatically -
+// no setState, no virtual DOM. Try editing the styles or adding a reset button.
 class MyCounter extends Component {
     static props = { start: 0 };
 

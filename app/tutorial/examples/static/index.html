@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>The Case for Vanilla</title>
+    <style>
+        article { max-width: 640px; font-family: Georgia, serif; line-height: 1.7; }
+        h1 { font-family: system-ui, sans-serif; }
+        .byline { color: #8898a8; font-family: system-ui, sans-serif; font-size: 14px; }
+        .island { margin: 24px 0; padding: 16px; border: 1px dashed #8886; border-radius: 12px; }
+        .island h4 { margin: 0 0 10px; font-family: system-ui, sans-serif; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: #8898a8; }
+    </style>
+</head>
+<body>
+    <article>
+        <h1>The case for vanilla</h1>
+        <p class="byline">A static article — the paragraphs are plain HTML.</p>
+
+        <p>
+            This page has no framework running it. It is ordinary HTML that a CMS
+            or a static-site generator could produce. But wherever we want a spark
+            of interactivity, we drop in a custom element and let VDX take over just
+            that island — the rest of the page stays static.
+        </p>
+
+        <!-- An interactive island, configured entirely from HTML attributes. -->
+        <div class="island">
+            <h4>Was this helpful?</h4>
+            <like-button count="128" label="Helpful"></like-button>
+        </div>
+
+        <p>
+            The <code>count</code> above came from an attribute in this HTML — static
+            content configuring a live component. Below, a second, unrelated island
+            handles its own form:
+        </p>
+
+        <div class="island">
+            <h4>Get the next post</h4>
+            <newsletter-signup></newsletter-signup>
+        </div>
+
+        <p>
+            One <code>&lt;script type="module"&gt;</code> boots both islands. No build
+            tools, no bundler, no hydration step — this is exactly how VDX ships into
+            a static site.
+        </p>
+    </article>
+
+    <script type="module">
+        import './App.js';
+    </script>
+</body>
+</html>

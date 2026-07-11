@@ -309,6 +309,15 @@ function hlHtml(body) {
             const res = hlTag(body, i);
             out += res.html;
             i = res.end;
+            // Raw-text elements: highlight their contents as JS / CSS rather
+            // than HTML text (so usage index.html <script>/<style> read right).
+            if (res.opening && (res.name === 'script' || res.name === 'style')) {
+                const rel = body.slice(i).search(new RegExp('</' + res.name, 'i'));
+                const close = rel === -1 ? n : i + rel;
+                const inner = body.slice(i, close);
+                out += res.name === 'script' ? hlJs(inner) : hlCss(inner);
+                i = close;
+            }
             continue;
         }
         text += c;
@@ -318,22 +327,28 @@ function hlHtml(body) {
     return out;
 }
 
-/** Highlight a single HTML tag beginning at `<` (body[start] === '<'). */
+/**
+ * Highlight a single HTML tag beginning at `<` (body[start] === '<').
+ * Returns { html, end, name, opening } where `opening` is true for a start tag
+ * that was not self-closed (used to detect raw-text <script>/<style> bodies).
+ */
 function hlTag(body, start) {
     const n = body.length;
     let i = start + 1;
     let out = '<span class="tok-punct">&lt;</span>';
-    if (body[i] === '/') { out += '<span class="tok-punct">/</span>'; i++; }
+    const isClosing = body[i] === '/';
+    if (isClosing) { out += '<span class="tok-punct">/</span>'; i++; }
     let j = i;
     while (j < n && /[\w:-]/.test(body[j])) j++;
     const name = body.slice(i, j);
     if (name) out += `<span class="tok-tagname">${esc(name)}</span>`;
     i = j;
+    let selfClosed = false;
 
     while (i < n) {
         const c = body[i];
         if (c === '>') { out += '<span class="tok-punct">&gt;</span>'; i++; break; }
-        if (c === '/' && body[i + 1] === '>') { out += '<span class="tok-punct">/&gt;</span>'; i += 2; break; }
+        if (c === '/' && body[i + 1] === '>') { out += '<span class="tok-punct">/&gt;</span>'; i += 2; selfClosed = true; break; }
         if (c === '$' && body[i + 1] === '{') {
             out += renderInterp(body, i);
             i = scanExprEnd(body, i + 1) + 1;
@@ -358,7 +373,7 @@ function hlTag(body, start) {
         out += esc(c);
         i++;
     }
-    return { html: out, end: i };
+    return { html: out, end: i, name: name.toLowerCase(), opening: !isClosing && !selfClosed };
 }
 
 /** Highlight an attribute value; returns the new index. `emit` appends HTML. */

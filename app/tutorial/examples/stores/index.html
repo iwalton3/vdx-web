@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stores</title>
+    <style>
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            align-items: start;
+            font-family: system-ui, sans-serif;
+        }
+        .layout > div { padding: 16px; border: 1px solid #8883; border-radius: 12px; }
+        @media (max-width: 520px) { .layout { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <p>Two independent components, one shared store:</p>
+    <div class="layout">
+        <div><product-list></product-list></div>
+        <div><cart-summary></cart-summary></div>
+    </div>
+
+    <script type="module">
+        // Each component imports the store; both get the same instance.
+        import './ProductList.js';
+        import './CartSummary.js';
+    </script>
+</body>
+</html>
