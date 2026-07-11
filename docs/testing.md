@@ -20,27 +20,26 @@ The framework has two test suites:
 Both require the test server running first:
 
 ```bash
-cd app
-python3 test-server.py
+python3 tools/test-server.py
 ```
 
 ### Framework Unit Tests (Browser)
 
-Open in browser: http://localhost:9000/tests/
+Open in browser: http://localhost:9000/tests/framework/framework/
 
 Tests will run automatically and display results in a clean UI.
 
 ### Framework Unit Tests (Headless)
 
 ```bash
-cd componentlib-e2e
+cd tests/e2e
 node run-framework-tests.js
 ```
 
 ### Component Library E2E Tests
 
 ```bash
-cd componentlib-e2e
+cd tests/e2e
 node test-runner.js
 
 # Only show output from failing tests (quieter for CI)

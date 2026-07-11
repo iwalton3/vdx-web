@@ -399,7 +399,7 @@ router.navigate('/search/', { q: 'test', page: '2' });
 The router uses hash routing (`/#/`) by default. To use HTML5 routing, add a `<base>` tag:
 
 ```html
-<base href="/app/">
+<base href="/">
 ```
 
 The router automatically:
@@ -430,8 +430,7 @@ location / {
 **Python test server** (for development):
 
 ```bash
-cd app
-python3 test-server.py
+python3 tools/test-server.py
 ```
 
 This serves the app with proper routing support on http://localhost:9000/

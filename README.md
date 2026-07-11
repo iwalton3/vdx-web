@@ -18,8 +18,7 @@ A modern web framework with **ZERO npm dependencies**. Reactive state, component
 ## Quick Start
 
 ```bash
-cd app
-python3 test-server.py
+python3 tools/test-server.py
 ```
 
 Then open: **http://localhost:9000/**
@@ -242,21 +241,24 @@ VDX uses **fine-grained reactive rendering** inspired by SolidJS:
 ## Project Structure
 
 ```
-app/
-├── lib/                     # vdx-web: Core framework
-│   ├── framework.js         # Main barrel export
-│   ├── framework.d.ts       # TypeScript definitions
-│   ├── router.js            # Router system
-│   ├── router.d.ts          # TypeScript definitions
-│   ├── utils.js             # Utilities (notify, darkTheme, etc.)
-│   ├── utils.d.ts           # TypeScript definitions
-│   └── core/                # Framework internals (~6700 lines)
+vdx-web/
+├── index.html               # Marketing landing page (built with VDX)
+├── lib/                     # vdx-web: Core framework source
+│   ├── framework.js         #   Main barrel export
+│   ├── router.js            #   Router system
+│   ├── utils.js             #   Utilities (notify, darkTheme, etc.)
+│   ├── *.d.ts               #   TypeScript definitions
+│   └── core/                #   Framework internals (~6800 lines)
 ├── dist/                    # Pre-bundled versions for embedding
-├── componentlib/            # vdx-ui: Professional UI component library
-├── components/              # Shared UI components
-├── tests/                   # Test suite (420+ tests)
-├── ts-demo/                 # TypeScript demo application
-└── index.html               # Entry point
+├── ui/                      # vdx-ui: Professional UI component library (cl-*)
+├── styles/                  # Shared theme (theme.css, theme-init.js)
+├── site/                    # The public site: landing, showcase, playground,
+│                            #   tutorial, embedding demo
+├── examples/                # Demo apps (shop, pwgen, ts-demo, …) + personal/
+│                            #   (the iwalton.com site as an example)
+├── tools/                   # Dev server, bundler, optimizer, linter, benchmarks
+├── tests/                   # framework/ (unit tests) + e2e/ (Puppeteer suite)
+└── docs/                    # Documentation
 ```
 
 ## Two Ways to Use
@@ -297,11 +299,10 @@ html`<div>${raw(trustedApiHtml)}</div>`
 ## Running Tests
 
 ```bash
-cd app
-python3 test-server.py
+python3 tools/test-server.py
 ```
 
-Then open: **http://localhost:9000/tests/**
+Then open: **http://localhost:9000/tests/framework/**
 
 ## Browser Compatibility
 
@@ -344,10 +345,10 @@ node optimize.js -i ./src -l
 node optimize.js -i ./src -l --strict
 
 # Build with minification and source maps
-node optimize.js -i ./src -o ./dist -m -s
+node tools/optimize.js -i ./src -o ./dist -m -s
 
 # Bundle framework files
-node bundler-esm.js
+node tools/bundler-esm.js
 ```
 
 ### What the Optimizer Does
@@ -388,10 +389,10 @@ You can use a service worker with vdx-web, which retains the caching and update 
 
 ```bash
 # Before deploying, generate the manifest (script lives in the PWA demo)
-node app/bundle-demo/pwa-offline/spider-deps.js
+node site/embedding/pwa-offline/spider-deps.js
 ```
 
-See the [PWA Offline Demo](https://iwalton.com/bundle-demo/pwa-offline/) for a working example, or check out the [source code](/app/bundle-demo/pwa-offline/).
+See the [PWA Offline Demo](https://iwalton.com/bundle-demo/pwa-offline/) for a working example, or check out the [source code](/site/embedding/pwa-offline/).
 
 ## Use Cases
 
@@ -432,7 +433,7 @@ There's no warranty if you build a business around my side project and get burne
 
 PRs are welcome! Please ensure:
 - No npm dependencies are added
-- Tests pass (see `/app/tests/` and `/componentlib-e2e/`)
+- Tests pass (see `tests/framework/` and `tests/e2e/`)
 - Code follows existing patterns
 - Security best practices maintained
 

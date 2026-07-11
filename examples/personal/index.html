@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/">
+    <title>iwalton.com</title>
+    <link rel="stylesheet" href="styles/global.css">
+</head>
+<body>
+    <script src="/styles/theme-init.js"></script>
+    <div style="margin: 0 auto; max-width: 700px; padding: 0 20px;">
+        <app-header></app-header>
+        <router-outlet></router-outlet>
+    </div>
+    <notification-list></notification-list>
+    <script type="module" src="app.js"></script>
+    <script type="module">
+        // Keep <body> in sync with the theme store, and - in 'auto' mode - with
+        // live OS changes. theme-init.js already applied the initial class
+        // synchronously above; this takes over for updates. (startThemeSync's
+        // immediate apply matches that pre-paint result, so there's no flicker.)
+        import { startThemeSync } from '../../lib/utils.js';
+        startThemeSync();
+    </script>
+</body>
+</html>

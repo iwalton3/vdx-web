@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Component Playground</title>
+    <link rel="stylesheet" href="../styles/global.css">
+    <style>
+        body {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            border-bottom: 3px solid var(--primary-color, #0066cc);
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+
+        .playground-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .demo-section {
+            background: var(--card-bg, white);
+            border: 1px solid var(--border-color, #ddd);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .demo-section h2 {
+            margin-top: 0;
+            color: var(--heading-color, #333);
+            font-size: 1.3em;
+            border-bottom: 2px solid var(--primary-color, #0066cc);
+            padding-bottom: 8px;
+        }
+
+        .demo-section h3 {
+            font-size: 1.1em;
+            margin-top: 20px;
+            color: var(--text-color, #555);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: var(--primary-color, #0066cc);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button.secondary {
+            background: var(--secondary-color, #6c757d);
+        }
+
+        button.danger {
+            background: #dc3545;
+        }
+
+        input, select {
+            padding: 8px;
+            border: 1px solid var(--input-border, #ddd);
+            border-radius: 4px;
+            background: var(--input-bg, white);
+            color: var(--input-text, #000);
+        }
+
+        .counter-display {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--primary-color, #0066cc);
+            margin: 15px 0;
+        }
+
+        .item-list {
+            list-style: none;
+            padding: 0;
+            margin: 15px 0;
+        }
+
+        .item-list li {
+            padding: 8px;
+            background: var(--list-item-bg, #f8f9fa);
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .status-indicator.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-indicator.inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎪 Framework Component Playground</h1>
+    <p>Interactive demonstrations of framework features and patterns.</p>
+
+    <div class="playground-grid">
+        <!-- Counter Demo -->
+        <div class="demo-section">
+            <counter-demo></counter-demo>
+        </div>
+
+        <!-- Form Demo -->
+        <div class="demo-section">
+            <form-demo></form-demo>
+        </div>
+
+        <!-- List Demo -->
+        <div class="demo-section">
+            <list-demo></list-demo>
+        </div>
+
+        <!-- Conditional Demo -->
+        <div class="demo-section">
+            <conditional-demo></conditional-demo>
+        </div>
+
+        <!-- Nested Components Demo -->
+        <div class="demo-section">
+            <nested-demo></nested-demo>
+        </div>
+
+        <!-- Notification Demo -->
+        <div class="demo-section">
+            <notification-demo></notification-demo>
+        </div>
+
+        <!-- Computed Properties Demo -->
+        <div class="demo-section" style="grid-column: 1 / -1;">
+            <computed-demo></computed-demo>
+        </div>
+
+        <!-- Virtual Scrolling Demo -->
+        <div class="demo-section" style="grid-column: 1 / -1;">
+            <virtual-scroll-demo></virtual-scroll-demo>
+        </div>
+
+        <!-- API Demo with Suspense -->
+        <div class="demo-section" style="grid-column: 1 / -1;">
+            <api-demo></api-demo>
+        </div>
+    </div>
+
+    <notification-list></notification-list>
+
+    <script type="module">
+        import './playground/counter-demo.js';
+        import './playground/form-demo.js';
+        import './playground/list-demo.js';
+        import './playground/conditional-demo.js';
+        import './playground/nested-demo.js';
+        import './playground/notification-demo.js';
+        import './playground/computed-demo.js';
+        import './playground/virtual-scroll-demo.js';
+        import './playground/api-demo.js';
+        import '../examples/personal/components/notification-list.js';
+    </script>
+</body>
+</html>

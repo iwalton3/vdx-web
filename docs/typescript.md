@@ -117,7 +117,7 @@ import { defineComponent, html } from './lib/framework.js';
 Type definitions are provided in `.d.ts` files alongside each module:
 
 ```
-app/lib/
+lib/
 ├── framework.js
 ├── framework.d.ts      # Types for core framework
 ├── router.js
@@ -358,7 +358,7 @@ npx tsc
 The included `dev-server.py` (in ts-demo) provides automatic TypeScript compilation with file watching:
 
 ```bash
-cd app/ts-demo
+cd examples/ts-demo
 python3 dev-server.py
 ```
 
@@ -648,7 +648,7 @@ defineComponent('user-loader', UserLoader);
 
 ## Demo Application
 
-A complete TypeScript demo application is included in `app/ts-demo/`. It's a task manager that demonstrates:
+A complete TypeScript demo application is included in `examples/ts-demo/`. It's a task manager that demonstrates:
 
 - Typed components with props, state, and stores
 - Typed routing with URL parameters
@@ -662,7 +662,7 @@ A complete TypeScript demo application is included in `app/ts-demo/`. It's a tas
 npm install -g typescript
 
 # Compile and run
-cd app/ts-demo
+cd examples/ts-demo
 npx tsc
 python3 dev-server.py
 

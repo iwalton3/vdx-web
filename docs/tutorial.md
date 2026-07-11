@@ -50,8 +50,7 @@ By the end of this tutorial, you'll be able to:
 ### Step 1: Set Up the Development Server
 
 ```bash
-cd app
-python3 test-server.py
+python3 tools/test-server.py
 ```
 
 Open your browser to **http://localhost:9000/**
@@ -2052,11 +2051,11 @@ state directly. See [docs/components.md](components.md) for the full class-compo
 
 ## Next Steps
 
-- Explore the [Component Library](/componentlib/) for pre-built UI components
-- Check out the [Static Integration Demo](/bundle-demo/static-integration-demo.html) for embedding examples
+- Explore the [Component Library](/site/showcase/) for pre-built UI components
+- Check out the [Static Integration Demo](/site/embedding/static-integration-demo.html) for embedding examples
 - Read the [API Reference](api-reference.md) for complete documentation
-- Browse the [Test Suite](/tests/) to see comprehensive examples
-- Study the [E-commerce Shop](/apps/shop/) for a full application example
+- Browse the [Test Suite](/tests/framework/) to see comprehensive examples
+- Study the [E-commerce Shop](/examples/shop/) for a full application example
 
 ---
 

@@ -5,15 +5,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Overview
 
 **VDX - Vanilla Developer Experience** consists of:
-- **vdx-web**: Core framework (in `/app/lib/`) - Zero-dependency reactive web framework
-- **vdx-ui**: Component library (in `/app/componentlib/`) - Professional UI components (cl-* prefix)
+- **vdx-web**: Core framework (in `lib/`) - Zero-dependency reactive web framework
+- **vdx-ui**: Component library (in `ui/`) - Professional UI components (cl-* prefix)
 
 The framework requires **no build step** - it runs directly in the browser using ES6 modules.
 
 ## Quick Start
 
 ```bash
-cd app && python3 test-server.py
+python3 tools/test-server.py
 # Open http://localhost:9000/
 ```
 
@@ -23,14 +23,14 @@ Both test suites require the test server running first.
 
 ```bash
 # Framework unit tests (~480 tests)
-cd componentlib-e2e && node run-framework-tests.js
-# Or open http://localhost:9000/tests/
+cd tests/e2e && node run-framework-tests.js
+# Or open http://localhost:9000/tests/framework/
 
 # Component library E2E tests (~260 tests)
 # PREFER --only-errors: it runs the files in parallel (~10x faster) and only
 # prints output from failing tests. Use the bare command only when you need the
 # full passing-test output for debugging.
-cd componentlib-e2e && node test-runner.js --only-errors
+cd tests/e2e && node test-runner.js --only-errors
 
 # Full output (slower, sequential)
 node test-runner.js
@@ -38,15 +38,15 @@ node test-runner.js
 
 ## Regenerating Bundles
 
-The pre-bundled files in `app/dist/` (framework, router, utils, gestures, opt) are
-build artifacts. After changing anything under `app/lib/`, regenerate them by running
+The pre-bundled files in `dist/` (framework, router, utils, gestures, opt) are
+build artifacts. After changing anything under `lib/`, regenerate them by running
 the bundler with **no arguments** from the repo root:
 
 ```bash
-node bundler-esm.js
+node tools/bundler-esm.js
 ```
 
-The no-arg mode rebuilds the standard set of `app/dist/*` bundles (and source maps).
+The no-arg mode rebuilds the standard set of `dist/*` bundles (and source maps).
 
 ## Required Reading (VERY IMPORTANT)
 
@@ -127,8 +127,8 @@ This framework does not use shadow DOM. Light-DOM children are captured at mount
 
 ## Getting Help
 
-- `/app/tests/` - Working examples
-- `/app/lib/core/` - Framework internals (~6800 lines); `lib/windowing.js` + `lib/gestures.js` are the list controllers
-- `/app/components/` - Component patterns
-- `/app/componentlib/` - UI component library source
+- `tests/framework/` - Working examples
+- `lib/core/` - Framework internals (~6800 lines); `lib/windowing.js` + `lib/gestures.js` are the list controllers
+- `examples/personal/components/` - Component patterns
+- `ui/` - UI component library source
 - Read the docs/ folder for detailed information

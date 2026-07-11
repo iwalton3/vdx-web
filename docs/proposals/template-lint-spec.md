@@ -46,9 +46,9 @@ lint is the cheap, high-yield subset: **existence and declaration checking**.
 | Lint harness (`--lint-only`, `--strict`, issue shape `{line, variable, path, fixable, message}`, exit codes) | `optimize.js` → `runLintOnly()` | CLI, reporting, CI integration — plug in as another issue source, like `lintClassComponentFields` already does |
 | Class/component discovery (find `class X extends Component`, parse `static props` incl. same-file inheritance, brace-matched body spans) | `optimize.js` → `lintClassComponentFields()` + `maskStringsAndComments()` | The registry builder starts here; extract the shared pieces into a module rather than duplicating |
 | Structure-aware JS scanner (strings, template literals w/ `${}` nesting, comments, regex literals; object-member splitting) | `scripts/convert-to-class.mjs` → `scan()`, `objectMembers()`, `parseMember()` | Needed to harvest methods/getters from class bodies and options objects |
-| **Real HTML parsing of template contents** | `app/lib/core/html-parser.js` → `htmlParse` — **verified to import cleanly in Node** (zero-dep, no DOM) | Parse template HTML with the framework's OWN parser instead of regex: attribute names/values, custom-element tags, exactly the semantics the runtime uses |
-| Attribute↔prop name mapping rules | `app/lib/core/component.js` → `toKebabCase`, `attrToProp` construction (~line 350) | camelCase prop ⇄ kebab-case attribute, legacy smushed-lowercase accepted |
-| Event modifier semantics | `app/lib/core/template-renderer.js` ~1599, ~1912 (`def.modifiers`); compiler assigns them in `template-compiler.js` | Known modifiers: `prevent`, `stop`, `passive`, `delegate`, `once`?, `outside` (verify the full set in template-compiler before hardcoding) |
+| **Real HTML parsing of template contents** | `lib/core/html-parser.js` → `htmlParse` — **verified to import cleanly in Node** (zero-dep, no DOM) | Parse template HTML with the framework's OWN parser instead of regex: attribute names/values, custom-element tags, exactly the semantics the runtime uses |
+| Attribute↔prop name mapping rules | `lib/core/component.js` → `toKebabCase`, `attrToProp` construction (~line 350) | camelCase prop ⇄ kebab-case attribute, legacy smushed-lowercase accepted |
+| Event modifier semantics | `lib/core/template-renderer.js` ~1599, ~1912 (`def.modifiers`); compiler assigns them in `template-compiler.js` | Known modifiers: `prevent`, `stop`, `passive`, `delegate`, `once`?, `outside` (verify the full set in template-compiler before hardcoding) |
 | `x-model` resolution semantics | `template-renderer.js` → `resolveDynamicProp()` ~1757: `getNestedValue(component.state, def.xModel)` | x-model paths are **dot-paths into state** (`x-model="filters.query"`), plus `x-model-checked`/`-radio` contexts |
 
 Template location/extraction: `optimize.js` → `findAllHtmlTemplateStarts()` /
@@ -196,8 +196,8 @@ Implement strictly in phase order; each phase must pass the corpus run before th
 
 - `examples.js` / `examples-old.js` contain defineComponent calls inside strings — the code
   mask handles this; make sure the registry pass uses it.
-- Legacy options components still exist (`app/lib` internals, `app/tests` deliberately):
-  the lint must handle BOTH formats in the registry pass. `app/tests` should probably be
+- Legacy options components still exist (`lib` internals, `tests/framework` deliberately):
+  the lint must handle BOTH formats in the registry pass. `tests/framework` should probably be
   excluded from template checks by default (it contains deliberate error cases).
 - The optimizer TRANSFORMS templates (wraps expressions in `html.contain`) — the lint must
   run on SOURCE, never on optimizer output, and must not be confused by already-optimized

@@ -12,7 +12,7 @@ Complete guide to using the pre-bundled versions of the framework for embedding 
 
 ## Available Bundles
 
-Located in `/app/dist/`:
+Located in `dist/`:
 
 ### framework.js (~92 KB)
 Complete framework bundle including:
@@ -306,14 +306,14 @@ Runtime `opt()` transformer for fine-grained reactivity (`eval(opt(...))` patter
 Bundles are generated with a single command from the repo root:
 
 ```bash
-node bundler-esm.js
+node tools/bundler-esm.js
 ```
 
-Default mode (no arguments) generates all minified bundles in `app/dist/` with source maps: `framework.js` (tree-shaken), `router.js`, and `utils.js`. Run `node bundler-esm.js --help` for custom single-file bundling options.
+Default mode (no arguments) generates all minified bundles in `dist/` with source maps: `framework.js` (tree-shaken), `router.js`, and `utils.js`. Run `node tools/bundler-esm.js --help` for custom single-file bundling options.
 
 ## Bundle Demo
 
-See `/app/bundle-demo/` for complete examples:
+See `/site/embedding/` for complete examples:
 
 - **test-bundle.html** - Simple test page verifying framework.js works
 - **jellyfin-modal-demo.html** - Complete POC of a Jellyfin settings modal
@@ -321,8 +321,7 @@ See `/app/bundle-demo/` for complete examples:
 
 **To run demos:**
 ```bash
-cd app
-python3 test-server.py
+python3 tools/test-server.py
 ```
 
 Then open: http://localhost:9000/bundle-demo/

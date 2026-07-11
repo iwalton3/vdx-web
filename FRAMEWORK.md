@@ -380,7 +380,7 @@ defineComponent('my-component', MyComponent);
 
 ## Component Library (cl-*)
 
-Common components from `vdx/componentlib/`:
+Common components from `vdx/ui/`:
 
 ```javascript
 // Buttons
