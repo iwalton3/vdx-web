@@ -218,13 +218,16 @@ export class ClCodeEditor extends Component {
             font-size: 13px;
             line-height: 1.55;
             tab-size: 4;
-            white-space: pre;
-            word-wrap: normal;
-            overflow-wrap: normal;
+            /* Wrap long lines instead of scrolling horizontally. The highlight <pre>
+               and transparent <textarea> share these rules so the caret stays aligned. */
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: break-word;
             box-sizing: border-box;
             width: 100%;
             height: 100%;
-            overflow: auto;
+            overflow-x: hidden;
+            overflow-y: auto;
         }
 
         .cl-code-hl {

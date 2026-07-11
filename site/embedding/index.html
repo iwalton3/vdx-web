@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VDX — Embed in a static site</title>
     <meta name="description" content="Drop VDX reactive components into any static HTML page. One script tag, one vendored bundle, no build step, no npm.">
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2310897a'/%3E%3Cpath d='M8 9l8 15 8-15' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2310897a'/%3E%3Ctext x='16' y='22' font-family='system-ui,Arial' font-size='14' font-weight='800' fill='white' text-anchor='middle' letter-spacing='-1'%3Evdx%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="/styles/theme.css">
     <style>
         :root {
@@ -13,7 +13,7 @@
             --vdx-text: #17201d; --vdx-text-dim: #5b6763; --vdx-line: #e2e7e2;
             --vdx-accent: #10897a; --vdx-accent-strong: #0c6a5e;
             --vdx-btn: #0c7568; --vdx-btn-hover: #0a5f54; --vdx-on-accent: #ffffff;
-            --vdx-code: #eef1ee; --vdx-shadow: 24px 40px -32px rgba(16,40,34,.28);
+            --vdx-code: #eef1ee; --vdx-danger: #b8442c; --vdx-shadow: 24px 40px -32px rgba(16,40,34,.28);
             --vdx-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
             --vdx-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
@@ -22,7 +22,7 @@
             --vdx-text: #e6ece9; --vdx-text-dim: #91a09b; --vdx-line: #21302b;
             --vdx-accent: #2bbda9; --vdx-accent-strong: #4fd3c1;
             --vdx-btn: #2bbda9; --vdx-btn-hover: #3fd0bc; --vdx-on-accent: #06211d;
-            --vdx-code: #16211e; --vdx-shadow: 24px 44px -34px rgba(0,0,0,.7);
+            --vdx-code: #16211e; --vdx-danger: #e0714f; --vdx-shadow: 24px 44px -34px rgba(0,0,0,.7);
         }
         * { box-sizing: border-box; }
         body { margin: 0; background: var(--vdx-bg); color: var(--vdx-text); font-family: var(--vdx-sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
@@ -65,6 +65,20 @@
         .live { padding: 64px 0; }
         .live h2 { font-size: clamp(24px, 4vw, 32px); letter-spacing: -.02em; margin: 0 0 8px; }
         .live p.sub { color: var(--vdx-text-dim); font-size: 16px; margin: 0 0 26px; max-width: 62ch; }
+
+        /* Pain / alternatives */
+        .pain { padding: 66px 0; }
+        .pain h2 { font-size: clamp(24px, 4vw, 32px); letter-spacing: -.02em; margin: 0 0 8px; }
+        .pain p.sub { color: var(--vdx-text-dim); font-size: 16px; margin: 0 0 30px; max-width: 64ch; }
+        .pain-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 680px) { .pain-grid { grid-template-columns: 1fr; } }
+        .pain-card { background: var(--vdx-surface); border: 1px dashed var(--vdx-line); border-radius: 14px; padding: 20px 22px; }
+        .pain-card h3 { margin: 0 0 6px; font-size: 16px; display: flex; align-items: baseline; gap: 10px; letter-spacing: -.01em; }
+        .pain-card h3 .cost { margin-left: auto; font-family: var(--vdx-mono); font-size: 11px; color: var(--vdx-danger); white-space: nowrap; }
+        .pain-card p { margin: 0; font-size: 14.5px; color: var(--vdx-text-dim); }
+        .pain-vdx { margin-top: 16px; border: 1px solid var(--vdx-accent); border-radius: 14px; padding: 22px 24px; background: color-mix(in srgb, var(--vdx-accent) 7%, var(--vdx-surface)); }
+        .pain-vdx h3 { margin: 0 0 5px; font-size: 17px; color: var(--vdx-accent-strong); letter-spacing: -.01em; }
+        .pain-vdx p { margin: 0; font-size: 14.5px; color: var(--vdx-text-dim); }
 
         /* Demo cards */
         .demos { padding: 64px 0; background: var(--vdx-surface-2); }
@@ -142,6 +156,34 @@
             entry="index.html" activeFile="index.html" previewLabel="Your page"></landing-live>
     </div></section>
 
+    <section class="pain"><div class="wrap">
+        <h2>The tax on "just add a component"</h2>
+        <p class="sub">You already have a page — server-rendered, static, whatever — and you want one
+            reactive widget in it. Here's what the usual options actually cost.</p>
+        <div class="pain-grid">
+            <div class="pain-card">
+                <h3>Hand-written DOM <span class="cost">verbose + drifts</span></h3>
+                <p><code>createElement</code>, <code>addEventListener</code>, and re-render it yourself on every change. State and DOM slide out of sync — the classic bug. The Jellyfin modal below was 230 lines of exactly this.</p>
+            </div>
+            <div class="pain-card">
+                <h3>React / Vue / Svelte <span class="cost">+ a build</span></h3>
+                <p>To render one widget you take on npm, a bundler, JSX/SFC compilation and a mount step. Your static page grows a <code>node_modules/</code>, a <code>package.json</code> and a CI build — and rots on the framework's schedule.</p>
+            </div>
+            <div class="pain-card">
+                <h3>Framework off a CDN <span class="cost">+ weight + risk</span></h3>
+                <p>Skips your build, but ships a big runtime, usually still wants a compile step for JSX/SFC, and bolts a third-party CDN — its uptime and its supply chain — onto a page that used to be self-contained.</p>
+            </div>
+            <div class="pain-card">
+                <h3>htmx / round-trips <span class="cost">+ a server hop</span></h3>
+                <p>Great for some flows, but now instant local state — a converter, a filter, an inline form — is a network request and a server endpoint away from working.</p>
+            </div>
+        </div>
+        <div class="pain-vdx">
+            <h3>VDX: one file, one tag, no tax</h3>
+            <p>Vendor a 23&nbsp;KB file, add a module script, write declarative reactive components — the demo above is the whole thing. No npm, no bundler, no CDN, no round-trip, and nothing to upgrade later. See <a href="https://github.com/iwalton3/vdx-web/blob/main/site/embedding/COMPARISON.md">COMPARISON.md</a> for the line-for-line against hand-written DOM.</p>
+        </div>
+    </div></section>
+
     <section class="demos"><div class="wrap">
         <h2>Worked examples</h2>
         <p class="sub">Bigger integrations, each a self-contained static page you can view source on.</p>
@@ -203,7 +245,7 @@
     </div></section>
 
     <footer><div class="wrap">
-        <a href="/">← vdx-web.iwalton.com</a> · MIT · zero dependencies ·
+        <a href="/">← vdx-web.github.io</a> · MIT · zero dependencies ·
         <a href="https://github.com/iwalton3/vdx-web">GitHub</a>
     </div></footer>
 
