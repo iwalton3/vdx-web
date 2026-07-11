@@ -354,8 +354,8 @@
     <h3>5. Two-Way External Binding</h3>
 
     <p>
-        You can also read component state and react to changes. Every function in a
-        component's <code>methods:</code> block is bound onto the element itself, so
+        You can also read component state and react to changes. Every component
+        method is auto-bound onto the element itself, so
         external code can call it directly - no special exposure step needed. This
         shopping cart demonstrates bidirectional communication between the component
         and external code:
@@ -467,7 +467,7 @@
         </tr>
         <tr>
             <td>Call component methods</td>
-            <td><code>element.methodName(...)</code> - every <code>methods:</code> entry is callable from vanilla JS</td>
+            <td><code>element.methodName(...)</code> - every class method is callable from vanilla JS</td>
         </tr>
         <tr>
             <td>Read component state</td>

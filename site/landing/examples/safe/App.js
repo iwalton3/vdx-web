@@ -26,7 +26,7 @@ class SafeByDefault extends Component {
                 <span>A link URL — try a hostile one</span>
                 <input x-model="url" spellcheck="false">
             </label>
-            <p class="out">Rendered as a link: <a href="${this.state.url.trim()}">click me</a></p>
+            <p class="out">Rendered as a link: <a href="${this.state.url}">click me</a></p>
 
             <p class="explain">
                 The <code>&lt;img onerror&gt;</code> shows up as characters, not an element —

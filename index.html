@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VDX — a web framework you vendor and forget</title>
-    <meta name="description" content="Reactive components, two-way binding, routing and a 30-component UI library — running straight from source in the browser. No build step, no npm, no dependencies.">
+    <meta name="description" content="Reactive components, two-way binding, routing and a 60+ component UI library — running straight from source in the browser. No build step, no npm, no dependencies.">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2310897a'/%3E%3Ctext x='16' y='22' font-family='system-ui,Arial' font-size='14' font-weight='800' fill='white' text-anchor='middle' letter-spacing='-1'%3Evdx%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="/styles/theme.css">
     <style>
@@ -276,10 +276,9 @@
                 <div class="tree-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="label">your repo / vendor</span></div>
                 <div class="tree-body">
                     <div class="row dir">vdx/</div>
-                    <div class="row dim">lib/framework.js<span class="sz">reactivity + templates</span></div>
-                    <div class="row dim">lib/router.js<span class="sz">routing</span></div>
-                    <div class="row dim">ui/all.js<span class="sz">30+ components</span></div>
-                    <div class="row dim">styles/theme.css<span class="sz">light + dark</span></div>
+                    <div class="row dim">lib/<span class="sz">reactivity · templates · router</span></div>
+                    <div class="row dim">ui/<span class="sz">60+ components</span></div>
+                    <div class="row dim">styles/<span class="sz">light + dark theme</span></div>
                 </div>
                 <div class="tree-foot">Checked in once. <b>No node_modules.</b> No lockfile. No install step to trust.</div>
             </div>
@@ -353,7 +352,7 @@
             <div class="grid">
                 <div class="card"><p class="ico">$ (no build)</p><h3>No build step</h3><p>ES modules run directly in the browser. Save a file, refresh. There is no compiler between you and the page.</p></div>
                 <div class="card"><p class="ico">deps: 0</p><h3>Zero dependencies</h3><p>Nothing from npm — not even transitively. The whole framework is a small set of files you can read.</p></div>
-                <div class="card"><p class="ico">router + ui</p><h3>Batteries included</h3><p>Hash and HTML5 routing, reactive stores, and a 30+ component <code>cl-*</code> UI library, all in the box.</p></div>
+                <div class="card"><p class="ico">router + ui</p><h3>Batteries included</h3><p>Hash and HTML5 routing, reactive stores, and a 60+ component <code>cl-*</code> UI library, all in the box.</p></div>
                 <div class="card"><p class="ico">&lt;my-widget&gt;</p><h3>Static-site friendly</h3><p>Import a component into any HTML page and use its tag. Perfect for a backend that just serves files.</p></div>
                 <div class="card"><p class="ico">xss ✕</p><h3>Defense in depth</h3><p>Auto-escaping, URL-scheme allowlisting, and raw HTML gated behind an explicit, trust-marked opt-in.</p></div>
                 <div class="card"><p class="ico">light DOM</p><h3>DevTools-native</h3><p>No shadow DOM. Your components are right there in the element tree — inspect, tweak, and debug them like normal HTML.</p></div>
@@ -405,7 +404,7 @@
                 <div class="card">
                     <p class="ico">el.state</p>
                     <h3>Inspect the running app</h3>
-                    <p>No shadow DOM, so any component is reachable from the DOM. Read or poke its live state in plain JS — no framework devtools extension needed.<code class="line">$('cart-badge').stores.cart.count</code></p>
+                    <p>No shadow DOM, so any component is reachable from the DOM. Read or poke its live state in plain JS (<code>$</code> is your devtools' querySelector) — no framework extension needed.<code class="line">$('cart-badge').stores.cart.count</code></p>
                 </div>
                 <div class="card">
                     <p class="ico">no hooks</p>
