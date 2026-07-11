@@ -1,13 +1,13 @@
 {
-  "version": "83290795",
-  "timestamp": 1766333777065,
-  "generatedAt": "2025-12-21T16:16:17.065Z",
+  "version": "e0204bef",
+  "timestamp": 1783811276525,
+  "generatedAt": "2026-07-11T23:07:56.525Z",
   "fileCount": 5,
   "files": [
-    "/bundle-demo/pwa-offline/demo-app.js",
-    "/bundle-demo/pwa-offline/index.html",
-    "/bundle-demo/pwa-offline/manifest.json",
-    "/bundle-demo/pwa-offline/styles.css",
-    "/dist/framework.js"
+    "/dist/framework.js",
+    "/site/embedding/pwa-offline/demo-app.js",
+    "/site/embedding/pwa-offline/index.html",
+    "/site/embedding/pwa-offline/manifest.json",
+    "/site/embedding/pwa-offline/styles.css"
   ]
 }

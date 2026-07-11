@@ -2,7 +2,7 @@
     "name": "PWA Offline Demo",
     "short_name": "Offline Demo",
     "description": "Demonstrates versioned service worker caching with spider-deps",
-    "start_url": "/bundle-demo/pwa-offline/",
+    "start_url": "/site/embedding/pwa-offline/",
     "display": "standalone",
     "background_color": "#f5f5f7",
     "theme_color": "#4a90d9",

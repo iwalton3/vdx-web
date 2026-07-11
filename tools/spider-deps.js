@@ -5,8 +5,15 @@
  * Discovers all JavaScript dependencies by parsing import statements
  * and generates a versioned cache manifest for service worker caching.
  *
- * Usage: node spider-deps.js
- * Output: cache-manifest.json
+ * Usage: node tools/spider-deps.js [appDir] [webRoot]
+ *   appDir  - directory containing the entry index.html (default: cwd)
+ *   webRoot - the served document root, for computing absolute URL paths
+ *             (default: cwd). URLs in the manifest are relative to this.
+ *
+ * Example (regenerate the bundled PWA demo's manifest, run from the repo root):
+ *   node tools/spider-deps.js site/embedding/pwa-offline .
+ *
+ * Output: <appDir>/cache-manifest.json
  *
  * How it works:
  * 1. Starts from entry point (index.html)
@@ -37,13 +44,12 @@ const CONFIG = {
     // Output manifest file
     outputFile: 'cache-manifest.json',
 
-    // App root (where entry point is located)
-    appRoot: __dirname,
+    // App root (where entry point is located). CLI arg 1 overrides this.
+    appRoot: process.argv[2] ? resolve(process.cwd(), process.argv[2]) : process.cwd(),
 
-    // Project root (for calculating URL paths)
-    // Files are cached with paths relative to this directory
-    // Set this to your web server's document root
-    projectRoot: resolve(__dirname, '../..'),  // /app directory
+    // Project root / served document root, for calculating absolute URL paths.
+    // Files are cached with paths relative to this directory. CLI arg 2 overrides.
+    projectRoot: process.argv[3] ? resolve(process.cwd(), process.argv[3]) : process.cwd(),
 
     // Files to always include (even if not discovered via imports)
     alwaysInclude: [

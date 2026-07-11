@@ -198,7 +198,7 @@ Components work like native HTML elements, making them perfect for enhancing sta
 
 **Important:** Components are a boundary between vanilla JS and VDX. The framework manages everything *inside* a component's template - don't use DOM manipulation (`appendChild`, `innerHTML`, etc.) on elements inside components, as the reactive system will overwrite changes on the next render.
 
-See the [Static Integration Demo](/bundle-demo/static-integration-demo.html) for live examples.
+See the [Static Integration Demo](/site/embedding/static-integration-demo.html) for live examples.
 
 ### Hydration Support
 
@@ -389,7 +389,7 @@ You can use a service worker with vdx-web, which retains the caching and update 
 
 ```bash
 # Before deploying, generate the manifest (script lives in the PWA demo)
-node site/embedding/pwa-offline/spider-deps.js
+node tools/spider-deps.js site/embedding/pwa-offline .
 ```
 
 See the [PWA Offline Demo](https://iwalton.com/bundle-demo/pwa-offline/) for a working example, or check out the [source code](/site/embedding/pwa-offline/).

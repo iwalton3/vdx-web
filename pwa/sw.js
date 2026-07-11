@@ -23,7 +23,7 @@
 
 const CONFIG = {
     // Cache name prefix (version will be appended)
-    cachePrefix: 'app-static-v',
+    cachePrefix: 'my-app-v',  // cache name prefix; version is appended
 
     // Path to cache manifest (relative to service worker)
     manifestUrl: './cache-manifest.json',
@@ -34,7 +34,7 @@ const CONFIG = {
     ],
 
     // Index page for navigation fallback
-    indexPage: '/site/embedding/pwa-offline/index.html',
+    indexPage: '/index.html',  // navigation fallback when offline — set to your app's entry
 
     // Strict version mode: Always check manifest before serving cached files.
     // - true: Ensures newest version on single reload (like webpack), but adds

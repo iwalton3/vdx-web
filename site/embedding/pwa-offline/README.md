@@ -67,7 +67,7 @@ No partial/mixed versions are ever served.
 Before deploying, generate the cache manifest:
 
 ```bash
-cd app/bundle-demo/pwa-offline
+(run from repo root)
 node spider-deps.js
 ```
 
@@ -203,7 +203,7 @@ Send these commands to the service worker:
 # Example deploy script
 
 # 1. Generate manifest with new version hash
-cd app/bundle-demo/pwa-offline
+(run from repo root)
 node spider-deps.js
 
 # 2. Deploy to server
