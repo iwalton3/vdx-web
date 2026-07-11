@@ -20,7 +20,9 @@
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
 import { buildSandbox, normalizeFiles } from './vdx-sandbox.js';
 import '../form/code-editor.js';
+import '../form/input-text.js';
 import '../button/button.js';
+import '../overlay/dialog.js';
 
 const RUN_DEBOUNCE_MS = 550;
 
@@ -39,7 +41,7 @@ export class ClCodeRunner extends Component {
 
     constructor(props) {
         super(props);
-        this.state = { fileNames: [], active: '' };
+        this.state = { fileNames: [], active: '', addOpen: false, addName: '', addError: '' };
         this._code = {};
         this._original = {};
         this._timer = null;
@@ -103,14 +105,27 @@ export class ClCodeRunner extends Component {
     }
 
     addFile() {
-        const raw = window.prompt('New file name (e.g. utils.js):', '');
-        if (!raw) return;
-        const name = raw.trim();
+        this.state.addName = '';
+        this.state.addError = '';
+        this.state.addOpen = true;
+        requestAnimationFrame(() => {
+            const input = this.querySelector('.cl-add-dialog input');
+            if (input) input.focus();
+        });
+    }
+
+    cancelAddFile() {
+        this.state.addOpen = false;
+    }
+
+    confirmAddFile() {
+        const name = (this.state.addName || '').trim();
+        if (!name) { this.state.addError = 'Enter a file name.'; return; }
         if (!/^[\w.-]+\.(js|html|css)$/i.test(name)) {
-            window.alert('Please use a .js, .html or .css file name.');
+            this.state.addError = 'Use a .js, .html or .css file name.';
             return;
         }
-        if (name in this._code) { this.selectFile(name); return; }
+        if (name in this._code) { this.state.addError = 'That file already exists.'; return; }
         const lower = name.toLowerCase();
         const stub = lower.endsWith('.html')
             ? '<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"></head>\n<body>\n\n</body>\n</html>\n'
@@ -118,6 +133,7 @@ export class ClCodeRunner extends Component {
         this._code[name] = stub;
         this.state.fileNames = [...this.state.fileNames, name];
         this.state.active = name;
+        this.state.addOpen = false;
         if (this._editor) this._editor.value = stub;
         this._persist();
         this.run();
@@ -241,6 +257,25 @@ export class ClCodeRunner extends Component {
                     <iframe ref="frame" class="cl-frame" title="Live preview" style="${previewStyle}"
                         sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"></iframe>
                 </div>
+                ${when(allowAdd, html`
+                    <cl-dialog class="cl-add-dialog" visible="${this.state.addOpen}" header="New file"
+                        modal="true" closable="true" style="width: 360px;"
+                        on-change="${(e, val) => this.state.addOpen = val}">
+                        <cl-input-text
+                            label="File name"
+                            placeholder="e.g. utils.js"
+                            helptext="A .js, .html or .css file"
+                            x-model="addName"
+                            error="${this.state.addError}"
+                            on-change="${() => this.state.addError = ''}"
+                            on-keydown="${(e) => e.key === 'Enter' && this.confirmAddFile()}">
+                        </cl-input-text>
+                        <div slot="footer">
+                            <cl-button label="Cancel" severity="secondary" text="true" on-click="cancelAddFile"></cl-button>
+                            <cl-button label="Add file" severity="primary" on-click="confirmAddFile"></cl-button>
+                        </div>
+                    </cl-dialog>
+                `)}
             </div>
         `;
     }
