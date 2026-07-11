@@ -42,6 +42,12 @@ export class ClCodeEditor extends Component {
     mounted() {
         this._ta = this.refs.textarea;
         this._pre = this.refs.highlight;
+        // spellcheck flags code keywords (const, html, ...). Force it off imperatively:
+        // the `spellcheck` prop name collides with the native global HTMLElement.spellcheck
+        // (default true), so the attribute binding can't be trusted to disable it.
+        this._ta.spellcheck = false;
+        // Soft-wrap so the caret layer wraps in lockstep with the highlighted <pre>.
+        this._ta.wrap = 'soft';
         this._ta.value = this.props.value || '';
         this._paint();
     }
@@ -170,11 +176,11 @@ export class ClCodeEditor extends Component {
                         ref="textarea"
                         id="${editorId}"
                         class="cl-code-input"
-                        spellcheck="${this.props.spellcheck ? 'true' : 'false'}"
+                        spellcheck="false"
                         autocapitalize="off"
                         autocomplete="off"
                         autocorrect="off"
-                        wrap="off"
+                        wrap="soft"
                         placeholder="${this.props.placeholder}"
                         readonly="${this.props.readonly}"
                         disabled="${this.props.disabled}"
