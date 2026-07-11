@@ -20,6 +20,10 @@ import './11-performance.js';
 import './12-advanced.js';
 import './13-best-practices.js';
 import './14-legacy.js';
+import './15-security.js';
+import './16-reactivity.js';
+import './17-components.js';
+import './18-production.js';
 
 export const chapters = [
     { id: 'first', num: 1, group: 'Getting started', title: 'Your first component', mount: '<tut-ch-first></tut-ch-first>' },
@@ -35,5 +39,9 @@ export const chapters = [
     { id: 'performance', num: 11, group: 'Building apps', title: 'Performance', mount: '<tut-ch-performance></tut-ch-performance>' },
     { id: 'advanced', num: 12, group: 'Going further', title: 'Advanced patterns', mount: '<tut-ch-advanced></tut-ch-advanced>' },
     { id: 'best', num: 13, group: 'Going further', title: 'Best practices', mount: '<tut-ch-best></tut-ch-best>' },
-    { id: 'legacy', num: 14, group: 'Going further', title: 'The legacy format', mount: '<tut-ch-legacy></tut-ch-legacy>' }
+    { id: 'legacy', num: 14, group: 'Going further', title: 'The legacy format', mount: '<tut-ch-legacy></tut-ch-legacy>' },
+    { id: 'security', num: 15, group: 'Guides', title: 'Security & trusted HTML', mount: '<tut-ch-security></tut-ch-security>' },
+    { id: 'reactivity', num: 16, group: 'Guides', title: 'Reactivity in depth', mount: '<tut-ch-reactivity></tut-ch-reactivity>' },
+    { id: 'components', num: 17, group: 'Guides', title: 'The component library', mount: '<tut-ch-components></tut-ch-components>' },
+    { id: 'production', num: 18, group: 'Guides', title: 'Shipping to production', mount: '<tut-ch-production></tut-ch-production>' }
 ];
