@@ -172,6 +172,10 @@ export class TutApp extends Component {
             white-space: nowrap;
         }
         .tut-toplink:hover { background: var(--hover-bg, #f6f8fa); color: var(--text-color, #24292e); }
+        @media (max-width: 500px) {
+            .tut-topbar { gap: 4px; padding: 0 12px; }
+            .tut-toplink { padding: 6px 7px; font-size: 12.5px; }
+        }
 
         .tut-theme, .tut-burger {
             font-size: 18px;

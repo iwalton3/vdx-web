@@ -18,8 +18,13 @@
             border-bottom: 1px solid var(--border-color, #e1e4e8);
             background: var(--card-bg, #fff);
         }
-        .pg-top .brand { font-weight: 650; font-size: 14px; color: var(--text-color, #24292e); }
+        .pg-top { flex-wrap: nowrap; overflow: hidden; }
+        .pg-top .brand { font-weight: 650; font-size: 14px; color: var(--text-color, #24292e); white-space: nowrap; }
         .pg-top .spacer { flex: 1; }
+        @media (max-width: 640px) {
+            .pg-hint { display: none; }
+            .pg-top { gap: 8px; padding: 10px 14px; }
+        }
         .pg-top a, .pg-top button {
             font: inherit; font-size: 13px; text-decoration: none; cursor: pointer;
             color: var(--text-secondary, #57606a);
@@ -42,7 +47,7 @@
     </div>
 
     <div class="pg-main">
-        <cl-code-runner id="runner" persist-key="vdx-playground" fill="true" preview-height="340px" preview-label="Preview"></cl-code-runner>
+        <cl-code-runner id="runner" persist-key="vdx-playground" fill="true" allow-add-files="true" preview-height="340px" preview-label="Preview"></cl-code-runner>
     </div>
 
     <script type="module">

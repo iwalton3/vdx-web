@@ -276,6 +276,7 @@ export class ComponentShowcase extends Component {
             display: flex;
             align-items: center;
             gap: 12px;
+            min-width: 0;
         }
 
         .topbar-controls .search-input {
@@ -286,6 +287,13 @@ export class ComponentShowcase extends Component {
             color: white;
             font-size: 14px;
             width: 200px;
+        }
+
+        /* Mobile: let search shrink and drop the secondary cross-nav links
+           (the sidebar hamburger still provides component navigation). */
+        @media (max-width: 768px) {
+            .topbar-controls .search-input { width: auto; flex: 1 1 auto; min-width: 0; }
+            .topbar-controls .topbar-link { display: none; }
         }
 
         .topbar-controls .search-input::placeholder {

@@ -33,6 +33,7 @@ export class ClCodeRunner extends Component {
         height: '320px',          // editor height (ignored when fill)
         previewHeight: '380px',   // preview pane height
         fill: false,              // fill the container height; editor flexes, preview stays previewHeight
+        allowAddFiles: false,     // show + / × to add and remove files
         persistKey: ''
     }
 
@@ -80,19 +81,57 @@ export class ClCodeRunner extends Component {
 
     _init(files) {
         const map = this._parseFiles(files);
-        const names = Object.keys(map);
         this._original = { ...map };
-        this._code = { ...map };
-        // Restore persisted edits (same file set only).
+        let code = { ...map };
+        let names = Object.keys(map);
+        let active = this.props.activeFile && names.includes(this.props.activeFile)
+            ? this.props.activeFile : names[0] || '';
+        // Restore the persisted working set (may include added/removed files).
         if (this.props.persistKey) {
             const saved = this._loadPersisted();
-            if (saved) for (const n of names) if (n in saved) this._code[n] = saved[n];
+            if (saved && saved.files && Object.keys(saved.files).length) {
+                code = { ...saved.files };
+                names = Object.keys(code);
+                active = saved.active && names.includes(saved.active) ? saved.active : names[0] || '';
+            }
         }
-        const active = this.props.activeFile && names.includes(this.props.activeFile)
-            ? this.props.activeFile : names[0] || '';
+        this._code = code;
         this.state.fileNames = names;
         this.state.active = active;
         if (this._editor) this._editor.value = this._code[active] || '';
+        this.run();
+    }
+
+    addFile() {
+        const raw = window.prompt('New file name (e.g. utils.js):', '');
+        if (!raw) return;
+        const name = raw.trim();
+        if (!/^[\w.-]+\.(js|html|css)$/i.test(name)) {
+            window.alert('Please use a .js, .html or .css file name.');
+            return;
+        }
+        if (name in this._code) { this.selectFile(name); return; }
+        const lower = name.toLowerCase();
+        const stub = lower.endsWith('.html')
+            ? '<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"></head>\n<body>\n\n</body>\n</html>\n'
+            : lower.endsWith('.css') ? `/* ${name} */\n` : `// ${name}\n`;
+        this._code[name] = stub;
+        this.state.fileNames = [...this.state.fileNames, name];
+        this.state.active = name;
+        if (this._editor) this._editor.value = stub;
+        this._persist();
+        this.run();
+    }
+
+    removeFile(name) {
+        if (this.state.fileNames.length <= 1) return;
+        delete this._code[name];
+        this.state.fileNames = this.state.fileNames.filter((n) => n !== name);
+        if (this.state.active === name) {
+            this.state.active = this.state.fileNames[0];
+            if (this._editor) this._editor.value = this._code[this.state.active] || '';
+        }
+        this._persist();
         this.run();
     }
 
@@ -120,6 +159,10 @@ export class ClCodeRunner extends Component {
     reset() {
         if (this._timer) { clearTimeout(this._timer); this._timer = null; }
         this._code = { ...this._original };
+        this.state.fileNames = Object.keys(this._original);
+        if (!this.state.fileNames.includes(this.state.active)) {
+            this.state.active = this.state.fileNames[0] || '';
+        }
         if (this.props.persistKey) { try { localStorage.removeItem(this.props.persistKey); } catch (e) {} }
         if (this._editor) this._editor.value = this._code[this.state.active] || '';
         this.run();
@@ -144,7 +187,10 @@ export class ClCodeRunner extends Component {
 
     _persist() {
         if (!this.props.persistKey) return;
-        try { localStorage.setItem(this.props.persistKey, JSON.stringify(this._code)); } catch (e) {}
+        try {
+            localStorage.setItem(this.props.persistKey,
+                JSON.stringify({ files: this._code, active: this.state.active }));
+        } catch (e) {}
     }
 
     _loadPersisted() {
@@ -156,6 +202,8 @@ export class ClCodeRunner extends Component {
 
     template() {
         const fill = this.props.fill && this.props.fill !== 'false';
+        const allowAdd = this.props.allowAddFiles && this.props.allowAddFiles !== 'false';
+        const removable = allowAdd && this.state.fileNames.length > 1;
         // In fill mode the editor grows via flex (no fixed height); the CSS below
         // stretches its internals. Otherwise it's a fixed-height box.
         const editorHeight = fill ? '' : (this.props.height || '320px');
@@ -166,10 +214,18 @@ export class ClCodeRunner extends Component {
                     <div class="cl-tabbar" role="tablist">
                         <div class="cl-tabs">
                             ${each(this.state.fileNames, (name) => html`
-                                <button type="button" role="tab"
+                                <div role="tab" tabindex="0"
                                     class="cl-tab ${name === this.state.active ? 'active' : ''}"
                                     aria-selected="${name === this.state.active ? 'true' : 'false'}"
-                                    on-click="${() => this.selectFile(name)}">${name}</button>
+                                    on-click="${() => this.selectFile(name)}"
+                                    on-keydown="${(e) => e.key === 'Enter' && this.selectFile(name)}">
+                                    <span class="cl-tab-name">${name}</span>
+                                    ${when(removable, html`<span class="cl-tab-close" title="Remove file"
+                                        on-click-stop="${() => this.removeFile(name)}">×</span>`)}
+                                </div>
+                            `)}
+                            ${when(allowAdd, html`
+                                <button type="button" class="cl-tab-add" title="Add file" on-click="addFile">+</button>
                             `)}
                         </div>
                         <div class="cl-actions">
@@ -223,16 +279,31 @@ export class ClCodeRunner extends Component {
             background: var(--hover-bg, #f6f8fa);
             border-bottom: 1px solid var(--border-color, #e1e4e8);
         }
-        .cl-tabs { display: flex; gap: 2px; overflow-x: auto; }
+        .cl-tabs { display: flex; align-items: stretch; gap: 2px; overflow-x: auto; }
         .cl-tab {
+            display: inline-flex; align-items: center; gap: 6px;
             font: inherit; font-size: 12.5px;
             font-family: ui-monospace, Menlo, Consolas, monospace;
             white-space: nowrap; cursor: pointer;
-            padding: 8px 12px; border: none; border-bottom: 2px solid transparent;
+            padding: 8px 12px; border-bottom: 2px solid transparent;
             background: transparent; color: var(--text-secondary, #57606a);
         }
         .cl-tab:hover { color: var(--text-color, #24292e); }
+        .cl-tab:focus-visible { outline: 2px solid var(--primary-color, #0969da); outline-offset: -2px; }
         .cl-tab.active { color: var(--primary-color, #0969da); border-bottom-color: var(--primary-color, #0969da); }
+
+        .cl-tab-close {
+            font-size: 14px; line-height: 1; opacity: 0.5;
+            padding: 0 2px; border-radius: 3px;
+        }
+        .cl-tab-close:hover { opacity: 1; background: rgba(127, 127, 127, 0.25); }
+
+        .cl-tab-add {
+            font: inherit; font-size: 16px; line-height: 1; cursor: pointer;
+            padding: 4px 12px; border: none; border-bottom: 2px solid transparent;
+            background: transparent; color: var(--text-muted, #6c757d);
+        }
+        .cl-tab-add:hover { color: var(--primary-color, #0969da); }
 
         .cl-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
