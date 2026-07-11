@@ -2206,5 +2206,54 @@ defineComponent('my-component', MyComponent);
 // - onRetry: Callback function for retry button (auto-shows button)
 // - showRetry: Explicitly show retry button
 // - compact: Smaller padding and text`
+    },
+
+    codeEditor: {
+        id: 'codeEditor',
+        name: 'CodeEditor',
+        category: 'form',
+        description: 'Editable code field with VDX-aware syntax highlighting',
+        demo: `<example-code-editor></example-code-editor>`,
+        source: `class Editor extends Component {
+    state = { code: '// edit me' };
+
+    template() {
+        return html\`
+            <cl-code-editor
+                label="Edit a VDX component"
+                height="280px"
+                x-model="code">
+            </cl-code-editor>
+        \`;
+    }
+}
+defineComponent('code-editor-demo', Editor);
+
+// Props:
+// - value / x-model : editor contents (two-way)
+// - label           : field label
+// - height          : CSS height (e.g. "280px")
+// - readonly, disabled, placeholder, tabSize, spellcheck
+// Emits: change (detail.value) on every edit`
+    },
+
+    codeBlock: {
+        id: 'codeBlock',
+        name: 'CodeBlock',
+        category: 'misc',
+        description: 'Read-only syntax-highlighted source display with a copy button',
+        demo: `<example-code-block></example-code-block>`,
+        source: `<!-- Static highlighted source -->
+<cl-code-block code="\${sourceString}"></cl-code-block>
+
+<!-- Soft-wrap long lines, cap the height -->
+<cl-code-block
+    code="\${sourceString}"
+    wrap="true"
+    maxHeight="180px">
+</cl-code-block>
+
+<!-- Or load straight from a file -->
+<cl-code-block src="/tutorial/examples/counter.js"></cl-code-block>`
     }
 };

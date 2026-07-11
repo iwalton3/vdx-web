@@ -6,6 +6,8 @@ import { createWindowing } from '../lib/windowing.js';
 import { createRowGestures, groupReorderTargets } from '../lib/gestures.js';
 
 // Import all component library components
+import './form/code-editor.js';
+import './misc/code-block.js';
 import './form/input-text.js';
 import './form/input-number.js';
 import './form/textarea.js';
@@ -3020,3 +3022,100 @@ class ExampleMeter extends Component {
 }
 
 defineComponent('example-meter', ExampleMeter);
+
+// Code Editor Example
+class ExampleCodeEditor extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
+            code: `class HelloWorld extends Component {
+    static props = { name: 'World' };
+
+    template() {
+        return html\`
+            <p>Hello, \${this.props.name}!</p>
+        \`;
+    }
+}
+
+defineComponent('hello-world', HelloWorld);`
+        };
+    }
+
+    get lineCount() {
+        return this.state.code.split('\n').length;
+    }
+
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 12px; max-width: 640px;">
+                <cl-code-editor
+                    label="Edit a VDX component"
+                    height="280px"
+                    x-model="code">
+                </cl-code-editor>
+                <p style="margin: 0; color: var(--text-secondary, #666); font-size: 13px;">
+                    Two-way bound with <code>x-model</code> — ${this.lineCount} lines,
+                    ${this.state.code.length} characters. The highlighter understands
+                    <code>html\`\`</code> templates, <code>\${...}</code> interpolations and
+                    <code>on-*</code> bindings.
+                </p>
+            </div>
+        `;
+    }
+}
+
+defineComponent('example-code-editor', ExampleCodeEditor);
+
+// Code Block Example
+class ExampleCodeBlock extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
+            sample: `import { defineComponent, Component, html } from './lib/framework.js';
+
+// A toggle button with scoped styles
+class LikeButton extends Component {
+    static props = { count: 0 };
+
+    constructor(props) {
+        super(props);
+        this.state = { liked: false, count: Number(props.count) || 0 };
+    }
+
+    toggle() {
+        this.state.liked = !this.state.liked;
+        this.state.count += this.state.liked ? 1 : -1;
+    }
+
+    template() {
+        return html\`
+            <button class="like \${this.state.liked ? 'on' : ''}" on-click="toggle">
+                \${this.state.liked ? '♥' : '♡'} \${this.state.count}
+            </button>
+        \`;
+    }
+
+    static styles = /*css*/\`
+        .like { border: none; padding: 8px 14px; border-radius: 999px; cursor: pointer; }
+        .like.on { background: #ffe3ec; color: #e0245e; }
+    \`;
+}
+
+defineComponent('like-button', LikeButton);`
+        };
+    }
+
+    template() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 16px; max-width: 720px;">
+                <cl-code-block code="${this.state.sample}"></cl-code-block>
+                <cl-code-block code="${this.state.sample}" wrap="true" maxHeight="180px"></cl-code-block>
+            </div>
+        `;
+    }
+}
+
+defineComponent('example-code-block', ExampleCodeBlock);

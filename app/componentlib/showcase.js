@@ -9,6 +9,9 @@ import './example-components.js';
 // Import shell component
 import './layout/shell.js';
 
+// Syntax-highlighted source panels
+import './misc/code-block.js';
+
 import { componentExamples } from './examples.js';
 
 export class ComponentShowcase extends Component {
@@ -211,7 +214,7 @@ export class ComponentShowcase extends Component {
                                     const comp = this.state.selectedComponent;
                                     return this.state.selectedTab === 'demo'
                                         ? html`<div class="demo-section">${comp ? raw(comp.demo) : ''}</div>`
-                                        : html`<div class="source-section"><pre><code>${comp ? comp.source : ''}</code></pre></div>`;
+                                        : html`<div class="source-section"><cl-code-block code="${comp ? comp.source : ''}"></cl-code-block></div>`;
                                 })}
                             </div>
                         </div>
@@ -341,20 +344,9 @@ export class ComponentShowcase extends Component {
             gap: 24px;
         }
 
-        .source-section pre {
-            margin: 0;
-            padding: 20px;
-            background: var(--table-header-bg, #f8f9fa);
-            border: 1px solid var(--input-border, #e0e0e0);
-            border-radius: 4px;
-            overflow-x: auto;
-        }
-
-        .source-section code {
-            font-family: 'Monaco', 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.6;
-            color: var(--text-color, #333);
+        .source-section cl-code-block {
+            display: block;
+            max-width: 100%;
         }
 
         .empty-state {
