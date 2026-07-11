@@ -36,6 +36,18 @@ cd componentlib-e2e && node test-runner.js --only-errors
 node test-runner.js
 ```
 
+## Regenerating Bundles
+
+The pre-bundled files in `app/dist/` (framework, router, utils, gestures, opt) are
+build artifacts. After changing anything under `app/lib/`, regenerate them by running
+the bundler with **no arguments** from the repo root:
+
+```bash
+node bundler-esm.js
+```
+
+The no-arg mode rebuilds the standard set of `app/dist/*` bundles (and source maps).
+
 ## Required Reading (VERY IMPORTANT)
 
 **You MUST read these docs before starting work** - this CLAUDE.md is a summary only:
