@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Component communication</title>
+    <style> body { font-family: system-ui, sans-serif; display: grid; gap: 20px; } </style>
+</head>
+<body>
+    <review-form></review-form>
+
+    <!-- Anything between the tags becomes the component's children (a slot). -->
+    <info-card title="Slots">
+        <p>This paragraph was written in index.html but rendered by
+           <code>info-card</code> through <code>this.props.children</code>.</p>
+    </info-card>
+
+    <script type="module">
+        import './App.js';
+    </script>
+</body>
+</html>

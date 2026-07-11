@@ -5,7 +5,7 @@ import '../live-example.js';
 class StaticChapter extends TutChapter {
     template() {
         return html`
-            <p class="eyebrow">Chapter 7 · Going further</p>
+            <p class="eyebrow">Chapter 10 · Building apps</p>
             <h1>Static-site integration</h1>
             <p class="lead">
                 VDX components are just custom elements, so they drop into any static HTML page —
@@ -46,14 +46,6 @@ class StaticChapter extends TutChapter {
                 The same components also work inside a full single-page app — the framework doesn't
                 care whether it owns the page or a corner of it.
             </div>
-
-            <h2>Where to next</h2>
-            <p>
-                You've covered components, state, events, binding, lists, stores, and static
-                integration. From here, explore routing for single-page apps, lifecycle hooks,
-                component communication, and the performance tools (windowed lists, reactive
-                boundaries) in the reference docs.
-            </p>
         `;
     }
 }

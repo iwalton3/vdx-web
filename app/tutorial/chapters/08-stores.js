@@ -5,7 +5,7 @@ import '../live-example.js';
 class StoresChapter extends TutChapter {
     template() {
         return html`
-            <p class="eyebrow">Chapter 6 · Working with data</p>
+            <p class="eyebrow">Chapter 8 · Working with data</p>
             <h1>State management with stores</h1>
             <p class="lead">
                 When several components need the same data, lift it into a <strong>store</strong> —

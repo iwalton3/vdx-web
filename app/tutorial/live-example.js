@@ -127,7 +127,14 @@ export class TutLiveExample extends Component {
 
     run() {
         if (!this._frame || !this.state.fileNames.length) return;
-        this._frame.srcdoc = this._compose();
+        // Load the preview from a Blob-URL document rather than srcdoc: a real
+        // (same-origin) URL means in-page hash links stay in the document, so the
+        // framework router works. srcdoc's about:srcdoc URL resolves hash links
+        // against the parent page and navigates the iframe away.
+        const doc = this._compose();
+        const url = URL.createObjectURL(new Blob([doc], { type: 'text/html' }));
+        this._blobUrls.push(url);
+        this._frame.src = url;
     }
 
     _revokeBlobs() {
@@ -161,8 +168,12 @@ export class TutLiveExample extends Component {
             this._blobUrls.push(url);
         }
 
-        const inject = `<base href="${origin}/">
-<link rel="stylesheet" href="/styles/theme.css">
+        // No <base> tag on purpose: an about:srcdoc document already inherits the
+        // parent's base URL, so "/styles/theme.css" and the absolute import-map
+        // URLs resolve fine - and omitting <base> keeps the framework router in
+        // hash mode (it switches to HTML5 mode when a <base> is present), which is
+        // what works inside a srcdoc iframe.
+        const inject = `<link rel="stylesheet" href="${origin}/styles/theme.css">
 <script type="importmap">${JSON.stringify({ imports })}<\/script>
 <style>
   html, body { margin: 0; }
