@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VDX — Documentation</title>
+    <meta name="description" content="VDX documentation: tutorial, components, templates, reactivity, routing, security, performance, and the full API reference.">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2310897a'/%3E%3Cpath d='M8 9l8 15 8-15' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="/styles/theme.css">
+    <style>
+        :root {
+            --vdx-bg: #f7f9f7; --vdx-surface: #ffffff; --vdx-text: #17201d;
+            --vdx-text-dim: #5b6763; --vdx-line: #e2e7e2; --vdx-accent: #10897a;
+            --vdx-accent-strong: #0c6a5e;
+            --vdx-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+            --vdx-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        body.dark {
+            --vdx-bg: #0b1211; --vdx-surface: #111a18; --vdx-text: #e6ece9;
+            --vdx-text-dim: #91a09b; --vdx-line: #21302b; --vdx-accent: #2bbda9;
+            --vdx-accent-strong: #4fd3c1;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--vdx-bg); color: var(--vdx-text); font-family: var(--vdx-sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+        a { color: var(--vdx-accent-strong); }
+        .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+
+        .top { border-bottom: 1px solid var(--vdx-line); }
+        .top-in { display: flex; align-items: center; gap: 16px; height: 60px; }
+        .brand { display: flex; align-items: baseline; gap: 2px; font-weight: 800; letter-spacing: -.02em; font-size: 20px; text-decoration: none; color: var(--vdx-text); }
+        .brand .dot { color: var(--vdx-accent); margin: 0 2px; }
+        .brand .tld { color: var(--vdx-accent); }
+        .top-in .home { margin-left: auto; font-size: 14.5px; color: var(--vdx-text-dim); text-decoration: none; }
+        .top-in .home:hover { color: var(--vdx-text); }
+
+        header.head { padding: 64px 0 8px; }
+        header.head .eyebrow { font-family: var(--vdx-mono); font-size: 12.5px; color: var(--vdx-accent-strong); margin: 0 0 12px; }
+        header.head h1 { font-size: clamp(30px, 5vw, 42px); letter-spacing: -.03em; margin: 0 0 12px; }
+        header.head p { font-size: 18px; color: var(--vdx-text-dim); margin: 0; max-width: 60ch; }
+
+        main { padding: 40px 0 90px; }
+        .group { margin-top: 44px; }
+        .group h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .08em; color: var(--vdx-text-dim); margin: 0 0 16px; font-weight: 700; }
+        .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+        @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
+        .doc {
+            display: block; text-decoration: none; color: inherit;
+            background: var(--vdx-surface); border: 1px solid var(--vdx-line);
+            border-radius: 12px; padding: 18px 20px; transition: border-color .15s ease, transform .06s ease;
+        }
+        .doc:hover { border-color: var(--vdx-accent); transform: translateY(-1px); }
+        .doc .t { display: flex; align-items: center; gap: 8px; font-weight: 650; font-size: 16px; letter-spacing: -.01em; }
+        .doc .t .ext { margin-left: auto; font-family: var(--vdx-mono); font-size: 11px; color: var(--vdx-text-dim); }
+        .doc p { margin: 6px 0 0; font-size: 14px; color: var(--vdx-text-dim); }
+        .doc.primary { border-color: color-mix(in srgb, var(--vdx-accent) 45%, var(--vdx-line)); }
+        .doc.primary .t { color: var(--vdx-accent-strong); }
+
+        footer { border-top: 1px solid var(--vdx-line); padding: 28px 0; color: var(--vdx-text-dim); font-size: 13.5px; }
+        footer a { color: var(--vdx-text-dim); text-decoration: none; }
+        footer a:hover { color: var(--vdx-text); }
+    </style>
+</head>
+<body>
+    <script src="/styles/theme-init.js"></script>
+
+    <div class="top"><div class="wrap top-in">
+        <a class="brand" href="/">VDX<span class="dot">·</span><span class="tld">web</span></a>
+        <a class="home" href="/">← Home</a>
+    </div></div>
+
+    <div class="wrap">
+        <header class="head">
+            <p class="eyebrow"># docs</p>
+            <h1>Documentation</h1>
+            <p>Everything from a first component to the full API. New here? Start with the interactive
+                tutorial — it runs the examples in your browser, no build step.</p>
+        </header>
+
+        <main>
+            <section class="group">
+                <h2>Start here</h2>
+                <div class="cards">
+                    <a class="doc primary" href="/site/tutorial.html">
+                        <div class="t">Interactive tutorial <span class="ext">live</span></div>
+                        <p>Learn VDX hands-on — editable, runnable examples in the browser.</p>
+                    </a>
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/tutorial.md">
+                        <div class="t">Tutorial (written) <span class="ext">md</span></div>
+                        <p>The step-by-step guide in prose, from scratch to routing and stores.</p>
+                    </a>
+                </div>
+            </section>
+
+            <section class="group">
+                <h2>Core concepts</h2>
+                <div class="cards">
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/components.md">
+                        <div class="t">Components <span class="ext">md</span></div>
+                        <p>Lifecycle, props, children and slots — how components are built.</p>
+                    </a>
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/templates.md">
+                        <div class="t">Templates <span class="ext">md</span></div>
+                        <p>The <code>html``</code> tag, x-model, event binding, and helpers.</p>
+                    </a>
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/reactivity.md">
+                        <div class="t">Reactivity <span class="ext">md</span></div>
+                        <p>Reactive state, stores, and computed properties.</p>
+                    </a>
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/routing.md">
+                        <div class="t">Routing <span class="ext">md</span></div>
+                        <p>Router setup, redirects, params, lazy loading and navigation.</p>
+                    </a>
+                </div>
+            </section>
+
+            <section class="group">
+                <h2>Guides</h2>
+                <div class="cards">
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/security.md">
+                        <div class="t">Security <span class="ext">md</span></div>
+                        <p>XSS protection, URL sanitization, input validation, CSP.</p>
+                    </a>
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/performance.md">
+                        <div class="t">Performance <span class="ext">md</span></div>
+                        <p>Large and editable lists, virtual scroll, high-frequency state.</p>
+                    </a>
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/componentlib.md">
+                        <div class="t">Component library <span class="ext">md</span></div>
+                        <p>The <code>cl-*</code> UI components — forms, data, overlays, panels.</p>
+                    </a>
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/typescript.md">
+                        <div class="t">TypeScript <span class="ext">md</span></div>
+                        <p>Type checking with the optional <code>.d.ts</code> files.</p>
+                    </a>
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/bundles.md">
+                        <div class="t">Bundles <span class="ext">md</span></div>
+                        <p>Using the pre-bundled <code>dist/</code> files for embedding.</p>
+                    </a>
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/optimization.md">
+                        <div class="t">Optimization <span class="ext">md</span></div>
+                        <p>The build-time optimizer, template linting, and source maps.</p>
+                    </a>
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/testing.md">
+                        <div class="t">Testing <span class="ext">md</span></div>
+                        <p>Writing and running the framework and component test suites.</p>
+                    </a>
+                </div>
+            </section>
+
+            <section class="group">
+                <h2>Reference</h2>
+                <div class="cards">
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/docs/api-reference.md">
+                        <div class="t">API reference <span class="ext">md</span></div>
+                        <p>The complete API — every export, prop, helper and option.</p>
+                    </a>
+                    <a class="doc" href="https://github.com/iwalton3/vdx-web/blob/main/FRAMEWORK.md">
+                        <div class="t">FRAMEWORK.md <span class="ext">md</span></div>
+                        <p>A compact single-file reference for building apps with VDX.</p>
+                    </a>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer><div class="wrap">
+        <a href="/">← Back to vdx-web.iwalton.com</a> · MIT · zero dependencies ·
+        <a href="https://github.com/iwalton3/vdx-web">GitHub</a>
+    </div></footer>
+
+    <script type="module">
+        import { startThemeSync } from '/lib/utils.js';
+        startThemeSync();
+    </script>
+</body>
+</html>
