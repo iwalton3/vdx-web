@@ -16,8 +16,11 @@
             --vdx-text: #17201d;
             --vdx-text-dim: #5b6763;
             --vdx-line: #e2e7e2;
-            --vdx-accent: #10897a;      /* evergreen — the thing that doesn't rot */
-            --vdx-accent-strong: #0c6a5e;
+            --vdx-accent: #10897a;      /* evergreen — the thing that doesn't rot; display/decorative use */
+            --vdx-accent-strong: #0c6a5e;  /* AA-readable accent for small text + links */
+            --vdx-btn: #0c7568;         /* button bg — white text clears AA (5.6:1) */
+            --vdx-btn-hover: #0a5f54;
+            --vdx-on-accent: #ffffff;
             --vdx-danger: #b8442c;
             --vdx-code: #eef1ee;
             --vdx-shadow: 24px 40px -32px rgba(16,40,34,.28);
@@ -33,6 +36,9 @@
             --vdx-line: #21302b;
             --vdx-accent: #2bbda9;
             --vdx-accent-strong: #4fd3c1;
+            --vdx-btn: #2bbda9;         /* bright teal + dark text clears AA (7.2:1) */
+            --vdx-btn-hover: #3fd0bc;
+            --vdx-on-accent: #06211d;
             --vdx-danger: #e0714f;
             --vdx-code: #16211e;
             --vdx-shadow: 24px 44px -34px rgba(0,0,0,.7);
@@ -46,7 +52,7 @@
             font-family: var(--vdx-sans);
             line-height: 1.6; -webkit-font-smoothing: antialiased;
         }
-        a { color: var(--vdx-accent); }
+        a { color: var(--vdx-accent-strong); }
         .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
         .eyebrow {
             font-family: var(--vdx-mono); font-size: 12.5px; letter-spacing: .02em;
@@ -74,21 +80,32 @@
             background: var(--vdx-surface); color: var(--vdx-text-dim);
         }
         .theme-btn:hover { border-color: var(--vdx-accent); color: var(--vdx-text); }
-        @media (max-width: 820px) { .nav-links a:not(.nav-cta) { display: none; } }
 
         .nav-cta, .btn {
             display: inline-flex; align-items: center; gap: 8px;
             font-family: var(--vdx-sans); font-size: 14.5px; font-weight: 600;
             text-decoration: none; cursor: pointer; border: 0;
             padding: 11px 18px; border-radius: 10px;
-            background: var(--vdx-accent); color: #fff;
+            background: var(--vdx-btn); color: var(--vdx-on-accent);
             transition: transform .06s ease, background .15s ease;
         }
         .nav-cta { padding: 8px 14px; }
-        .btn:hover, .nav-cta:hover { background: var(--vdx-accent-strong); }
+        .btn:hover, .nav-cta:hover { background: var(--vdx-btn-hover); }
         .btn:active { transform: translateY(1px); }
         .btn.ghost { background: transparent; color: var(--vdx-text); border: 1px solid var(--vdx-line); }
         .btn.ghost:hover { border-color: var(--vdx-accent); background: var(--vdx-surface); }
+
+        /* Mobile nav: drop the tagline and the text links; keep brand, theme, CTA. */
+        @media (max-width: 820px) {
+            .nav-links a:not(.nav-cta) { display: none; }
+            .nav-in { gap: 12px; }
+            .nav-links { gap: 12px; }
+            .brand small { display: none; }
+        }
+        @media (max-width: 400px) {
+            .theme-btn { padding: 6px 9px; }
+            .wrap { padding: 0 18px; }
+        }
 
         /* ---- Hero ---- */
         .hero { padding: 92px 0 76px; }
@@ -114,11 +131,11 @@
         .tree-head .label { margin-left: 6px; font-size: 12px; }
         .tree-body { padding: 14px 16px; display: grid; gap: 5px; }
         .tree-body .row { display: flex; align-items: center; gap: 8px; color: var(--vdx-text); }
-        .tree-body .row.dir { color: var(--vdx-accent); }
+        .tree-body .row.dir { color: var(--vdx-accent-strong); }
         .tree-body .row.dim { color: var(--vdx-text-dim); padding-left: 18px; }
         .tree-body .row .sz { margin-left: auto; color: var(--vdx-text-dim); font-size: 11.5px; }
         .tree-foot { padding: 11px 16px; border-top: 1px solid var(--vdx-line); font-size: 11.5px; color: var(--vdx-text-dim); }
-        .tree-foot b { color: var(--vdx-accent); font-weight: 600; }
+        .tree-foot b { color: var(--vdx-accent-strong); font-weight: 600; }
 
         /* ---- Ship comparison (node_modules vs vdx) ---- */
         .ship { padding: 72px 0; background: var(--vdx-surface-2); }
@@ -130,7 +147,7 @@
         .ship-card.bad { border-style: dashed; }
         .ship-card h3 { font-family: var(--vdx-mono); font-size: 15px; margin: 0 0 4px; }
         .ship-card.bad h3 { color: var(--vdx-danger); }
-        .ship-card.good h3 { color: var(--vdx-accent); }
+        .ship-card.good h3 { color: var(--vdx-accent-strong); }
         .ship-card .stat { font-size: 30px; font-weight: 800; letter-spacing: -.02em; margin: 12px 0 2px; }
         .ship-card .cap { color: var(--vdx-text-dim); font-size: 14px; margin: 0; }
         .ship-card ul { margin: 16px 0 0; padding-left: 18px; color: var(--vdx-text-dim); font-size: 14px; }
@@ -152,7 +169,7 @@
         @media (max-width: 860px) { .grid { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
         .card { background: var(--vdx-surface); border: 1px solid var(--vdx-line); border-radius: 14px; padding: 24px; }
-        .card .ico { font-family: var(--vdx-mono); font-size: 13px; color: var(--vdx-accent); margin: 0 0 12px; }
+        .card .ico { font-family: var(--vdx-mono); font-size: 13px; color: var(--vdx-accent-strong); margin: 0 0 12px; }
         .card h3 { font-size: 17px; margin: 0 0 8px; letter-spacing: -.01em; }
         .card p { margin: 0; color: var(--vdx-text-dim); font-size: 14.5px; }
 
@@ -163,11 +180,11 @@
         .table-scroll { overflow-x: auto; border: 1px solid var(--vdx-line); border-radius: 14px; }
         table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14.5px; }
         thead th { text-align: left; padding: 16px 18px; background: var(--vdx-surface-2); font-weight: 700; }
-        thead th.vdx { color: var(--vdx-accent); }
+        thead th.vdx { color: var(--vdx-accent-strong); }
         tbody th { text-align: left; font-weight: 600; padding: 14px 18px; color: var(--vdx-text); white-space: nowrap; }
         tbody td { padding: 14px 18px; color: var(--vdx-text-dim); border-top: 1px solid var(--vdx-line); }
         tbody th { border-top: 1px solid var(--vdx-line); }
-        td.y { color: var(--vdx-accent); font-weight: 600; }
+        td.y { color: var(--vdx-accent-strong); font-weight: 600; }
         td.n { color: var(--vdx-danger); }
         col.vdx-col, th.vdx { background: color-mix(in srgb, var(--vdx-accent) 8%, var(--vdx-surface)); }
         tbody td.vdx { background: color-mix(in srgb, var(--vdx-accent) 7%, transparent); color: var(--vdx-text); font-weight: 600; }
@@ -216,7 +233,7 @@
         <div class="wrap nav-in">
             <a class="brand" href="/">VDX<span class="tld">·web</span> <small>vanilla developer experience</small></a>
             <div class="nav-links">
-                <a href="/docs/tutorial.md">Docs</a>
+                <a href="https://github.com/iwalton3/vdx-web/tree/main/docs">Docs</a>
                 <a href="/site/showcase/">Showcase</a>
                 <a href="/site/playground.html">Playground</a>
                 <a href="/site/tutorial.html">Tutorial</a>
@@ -367,24 +384,23 @@
     <section class="depth">
         <div class="wrap depth-grid">
             <div>
-                <h2>Safe is the path of least resistance</h2>
-                <p>The old-web XSS footguns are disarmed by default. You have to go out of your way — with
-                    a named, trust-marked function — to render raw HTML at all.</p>
+                <h2>You opt out of safety, never into it</h2>
+                <p>The demo above showed escaping happen on its own. That's the whole posture:
+                    the safe path is the default one, and rendering raw HTML is a deliberate,
+                    visible choice — not something you can do by forgetting.</p>
                 <ul class="points">
-                    <li><b>Content is escaped</b> — interpolated text can never become markup.</li>
-                    <li><b>URLs are scheme-checked</b> — <code>javascript:</code>, <code>data:</code> and <code>vbscript:</code> in <code>href</code>/<code>src</code> collapse to nothing.</li>
-                    <li><b>Raw HTML is opt-in</b> — <code>raw()</code> carries a runtime trust marker, so a JSON payload can't forge it.</li>
-                    <li><b>Nothing is hidden</b> — no shadow DOM means every node is inspectable in DevTools.</li>
+                    <li><b>Raw HTML is trust-marked</b> — <code>raw()</code> tags its output at runtime, so a JSON string from an API can never masquerade as trusted markup.</li>
+                    <li><b>Misuse is legible</b> — an unsafe render is a literal <code>raw(userInput)</code> in the source, easy to spot in review and to grep for.</li>
+                    <li><b>Nothing is hidden</b> — no shadow DOM, so every node your components render is right there in DevTools to inspect and audit.</li>
                 </ul>
             </div>
-            <pre class="code"><span class="c">// text and URLs — escaped for their context, automatically</span>
+            <pre class="code"><span class="c">// the default: escaped for its context, automatically</span>
 html`&lt;a href="${userUrl}"&gt;${userName}&lt;/a&gt;`
-<span class="c">//        ▲ javascript: → ""      ▲ &lt;script&gt; → text</span>
 
 <span class="c">// raw HTML is a deliberate, trust-marked choice</span>
 <span class="k">import</span> { raw } <span class="k">from</span> 'vdx/lib/framework.js';
-html`${raw(trustedServerHtml)}`   <span class="c">// you asked for it</span>
-html`${<span class="bad">raw(userComment)</span>}`        <span class="c">// don't — and you can see it</span></pre>
+html`${raw(trustedServerHtml)}`  <span class="c">// you asked for it</span>
+html`${<span class="bad">raw(userComment)</span>}`       <span class="c">// don't — and it shows</span></pre>
         </div>
     </section>
 
@@ -404,7 +420,7 @@ html`${<span class="bad">raw(userComment)</span>}`        <span class="c">// don
             </div>
             <div class="cta-row">
                 <a class="btn" href="/site/tutorial.html">Start the tutorial</a>
-                <a class="btn ghost" href="/docs/api-reference.md">API reference</a>
+                <a class="btn ghost" href="https://github.com/iwalton3/vdx-web/blob/main/docs/api-reference.md">API reference</a>
             </div>
         </div>
     </section>
