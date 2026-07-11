@@ -563,6 +563,37 @@ export function localStore(name, initial) {
 }
 
 /**
+ * The three theme modes the app supports.
+ *   'auto'  - follow the OS `prefers-color-scheme` (updates live)
+ *   'light' - force light
+ *   'dark'  - force dark
+ * @type {readonly string[]}
+ */
+export const THEME_MODES = ['auto', 'light', 'dark'];
+
+/**
+ * Whether the browser/OS currently prefers a dark color scheme.
+ * @returns {boolean}
+ */
+export function systemPrefersDark() {
+    return typeof window !== 'undefined'
+        && typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+/**
+ * Resolve a theme mode to a concrete "is dark" boolean.
+ * 'auto' defers to the OS via {@link systemPrefersDark}.
+ * @param {string} mode - One of {@link THEME_MODES}
+ * @returns {boolean}
+ */
+export function resolveDarkMode(mode) {
+    if (mode === 'dark') return true;
+    if (mode === 'light') return false;
+    return systemPrefersDark(); // 'auto' (and any unknown value)
+}
+
+/**
  * Dark theme preference store
  * Note: Store must be an object, not a primitive, for reactivity to work
  * @private
@@ -570,17 +601,21 @@ export function localStore(name, initial) {
  */
 function initDarkTheme() {
     const key = `${LOCALSTORAGE_PREFIX}_dark`;
-    let initial = { enabled: false };
+    // Default to 'auto' so first-time visitors follow their OS preference.
+    let initial = { mode: 'auto' };
 
     try {
         const data = window.localStorage.getItem(key);
         if (data !== null) {
             const parsed = JSON.parse(data);
-            // Handle old boolean format
-            if (typeof parsed === 'boolean') {
-                initial = { enabled: parsed };
-            } else if (parsed && typeof parsed.enabled === 'boolean') {
-                initial = parsed;
+            if (parsed && THEME_MODES.includes(parsed.mode)) {
+                initial = { mode: parsed.mode };
+            } else if (typeof parsed === 'boolean' || (parsed && typeof parsed.enabled === 'boolean')) {
+                // Legacy two-state formats (`true`/`false` or `{ enabled }`).
+                // Only an explicit `true` meant a real "dark" choice; `false`
+                // was the old unconditional default, so migrate it to 'auto'.
+                const enabled = typeof parsed === 'boolean' ? parsed : parsed.enabled;
+                initial = { mode: enabled ? 'dark' : 'auto' };
             }
         }
     } catch (e) {
@@ -602,19 +637,75 @@ function initDarkTheme() {
 }
 
 /**
- * Global dark theme store with localStorage persistence
+ * Global dark theme store with localStorage persistence.
+ * Holds `{ mode: 'auto' | 'light' | 'dark' }`.
  * @type {ReturnType<typeof createStore>}
  *
  * @example
- * // Toggle dark mode
- * darkTheme.update(s => ({ enabled: !s.enabled }));
+ * // Read the current mode
+ * darkTheme.state.mode;
  *
- * // Subscribe to changes
- * darkTheme.subscribe(state => {
- *   document.body.classList.toggle('dark', state.enabled);
- * });
+ * // Change it (prefer setThemeMode / cycleThemeMode)
+ * setThemeMode('dark');
  */
 export const darkTheme = initDarkTheme();
+
+/**
+ * Set the theme mode. Invalid values fall back to 'auto'.
+ * @param {string} mode - One of {@link THEME_MODES}
+ */
+export function setThemeMode(mode) {
+    darkTheme.update(() => ({ mode: THEME_MODES.includes(mode) ? mode : 'auto' }));
+}
+
+/**
+ * Advance the theme mode: auto -> light -> dark -> auto.
+ * @returns {string} The new mode
+ */
+export function cycleThemeMode() {
+    const next = THEME_MODES[(THEME_MODES.indexOf(darkTheme.state.mode) + 1) % THEME_MODES.length];
+    setThemeMode(next);
+    return next;
+}
+
+/**
+ * Keep `<body>`'s `dark` class in sync with the {@link darkTheme} store, and -
+ * while in 'auto' mode - with live OS `prefers-color-scheme` changes. Applies
+ * the current theme immediately (store `subscribe` runs its effect on start).
+ *
+ * Call from a component's `mounted()`; invoke the returned function in
+ * `unmounted()` to detach both listeners.
+ *
+ * @returns {() => void} Unsubscribe function
+ */
+export function startThemeSync() {
+    const apply = () => {
+        document.body.classList.toggle('dark', resolveDarkMode(darkTheme.state.mode));
+    };
+
+    // subscribe() runs the effect immediately, so this also applies on start
+    // and re-applies whenever the stored mode changes.
+    const unsubscribeStore = darkTheme.subscribe(apply);
+
+    let mq = null;
+    const onSystemChange = () => {
+        // Only the OS drives the theme while the user hasn't forced light/dark.
+        if (darkTheme.state.mode === 'auto') apply();
+    };
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+        mq = window.matchMedia('(prefers-color-scheme: dark)');
+        if (mq.addEventListener) mq.addEventListener('change', onSystemChange);
+        else if (mq.addListener) mq.addListener(onSystemChange); // Safari < 14
+    }
+
+    return () => {
+        unsubscribeStore();
+        if (mq) {
+            if (mq.removeEventListener) mq.removeEventListener('change', onSystemChange);
+            else if (mq.removeListener) mq.removeListener(onSystemChange);
+        }
+    };
+}
 
 /**
  * Range utility (like Python's range) - generates array of numbers

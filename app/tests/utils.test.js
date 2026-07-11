@@ -15,7 +15,11 @@ import {
     range,
     relativeTime,
     localStore,
-    darkTheme
+    darkTheme,
+    setThemeMode,
+    resolveDarkMode,
+    systemPrefersDark,
+    THEME_MODES
 } from '../lib/utils.js';
 
 describe('Utility Functions', function(it) {
@@ -152,21 +156,41 @@ describe('Local Storage', function(it) {
 });
 
 describe('Dark Theme', function(it) {
-    it('has dark theme store', () => {
+    it('has dark theme store with a valid mode', () => {
         assert.ok(darkTheme, 'Should have darkTheme store');
         assert.ok(darkTheme.state, 'Should have state');
-        assert.ok(typeof darkTheme.state.enabled === 'boolean', 'Should have enabled boolean');
+        assert.ok(THEME_MODES.includes(darkTheme.state.mode), 'Should have a valid mode');
     });
 
-    it('can toggle dark theme', () => {
-        const initial = darkTheme.state.enabled;
+    it('setThemeMode changes the mode', () => {
+        const initial = darkTheme.state.mode;
 
-        darkTheme.update(s => ({ enabled: !s.enabled }));
+        setThemeMode('dark');
+        assert.equal(darkTheme.state.mode, 'dark', 'Should set dark mode');
 
-        assert.equal(darkTheme.state.enabled, !initial, 'Should toggle dark theme');
+        setThemeMode('light');
+        assert.equal(darkTheme.state.mode, 'light', 'Should set light mode');
+
+        setThemeMode('auto');
+        assert.equal(darkTheme.state.mode, 'auto', 'Should set auto mode');
 
         // Restore original
-        darkTheme.update(s => ({ enabled: initial }));
+        setThemeMode(initial);
+    });
+
+    it('setThemeMode falls back to auto for invalid values', () => {
+        const initial = darkTheme.state.mode;
+
+        setThemeMode('nonsense');
+        assert.equal(darkTheme.state.mode, 'auto', 'Invalid mode should fall back to auto');
+
+        setThemeMode(initial);
+    });
+
+    it('resolveDarkMode maps modes to a dark boolean', () => {
+        assert.equal(resolveDarkMode('dark'), true, 'dark -> true');
+        assert.equal(resolveDarkMode('light'), false, 'light -> false');
+        assert.equal(resolveDarkMode('auto'), systemPrefersDark(), 'auto -> OS preference');
     });
 });
 

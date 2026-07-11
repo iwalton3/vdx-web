@@ -4,7 +4,7 @@
 import { defineComponent, Component } from '../lib/framework.js';
 import { html, when } from '../lib/framework.js';
 import login from './auth.js';
-import { darkTheme } from '../lib/utils.js';
+import { darkTheme, setThemeMode, startThemeSync } from '../lib/utils.js';
 import '../components/icon.js';
 
 export class UserTools extends Component {
@@ -14,35 +14,31 @@ export class UserTools extends Component {
         super(props);
 
         this.state = {
-            darkThemeEnabled: false
+            themeMode: darkTheme.state.mode
         };
     }
 
     mounted() {
-        // Subscribe to darkTheme store (needs custom callback for DOM side effects)
-        this.themeUnsubscribe = darkTheme.subscribe(state => {
-            this.state.darkThemeEnabled = state.enabled;
-
-            // Apply dark theme class to body
-            if (state.enabled) {
-                document.body.classList.add('dark');
-            } else {
-                document.body.classList.remove('dark');
-            }
+        // Keep <body> in sync with the store (and, in 'auto', with the OS).
+        this._stopThemeSync = startThemeSync();
+        // Mirror the stored mode into local state so the <select> reflects it.
+        this._themeUnsubscribe = darkTheme.subscribe(state => {
+            this.state.themeMode = state.mode;
         });
     }
 
     unmounted() {
-        if (this.themeUnsubscribe) this.themeUnsubscribe();
+        if (this._stopThemeSync) this._stopThemeSync();
+        if (this._themeUnsubscribe) this._themeUnsubscribe();
     }
 
     async logoff() {
         await login.state.logoff();
     }
 
-    handleDarkThemeChange() {
-        // Update store with current checkbox state
-        darkTheme.update(() => ({ enabled: this.state.darkThemeEnabled }));
+    handleThemeModeChange() {
+        // x-model already wrote the picked value into state.themeMode.
+        setThemeMode(this.state.themeMode);
     }
 
     template() {
@@ -68,7 +64,12 @@ export class UserTools extends Component {
                 `)}
                 <p>
                     <label>
-                        <input type="checkbox" id="dark-theme-toggle" x-model="darkThemeEnabled" on-change="handleDarkThemeChange"> Use Dark Theme?
+                        Theme
+                        <select id="theme-mode" x-model="themeMode" on-change="handleThemeModeChange">
+                            <option value="auto">Auto (system)</option>
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                        </select>
                     </label>
                 </p>
             </div>

@@ -2,6 +2,7 @@
  * Component Showcase - VDX-UI Component Library
  */
 import { defineComponent, html, when, each, raw, contain, Component } from '../lib/framework.js';
+import { darkTheme, cycleThemeMode, startThemeSync } from '../lib/utils.js';
 
 // Import all example components (which also import the library components)
 import './example-components.js';
@@ -22,7 +23,7 @@ export class ComponentShowcase extends Component {
             selectedComponent: null,
             selectedTab: 'demo',
             searchQuery: '',
-            darkMode: false,
+            themeMode: darkTheme.state.mode,
             categories: [
                 { name: 'Form', key: 'form', icon: '📝' },
                 { name: 'Selection', key: 'selection', icon: '☑️' },
@@ -41,11 +42,20 @@ export class ComponentShowcase extends Component {
         this.loadFromHash();
 
         // Listen for hash changes
-        window.addEventListener('hashchange', () => this.loadFromHash());
+        this._onHash = () => this.loadFromHash();
+        window.addEventListener('hashchange', this._onHash);
+
+        // Theme: follow the OS by default ('auto'), overridable via the toggle.
+        this._stopThemeSync = startThemeSync();
+        this._themeUnsubscribe = darkTheme.subscribe(state => {
+            this.state.themeMode = state.mode;
+        });
     }
 
     unmounted() {
-        window.removeEventListener('hashchange', () => this.loadFromHash());
+        if (this._onHash) window.removeEventListener('hashchange', this._onHash);
+        if (this._stopThemeSync) this._stopThemeSync();
+        if (this._themeUnsubscribe) this._themeUnsubscribe();
     }
 
     loadFromHash() {
@@ -154,9 +164,17 @@ export class ComponentShowcase extends Component {
         }
     }
 
-    toggleDarkMode() {
-        this.state.darkMode = !this.state.darkMode;
-        document.body.classList.toggle('dark', this.state.darkMode);
+    cycleTheme() {
+        // auto -> light -> dark -> auto; startThemeSync applies the body class.
+        cycleThemeMode();
+    }
+
+    get themeIcon() {
+        return { auto: '🌓', light: '☀️', dark: '🌙' }[this.state.themeMode] || '🌓';
+    }
+
+    get themeLabel() {
+        return { auto: 'Auto (system)', light: 'Light', dark: 'Dark' }[this.state.themeMode] || 'Auto';
     }
 
     // Turn an example (source + demo) into a runnable project for cl-code-runner.
@@ -216,8 +234,8 @@ export class ComponentShowcase extends Component {
                         on-keydown="handleSearchKeydown">
                     <a class="topbar-link" href="/tutorial.html">Tutorial ↗</a>
                     <a class="topbar-link" href="/tutorial/playground.html">Playground ↗</a>
-                    <button class="dark-mode-btn" on-click="toggleDarkMode" title="Toggle dark mode">
-                        ${this.state.darkMode ? '☀️' : '🌙'}
+                    <button class="dark-mode-btn" on-click="cycleTheme" title="Theme: ${this.themeLabel} (click to change)">
+                        ${this.themeIcon}
                     </button>
                 </div>
 

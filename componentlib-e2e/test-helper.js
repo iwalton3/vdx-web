@@ -25,6 +25,13 @@ class TestHelper {
         this.page = await this.browser.newPage();
         await this.page.setViewport(VIEWPORT);
 
+        // Pin the color scheme so the 'auto' theme default resolves the same way
+        // everywhere, regardless of the host's prefers-color-scheme. Tests that
+        // want dark mode toggle it explicitly.
+        await this.page.emulateMediaFeatures([
+            { name: 'prefers-color-scheme', value: 'light' }
+        ]);
+
         // Setup error handlers
         this.page.on('pageerror', error => {
             console.error(`[PAGE ERROR] ${error.message}`);

@@ -8,22 +8,31 @@
  * the same isolation pattern the component showcase uses.
  */
 import { defineComponent, html, each, when, raw, contain, Component } from '../lib/framework.js';
+import { darkTheme, cycleThemeMode, startThemeSync } from '../lib/utils.js';
 import { chapters } from './chapters/index.js';
 
 export class TutApp extends Component {
     constructor(props) {
         super(props);
-        this.state = { activeId: chapters[0].id, menuOpen: false };
+        this.state = { activeId: chapters[0].id, menuOpen: false, themeMode: darkTheme.state.mode };
     }
 
     mounted() {
         this._onHash = () => this._loadFromHash();
         window.addEventListener('hashchange', this._onHash);
         this._loadFromHash();
+
+        // Theme: follow the OS by default ('auto'), overridable via the toggle.
+        this._stopThemeSync = startThemeSync();
+        this._themeUnsubscribe = darkTheme.subscribe(state => {
+            this.state.themeMode = state.mode;
+        });
     }
 
     unmounted() {
         window.removeEventListener('hashchange', this._onHash);
+        if (this._stopThemeSync) this._stopThemeSync();
+        if (this._themeUnsubscribe) this._themeUnsubscribe();
     }
 
     _loadFromHash() {
@@ -72,8 +81,17 @@ export class TutApp extends Component {
         if (i < chapters.length - 1) this.go(chapters[i + 1].id);
     }
 
-    toggleTheme() {
-        document.body.classList.toggle('dark');
+    cycleTheme() {
+        // auto -> light -> dark -> auto; startThemeSync applies the body class.
+        cycleThemeMode();
+    }
+
+    get themeIcon() {
+        return { auto: '🌓', light: '☀️', dark: '🌙' }[this.state.themeMode] || '🌓';
+    }
+
+    get themeLabel() {
+        return { auto: 'Auto (system)', light: 'Light', dark: 'Dark' }[this.state.themeMode] || 'Auto';
     }
 
     toggleMenu() {
@@ -94,7 +112,7 @@ export class TutApp extends Component {
                     <span class="tut-top-spacer"></span>
                     <a class="tut-toplink" href="./tutorial/playground.html">Playground ↗</a>
                     <a class="tut-toplink" href="./componentlib/">Components ↗</a>
-                    <button class="tut-theme" on-click="toggleTheme" aria-label="Toggle theme">🌓</button>
+                    <button class="tut-theme" on-click="cycleTheme" aria-label="Theme: ${this.themeLabel} (click to change)" title="Theme: ${this.themeLabel} (click to change)">${this.themeIcon}</button>
                 </header>
 
                 <nav class="tut-sidebar" aria-label="Chapters">

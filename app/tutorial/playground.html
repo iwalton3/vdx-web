@@ -37,6 +37,7 @@
     </style>
 </head>
 <body>
+    <script src="/styles/theme-init.js"></script>
     <div class="pg-top">
         <span class="brand">VDX · Playground</span>
         <span class="pg-hint" style="font-size:13px;color:var(--text-muted,#6c757d)">Edit freely — saved in your browser</span>
@@ -52,6 +53,7 @@
 
     <script type="module">
         import '../componentlib/misc/code-runner.js';
+        import { darkTheme, cycleThemeMode, startThemeSync } from '../lib/utils.js';
 
         const runner = document.getElementById('runner');
         const files = ['App.js', 'index.html'];
@@ -63,9 +65,19 @@
             runner.files = Object.fromEntries(entries);
         });
 
-        document.getElementById('theme').addEventListener('click', () => {
-            document.body.classList.toggle('dark');
+        // Theme: follow the OS by default ('auto'), overridable via the button.
+        // auto -> light -> dark -> auto; startThemeSync applies the body class.
+        const THEME_ICONS = { auto: '🌓', light: '☀️', dark: '🌙' };
+        const THEME_LABELS = { auto: 'Auto (system)', light: 'Light', dark: 'Dark' };
+        const themeBtn = document.getElementById('theme');
+
+        startThemeSync();
+        // subscribe() runs immediately, so this sets the initial icon too.
+        darkTheme.subscribe((state) => {
+            themeBtn.textContent = THEME_ICONS[state.mode] || '🌓';
+            themeBtn.title = 'Theme: ' + (THEME_LABELS[state.mode] || 'Auto') + ' (click to change)';
         });
+        themeBtn.addEventListener('click', () => cycleThemeMode());
     </script>
 </body>
 </html>
