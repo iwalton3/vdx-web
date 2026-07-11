@@ -64,13 +64,10 @@ export class LandingLive extends Component {
         return html`
             <div class="landing-live ${toggle ? 'toggle' : ''} ${editing ? 'editing' : ''}">
                 ${when(toggle, html`
-                    <div class="ll-bar">
-                        <div class="ll-seg">
-                            <button type="button" class="${!editing ? 'on' : ''}" on-click="showRun">▶ Run</button>
-                            <button type="button" class="${editing ? 'on' : ''}" on-click="showEdit">✎ Edit</button>
-                        </div>
-                        <span class="ll-hint">${editing ? 'Edit the markup, then hit Run' : 'Running live — hit Edit to see the markup'}</span>
-                    </div>
+                    <button type="button" class="ll-toggle" title="${editing ? 'Run the component' : 'See the markup'}"
+                        on-click="${() => (this.state.editing ? this.showRun() : this.showEdit())}">
+                        ${editing ? '▶ Run' : '✎ Edit'}
+                    </button>
                 `)}
                 ${when(this.state.filesData,
                     html`
@@ -117,23 +114,22 @@ export class LandingLive extends Component {
             color: var(--text-muted, #6c757d); font-size: 14px;
         }
 
-        /* ---- Toggle (security) mode: run the component; reveal markup on Edit ---- */
+        /* ---- Toggle (security) mode: run the component; reveal markup on Edit ----
+           Preview stays on top (order:0) so the Edit button, pinned to the top-right,
+           always sits in the "Running component" header. Code drops in below on Edit. */
+        .landing-live.toggle { position: relative; }
         .landing-live.toggle cl-code-runner .cl-runner { flex-direction: column; }
+        .landing-live.toggle cl-code-runner .cl-pane-preview { order: 0; border-top: 0; }
+        .landing-live.toggle cl-code-runner .cl-pane-code { order: 1; border-top: 1px solid var(--border-color, #e1e4e8); border-bottom: 0; }
         .landing-live.toggle:not(.editing) cl-code-runner .cl-pane-code { display: none; }
-        .landing-live.toggle cl-code-runner .cl-pane-preview { border-top: 0; }
-        .ll-bar {
-            display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-            padding: 10px 14px; background: var(--hover-bg, #f6f8fa);
-            border-bottom: 1px solid var(--border-color, #e1e4e8);
+        .ll-toggle {
+            position: absolute; top: 5px; right: 10px; z-index: 3;
+            font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+            padding: 5px 12px; border-radius: 7px;
+            border: 1px solid var(--border-color, #e1e4e8);
+            background: var(--card-bg, #fff); color: var(--text-secondary, #57606a);
         }
-        .ll-seg { display: inline-flex; border: 1px solid var(--border-color, #e1e4e8); border-radius: 8px; overflow: hidden; }
-        .ll-seg button {
-            font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-            padding: 6px 15px; border: 0; background: var(--card-bg, #fff); color: var(--text-secondary, #57606a);
-        }
-        .ll-seg button + button { border-left: 1px solid var(--border-color, #e1e4e8); }
-        .ll-seg button.on { background: var(--primary-color, #0969da); color: #fff; }
-        .ll-hint { font-size: 12.5px; color: var(--text-muted, #6c757d); }
+        .ll-toggle:hover { border-color: var(--primary-color, #0969da); color: var(--primary-color, #0969da); }
     `;
 }
 
