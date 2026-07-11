@@ -682,12 +682,25 @@ defineComponent('example-card', ExampleCard);`
         category: 'panel',
         description: 'Fieldset with legend and toggle',
         demo: `<example-fieldset></example-fieldset>`,
-        source: `<cl-fieldset
-    legend="Section Title"
-    toggleable="true"
-    collapsed="false">
-    Content here
-</cl-fieldset>`
+        source: `class ExampleFieldset extends Component {
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 20px; max-width: 600px;">
+                <cl-fieldset legend="User Information">
+                    <p>Name: John Doe</p>
+                    <p>Email: john@example.com</p>
+                    <p>Role: Administrator</p>
+                </cl-fieldset>
+
+                <cl-fieldset legend="Advanced Options" toggleable="true">
+                    <p>These are advanced configuration options.</p>
+                    <p>Click the legend to toggle visibility.</p>
+                </cl-fieldset>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-fieldset', ExampleFieldset);`
     },
 
     splitter: {
@@ -954,25 +967,61 @@ defineComponent('example-tooltip', ExampleTooltip);`
         category: 'overlay',
         description: 'Dropdown menu for actions (more options, context menus)',
         demo: `<example-action-menu></example-action-menu>`,
-        source: `<cl-action-menu
-    label="Actions"
-    items="\${[
-        { label: 'Edit', icon: 'pencil', action: () => edit() },
-        { label: 'Duplicate', icon: 'copy', action: () => duplicate() },
-        { separator: true },
-        { label: 'Delete', icon: 'trash', danger: true, action: () => remove() }
-    ]}">
-</cl-action-menu>
+        source: `class ExampleActionMenu extends Component {
+    handleAction(action) {
+        console.log('Action:', action);
+    }
 
-// Items can have:
-// - label: Text to display
-// - icon: Emoji or text icon
-// - action: Function to call on click
-// - shortcut: Keyboard shortcut text
-// - danger: true for destructive actions (red text)
-// - disabled: true to disable the item
-// - active: true to highlight as selected
-// - separator: true for a divider line`
+    template() {
+        const fileActions = [
+            { label: 'New File', icon: '📄', action: () => this.handleAction('new') },
+            { label: 'Open', icon: '📂', action: () => this.handleAction('open') },
+            { label: 'Save', icon: '💾', action: () => this.handleAction('save'), shortcut: '⌘S' },
+            { separator: true },
+            { label: 'Export', icon: '📤', action: () => this.handleAction('export') },
+            { label: 'Print', icon: '🖨️', action: () => this.handleAction('print'), disabled: true }
+        ];
+
+        const userActions = [
+            { label: 'Profile', icon: '👤', action: () => this.handleAction('profile') },
+            { label: 'Settings', icon: '⚙️', action: () => this.handleAction('settings') },
+            { separator: true },
+            { label: 'Logout', icon: '🚪', danger: true, action: () => this.handleAction('logout') }
+        ];
+
+        const simpleActions = [
+            { label: 'Edit', action: () => this.handleAction('edit') },
+            { label: 'Duplicate', action: () => this.handleAction('duplicate') },
+            { separator: true },
+            { label: 'Delete', danger: true, action: () => this.handleAction('delete') }
+        ];
+
+        return html\`
+            <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+                <div>
+                    <p style="margin-bottom: 8px; font-size: 14px; color: #666;">With icons and shortcuts:</p>
+                    <cl-action-menu label="File" items="\${fileActions}"></cl-action-menu>
+                </div>
+
+                <div>
+                    <p style="margin-bottom: 8px; font-size: 14px; color: #666;">User menu:</p>
+                    <cl-action-menu label="Account" icon="👤" items="\${userActions}"></cl-action-menu>
+                </div>
+
+                <div>
+                    <p style="margin-bottom: 8px; font-size: 14px; color: #666;">Ellipsis menu:</p>
+                    <cl-action-menu items="\${simpleActions}"></cl-action-menu>
+                </div>
+
+                <div>
+                    <p style="margin-bottom: 8px; font-size: 14px; color: #666;">Disabled:</p>
+                    <cl-action-menu label="Actions" items="\${simpleActions}" disabled="\${true}"></cl-action-menu>
+                </div>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-action-menu', ExampleActionMenu);`
     },
 
     'context-menu': {
@@ -981,31 +1030,93 @@ defineComponent('example-tooltip', ExampleTooltip);`
         category: 'overlay',
         description: 'Generic, viewport-overflow-aware popup menu that opens at pointer coordinates (right-click / long-press / programmatic).',
         demo: `<example-context-menu></example-context-menu>`,
-        source: `// Wire a contextmenu event, or drive it programmatically.
-<div on-contextmenu="\${(e) => this.refs.menu.openAtEvent(e, item)}">…</div>
+        source: `class ExampleContextMenu extends Component {
+    constructor(props) {
+        super(props);
 
-<cl-context-menu
-    ref="menu"
-    items="\${[
-        { label: 'Edit', icon: 'pencil' },
-        { label: 'Copy', icon: 'copy', shortcut: '\\u2318C' },
-        { separator: true },
-        { label: 'Delete', icon: 'trash', danger: true }
-    ]}"
-    on-select="onPick">
-</cl-context-menu>
+        this.state = {
+            lastPick: null,
+            // A deliberately long menu so the "taller than viewport" scroll path
+            // can be exercised when opened near the bottom of a small viewport.
+            menuItems: [
+                { label: 'Edit', icon: '✏️' },
+                { label: 'Duplicate', icon: '⧉' },
+                { separator: true },
+                { label: 'Cut', icon: '✂️', shortcut: '⌘X' },
+                { label: 'Copy', icon: '📋', shortcut: '⌘C' },
+                { label: 'Paste', icon: '📌', shortcut: '⌘V', disabled: true },
+                { separator: true },
+                { label: 'Delete', icon: '🗑️', danger: true }
+            ]
+        };
+    }
 
-// Programmatic:
-//   this.refs.menu.open(x, y, context);   // context is echoed back in the select event
-//
-// Methods:  open(x, y, context?)  openAtEvent(event, context?)  close()  isOpen()
-// Props:    items[]  padding (viewport gap, default 8)  minWidth (default 200)
-// Event:    select  { item, context }
-//
-// Overflow handling: opens right/below the anchor, flips left/up near an edge,
-// clamps to the viewport, and scrolls internally when taller than the viewport.
-// Only one cl-context-menu is ever open at a time. Slotted children are also
-// rendered inside the menu for fully custom content.`
+    openMenu(e) {
+        // openAtEvent reads the pointer coords, suppresses the native menu,
+        // and opens here. The second arg is an opaque context echoed back.
+        this.refs.menu.openAtEvent(e, { source: 'target-area' });
+    }
+
+    openProgrammatic() {
+        // Open at a fixed spot near the top-left, no event needed.
+        const rect = this.refs.target.getBoundingClientRect();
+        this.refs.menu.open(rect.left + 20, rect.top + 20, { source: 'button' });
+    }
+
+    onPick(e) {
+        this.state.lastPick = \`\${e.detail.item.label} (context: \${e.detail.context ? e.detail.context.source : 'none'})\`;
+    }
+
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <p style="color: var(--text-muted, #666); margin: 0;">
+                    A generic, viewport-overflow-aware context menu. Right-click the
+                    target area (it flips/clamps so it never leaves the viewport, and
+                    scrolls internally if taller than the screen), or open it
+                    programmatically.
+                </p>
+
+                <div
+                    ref="target"
+                    class="ctx-target"
+                    on-contextmenu="\${(e) => this.openMenu(e)}">
+                    Right-click anywhere in this box
+                </div>
+
+                <div>
+                    <cl-button label="Open programmatically" severity="secondary"
+                        on-click="\${() => this.openProgrammatic()}"></cl-button>
+                </div>
+
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    Last selection: \${this.state.lastPick || 'None'}
+                </div>
+
+                <cl-context-menu
+                    ref="menu"
+                    items="\${this.state.menuItems}"
+                    on-select="onPick">
+                </cl-context-menu>
+            </div>
+        \`;
+    }
+
+    static styles = /*css*/\`
+        .ctx-target {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 160px;
+            border: 2px dashed var(--input-border, #ced4da);
+            border-radius: 8px;
+            color: var(--text-muted, #666);
+            background: var(--hover-bg, #f8f9fa);
+            user-select: none;
+        }
+    \`
+}
+defineComponent('example-context-menu', ExampleContextMenu);`
     },
 
     // BUTTON COMPONENTS
@@ -1188,20 +1299,32 @@ defineComponent('example-progressbar', ExampleProgressbar);`
         category: 'misc',
         description: 'File upload with a choose button or a drag & drop area (dropzone="true")',
         demo: `<example-fileupload></example-fileupload>`,
-        source: `<!-- Classic choose-button upload -->
-<cl-fileupload
-    multiple="true"
-    accept=".pdf,.jpg,.png"
-    maxfilesize="1048576"
-    on-upload="\${handleUpload}">
-</cl-fileupload>
+        source: `class ExampleFileupload extends Component {
+    constructor(props) {
+        super(props);
 
-<!-- Drag & drop area (composes cl-dropzone) -->
-<cl-fileupload
-    dropzone="true"
-    multiple="true"
-    on-change="\${(e, files) => this.state.files = files}">
-</cl-fileupload>`
+        this.state = { files: [] };
+    }
+
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 24px; max-width: 600px;">
+                <cl-fileupload
+                    multiple="true"
+                    label="Choose Files"
+                    on-change="\${(e, val) => this.state.files = val}">
+                </cl-fileupload>
+
+                <cl-fileupload
+                    dropzone="true"
+                    multiple="true"
+                    on-change="\${(e, val) => this.state.files = val}">
+                </cl-fileupload>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-fileupload', ExampleFileupload);`
     },
 
     dropzone: {
@@ -1248,17 +1371,31 @@ defineComponent('my-uploader', MyUploader);`
         category: 'misc',
         description: 'Horizontal or vertical separator, optionally with a label',
         demo: `<example-divider></example-divider>`,
-        source: `<!-- Plain rule -->
-<cl-divider></cl-divider>
+        source: `class ExampleDivider extends Component {
+    template() {
+        return html\`
+            <div style="max-width: 520px;">
+                <p style="margin: 0;">Content above the divider.</p>
+                <cl-divider></cl-divider>
+                <p style="margin: 0;">A plain horizontal rule separates sections.</p>
 
-<!-- Labelled -->
-<cl-divider label="OR" variant="dashed"></cl-divider>
-<cl-divider label="Left aligned" align="left"></cl-divider>
+                <cl-divider label="OR" variant="dashed"></cl-divider>
+                <p style="margin: 0;">Dashed divider with a centered label.</p>
 
-<!-- Vertical, between inline items -->
-<span>Home</span>
-<cl-divider orientation="vertical"></cl-divider>
-<span>Profile</span>`
+                <cl-divider label="Left aligned" align="left"></cl-divider>
+
+                <div style="display: flex; align-items: center; height: 40px; margin-top: 16px;">
+                    <span>Home</span>
+                    <cl-divider orientation="vertical"></cl-divider>
+                    <span>Profile</span>
+                    <cl-divider orientation="vertical"></cl-divider>
+                    <span>Settings</span>
+                </div>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-divider', ExampleDivider);`
     },
 
     avatar: {
@@ -1267,19 +1404,41 @@ defineComponent('my-uploader', MyUploader);`
         category: 'misc',
         description: 'User avatar with image, initials fallback, status dot, and stacked groups',
         demo: `<example-avatar></example-avatar>`,
-        source: `<!-- Initials + status, sizes and shapes -->
-<cl-avatar label="Alan Turing" size="md" status="online"></cl-avatar>
-<cl-avatar label="Katherine Johnson" size="xl" shape="square"></cl-avatar>
+        source: `class ExampleAvatar extends Component {
+    constructor(props) {
+        super(props);
 
-<!-- Image with automatic initials fallback on load error -->
-<cl-avatar src="/users/ada.jpg" label="Ada Lovelace" size="lg"></cl-avatar>
+        this.state = {
+            team: [
+                { label: 'Ada Lovelace', status: 'online' },
+                { label: 'Alan Turing', status: 'busy' },
+                { label: 'Grace Hopper' },
+                { label: 'Katherine Johnson', status: 'away' },
+                { label: 'Edsger Dijkstra' }
+            ]
+        };
+    }
 
-<!-- Overlapping group with +N overflow -->
-<cl-avatar-group
-    avatars="\${this.state.team}"
-    max="3"
-    size="md">
-</cl-avatar-group>`
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <cl-avatar label="Ada Lovelace" size="sm"></cl-avatar>
+                    <cl-avatar label="Alan Turing" size="md" status="online"></cl-avatar>
+                    <cl-avatar label="Grace Hopper" size="lg" status="busy"></cl-avatar>
+                    <cl-avatar label="Katherine Johnson" size="xl" shape="square"></cl-avatar>
+                    <cl-avatar src="/does-not-exist.png" label="Fallback User" size="lg"></cl-avatar>
+                </div>
+
+                <div>
+                    <div style="font-size: 13px; color: var(--text-muted,#6c757d); margin-bottom: 8px;">Avatar group (max 3)</div>
+                    <cl-avatar-group avatars="\${this.state.team}" max="3" size="md"></cl-avatar-group>
+                </div>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-avatar', ExampleAvatar);`
     },
 
     skeleton: {
@@ -1288,10 +1447,44 @@ defineComponent('my-uploader', MyUploader);`
         category: 'misc',
         description: 'Loading placeholder shaped like the pending content',
         demo: `<example-skeleton></example-skeleton>`,
-        source: `<cl-skeleton variant="circle" width="48px"></cl-skeleton>
-<cl-skeleton variant="text" width="40%"></cl-skeleton>
-<cl-skeleton variant="text" lines="2"></cl-skeleton>
-<cl-skeleton variant="rect" height="120px" animation="pulse"></cl-skeleton>`
+        source: `class ExampleSkeleton extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { loading: true };
+    }
+
+    toggle() { this.state.loading = !this.state.loading; }
+
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 24px; max-width: 420px;">
+                <cl-button label="\${this.state.loading ? 'Show content' : 'Show skeleton'}" on-click="toggle"></cl-button>
+
+                \${when(this.state.loading, html\`
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <cl-skeleton variant="circle" width="48px"></cl-skeleton>
+                        <div style="flex: 1;">
+                            <cl-skeleton variant="text" width="40%"></cl-skeleton>
+                            <cl-skeleton variant="text" lines="2"></cl-skeleton>
+                        </div>
+                    </div>
+                    <cl-skeleton variant="rect" height="120px" animation="pulse"></cl-skeleton>
+                \`, html\`
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <cl-avatar label="Grace Hopper" size="48"></cl-avatar>
+                        <div>
+                            <strong>Grace Hopper</strong>
+                            <div style="color: var(--text-muted,#6c757d);">Compiler pioneer. Coined the term "debugging".</div>
+                        </div>
+                    </div>
+                    <div style="height: 120px; background: var(--primary-light, rgba(0,123,255,0.1)); border-radius: 8px; display: flex; align-items: center; justify-content: center;">Loaded content</div>
+                \`)}
+            </div>
+        \`;
+    }
+}
+defineComponent('example-skeleton', ExampleSkeleton);`
     },
 
     empty: {
@@ -1300,12 +1493,27 @@ defineComponent('my-uploader', MyUploader);`
         category: 'misc',
         description: 'Empty-state placeholder for lists, tables, and search results',
         demo: `<example-empty></example-empty>`,
-        source: `<cl-empty
-    title="No results found"
-    description="Try adjusting your search or filters.">
-    <cl-button label="Clear filters" severity="secondary"></cl-button>
-    <cl-button label="Add item"></cl-button>
-</cl-empty>`
+        source: `class ExampleEmpty extends Component {
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 24px; max-width: 480px;">
+                <div style="border: 1px solid var(--input-border,#dee2e6); border-radius: 8px;">
+                    <cl-empty
+                        title="No results found"
+                        description="Try adjusting your search or filters to find what you're looking for.">
+                        <cl-button label="Clear filters" severity="secondary"></cl-button>
+                        <cl-button label="Add item"></cl-button>
+                    </cl-empty>
+                </div>
+
+                <div style="border: 1px solid var(--input-border,#dee2e6); border-radius: 8px;">
+                    <cl-empty icon="🗂️" size="sm" title="Your inbox is empty"></cl-empty>
+                </div>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-empty', ExampleEmpty);`
     },
 
     popover: {
@@ -1314,18 +1522,32 @@ defineComponent('my-uploader', MyUploader);`
         category: 'overlay',
         description: 'Click- or hover-triggered panel anchored to a trigger, holding any content',
         demo: `<example-popover></example-popover>`,
-        source: `<cl-popover position="bottom">
-    <cl-button label="Open"></cl-button>
-    <div slot="content">
-        ...any rich content: menus, forms, details...
-    </div>
-</cl-popover>
+        source: `class ExamplePopover extends Component {
+    template() {
+        return html\`
+            <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+                <cl-popover position="bottom">
+                    <cl-button label="Click menu"></cl-button>
+                    <div slot="content" style="display: flex; flex-direction: column; gap: 8px; min-width: 180px;">
+                        <strong>Account</strong>
+                        <div style="color: var(--text-muted,#6c757d); font-size: 13px;">Signed in as grace@example.com</div>
+                        <cl-divider></cl-divider>
+                        <cl-button label="Settings" severity="secondary"></cl-button>
+                        <cl-button label="Sign out" severity="danger"></cl-button>
+                    </div>
+                </cl-popover>
 
-<!-- Hover trigger -->
-<cl-popover position="right" trigger="hover">
-    <cl-button label="Info"></cl-button>
-    <div slot="content">Rich hover content</div>
-</cl-popover>`
+                <cl-popover position="right" trigger="hover">
+                    <cl-button label="Hover for info" severity="secondary"></cl-button>
+                    <div slot="content" style="max-width: 220px;">
+                        This popover opens on hover and can hold any rich content, unlike a plain tooltip.
+                    </div>
+                </cl-popover>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-popover', ExamplePopover);`
     },
 
     segmented: {
@@ -1334,17 +1556,41 @@ defineComponent('my-uploader', MyUploader);`
         category: 'selection',
         description: 'Segmented control / select-button for one-of-few choices (view & filter switches)',
         demo: `<example-segmented></example-segmented>`,
-        source: `<cl-segmented
-    options="\${[
-        { label: 'List', value: 'list', icon: '☰' },
-        { label: 'Grid', value: 'grid', icon: '▦' },
-        { label: 'Board', value: 'board', icon: '▤' }
-    ]}"
-    x-model="view">
-</cl-segmented>
+        source: `class ExampleSegmented extends Component {
+    constructor(props) {
+        super(props);
 
-<!-- Options may also be plain strings -->
-<cl-segmented options="\${['Off', 'On']}" x-model="power"></cl-segmented>`
+        this.state = {
+            view: 'list',
+            range: 'week',
+            sizes: [
+                { label: 'Day', value: 'day' },
+                { label: 'Week', value: 'week' },
+                { label: 'Month', value: 'month' }
+            ]
+        };
+    }
+
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 24px; align-items: flex-start;">
+                <cl-segmented
+                    options="\${[{ label: 'List', value: 'list', icon: '☰' }, { label: 'Grid', value: 'grid', icon: '▦' }, { label: 'Board', value: 'board', icon: '▤' }]}"
+                    x-model="view">
+                </cl-segmented>
+
+                <cl-segmented options="\${this.state.sizes}" size="small" x-model="range"></cl-segmented>
+
+                <cl-segmented options="\${['Off', 'On']}" value="On" disabled="true"></cl-segmented>
+
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    View: \${this.state.view} · Range: \${this.state.range}
+                </div>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-segmented', ExampleSegmented);`
     },
 
     inplace: {
@@ -1353,8 +1599,26 @@ defineComponent('my-uploader', MyUploader);`
         category: 'form',
         description: 'Click-to-edit text: display value, click to edit, Enter/blur commits, Escape cancels',
         demo: `<example-inplace></example-inplace>`,
-        source: `<cl-inplace x-model="name"></cl-inplace>
-<cl-inplace x-model="title" empty-text="Add a title…"></cl-inplace>`
+        source: `class ExampleInplace extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { name: 'Grace Hopper', title: '' };
+    }
+
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 16px; max-width: 420px;">
+                <div>Name: <cl-inplace x-model="name"></cl-inplace></div>
+                <div>Title: <cl-inplace x-model="title" empty-text="Add a title…"></cl-inplace></div>
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    Stored name: \${this.state.name} · title: \${this.state.title || '(empty)'}
+                </div>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-inplace', ExampleInplace);`
     },
 
     rating: {
@@ -1363,14 +1627,24 @@ defineComponent('my-uploader', MyUploader);`
         category: 'form',
         description: 'Star rating with hover preview, half steps, and read-only display',
         demo: `<example-rating></example-rating>`,
-        source: `<!-- Interactive -->
-<cl-rating x-model="score"></cl-rating>
+        source: `class ExampleRating extends Component {
+    constructor(props) {
+        super(props);
 
-<!-- Half stars -->
-<cl-rating x-model="score" precision="0.5"></cl-rating>
+        this.state = { score: 3, halfScore: 2.5 };
+    }
 
-<!-- Read-only display -->
-<cl-rating value="4" readonly="true"></cl-rating>`
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div>Interactive: <cl-rating x-model="score"></cl-rating> (\${this.state.score})</div>
+                <div>Half steps: <cl-rating x-model="halfScore" precision="0.5"></cl-rating> (\${this.state.halfScore})</div>
+                <div>Read-only: <cl-rating value="4" readonly="true"></cl-rating></div>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-rating', ExampleRating);`
     },
 
     otp: {
@@ -1379,15 +1653,27 @@ defineComponent('my-uploader', MyUploader);`
         category: 'form',
         description: 'One-time-code / PIN input with auto-advance, backspace, and paste distribution',
         demo: `<example-otp></example-otp>`,
-        source: `<cl-otp
-    length="6"
-    type="number"
-    x-model="code"
-    on-complete="\${(e) => verify(e.detail.value)}">
-</cl-otp>
+        source: `class ExampleOtp extends Component {
+    constructor(props) {
+        super(props);
 
-<!-- Masked PIN -->
-<cl-otp length="4" type="number" mask="true"></cl-otp>`
+        this.state = { code: '' };
+    }
+
+    template() {
+        const complete = this.state.code.length === 6;
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <cl-otp length="6" type="number" x-model="code"></cl-otp>
+                <div>Masked PIN: <cl-otp length="4" type="number" mask="true"></cl-otp></div>
+                <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
+                    \${complete ? 'Complete: ' + this.state.code : 'Waiting for code…'}
+                </div>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-otp', ExampleOtp);`
     },
 
     copy: {
@@ -1396,13 +1682,21 @@ defineComponent('my-uploader', MyUploader);`
         category: 'misc',
         description: 'Copy-to-clipboard control (button, icon, or inline value) with a transient copied state',
         demo: `<example-copy></example-copy>`,
-        source: `<cl-copy value="npm install vdx-web" label="Copy command"></cl-copy>
-
-<!-- Inline value + copy icon -->
-<cl-copy variant="inline" value="vdx_demo_a1b2c3d4e5f6"></cl-copy>
-
-<!-- Icon only -->
-<cl-copy variant="icon" value="a1b2c3d4e5f6"></cl-copy>`
+        source: `class ExampleCopy extends Component {
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 20px; align-items: flex-start;">
+                <cl-copy value="npm install vdx-web" label="Copy command"></cl-copy>
+                <cl-copy variant="inline" value="vdx_demo_a1b2c3d4e5f6"></cl-copy>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span>API key</span>
+                    <cl-copy variant="icon" value="a1b2c3d4e5f6"></cl-copy>
+                </div>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-copy', ExampleCopy);`
     },
 
     meter: {
@@ -1411,18 +1705,36 @@ defineComponent('my-uploader', MyUploader);`
         category: 'data',
         description: 'Dashboard gauge (linear bar or radial ring) that colours by threshold as the value rises',
         demo: `<example-meter></example-meter>`,
-        source: `<!-- Linear with threshold colours -->
-<cl-meter label="Memory" value="72" unit="%"
-    thresholds="\${[{ value: 70, color: '#f5b301' }, { value: 90, color: '#dc3545' }]}">
-</cl-meter>
+        source: `class ExampleMeter extends Component {
+    constructor(props) {
+        super(props);
 
-<!-- Radial gauge -->
-<cl-meter variant="radial" value="72" unit="%" label="CPU"
-    thresholds="\${thresholds}">
-</cl-meter>
+        this.state = {
+            cpu: 72,
+            thresholds: [{ value: 70, color: '#f5b301' }, { value: 90, color: '#dc3545' }]
+        };
+    }
 
-<!-- Custom range and fixed colour -->
-<cl-meter variant="radial" value="8" min="0" max="10" label="Score" color="#28a745"></cl-meter>`
+    setCpu(e) { this.state.cpu = Number(e.target.value); }
+
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 28px; max-width: 520px;">
+                <div style="display: flex; flex-direction: column; gap: 18px;">
+                    <cl-meter label="Disk usage" value="42" unit="%"></cl-meter>
+                    <cl-meter label="Memory" value="\${this.state.cpu}" unit="%" thresholds="\${this.state.thresholds}"></cl-meter>
+                    <input type="range" min="0" max="100" value="\${this.state.cpu}" on-input="setCpu" style="width: 100%;">
+                </div>
+
+                <div style="display: flex; gap: 32px; flex-wrap: wrap;">
+                    <cl-meter variant="radial" value="\${this.state.cpu}" unit="%" label="CPU" thresholds="\${this.state.thresholds}"></cl-meter>
+                    <cl-meter variant="radial" value="8" min="0" max="10" label="Score" size="120" color="#28a745"></cl-meter>
+                </div>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-meter', ExampleMeter);`
     },
 
     timeline: {
@@ -1431,12 +1743,29 @@ defineComponent('my-uploader', MyUploader);`
         category: 'data',
         description: 'Vertical event timeline with status markers — activity feeds, order history, audit logs',
         demo: `<example-timeline></example-timeline>`,
-        source: `<cl-timeline items="\${[
-    { time: '09:00', title: 'Order placed', icon: '✓', status: 'success' },
-    { time: '11:30', title: 'Processing', icon: '⚙' },
-    { time: '14:15', title: 'Shipped', icon: '🚚', status: 'warning' },
-    { time: '—', title: 'Delivered', status: 'muted' }
-]}"></cl-timeline>`
+        source: `class ExampleTimeline extends Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
+            events: [
+                { time: '09:00', title: 'Order placed', description: 'Payment confirmed.', icon: '✓', status: 'success' },
+                { time: '11:30', title: 'Processing', description: 'Items picked and packed.', icon: '⚙' },
+                { time: '14:15', title: 'Shipped', description: 'Handed to carrier.', icon: '🚚', status: 'warning' },
+                { time: '—', title: 'Delivered', description: 'Awaiting delivery.', status: 'muted' }
+            ]
+        };
+    }
+
+    template() {
+        return html\`
+            <div style="max-width: 480px;">
+                <cl-timeline items="\${this.state.events}"></cl-timeline>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-timeline', ExampleTimeline);`
     },
 
     colorpicker: {
@@ -1475,27 +1804,52 @@ defineComponent('my-component', MyComponent);`
         category: 'misc',
         description: 'Loading spinner with multiple variants and sizes',
         demo: `<example-spinner></example-spinner>`,
-        source: `<!-- Border spinner (default) -->
-<cl-spinner></cl-spinner>
+        source: `class ExampleSpinner extends Component {
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 32px;">
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Variants</h4>
+                    <div style="display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap;">
+                        <cl-spinner variant="border" label="Border"></cl-spinner>
+                        <cl-spinner variant="dots" label="Dots"></cl-spinner>
+                        <cl-spinner variant="bars" label="Bars"></cl-spinner>
+                        <cl-spinner variant="pulse" label="Pulse"></cl-spinner>
+                    </div>
+                </div>
 
-<!-- Different variants -->
-<cl-spinner variant="border"></cl-spinner>
-<cl-spinner variant="dots"></cl-spinner>
-<cl-spinner variant="bars"></cl-spinner>
-<cl-spinner variant="pulse"></cl-spinner>
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Sizes</h4>
+                    <div style="display: flex; gap: 48px; align-items: flex-end; flex-wrap: wrap;">
+                        <cl-spinner size="small" label="Small"></cl-spinner>
+                        <cl-spinner size="medium" label="Medium"></cl-spinner>
+                        <cl-spinner size="large" label="Large"></cl-spinner>
+                        <cl-spinner size="80px" label="Custom (80px)"></cl-spinner>
+                    </div>
+                </div>
 
-<!-- Sizes: small, medium, large, or custom -->
-<cl-spinner size="small"></cl-spinner>
-<cl-spinner size="medium"></cl-spinner>
-<cl-spinner size="large"></cl-spinner>
-<cl-spinner size="64px"></cl-spinner>
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Colors</h4>
+                    <div style="display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap;">
+                        <cl-spinner color="#007bff" label="Primary"></cl-spinner>
+                        <cl-spinner color="#28a745" label="Success"></cl-spinner>
+                        <cl-spinner color="#dc3545" label="Danger"></cl-spinner>
+                        <cl-spinner color="#ffc107" label="Warning"></cl-spinner>
+                    </div>
+                </div>
 
-<!-- Custom color -->
-<cl-spinner color="#28a745"></cl-spinner>
-
-<!-- With label -->
-<cl-spinner label="Loading..."></cl-spinner>
-<cl-spinner label="Please wait" labelposition="right"></cl-spinner>`
+                <div>
+                    <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Label Position</h4>
+                    <div style="display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap;">
+                        <cl-spinner label="Bottom (default)" labelposition="bottom"></cl-spinner>
+                        <cl-spinner label="Right side" labelposition="right"></cl-spinner>
+                    </div>
+                </div>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-spinner', ExampleSpinner);`
     },
 
     // LAYOUT COMPONENTS
@@ -2243,17 +2597,54 @@ defineComponent('code-editor-demo', Editor);
         category: 'misc',
         description: 'Read-only syntax-highlighted source display with a copy button',
         demo: `<example-code-block></example-code-block>`,
-        source: `<!-- Static highlighted source -->
-<cl-code-block code="\${sourceString}"></cl-code-block>
+        source: `class ExampleCodeBlock extends Component {
+    constructor(props) {
+        super(props);
 
-<!-- Soft-wrap long lines, cap the height -->
-<cl-code-block
-    code="\${sourceString}"
-    wrap="true"
-    maxHeight="180px">
-</cl-code-block>
+        this.state = {
+            sample: \`import { defineComponent, Component, html } from './lib/framework.js';
 
-<!-- Or load straight from a file -->
-<cl-code-block src="/tutorial/examples/counter.js"></cl-code-block>`
+// A toggle button with scoped styles
+class LikeButton extends Component {
+    static props = { count: 0 };
+
+    constructor(props) {
+        super(props);
+        this.state = { liked: false, count: Number(props.count) || 0 };
+    }
+
+    toggle() {
+        this.state.liked = !this.state.liked;
+        this.state.count += this.state.liked ? 1 : -1;
+    }
+
+    template() {
+        return html\\\`
+            <button class="like \\\${this.state.liked ? 'on' : ''}" on-click="toggle">
+                \\\${this.state.liked ? '♥' : '♡'} \\\${this.state.count}
+            </button>
+        \\\`;
+    }
+
+    static styles = /*css*/\\\`
+        .like { border: none; padding: 8px 14px; border-radius: 999px; cursor: pointer; }
+        .like.on { background: #ffe3ec; color: #e0245e; }
+    \\\`;
+}
+
+defineComponent('like-button', LikeButton);\`
+        };
+    }
+
+    template() {
+        return html\`
+            <div style="display: flex; flex-direction: column; gap: 16px; max-width: 720px;">
+                <cl-code-block code="\${this.state.sample}"></cl-code-block>
+                <cl-code-block code="\${this.state.sample}" wrap="true" maxHeight="180px"></cl-code-block>
+            </div>
+        \`;
+    }
+}
+defineComponent('example-code-block', ExampleCodeBlock);`
     }
 };
