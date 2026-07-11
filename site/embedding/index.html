@@ -3,317 +3,215 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Framework Bundle Demos</title>
+    <title>VDX — Embed in a static site</title>
+    <meta name="description" content="Drop VDX reactive components into any static HTML page. One script tag, one vendored bundle, no build step, no npm.">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2310897a'/%3E%3Cpath d='M8 9l8 15 8-15' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="/styles/theme.css">
     <style>
-        * {
-            box-sizing: border-box;
+        :root {
+            --vdx-bg: #f7f9f7; --vdx-surface: #ffffff; --vdx-surface-2: #eef1ee;
+            --vdx-text: #17201d; --vdx-text-dim: #5b6763; --vdx-line: #e2e7e2;
+            --vdx-accent: #10897a; --vdx-accent-strong: #0c6a5e;
+            --vdx-btn: #0c7568; --vdx-btn-hover: #0a5f54; --vdx-on-accent: #ffffff;
+            --vdx-code: #eef1ee; --vdx-shadow: 24px 40px -32px rgba(16,40,34,.28);
+            --vdx-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+            --vdx-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-
-        body {
-            margin: 0;
-            padding: 40px 20px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #fff;
+        body.dark {
+            --vdx-bg: #0b1211; --vdx-surface: #111a18; --vdx-surface-2: #16211e;
+            --vdx-text: #e6ece9; --vdx-text-dim: #91a09b; --vdx-line: #21302b;
+            --vdx-accent: #2bbda9; --vdx-accent-strong: #4fd3c1;
+            --vdx-btn: #2bbda9; --vdx-btn-hover: #3fd0bc; --vdx-on-accent: #06211d;
+            --vdx-code: #16211e; --vdx-shadow: 24px 44px -34px rgba(0,0,0,.7);
         }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--vdx-bg); color: var(--vdx-text); font-family: var(--vdx-sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+        a { color: var(--vdx-accent-strong); }
+        code { font-family: var(--vdx-mono); font-size: .9em; background: var(--vdx-code); padding: 1px 5px; border-radius: 4px; }
+        .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+        .eyebrow { font-family: var(--vdx-mono); font-size: 12.5px; color: var(--vdx-accent-strong); margin: 0 0 12px; }
+        section { border-top: 1px solid var(--vdx-line); }
 
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
+        /* Nav */
+        .nav { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--vdx-bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--vdx-line); }
+        .nav-in { display: flex; align-items: center; gap: 20px; height: 60px; }
+        .brand { display: flex; align-items: baseline; gap: 0; font-weight: 800; letter-spacing: -.02em; font-size: 20px; text-decoration: none; color: var(--vdx-text); }
+        .brand .dot { color: var(--vdx-accent); margin: 0 2px; }
+        .brand .tld { color: var(--vdx-accent); }
+        .nav-links { margin-left: auto; display: flex; align-items: center; gap: 22px; }
+        .nav-links a { color: var(--vdx-text-dim); text-decoration: none; font-size: 14.5px; }
+        .nav-links a:hover { color: var(--vdx-text); }
+        .theme-btn { font: inherit; font-size: 13px; cursor: pointer; padding: 6px 12px; border: 1px solid var(--vdx-line); border-radius: 8px; background: var(--vdx-surface); color: var(--vdx-text-dim); }
+        .theme-btn:hover { border-color: var(--vdx-accent); color: var(--vdx-text); }
+        @media (max-width: 760px) { .nav-links a { display: none; } }
 
-        h1 {
-            text-align: center;
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-        }
+        .btn { display: inline-flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 600; text-decoration: none; cursor: pointer; border: 0; padding: 11px 18px; border-radius: 10px; background: var(--vdx-btn); color: var(--vdx-on-accent); }
+        .btn:hover { background: var(--vdx-btn-hover); }
+        .btn.ghost { background: transparent; color: var(--vdx-text); border: 1px solid var(--vdx-line); }
+        .btn.ghost:hover { border-color: var(--vdx-accent); background: var(--vdx-surface); }
 
-        .subtitle {
-            text-align: center;
-            font-size: 1.2rem;
-            margin-bottom: 3rem;
-            opacity: 0.9;
-        }
+        /* Hero */
+        .hero { padding: 72px 0 40px; }
+        .hero h1 { font-size: clamp(32px, 5.5vw, 50px); line-height: 1.05; letter-spacing: -.03em; font-weight: 850; margin: 0 0 18px; }
+        .hero h1 .u { color: var(--vdx-accent); }
+        .hero p.lead { font-size: 18px; color: var(--vdx-text-dim); margin: 0 0 26px; max-width: 56ch; }
+        .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+        .stats { display: flex; gap: 40px; flex-wrap: wrap; margin: 40px 0 8px; }
+        .stat .v { font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+        .stat .v .accent { color: var(--vdx-accent); }
+        .stat .l { font-size: 13px; color: var(--vdx-text-dim); font-family: var(--vdx-mono); }
 
-        .stats {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin-bottom: 3rem;
-            flex-wrap: wrap;
-        }
+        /* Live demo */
+        .live { padding: 64px 0; }
+        .live h2 { font-size: clamp(24px, 4vw, 32px); letter-spacing: -.02em; margin: 0 0 8px; }
+        .live p.sub { color: var(--vdx-text-dim); font-size: 16px; margin: 0 0 26px; max-width: 62ch; }
 
-        .stat {
-            text-align: center;
-        }
+        /* Demo cards */
+        .demos { padding: 64px 0; background: var(--vdx-surface-2); }
+        .demos h2 { font-size: clamp(24px, 4vw, 32px); letter-spacing: -.02em; margin: 0 0 6px; }
+        .demos p.sub { color: var(--vdx-text-dim); font-size: 16px; margin: 0 0 32px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } }
+        .card { display: block; text-decoration: none; color: inherit; background: var(--vdx-surface); border: 1px solid var(--vdx-line); border-radius: 14px; padding: 22px 24px; transition: border-color .15s ease, transform .06s ease; }
+        .card:hover { border-color: var(--vdx-accent); transform: translateY(-2px); }
+        .card .t { display: flex; align-items: baseline; gap: 10px; }
+        .card h3 { font-size: 17px; margin: 0; letter-spacing: -.01em; }
+        .card .tag { margin-left: auto; font-family: var(--vdx-mono); font-size: 11px; color: var(--vdx-accent-strong); }
+        .card p { margin: 8px 0 0; font-size: 14.5px; color: var(--vdx-text-dim); }
 
-        .stat-value {
-            font-size: 2rem;
-            font-weight: bold;
-            display: block;
-        }
+        /* Quickstart */
+        .start { padding: 66px 0; }
+        .start h2 { font-size: clamp(24px, 4vw, 32px); letter-spacing: -.02em; margin: 0 0 20px; }
+        .start-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; }
+        @media (max-width: 820px) { .start-grid { grid-template-columns: 1fr; gap: 22px; } }
+        .start ol { margin: 0; padding-left: 20px; color: var(--vdx-text-dim); }
+        .start ol li { margin: 10px 0; }
+        .start ol b { color: var(--vdx-text); }
+        pre.code { font-family: var(--vdx-mono); font-size: 12.5px; line-height: 1.7; background: var(--vdx-surface); border: 1px solid var(--vdx-line); border-radius: 14px; padding: 20px 22px; margin: 0; overflow-x: auto; color: var(--vdx-text); }
+        pre.code .c { color: var(--vdx-text-dim); }
+        pre.code .k { color: var(--vdx-accent-strong); }
 
-        .stat-label {
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
+        .links { padding: 56px 0; background: var(--vdx-surface-2); }
+        .links h2 { font-size: 20px; margin: 0 0 18px; }
+        .links ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 30px; }
+        @media (max-width: 680px) { .links ul { grid-template-columns: 1fr; } }
+        .links li a { color: var(--vdx-accent-strong); text-decoration: none; font-weight: 600; }
+        .links li a:hover { text-decoration: underline; }
+        .links li span { color: var(--vdx-text-dim); }
 
-        .cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 24px;
-            margin-bottom: 3rem;
-        }
-
-        .card {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 12px;
-            padding: 24px;
-            color: #333;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s, box-shadow 0.2s;
-            text-decoration: none;
-            display: block;
-        }
-
-        .card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        .card-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 0 0 12px 0;
-            color: #667eea;
-        }
-
-        .card-description {
-            color: #666;
-            line-height: 1.6;
-            margin-bottom: 16px;
-        }
-
-        .card-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            background: #667eea;
-            color: white;
-            border-radius: 12px;
-            font-size: 0.85rem;
-            margin-right: 8px;
-        }
-
-        .features {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 12px;
-            padding: 32px;
-            color: #333;
-            margin-bottom: 2rem;
-        }
-
-        .features h2 {
-            color: #667eea;
-            margin-top: 0;
-        }
-
-        .features ul {
-            column-count: 2;
-            column-gap: 40px;
-            list-style: none;
-            padding: 0;
-        }
-
-        .features li {
-            margin-bottom: 12px;
-            padding-left: 24px;
-            position: relative;
-        }
-
-        .features li::before {
-            content: "✓";
-            position: absolute;
-            left: 0;
-            color: #667eea;
-            font-weight: bold;
-        }
-
-        .docs {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 12px;
-            padding: 32px;
-            color: #333;
-        }
-
-        .docs h2 {
-            color: #667eea;
-            margin-top: 0;
-        }
-
-        .docs a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .docs a:hover {
-            text-decoration: underline;
-        }
-
-        .docs ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .docs li {
-            margin-bottom: 12px;
-            padding-left: 24px;
-            position: relative;
-        }
-
-        .docs li::before {
-            content: "📄";
-            position: absolute;
-            left: 0;
-        }
-
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 2rem;
-            }
-
-            .features ul {
-                column-count: 1;
-            }
-        }
+        footer { border-top: 1px solid var(--vdx-line); padding: 34px 0; color: var(--vdx-text-dim); font-size: 13.5px; }
+        footer a { color: var(--vdx-text-dim); text-decoration: none; }
+        footer a:hover { color: var(--vdx-text); }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Framework Bundle</h1>
-        <p class="subtitle">Self-contained reactive framework - No build step, zero dependencies</p>
+    <script src="/styles/theme-init.js"></script>
 
+    <nav class="nav"><div class="wrap nav-in">
+        <a class="brand" href="/">VDX<span class="dot">·</span><span class="tld">web</span></a>
+        <div class="nav-links">
+            <a href="/docs/">Docs</a>
+            <a href="/site/showcase/">UI Library</a>
+            <a href="/site/tutorial.html">Tutorial</a>
+            <a href="https://github.com/iwalton3/vdx-web">GitHub</a>
+            <button class="theme-btn" id="theme-toggle" title="Toggle theme">◐ Theme</button>
+        </div>
+    </div></nav>
+
+    <header class="hero"><div class="wrap">
+        <p class="eyebrow"># embedding · static-site integration</p>
+        <h1>Drop VDX into <span class="u">any page you already have</span>.</h1>
+        <p class="lead">Vendor one file, add one script tag, and use your component like a native HTML
+            element. No build pipeline to bolt onto your backend — it just serves static files.</p>
+        <div class="cta-row">
+            <a class="btn" href="#live">See it run</a>
+            <a class="btn ghost" href="https://github.com/iwalton3/vdx-web/blob/main/site/embedding/COMPARISON.md">Manual DOM vs VDX</a>
+        </div>
         <div class="stats">
-            <div class="stat">
-                <span class="stat-value">89 KB</span>
-                <span class="stat-label">Uncompressed</span>
-            </div>
-            <div class="stat">
-                <span class="stat-value">20 KB</span>
-                <span class="stat-label">Gzipped</span>
-            </div>
-            <div class="stat">
-                <span class="stat-value">0</span>
-                <span class="stat-label">Dependencies</span>
-            </div>
+            <div class="stat"><div class="v"><span class="accent">23 KB</span></div><div class="l">framework, gzipped</div></div>
+            <div class="stat"><div class="v">1</div><div class="l">file to vendor</div></div>
+            <div class="stat"><div class="v">0</div><div class="l">dependencies · no build</div></div>
         </div>
+    </div></header>
 
-        <div class="cards">
-            <a href="test-bundle.html" class="card">
-                <h3 class="card-title">Basic Tests</h3>
-                <p class="card-description">
-                    Simple test page that verifies all framework features work correctly.
-                    Includes automated tests and an interactive counter component.
-                </p>
-                <span class="card-badge">Test Suite</span>
-                <span class="card-badge">Interactive</span>
+    <section class="live" id="live"><div class="wrap">
+        <h2>One file. One tag. Live.</h2>
+        <p class="sub">This is a whole page — a paragraph of static HTML with a reactive component dropped
+            in, importing straight from the vendored bundle. Edit it and hit Run.</p>
+        <landing-live base="/site/embedding/examples/embed" files="index.html"
+            entry="index.html" activeFile="index.html" previewLabel="Your page"></landing-live>
+    </div></section>
+
+    <section class="demos"><div class="wrap">
+        <h2>Worked examples</h2>
+        <p class="sub">Bigger integrations, each a self-contained static page you can view source on.</p>
+        <div class="grid">
+            <a class="card" href="static-integration-demo.html">
+                <div class="t"><h3>Static site integration</h3><span class="tag">interop</span></div>
+                <p>Reactive components inside a plain HTML page: unit converters, vanilla-JS event binding, DOM attribute propagation, and rich data passed in via component references.</p>
             </a>
-
-            <a href="jellyfin-modal-demo.html" class="card">
-                <h3 class="card-title">Jellyfin Settings Modal</h3>
-                <p class="card-description">
-                    Complete POC of a settings modal that replaces 230 lines of manual DOM manipulation
-                    with clean, reactive components. Features forms, validation, and notifications.
-                </p>
-                <span class="card-badge">Full Demo</span>
-                <span class="card-badge">Production Ready</span>
+            <a class="card" href="jellyfin-modal-demo.html">
+                <div class="t"><h3>Jellyfin settings modal</h3><span class="tag">real-world</span></div>
+                <p>A production-shaped settings modal — 230 lines of manual DOM replaced with reactive components, forms, validation, and notifications.</p>
             </a>
-
-            <a href="static-integration-demo.html" class="card">
-                <h3 class="card-title">Static Site Integration</h3>
-                <p class="card-description">
-                    Demonstrates how to embed reactive components in static HTML pages. Features
-                    unit converters, vanilla JS event binding, DOM attribute propagation, and
-                    rich data injection via component references.
-                </p>
-                <span class="card-badge">Integration</span>
-                <span class="card-badge">Interop</span>
+            <a class="card" href="pwa-offline/">
+                <div class="t"><h3>PWA offline caching</h3><span class="tag">pwa</span></div>
+                <p>A service worker with versioned, atomic offline caches — the cache coherency of a bundler, without a bundler or any change to your source.</p>
             </a>
-
-            <a href="pwa-offline/" class="card">
-                <h3 class="card-title">PWA Offline Demo</h3>
-                <p class="card-description">
-                    Service worker with versioned caching. Provides the same cache coherency as
-                    webpack without modifying source files. Uses spider-deps to discover dependencies
-                    and generates atomic, version-safe offline caches.
-                </p>
-                <span class="card-badge">Offline</span>
-                <span class="card-badge">PWA</span>
+            <a class="card" href="test-bundle.html">
+                <div class="t"><h3>Bundle self-test</h3><span class="tag">smoke test</span></div>
+                <p>A page that exercises every framework feature straight from the single bundle, plus an interactive counter to prove it's live.</p>
             </a>
         </div>
+    </div></section>
 
-        <div class="features">
-            <h2>Features</h2>
-            <ul>
-                <li>Reactive state management (Vue 3-style proxies)</li>
-                <li>Web Components with fine-grained rendering</li>
-                <li>Template system with <code>html``</code> tagged templates</li>
-                <li>Two-way data binding with <code>x-model</code></li>
-                <li>Event handling with <code>on-*</code> attributes</li>
-                <li>Built-in XSS protection</li>
-                <li>Conditional rendering with <code>when()</code></li>
-                <li>List rendering with <code>each()</code></li>
-                <li>Automatic memory leak prevention</li>
-                <li>No build step required</li>
-                <li>Works in any modern browser</li>
-                <li>Perfect for embedding in static sites</li>
-                <li>Vanilla JS event listener integration</li>
-                <li>DOM attribute changes propagate reactively</li>
-                <li>Pass arrays/objects via component refs</li>
-                <li>Transparent reactive DOM updates</li>
-            </ul>
-        </div>
+    <section class="start"><div class="wrap">
+        <h2>Vendor it in three lines</h2>
+        <div class="start-grid">
+            <ol>
+                <li>Copy <code>dist/framework.js</code> into your project — say, <code>vdx/framework.js</code>. Commit it.</li>
+                <li>Add one <b>module script</b> that imports from it and defines a component.</li>
+                <li>Use the component's tag anywhere in your HTML. Refresh — <b>no build ran</b>.</li>
+            </ol>
+            <pre class="code"><span class="c">&lt;!-- your existing static page --&gt;</span>
+&lt;my-widget&gt;&lt;/my-widget&gt;
 
-        <div class="docs">
-            <h2>Documentation</h2>
-            <ul>
-                <li><a href="https://github.com/iwalton3/vdx-web/blob/main/docs/bundles.md">Bundle Documentation</a> - Complete API reference and usage guide</li>
-                <li><a href="https://github.com/iwalton3/vdx-web/blob/main/README.md">Project README</a> - Framework overview and quickstart</li>
-                <li><a href="https://github.com/iwalton3/vdx-web/blob/main/docs/tutorial.md">Tutorial</a> - Comprehensive guide to using the framework</li>
-                <li><a href="https://github.com/iwalton3/vdx-web/blob/main/site/embedding/COMPARISON.md">COMPARISON.md</a> - Manual DOM vs Framework comparison</li>
-                <li><a href="../playground.html">Playground</a> - Interactive framework demos</li>
-                <li><a href="/tests/framework/">Test Suite</a> - Comprehensive framework tests</li>
-            </ul>
+&lt;script type="module"&gt;
+  <span class="k">import</span> { defineComponent, Component, html }
+    <span class="k">from</span> './vdx/framework.js';
 
-            <h3 style="margin-top: 2rem;">Quick Start</h3>
-            <pre style="background: #f5f5f5; padding: 16px; border-radius: 8px; overflow-x: auto;"><code>&lt;script type="module"&gt;
-import { defineComponent, Component, html } from '../dist/framework.js';
-
-class MyCounter extends Component {
-    constructor(props) {
-        super(props);
-        this.state = { count: 0 };
-    }
-
-    increment() { this.state.count++; }
-
+  class MyWidget <span class="k">extends</span> Component {
+    state = { n: 0 };
     template() {
-        return html`
-            &lt;div&gt;
-                &lt;h2&gt;Count: ${this.state.count}&lt;/h2&gt;
-                &lt;button on-click="increment"&gt;+1&lt;/button&gt;
-            &lt;/div&gt;
-        `;
+      <span class="k">return</span> html`&lt;button on-click="${() =&gt; this.state.n++}"&gt;
+        clicked ${this.state.n}&lt;/button&gt;`;
     }
-}
-
-defineComponent('my-counter', MyCounter);
-&lt;/script&gt;
-
-&lt;my-counter&gt;&lt;/my-counter&gt;</code></pre>
+  }
+  defineComponent('my-widget', MyWidget);
+&lt;/script&gt;</pre>
         </div>
-    </div>
+    </div></section>
+
+    <section class="links"><div class="wrap">
+        <h2>Read more</h2>
+        <ul>
+            <li><a href="https://github.com/iwalton3/vdx-web/blob/main/docs/bundles.md">Bundle guide</a> <span>— the pre-built files and how to use them</span></li>
+            <li><a href="https://github.com/iwalton3/vdx-web/blob/main/site/embedding/COMPARISON.md">COMPARISON.md</a> <span>— manual DOM vs VDX, line for line</span></li>
+            <li><a href="/site/tutorial.html">Interactive tutorial</a> <span>— learn the framework hands-on</span></li>
+            <li><a href="/site/showcase/">UI Library</a> <span>— 30+ ready-made cl-* components</span></li>
+        </ul>
+    </div></section>
+
+    <footer><div class="wrap">
+        <a href="/">← vdx-web.iwalton.com</a> · MIT · zero dependencies ·
+        <a href="https://github.com/iwalton3/vdx-web">GitHub</a>
+    </div></footer>
+
+    <script type="module">
+        import '/site/landing/landing.js';
+        import { startThemeSync, cycleThemeMode } from '/lib/utils.js';
+        startThemeSync();
+        document.getElementById('theme-toggle').addEventListener('click', () => cycleThemeMode());
+    </script>
 </body>
 </html>

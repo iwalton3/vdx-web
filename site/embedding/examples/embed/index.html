@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Embedded widget</title>
+</head>
+<body>
+    <!-- This is your static page. Drop the component's tag wherever you want it. -->
+    <p>Ships today at <strong>68°F</strong>. Prefer Celsius?</p>
+
+    <temp-converter></temp-converter>
+
+    <!-- One script tag. One import, from the vendored bundle. No build, no npm. -->
+    <script type="module">
+        import { defineComponent, Component, html } from 'vdx/dist/framework.js';
+
+        class TempConverter extends Component {
+            constructor(props) {
+                super(props);
+                this.state = { c: 20 };
+            }
+
+            template() {
+                const f = (this.state.c * 9 / 5 + 32);
+                return html`
+                    <div class="tc">
+                        <label>
+                            <span>Celsius</span>
+                            <input type="number" x-model="c" step="1">
+                        </label>
+                        <div class="out">= <strong>${f.toFixed(1)}</strong> °F</div>
+                    </div>
+                `;
+            }
+
+            static styles = /*css*/`
+                :host { display: block; font-family: system-ui, sans-serif; }
+                .tc {
+                    display: inline-flex; align-items: flex-end; gap: 16px;
+                    padding: 16px 20px; border: 1px solid #d7dcd9; border-radius: 12px;
+                    background: #fff;
+                }
+                label { display: grid; gap: 5px; }
+                label span { font-size: 12px; color: #667; }
+                input { width: 92px; padding: 8px 10px; border: 1px solid #ced4da; border-radius: 8px; font-size: 15px; }
+                .out { font-size: 15px; color: #445; padding-bottom: 9px; }
+                .out strong { font-size: 20px; color: #10897a; }
+            `;
+        }
+
+        defineComponent('temp-converter', TempConverter);
+    </script>
+</body>
+</html>
