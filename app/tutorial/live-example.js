@@ -69,7 +69,8 @@ export class TutLiveExample extends Component {
                             entry="${this.props.entry}"
                             activeFile="${this.props.activeFile}"
                             previewLabel="${this.props.previewLabel}"
-                            height="360px">
+                            height="300px"
+                            previewHeight="360px">
                         </cl-code-runner>
                     `,
                     html`<div class="tut-live-loading">Loading example…</div>`

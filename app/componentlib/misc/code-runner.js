@@ -30,7 +30,9 @@ export class ClCodeRunner extends Component {
         entry: '',
         activeFile: '',
         previewLabel: 'Result',
-        height: '360px',
+        height: '320px',          // editor height (ignored when fill)
+        previewHeight: '380px',   // preview pane height
+        fill: false,              // fill the container height; editor flexes, preview stays previewHeight
         persistKey: ''
     }
 
@@ -153,56 +155,67 @@ export class ClCodeRunner extends Component {
     }
 
     template() {
+        const fill = this.props.fill && this.props.fill !== 'false';
+        // In fill mode the editor grows via flex (no fixed height); the CSS below
+        // stretches its internals. Otherwise it's a fixed-height box.
+        const editorHeight = fill ? '' : (this.props.height || '320px');
+        const previewStyle = `height: ${this.props.previewHeight || '380px'};`;
         return html`
-            <div class="cl-runner">
-                <div class="cl-runner-grid">
-                    <div class="cl-pane cl-pane-code">
-                        <div class="cl-tabbar" role="tablist">
-                            <div class="cl-tabs">
-                                ${each(this.state.fileNames, (name) => html`
-                                    <button type="button" role="tab"
-                                        class="cl-tab ${name === this.state.active ? 'active' : ''}"
-                                        aria-selected="${name === this.state.active ? 'true' : 'false'}"
-                                        on-click="${() => this.selectFile(name)}">${name}</button>
-                                `)}
-                            </div>
-                            <div class="cl-actions">
-                                <cl-button label="Run" icon="▶" severity="primary" text="true" on-click="runNow"></cl-button>
-                                <cl-button label="Reset" severity="secondary" text="true" on-click="reset"></cl-button>
-                            </div>
+            <div class="cl-runner ${fill ? 'fill' : ''}">
+                <div class="cl-pane cl-pane-code">
+                    <div class="cl-tabbar" role="tablist">
+                        <div class="cl-tabs">
+                            ${each(this.state.fileNames, (name) => html`
+                                <button type="button" role="tab"
+                                    class="cl-tab ${name === this.state.active ? 'active' : ''}"
+                                    aria-selected="${name === this.state.active ? 'true' : 'false'}"
+                                    on-click="${() => this.selectFile(name)}">${name}</button>
+                            `)}
                         </div>
-                        <cl-code-editor ref="editor" height="${this.props.height}"
-                            on-change="${(e, v) => this.handleEdit(e, v)}"></cl-code-editor>
+                        <div class="cl-actions">
+                            <cl-button label="Run" icon="▶" severity="primary" text="true" on-click="runNow"></cl-button>
+                            <cl-button label="Reset" severity="secondary" text="true" on-click="reset"></cl-button>
+                        </div>
                     </div>
-                    <div class="cl-pane cl-pane-preview">
-                        <div class="cl-pane-head"><span class="cl-pane-label">${this.props.previewLabel}</span></div>
-                        <iframe ref="frame" class="cl-frame" title="Live preview"
-                            sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"></iframe>
-                    </div>
+                    <cl-code-editor ref="editor" height="${editorHeight}"
+                        on-change="${(e, v) => this.handleEdit(e, v)}"></cl-code-editor>
+                </div>
+                <div class="cl-pane cl-pane-preview">
+                    <div class="cl-pane-head"><span class="cl-pane-label">${this.props.previewLabel}</span></div>
+                    <iframe ref="frame" class="cl-frame" title="Live preview" style="${previewStyle}"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"></iframe>
                 </div>
             </div>
         `;
     }
 
     static styles = /*css*/`
-        :host { display: block; }
+        /* Flex column all the way down so fill mode needs no percentage heights. */
+        :host { display: flex; flex-direction: column; min-height: 0; }
 
+        /* Stacked: editor on top, preview below (full-width code, less scrolling). */
         .cl-runner {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
             border: 1px solid var(--border-color, #e1e4e8);
             border-radius: 10px;
             overflow: hidden;
             background: var(--card-bg, #fff);
-            height: 100%;
         }
-
-        .cl-runner-grid { display: grid; grid-template-columns: 1fr 1fr; height: 100%; }
-        @media (max-width: 820px) { .cl-runner-grid { grid-template-columns: 1fr; } }
 
         .cl-pane { min-width: 0; display: flex; flex-direction: column; }
-        .cl-pane-code { border-right: 1px solid var(--border-color, #e1e4e8); }
-        @media (max-width: 820px) {
-            .cl-pane-code { border-right: 0; border-bottom: 1px solid var(--border-color, #e1e4e8); }
+        .cl-pane-code { border-bottom: 1px solid var(--border-color, #e1e4e8); }
+
+        /* Fill mode: flex the editor (and its internals) so it grows to fill the
+           space above the fixed-height preview - no percentage heights involved. */
+        .cl-runner.fill .cl-pane-code { flex: 1 1 auto; min-height: 0; }
+        .cl-runner.fill .cl-pane-code cl-code-editor,
+        .cl-runner.fill .cl-pane-code .cl-code-editor-wrap {
+            flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
         }
+        .cl-runner.fill .cl-pane-code .cl-code-editor { flex: 1 1 auto; min-height: 0; }
 
         .cl-tabbar {
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -223,9 +236,10 @@ export class ClCodeRunner extends Component {
 
         .cl-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
-        .cl-pane-code cl-code-editor { flex: 1; }
-        .cl-pane-code .cl-code-editor { border: 0; border-radius: 0; height: 100%; }
+        .cl-pane-code cl-code-editor { display: block; }
+        .cl-pane-code .cl-code-editor { border: 0; border-radius: 0; }
 
+        .cl-pane-preview { border-top: 1px solid var(--border-color, #e1e4e8); }
         .cl-pane-head {
             display: flex; align-items: center; padding: 0 12px; min-height: 41px;
             background: var(--hover-bg, #f6f8fa);
@@ -236,7 +250,7 @@ export class ClCodeRunner extends Component {
             color: var(--text-muted, #6c757d);
         }
 
-        .cl-frame { flex: 1; width: 100%; min-height: 380px; border: 0; background: var(--ce-bg, #fff); }
+        .cl-frame { width: 100%; border: 0; background: var(--ce-bg, #fff); display: block; }
     `
 }
 

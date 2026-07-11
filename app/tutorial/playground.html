@@ -27,8 +27,8 @@
         }
         .pg-top a:hover, .pg-top button:hover { background: var(--hover-bg, #f6f8fa); color: var(--text-color, #24292e); }
 
-        .pg-main { flex: 1; min-height: 0; padding: 14px; }
-        cl-code-runner { display: block; height: 100%; }
+        .pg-main { flex: 1; min-height: 0; padding: 14px; display: flex; flex-direction: column; }
+        cl-code-runner { flex: 1; min-height: 0; }
     </style>
 </head>
 <body>
@@ -42,7 +42,7 @@
     </div>
 
     <div class="pg-main">
-        <cl-code-runner id="runner" persist-key="vdx-playground" height="100%" preview-label="Preview"></cl-code-runner>
+        <cl-code-runner id="runner" persist-key="vdx-playground" fill="true" preview-height="340px" preview-label="Preview"></cl-code-runner>
     </div>
 
     <script type="module">

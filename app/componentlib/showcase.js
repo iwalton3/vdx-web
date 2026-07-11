@@ -395,7 +395,6 @@ export class ComponentShowcase extends Component {
         .source-section { max-width: 100%; }
         .source-section cl-code-runner {
             display: block;
-            height: 520px;
             max-width: 100%;
         }
 
