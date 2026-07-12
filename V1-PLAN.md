@@ -216,10 +216,46 @@ arrive later as options without changing the contract. One error channel. And si
 tasks hold no data, there's no cache/invalidation surface to regret: state ownership
 stays entirely with the app.
 
+### The kernel underneath: the settle gate (internal at v1)
+
+Design insight (2026-07-11): the primitive under all of this is a **commit gate** —
+an object with a delivery policy, fed promises, invoking callbacks per policy:
+
+- `latest`: feeding a new promise supersedes the previous one; a superseded
+  fulfillment is discarded by **identity comparison** (the same mechanism that makes
+  `awaitThen` safe — no tokens). Slot-watching sugar makes *assignment the trigger*:
+  watch `() => this.state.searchP`, and `this.state.searchP = doFetch(q)` IS the run.
+- `queue`: fulfillments deliver in feed order regardless of settle order. Note this
+  orders *commits*, not execution — fetches still race concurrently, which beats a
+  mutex for loadMore-style appends (full concurrency, no holes). It also breaks the
+  slot model (a slot holds one promise; a queue has several in flight), which is why
+  the gate is an object, not a state convention.
+
+`createTask` = the gate with `latest` policy + factory + AbortController + reactive
+`pending`/`error`. Implement it that way. What the bare gate lacks (and why the
+bundle ships first): identity discards stale *results* but can't cancel stale
+*requests* (promises don't cancel — that's the gap AbortSignal exists to fill), and
+pending/error revert to manual flag discipline.
+
+**v1 posture:** the gate stays internal. Promote it to a public API (`onFulfill` /
+slot-watch / queue) post-v1 once its shape survives internal use AND queue mode's
+error policy is settled (when an earlier feed rejects: skip — accepting the hole —
+or halt the line? Not a decision to freeze casually).
+
 Consciously deferred: an "async computed" / `resource(depsFn, fetcher)` that
 re-fetches when reactive deps change. It's replacement-only (can't express appends),
-overlaps `awaitThen`, and can be built on `createTask` additively post-v1 if a real
+overlaps `awaitThen`, and is buildable on the gate additively post-v1 if a real
 need shows up. Not freezing a third async idiom at v1.
+
+### Testing: the shuffle harness
+
+Port of a proven manual technique (a userscript that collected fetch calls in a
+short window and randomized their resolution order to surface out-of-order bugs):
+`tests/framework/` gets a test-only promise/fetch wrapper that collects settlements
+inside a configurable window and releases them in **seeded**-random order (seeded so
+a failing shuffle reproduces exactly). All gate/`createTask` tests run under it,
+across many seeds — a green suite then demonstrates order-independence rather than
+asserting it. Cheap to build, reusable for windowing/router async tests too.
 
 ---
 
