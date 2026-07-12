@@ -138,9 +138,25 @@ application state.
 Context worth remembering: promise-in-state is already the blessed *declarative*
 pattern (`this.state.profile = this.load()` + `awaitThen`; promises are exempt from
 proxying, and the promise's identity in state IS the staleness guard — a late
-resolution of a replaced promise is ignored). Tasks exist for the *imperative* flows
-awaitThen can't express: merging results into existing state (pagination appends,
-multi-field updates), which is where mrepo hand-rolls its ten request-ID guards.
+resolution of a replaced promise is ignored). Tasks exist for the *imperative*
+replacement flows awaitThen can't express — re-fetch and overwrite, possibly across
+several state fields — which is where mrepo hand-rolls its ten request-ID guards.
+
+**What createTask is NOT (settled 2026-07-11):** it is the latest-wins primitive,
+full stop. The litmus test for misuse: *if aborting the previous run would lose
+data, it's not a createTask.* Overlapping `loadMore()` calls are the canonical
+counter-example — latest-wins would abort page N's fetch because page N+1 was
+requested, leaving a hole in the list. Append flows want a different discipline,
+and the evidence says which one: mrepo's loadMore is drop-if-busy
+(`if (!hasMore || isLoading) return;`) plus an explicit re-check after each load
+completes (browse-page.js:546, 377-385 — "the self-perpetuating pagination chain").
+That's a guard the app owns today and keeps owning at v1. The reserved evolution
+path, if evidence accumulates, is an options bag — `mode: 'latest' | 'drop' |
+'queue'` (the ember-concurrency taxonomy, stable for a decade) — additive, default
+`'latest'`, no contract change. An awaitable `createLock()` mutex for
+strict-ordering cases is a possible utils.js candidate, but no lock-shaped code was
+found in mrepo (drop-if-busy covered their needs), so it ships only when something
+real asks for it.
 
 ### API
 
@@ -190,9 +206,10 @@ class SearchPage extends Component {
 
 This is the guard mrepo hand-rolls ten times ("ignore results from a superseded
 request"), and the router ships the same logic internally (`_navToken`). The split of
-labor is clean: `awaitThen` renders a promise (declarative, replacement semantics);
-`createTask` runs an operation that commits to real state (imperative, merge
-semantics). Both use identity/abort for staleness rather than manual tokens.
+labor is clean: `awaitThen` renders a promise (declarative); `createTask` runs a
+latest-wins operation that commits to real state (imperative, replacement semantics
+— appends are out of scope per the litmus test above). Both use identity/abort for
+staleness rather than manual tokens.
 
 Won't-regret check: only latest-wins is frozen — queue/exhaust/debounce/retry can
 arrive later as options without changing the contract. One error channel. And since
