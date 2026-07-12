@@ -504,6 +504,11 @@ router.beforeEach(async ({ path, query, route }) => {
 });
 ```
 
+When a hook returns `false`, the router rolls the address bar back to the last
+successfully committed URL, so the URL never points at content that was refused.
+(In hash mode the rollback re-runs `handleRoute` for the committed URL - keep
+`beforeEach` hooks idempotent for the routes they allow.)
+
 ## Best Practices
 
 ### Route Organization

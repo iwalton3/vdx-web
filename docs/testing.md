@@ -5,6 +5,7 @@ Complete guide to running and writing tests for the framework.
 ## Table of Contents
 
 - [Running Tests](#running-tests)
+- [Debug Flags](#debug-flags)
 - [Test Coverage](#test-coverage)
 - [Writing Tests](#writing-tests)
 - [Assertion API](#assertion-api)
@@ -53,6 +54,27 @@ E2E tests include:
 - Panel components (accordion, tabview, fieldset)
 - Overlay components (dialog, sidebar, toast)
 - **Accessibility tests** (axe-core WCAG compliance, ARIA attributes, keyboard navigation)
+
+## Debug Flags
+
+The framework has opt-in diagnostics that are too costly (or too noisy) to run
+unconditionally in production. Set them on `window` before the app loads - in
+an e2e run, via an init script or an inline `<script>` in the test page:
+
+| Flag | What it enables |
+|------|-----------------|
+| `window.__LIST_KEY_DEBUG__ = true` | Warns when an `each()`/`memoEach()` list renders **duplicate keys** (an O(n) check per keyed update). Duplicate keys silently corrupt keyed reconciliation - enable this for any app with large keyed lists (virtual scroll, queues) during e2e runs. |
+| `window.__TEMPLATE_DEBUG__ = true` | Logs template cache hits/misses and compilations. |
+| `window.__SLOT_DEBUG__ = true` | Logs slot re-instantiations and `contain()` rebuilds - useful for finding templates that lose DOM state because their structure changes identity every render. |
+
+Example (Puppeteer):
+
+```javascript
+await page.evaluateOnNewDocument(() => { window.__LIST_KEY_DEBUG__ = true; });
+page.on('console', msg => {
+    if (msg.text().includes('DUPLICATE KEYS')) failures.push(msg.text());
+});
+```
 
 ## Test Coverage
 

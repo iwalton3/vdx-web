@@ -133,8 +133,15 @@ html`<div style="${{ color: userColor }}"></div>`
 // No template value is trusted for this; the slot renders nothing.
 html`<script>${anything}</script>`
 
+// ❌ REMOVED - <script> elements are dropped from templates entirely (with a
+// console warning). Template instantiation uses createElement, and scripts
+// created that way EXECUTE when connected - so even a fully static script
+// is banned.
+html`<div><script>doThing();</script></div>`
+
 // ✅ SAFE - pass data via attributes/props, or hydrate from a static
-// <script type="application/json"> using json-* props
+// <script type="application/json"> (in the page, not the template) using
+// json-* props
 ```
 
 ## Dynamic Content and Boolean Attributes
