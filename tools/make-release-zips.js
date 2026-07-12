@@ -117,6 +117,7 @@ for (const [name, def] of Object.entries(ZIPS)) {
     }
     fs.writeFileSync(path.join(stage, 'README.txt'),
         `${def.title} - v${version}\n` +
+        `https://vanilladx.dev\n` +
         `https://github.com/iwalton3/vdx-web\n\n` +
         `${def.readme}\n\n` +
         `Docs: https://github.com/iwalton3/vdx-web/tree/main/docs\n` +

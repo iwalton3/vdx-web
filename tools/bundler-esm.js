@@ -2307,7 +2307,7 @@ function addBanner(content, map, bundleName, version) {
     if (map && typeof map.mappings === 'string') {
         map.mappings = ';' + map.mappings;
     }
-    return `/*! VDX ${bundleName} v${version} | MIT | https://github.com/iwalton3/vdx-web */\n` + content;
+    return `/*! VDX ${bundleName} v${version} | MIT | https://vanilladx.dev | https://github.com/iwalton3/vdx-web */\n` + content;
 }
 
 /**
