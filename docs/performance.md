@@ -19,7 +19,7 @@ The framework provides a graded sequence of escape hatches. Start at the top; mo
 
 1. **Default deep reactivity** - correct for most components. Fine-grained rendering already means state changes update only the bindings that read them.
 2. **Keyed `each()` / `memoEach()`** - when list rendering itself is the cost. Keys preserve DOM; memoization skips re-running item templates.
-3. **`untracked()`** - when proxying a large array costs more than it buys. The array's contents stop being reactive; you update by replacing the array (or bumping an explicit version).
+3. **`versionedList()` / `untracked()`** - when proxying a large array costs more than it buys. `versionedList()` keeps structural edits (push/splice/index writes) reactive through a single version cell while items stay raw - it is the preferred packaging of the old untracked-array-plus-version-counter pattern. Plain `untracked()` makes the value fully inert; you update by replacing the whole array.
 4. **`contain()`** - when one high-frequency value (playback position, progress) would otherwise re-run an expensive template.
 5. **`flushSync()`** - when a batch of updates must hit the DOM in the current frame (virtual scroll window commits, measure-after-write).
 6. **Non-reactive islands** - for 60fps+ render loops (WebGL, canvas, DSP visualization), skip reactivity entirely: read `store.state` directly without subscribing, and update the few DOM nodes you own with `querySelector`. The framework deliberately supports opting out - components are the boundary, and inside your own island you own the DOM.
@@ -36,7 +36,7 @@ Each rung trades convenience for control. The rungs compose: a windowed list typ
 | Same logical items, fresh object references each render (slices, wrappers, refetches) | `{ trustKey: true }` |
 | External state affects a FEW items (selection, now-playing highlight) | Composite key |
 | External state affects ALL items (display mode, edit mode, theme) | `{ deps: [...] }` |
-| In-place structural edits at scale (drag-reorder, splice) | Version counter in the key |
+| In-place structural edits at scale (drag-reorder, splice) | `versionedList` - fold `.version` into the key |
 
 **Composite key** - fold the per-item flag into the key so exactly the affected rows re-render (when selection moves, only the newly-selected and newly-deselected rows recompute):
 
@@ -58,39 +58,37 @@ ${memoEach(visibleItems, item => {
 ${memoEach(items, item => html`...`, keyFn, { deps: [this.state.displayMode] })}
 ```
 
-**Version counter** - for editable windowed lists where immutable updates are too expensive (you cannot afford to copy a 5,000-item array on every drag-over event). Keep the array `untracked()`, mutate it in place, and bump an integer on every structural change; fold it into the key:
+**versionedList version in the key** - for editable windowed lists where immutable updates are too expensive (you cannot afford to copy a 5,000-item array on every drag-over event). Keep the array in a `versionedList()`, mutate it in place - structural edits bump the list's reactive `.version` automatically - and fold that version into the key:
 
 ```javascript
 state = {
-    songs: untracked([]),   // large, mutated in place
-    listVersion: 0          // bumped on reorder/insert/delete
+    songs: versionedList([])   // large, mutated in place; items stay raw
 };
 
 moveSong(from, to) {
     const [song] = this.state.songs.splice(from, 1);
-    this.state.songs.splice(to, 0, song);
-    this.state.listVersion++;   // invalidates every cached row
+    this.state.songs.splice(to, 0, song);   // splice bumps .version -> invalidates every cached row
 }
 
 // In the template:
 ${memoEach(visible, song => html`...`,
-    (song, i) => `${song.uuid}-${i}-${this.state.listVersion}`,
+    (song, i) => `${song.uuid}-${i}-${this.state.songs.version}`,
     { trustKey: true })}
 ```
 
-This looks like manual dependency tracking - and it is. It's the sanctioned pattern for this case, not a hack: a windowed, drag-editable list over thousands of items is exactly where automatic deep reactivity costs more than hand-managed invalidation. The version counter is one integer standing in for "the list's structure changed"; everything else stays fine-grained.
+This is the sanctioned pattern for this case, not a hack: a windowed, drag-editable list over thousands of items is exactly where automatic deep reactivity costs more than version-based invalidation. The version is one integer standing in for "the list's structure changed"; everything else stays fine-grained. `versionedList` packages what used to be a hand-rolled `untracked()` array plus a manual counter - no forgotten bump, no forced version read. Two things stay manual: in-place **item-field** edits are not tracked (call `list.touch()` when a row must re-render for one), and the key must include the version, as above.
 
-**Keep the version counter for STRUCTURAL changes only.** It is tempting to
-bump it for every list-adjacent change (selection, highlight, mode) because it
-always works - but each bump replaces every rendered row. Fold per-row state
-into the key instead (composite key, above) so a selection toggle re-renders
-one row, not the whole window. This is not just wasted work: replacing every
-rendered row in a scroll container triggers **browser scroll anchoring**
-adjustments (worst on Android Chrome), which can walk the scroll position up
-by the entire rendered window per toggle. A real bug: a playlist page keyed
-rows as `uuid-index-version` and bumped the version on selection toggles - on
-Android, each checkbox tap scrolled the view up by ~55 rows (visible + buffer,
-i.e. exactly the rows that were torn down).
+**Keep version bumps for STRUCTURAL changes only.** It is tempting to
+`touch()` the list for every list-adjacent change (selection, highlight, mode)
+because it always works - but each bump replaces every rendered row. Fold
+per-row state into the key instead (composite key, above) so a selection
+toggle re-renders one row, not the whole window. This is not just wasted work:
+replacing every rendered row in a scroll container triggers **browser scroll
+anchoring** adjustments (worst on Android Chrome), which can walk the scroll
+position up by the entire rendered window per toggle. A real bug: a playlist
+page keyed rows as `uuid-index-version` and bumped the version on selection
+toggles - on Android, each checkbox tap scrolled the view up by ~55 rows
+(visible + buffer, i.e. exactly the rows that were torn down).
 
 **The mapFn tracking rule** (worth repeating): `memoEach` defers `mapFn`, so reactive state read inside the callback does NOT become a dependency of the component. Read external state into a local *before* the `memoEach` call and use the captured value inside - that read is what makes the template re-evaluate.
 
@@ -112,7 +110,7 @@ class SongList extends Component {
             scrollContainer: 'self',    // 'self' | 'parent' | 'window' | selector
             onRange: (start, end) => this.maybeLoadMore(end)  // on-demand loading hook
         });
-        this.state = { songs: untracked([]) };
+        this.state = { songs: versionedList([]) };
     }
 
     unmounted() {
@@ -136,7 +134,7 @@ class SongList extends Component {
 defineComponent('song-list', SongList);
 ```
 
-The controller's getters (`visibleStart`, `visibleEnd`, `offsetY`, `totalHeight`) are reactive - reading them in the template tracks them. Call `refresh()` after changing an `untracked()` item source (reactive sources are tracked automatically through `count()`); `scrollToIndex`/`scrollToTop`/`scrollToBottom` handle position math per scroll mode; `setScrollContainer()` re-wires the scroll mode; `attach()`/`detach()` support element reconnection (`destroy()` is full teardown).
+The controller's getters (`visibleStart`, `visibleEnd`, `offsetY`, `totalHeight`) are reactive - reading them in the template tracks them. With a `versionedList` (or fully reactive) item source, `count: () => this.state.songs.length` is a reactive read, so the controller picks up structural changes automatically - no manual `refresh()` calls. `refresh()` remains only for plain `untracked()` sources mutated in place; `scrollToIndex`/`scrollToTop`/`scrollToBottom` handle position math per scroll mode; `setScrollContainer()` re-wires the scroll mode; `attach()`/`detach()` support element reconnection (`destroy()` is full teardown).
 
 **Scroll anchoring**: windowed rows are constantly replaced, and browser
 scroll anchoring (worst on Android Chrome) compensates for replaced anchor
@@ -175,7 +173,7 @@ onRange: (start, end) => {
 item => item ? html`<div>${item.title}</div>` : html`<div class="placeholder">Loading…</div>`
 ```
 
-Guard async fills against staleness: capture a request id (or route epoch) before the fetch and discard the response if it no longer matches - a slow chunk from the previous album must not clobber a new sparse array.
+Guard async fills against staleness: capture a request id (or route epoch) before the fetch and discard the response if it no longer matches - a slow chunk from the previous album must not clobber a new sparse array. (For full *replacement* flows - re-fetching the list on navigation - `createTask` gives you this guard for free via abort propagation. Overlapping chunk **appends** are not a createTask: aborting a superseded page would lose data, so keep the request-id/busy-guard discipline here. See [components.md](components.md#async-tasks-createtask).)
 
 ## High-Frequency State
 
@@ -208,7 +206,8 @@ This is a supported mode, not a workaround. The component boundary is the contra
 
 ## Keeping Large Data Out of the Proxy System
 
-- **`untracked(bigArray)`** - contents are not proxied or tracked; only replacing the whole value (or an explicit version counter) signals change. Use for arrays of hundreds+ items where per-item reactivity buys nothing. Assignments to a key that started untracked stay untracked automatically.
+- **`versionedList(bigArray)`** - the preferred wrapper when you mutate a large list in place: structural edits (mutating methods, index/length writes) bump one reactive version cell, reads of `length`/indices/iteration subscribe to it, and items are returned raw (no per-item proxying). `.touch()` covers in-place item-field edits, `.replace(arr)` swaps contents wholesale (safe at 100k+ items). This replaces the hand-rolled untracked-array-plus-version-counter pattern. See [reactivity.md](reactivity.md#versionedlist---reactive-structure-raw-items).
+- **`untracked(bigArray)`** - contents are not proxied or tracked; only replacing the whole value signals change. Use for data you update by wholesale replacement where per-item reactivity buys nothing. Assignments to a key that started untracked stay untracked automatically.
 - **Proxy identity is stable** - repeated reads like `state.items[0] === state.items[0]` return the same cached proxy (and `memo()`/`memoEach` rely on this for reference checks). If you're on an older vendored build and see identity-based caches missing, update the bundle before adding wrapper-object workarounds.
 - **Strip proxies before structured clone** - IndexedDB, `postMessage`, and Web Workers can't serialize proxies. `JSON.parse(JSON.stringify(data))` is the blunt reliable tool for snapshots.
 - **O(1) list tracking** - iterating a reactive array tracks its `length`, not each index, so rendering 5,000 items creates one dependency. `trackMutations(obj)` gives an O(1) "anything in here changed" dependency when you need coarse invalidation without walking properties.
@@ -228,7 +227,8 @@ Understanding the pipeline explains when you need `flushSync`:
 1. **State write** → dependent effects are queued; computed invalidation runs immediately (computed reads are never stale).
 2. **Microtask** → all queued effects run once, batched (multiple writes in one handler = one flush). This uses a microtask, not rAF, so **effects keep running in background tabs** - which is why audio state keeps flowing when the tab is hidden.
 3. **DOM commit** → if the flush created new elements, attribute/text updates apply immediately (keeps new rows and their positions in sync). If it was attribute/text-only, updates batch to the **next animation frame**.
-4. **`flushSync(fn)`** → runs `fn`, then forces steps 2-3 synchronously. Use inside rAF-driven code (scroll handlers) and before reading layout (measure after write).
+4. **`flushSync(fn)`** → runs `fn`, then forces steps 2-3 synchronously. Use inside rAF-driven code (scroll handlers) and before reading layout (measure after write). It does NOT mount new conditional branches.
+5. **`await nextRender()`** → the async counterpart: resolves once steps 2-3 have settled, including newly mounted conditional branches. Prefer it outside frame-synchronous code.
 
 ## Optimizer Interactions
 

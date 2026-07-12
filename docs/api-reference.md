@@ -207,6 +207,48 @@ handleInput(e) {
 }
 ```
 
+#### this.nextRender()
+Resolve after the next effect flush AND DOM commit complete, including newly mounted conditional branches. Delegates to the global [`nextRender()`](#nextrender) (rendering is globally batched - there is no per-component variant).
+
+**Returns:** `Promise<void>`
+
+```javascript
+async startEdit() {
+    this.state.editing = true;
+    await this.nextRender();   // DOM committed, new branches mounted
+    this.querySelector('input').focus();
+}
+```
+
+#### this.whenMounted(selectorOrElement)
+Resolve when a matched child exists in this component's subtree, its custom element is defined (covers lazy `import()`ed definitions), and its first render + `mounted()` have completed. Never rejects: resolves `null` if THIS component unmounts while waiting. A defined non-VDX custom element (no VDX lifecycle) resolves after one render lap - "defined + present" is the strongest guarantee it can offer.
+
+**Parameters:**
+- `selectorOrElement` (string | Element) - CSS selector queried within this component's subtree, or a specific element to wait on
+
+**Returns:** `Promise<Element|null>`
+
+```javascript
+const list = await this.whenMounted('cl-virtual-list');
+if (!list) return;   // waiter unmounted
+list.scrollToIndex(0);
+```
+
+#### this.createTask(fn)
+Create a latest-wins async task bound to this component's lifetime - auto-cancelled and disposed at unmount. See [`createTask()`](#createtaskfn) for full semantics.
+
+**Parameters:**
+- `fn` (function) - `(signal, ...args) => Promise` task body; `signal` aborts when the run is superseded
+
+**Returns:** Task object `{ run, cancel, pending, error, dispose }`
+
+```javascript
+search = this.createTask(async (signal, query) => {
+    const r = await fetch('/api/search?q=' + encodeURIComponent(query), { signal });
+    this.state.hits = (await r.json()).hits;   // reached only if still current
+});
+```
+
 ## Template API
 
 ### html`` tagged template
@@ -755,6 +797,43 @@ defineComponent('song-list', SongList);
 
 **When to use:** Arrays with 100+ items, deeply nested objects, API response data.
 
+### versionedList(initialArray)
+
+Creates a versioned list: a thin reactive proxy over a raw array. Structural edits - mutating methods (`push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse`, `fill`, `copyWithin`), index/length writes, and `delete` - bump a single reactive version; reads of `length`, numeric indices, and iteration subscribe to it. Items are returned **raw** (no per-item proxying - the same performance contract as `untracked()`), so in-place item-field edits are NOT tracked.
+
+**Parameters:**
+- `initialArray` (Array, optional) - The backing array (used directly, not copied; defaults to `[]`)
+
+**Returns:** A proxy that behaves like the array, plus:
+- `touch()` - Manually bump the version (for in-place item-field edits)
+- `replace(next)` - Replace all contents in one operation with a single bump (safe at 100k+ items, where spreading `push(...next)` would overflow the call stack)
+- `version` (number, read-only) - Reactive version integer; reading it subscribes to structural changes
+
+**Example:**
+```javascript
+import { defineComponent, Component, versionedList } from './lib/framework.js';
+
+class SongList extends Component {
+    state = { songs: versionedList([]) };
+
+    add(track) {
+        this.state.songs.push(track);       // structural edit -> auto version bump
+    }
+
+    rename(i, title) {
+        this.state.songs[i].title = title;  // item fields NOT tracked
+        this.state.songs.touch();           // manual bump
+    }
+
+    load(next) {
+        this.state.songs.replace(next);     // wholesale swap, single bump
+    }
+}
+defineComponent('song-list', SongList);
+```
+
+**When to use:** Large lists mutated in place (push/splice/drag-reorder). Replaces the hand-rolled untracked-array-plus-version-counter pattern; `createWindowing`'s `count: () => list.length` becomes a reactive read (no manual `refresh()`). See [performance.md](performance.md#choosing-a-memoeach-invalidation-strategy) for `memoEach` keying (`item.id + ':' + list.version`).
+
 ### flushSync(fn)
 
 Execute a function and immediately flush any pending renders. Use when you need synchronous DOM updates after state changes.
@@ -790,9 +869,42 @@ class MyForm extends Component {
 defineComponent('my-form', MyForm);
 ```
 
-**When to use:** Focusing elements, scrolling after adding items, measuring elements after state change.
+**When to use:** Genuinely synchronous needs - rAF-driven code that must commit in the current frame (virtual-scroll range commits), measure-after-write, tests.
 
-**Note:** Use sparingly - bypasses automatic batching and can hurt performance if overused.
+**Note:** Use sparingly - bypasses automatic batching and can hurt performance if overused. `flushSync()` does **NOT** mount new conditional branches - a node shown by `when()` this tick can still be missing afterwards. Use `await nextRender()` for that (see below).
+
+### nextRender()
+
+Returns a promise that resolves after the next effect flush AND DOM commit complete - **including newly mounted conditional branches**. If no flush is pending, one is scheduled, so `mutate; await nextRender()` always works. This is the recommended default for "update state, then touch the resulting DOM"; `flushSync()` covers the genuinely synchronous cases.
+
+**Parameters:** None
+
+**Returns:** `Promise<void>`
+
+**Example:**
+```javascript
+import { defineComponent, Component, html, when, nextRender } from './lib/framework.js';
+
+class MyForm extends Component {
+    state = { showInput: false };
+
+    async showAndFocus() {
+        this.state.showInput = true;
+        await nextRender();               // DOM committed, new branches mounted
+        this.querySelector('input').focus();
+    }
+
+    template() {
+        return html`
+            <button on-click="showAndFocus">Show</button>
+            ${when(this.state.showInput, html`<input type="text">`)}
+        `;
+    }
+}
+defineComponent('my-form', MyForm);
+```
+
+**Note:** Also available as `this.nextRender()` on components (delegates to this global - rendering is globally batched).
 
 ### flushRenders()
 
@@ -808,7 +920,7 @@ flushRenders();  // Force render to happen now
 expect(component.textContent).toBe('5');
 ```
 
-**Note:** In normal application code, use `flushSync()` instead.
+**Note:** In normal application code, use `await nextRender()` (or `flushSync()` for synchronous needs) instead.
 
 ### createMemoCache()
 
@@ -817,6 +929,37 @@ Creates a memoization cache for use with `memoEach()`.
 **Returns:** Map for caching
 
 **Note:** Usually not needed - `memoEach()` automatically manages caches when used inside component templates.
+
+### createTask(fn)
+
+Creates a latest-wins async task - the imperative replacement-flow primitive (search-as-you-type, re-fetch on navigation). **A task carries status, never data**: there is no `value` property; the body commits results to real state (component state / a store). `run()` aborts the previous in-flight run via the `AbortSignal` passed to `fn` - abort throws through abort-aware awaits (e.g. `fetch(url, { signal })` rejects with `AbortError`), so a superseded body never reaches its commit lines. After a non-abort-aware await, call `signal.throwIfAborted()`.
+
+**Parameters:**
+- `fn` (function) - Task body `(signal, ...args) => Promise<T> | T`; `signal` aborts when the run is superseded
+
+**Returns:** Task object:
+- `run(...args)` - Abort the previous run and start a new one. **Never rejects**: resolves the body's return value when the run completed and is still current, `undefined` when superseded, aborted, or failed
+- `cancel()` - Abort the in-flight run (clears `pending`)
+- `pending` (boolean, reactive) - `true` while the latest run is in flight
+- `error` (reactive) - The latest current run's failure, cleared when a new run starts; `AbortError` never lands here (it is the supersession mechanism, not a failure)
+- `dispose()` - Cancel and permanently deactivate the task
+
+**Example:**
+```javascript
+import { createTask } from './lib/framework.js';
+
+const search = createTask(async (signal, query) => {
+    const r = await fetch('/api/search?q=' + encodeURIComponent(query), { signal });
+    searchStore.state.hits = (await r.json()).hits;   // reached only if still current
+});
+
+search.run('hello');   // supersedes any in-flight run
+```
+
+**Notes:**
+- On components, prefer `this.createTask(fn)` - it auto-disposes at unmount. The standalone export (for stores/tests) needs a manual `dispose()`
+- **Not for appends**: if aborting the previous run would lose data (overlapping `loadMore()` pages), it's not a createTask - use a busy-guard plus re-check instead. See [components.md](components.md#async-tasks-createtask)
+- For declarative async rendering, use [`awaitThen()`](#awaitthenpromiseorvalue-thenfn-pendingcontent-catchfn)
 
 ### Other reactivity exports
 
@@ -832,9 +975,44 @@ Documented in detail in [reactivity.md](reactivity.md):
 
 ## Store API
 
+### Store (class)
+
+Base class for class-authored stores - the primary store authoring form. Seed reactive state in the constructor, exactly like a component; methods live on the instance, getters become cached computeds, and ordinary fields stay non-reactive.
+
+**Example:**
+```javascript
+import { Store } from './lib/framework.js';
+
+class CartStore extends Store {
+    constructor() {
+        super();
+        this.state = { items: [], coupon: null };   // reactive
+    }
+
+    _audio = new AudioController(this);   // plain field: NOT reactive
+
+    add(item) { this.state.items.push(item); }
+
+    get total() {                          // getter -> cached computed
+        return this.state.items.reduce((s, i) => s + i.price, 0);
+    }
+}
+export const cartStore = new CartStore();
+```
+
+**Behavior:**
+- **State promotion** - the first `this.state = {...}` assignment wraps the object reactively and promotes each top-level key onto the instance as a forwarding accessor (`store.items` reads/writes `store.state.items`), so `this.stores.cart.items` template syntax is unchanged while methods and computed getters hang off the same object. Keys added later are reactive but not promoted (reach them via `store.state.x`) - declare top-level keys up front. Subsequent `this.state = {...}` assignments merge into the existing reactive state (like `set()`)
+- **Getters are cached computeds** - lazy, synchronously invalidated, never stale. A getter with no reactive dependency is re-evaluated per read instead of cached; a paired setter is ignored with a warning
+- **Methods are auto-bound** to the instance
+- **Collisions throw at construction** - a state key that would shadow a method, getter, or reserved name (`state`, `subscribe`, `set`, `update`, `dispose`) throws immediately
+- **⚠️ `state = {...}` as a CLASS FIELD throws at first use** - class fields use `[[Define]]` semantics and bypass the reactive setter. Assign in the constructor: `constructor() { super(); this.state = {...}; }`
+- Instances carry the `Symbol.for('vdx.store')` brand (survives across bundle copies, unlike `instanceof`)
+
+**Instance methods:** `subscribe(fn)` (fine-grained; returns unsubscribe), `set(newState)`, `update(fn)`, `dispose()` (disposes computed getters - rarely needed, stores are usually singletons). See [reactivity.md](reactivity.md#class-stores-store).
+
 ### createStore(initialState)
 
-Creates a reactive store with pub/sub pattern.
+The older factory form (coexists with class stores; methods defined in the initial state live on `.state` and are called as `store.state.method()`). Creates a reactive store with pub/sub pattern.
 
 **Parameters:**
 - `initialState` (object) - Initial state
@@ -884,10 +1062,10 @@ unsubscribe();
 
 #### store.set(newState)
 
-Replace entire state.
+Merge new values into state (keys not in `newState` are kept; dangerous keys are filtered).
 
 **Parameters:**
-- `newState` (object) - New state object
+- `newState` (object) - Values to merge into state
 
 ```javascript
 store.set({ count: 10 });
@@ -909,13 +1087,13 @@ store.update(state => ({
 
 #### store.state
 
-Access store state. Methods on stores should be called on `store.state`.
+Access store state. Methods on **factory stores** (`createStore`) live on `.state` and should be called there (class store methods live on the instance instead):
 
 ```javascript
-// ✅ CORRECT
+// ✅ CORRECT (factory store)
 await login.state.logoff();
 
-// ❌ WRONG
+// ❌ WRONG (factory store)
 await login.logoff();
 ```
 

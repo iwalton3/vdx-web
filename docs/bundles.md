@@ -19,7 +19,7 @@ Complete framework bundle including:
 - **Component system:** `defineComponent`
 - **Reactivity:** `reactive`, `createEffect`, `computed`, `isReactive`, `watch`, `memo`, `trackAllDependencies`
 - **Template system:** `html`, `when`, `each`, `raw`, `pruneTemplateCache`
-- **Store system:** `createStore`
+- **Store system:** `Store` (class), `createStore`
 
 **Usage:**
 ```html
@@ -343,7 +343,7 @@ Then open: http://localhost:9000/bundle-demo/
 - Reactive system (reactive, createEffect, computed, watch, memo, isReactive)
 - Template compiler and helpers (html, when, each, raw)
 - Component system (defineComponent)
-- Store system (createStore)
+- Store system (Store class, createStore)
 
 **router.js:** ~10 KB uncompressed
 **utils.js:** ~7 KB uncompressed

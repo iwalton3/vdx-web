@@ -10,6 +10,8 @@ Complete guide to building components with the framework.
 - [Passing Props to Child Components](#passing-props-to-child-components)
 - [Children Props (React-style Composition)](#children-props-react-style-composition)
 - [Refs (DOM References)](#refs-dom-references)
+- [Waiting for the DOM (nextRender & whenMounted)](#waiting-for-the-dom-nextrender--whenmounted)
+- [Async Tasks (createTask)](#async-tasks-createtask)
 - [Stores (Auto-Subscribe)](#stores-auto-subscribe)
 - [Computed Properties](#computed-properties)
 - [Lifecycle Hooks](#lifecycle-hooks)
@@ -71,16 +73,6 @@ export class UserCard extends Component {
 export default defineComponent('user-card', UserCard);
 ```
 
-### Differences from the legacy options format
-
-| Concern | Options format | Class format |
-|---------|---------------|--------------|
-| State init | `data()` at element construction (prop *values* not yet set) | `constructor(props)` / field initializers at **first connect** - props are real |
-| Computed | `computed: { total() {...} }` | plain `get total() {...}` |
-| Methods | `methods: { ... }` | class methods (auto-bound) |
-| Props | `props: { ... }` | `static props = { ... }` |
-| Reuse | spread options objects | `class Sub extends Base` - statics merge, `super.*` works |
-
 ### Class component rules
 
 - **Never declare a prop as a class field.** Props get generated accessors; a same-named field
@@ -117,83 +109,28 @@ export default defineComponent('user-card', UserCard);
 
 ## Options Format (Legacy)
 
-The original object-based authoring format. It remains fully supported - class
-components are translated into this format internally, so there is no cost to keeping it -
-but new components should use the class format above. `scripts/convert-to-class.mjs`
-converts existing files mechanically.
+Very old code may pass `defineComponent` an options object instead of a class:
 
 ```javascript
-import { defineComponent, html, when, each } from './lib/framework.js';
-
-export default defineComponent('my-component', {
-    // Props (attributes) - automatically observed
-    props: {
-        title: 'Default Title',
-        count: 0
-    },
-
-    // Local reactive state
-    data() {
-        return {
-            message: 'Hello',
-            items: []
-        };
-    },
-
-    // Lifecycle: called after component is added to DOM
-    mounted() {
-        this.loadData();
-    },
-
-    // Lifecycle: called after each render
-    // ⚠️ Often unnecessary - use only when needed for DOM manipulation
-    afterRender() {
-        // Use only for: imperative DOM APIs, third-party library integration
-        // NOT for: syncing values (framework handles this), event binding (use on-*)
-    },
-
-    // Lifecycle: called before component is removed
-    unmounted() {
-        // Cleanup subscriptions, timers
-    },
-
-    // Methods accessible via this.methodName()
+export default defineComponent('my-counter', {
+    props: { title: 'Counter' },
+    data() { return { count: 0 }; },
     methods: {
-        async loadData() {
-            this.state.items = await fetchData();
-        },
-
-        handleClick(e) {
-            e.preventDefault();
-            this.state.message = 'Clicked!';
-        }
+        increment() { this.state.count++; }
     },
-
-    // Template using tagged template literals
     template() {
-        return html`
-            <div class="container">
-                <h1>${this.props.title}</h1>
-                <p>${this.state.message}</p>
-                <button on-click="handleClick">Click Me</button>
-            </div>
-        `;
-    },
-
-    // Scoped styles (using component tag name prefix)
-    styles: /*css*/`
-        .container {
-            padding: 20px;
-        }
-
-        /* Styles are automatically scoped to component tag name */
-        button {
-            background: #007bff;
-            color: white;
-        }
-    `
+        return html`<button on-click="increment">${this.props.title}: ${this.state.count}</button>`;
+    }
 });
 ```
+
+It still runs (classes are translated into it internally, so there is no cost to keeping it),
+but the format is deprecated - don't write new code in it. `tools/scripts/convert-to-class.mjs`
+converts existing files mechanically. One timing caveat to know when reading or converting old
+code: `data()` runs at element construction, **before prop values arrive** - unlike a class
+constructor, which runs at first connect and sees real values (see the migration bullet under
+[Class component rules](#class-component-rules)). Computeds are declared as
+`computed: { total() {...} }` with plain functions there, not `get` accessors.
 
 ## Props System
 
@@ -669,6 +606,7 @@ defineComponent('my-form', MyForm);
 - Ref names must be unique within the component
 - Refs are automatically cleaned up when elements unmount
 - Use refs for imperative DOM operations (focus, play, scroll, etc.)
+- **Refs are for already-mounted nodes.** A `ref` on a node that is *conditionally shown this tick* is not populated synchronously - even right after `flushSync(() => this.state.editing = true)`, `this.refs.myInput` can still be empty. `await this.nextRender()` waits through branch mounting, and prefer `this.querySelector(...)` over `this.refs` for nodes in a freshly-swapped template branch (see the next section)
 
 **When to use refs:**
 - Focusing form inputs
@@ -680,6 +618,98 @@ defineComponent('my-form', MyForm);
 - Reading input values (use `x-model` instead)
 - Changing element content (use reactive state)
 - Toggling classes (use template interpolation)
+
+## Waiting for the DOM (nextRender & whenMounted)
+
+### this.nextRender()
+
+Resolves after the next effect flush AND DOM commit complete - **including newly mounted conditional branches**. This is the default way to run code against the DOM a state change just produced:
+
+```javascript
+async startEdit() {
+    this.state.editing = true;
+    await this.nextRender();               // DOM committed, new branches mounted
+    const input = this.querySelector('.my-input');
+    if (input) { input.focus(); input.select(); }
+}
+```
+
+**Key points:**
+- If no flush is pending, one is scheduled - `mutate; await this.nextRender()` always works
+- Delegates to the global `nextRender()` export (rendering is globally batched - there is no per-component variant)
+- `flushSync()` still exists for genuinely synchronous needs (tests, same-frame scroll handoff), but it does **not** mount new conditional branches - `await nextRender()` does. See [reactivity.md](reactivity.md#nextrender---waiting-for-the-dom)
+
+### this.whenMounted(selectorOrElement)
+
+Waits for a **child component** to be fully ready. Resolves when a matched element exists in this component's subtree, its custom element is defined (covers lazy `import()`ed definitions), and the child's first render + `mounted()` have completed:
+
+```javascript
+async mounted() {
+    const list = await this.whenMounted('cl-virtual-list');
+    if (!list) return;                     // this component unmounted while waiting
+    list.scrollToIndex(this.props.startIndex);
+}
+```
+
+**Parameters:**
+- `selectorOrElement` (string | Element) - CSS selector queried within this component's subtree, or a specific element to wait on
+
+**Returns:** `Promise<Element|null>`
+
+**Key points:**
+- Never rejects. Resolves `null` if **this** component (the waiter) unmounts while waiting - callers write `if (!el) return;`, no try/catch
+- Works with lazily loaded definitions: it waits through `customElements.whenDefined()` for a not-yet-defined tag
+- A defined **non-VDX** custom element (third-party) has no first-render promise; it resolves after one render lap - "defined + present" is the strongest guarantee it can offer
+- Use it instead of `nextRender()` when you need a child's `mounted()` to have run (e.g. before calling its methods), not just the DOM to exist
+
+## Async Tasks (createTask)
+
+`this.createTask(fn)` creates a **latest-wins** async task bound to the component's lifetime - the primitive for imperative async flows where a newer request should replace an older one (search-as-you-type, re-fetch on navigation). **A task carries status, never data**: there is no `task.value` - the body commits results to real state (`this.state` / a store):
+
+```javascript
+class SearchPage extends Component {
+    search = this.createTask(async (signal, query) => {
+        const r = await fetch('/api/search?q=' + encodeURIComponent(query), { signal });
+        this.state.hits = (await r.json()).hits;   // reached only if still current
+    });
+
+    onInput(e, value) { this.search.run(value); }
+
+    template() {
+        return html`
+            ${when(this.search.pending, () => html`<cl-spinner></cl-spinner>`)}
+            ${each(this.state.hits, h => html`...`, h => h.id)}
+        `;
+    }
+}
+```
+
+**Task shape:** `{ run(...args), cancel(), pending, error, dispose() }` - `pending` and `error` are reactive, so templates track them directly. There is **no `value` property**.
+
+**How latest-wins works:**
+- `run()` aborts the previous in-flight run and calls `fn(signal, ...args)`. Abort **throws** through abort-aware awaits (`fetch(url, { signal })` rejects with `AbortError` the moment the run is superseded), so a superseded body never reaches its commit lines - direct state commits need no gating
+- After a **non-abort-aware** await, call `signal.throwIfAborted()` - the one discipline point, and a standard DOM API
+- `await task.run(q)` **never rejects**: it resolves the body's return value when the run completed and is still current, or `undefined` when superseded, aborted, or failed
+- Failures of the *current* run land on reactive `task.error` (cleared when a new run starts); `AbortError` is the mechanism, never a failure - it never lands on `error`
+- `task.cancel()` aborts the in-flight run and clears `pending`
+- `this.createTask(fn)` auto-disposes at unmount; the standalone `createTask(fn)` export (for stores/tests) needs a manual `task.dispose()`
+
+**Not for appends.** The litmus test for misuse: *if aborting the previous run would lose data, it's not a createTask.* Overlapping `loadMore()` pages are the canonical counter-example - latest-wins would abort page N's fetch because page N+1 was requested, leaving a hole in the list. Append flows use a busy-guard plus a re-check instead:
+
+```javascript
+async loadMore() {
+    if (!this.state.hasMore || this.state.isLoading) return;  // drop-if-busy
+    this.state.isLoading = true;
+    try {
+        await this.fetchNextPage();
+    } finally {
+        this.state.isLoading = false;
+    }
+    this.maybeLoadMore();   // re-check after each load completes
+}
+```
+
+> For *declarative* async rendering (show a promise's pending/resolved/error states), use `awaitThen()` instead - see [templates in api-reference.md](api-reference.md#awaitthenpromiseorvalue-thenfn-pendingcontent-catchfn). Tasks exist for the imperative replacement flows `awaitThen` can't express.
 
 ## Stores (Auto-Subscribe)
 
@@ -717,7 +747,7 @@ defineComponent('user-dashboard', UserDashboard);
 ```
 
 **How it works:**
-1. `this.stores[name]` is a direct reference to the store's reactive state (no subscription is created)
+1. `this.stores[name]` is a direct reference to the store (no subscription is created): for class stores (`extends Store`) it is the store instance - promoted state fields, computed getters, and methods all hang off it; for `createStore()` factory stores it is the store's reactive state
 2. Template reads like `this.stores.login.user` track only those specific properties (fine-grained reactivity)
 3. Changes to store state automatically trigger re-renders of just the affected bindings
 4. Effect cleanup on unmount is automatic - no manual unsubscribe needed
@@ -801,6 +831,8 @@ mounted() {
 }
 ```
 
+Need a child component fully ready before touching it? Use `await this.whenMounted('child-tag')` - see [Waiting for the DOM](#waiting-for-the-dom-nextrender--whenmounted).
+
 ### unmounted()
 
 Called before component is removed from DOM. **CRITICAL for cleanup:**
@@ -816,6 +848,8 @@ unmounted() {
     if (this.unsubscribe) this.unsubscribe();
 }
 ```
+
+Tasks created with `this.createTask()` are cancelled and disposed automatically at unmount - no manual cleanup needed for those.
 
 ### propsChanged(prop, newValue, oldValue)
 

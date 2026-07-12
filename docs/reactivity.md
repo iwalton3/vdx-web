@@ -6,6 +6,7 @@ Complete guide to the reactivity system, stores, and computed properties.
 
 - [Reactive State](#reactive-state)
   - [Automatic Render Batching](#automatic-render-batching)
+  - [nextRender() - Waiting for the DOM](#nextrender---waiting-for-the-dom)
   - [flushSync() - Synchronous Rendering](#flushsync---synchronous-rendering)
   - [flushRenders() - For Testing](#flushrenders---for-testing)
 - [Effect System](#effect-system)
@@ -15,7 +16,10 @@ Complete guide to the reactivity system, stores, and computed properties.
   - [Error Handling](#error-handling)
 - [Critical Gotchas](#critical-gotchas)
   - [Large Arrays - untracked()](#-large-arrays-cause-performance-issues)
+  - [versionedList() - Reactive Structure, Raw Items](#versionedlist---reactive-structure-raw-items)
 - [Stores](#stores)
+  - [Class Stores (Store)](#class-stores-store)
+  - [createStore() - Factory Stores](#createstore---factory-stores)
 - [Computed Properties](#computed-properties)
 - [Memo](#memo)
 - [Memoize (Argument-Based)](#memoize-argument-based)
@@ -77,45 +81,29 @@ updateMultiple() {
 
 This batching happens automatically via `queueMicrotask`, so renders are deferred until the current synchronous code completes. This is similar to React 18's automatic batching.
 
-### flushSync() - Synchronous Rendering
+### nextRender() - Waiting for the DOM
 
-Sometimes you need the DOM to update immediately after a state change, such as when:
-- Focusing an element that was just made visible
-- Scrolling to an element that was just added
-- Measuring an element after state change
-
-Use `flushSync()` for these cases:
+When you need to touch the DOM your state change just produced - focus an element that was just made visible, scroll to a row that was just added, measure something after an update - the default tool is `await nextRender()`. It resolves after the effect flush AND the DOM commit, **including newly mounted conditional branches**:
 
 ```javascript
-import { defineComponent, Component, html, flushSync } from './lib/framework.js';
+import { defineComponent, Component, html, when, nextRender } from './lib/framework.js';
 
 class MyComponent extends Component {
     state = {
         showInput: false
     };
 
-    showAndFocus() {
-        // Show the input and immediately render
-        flushSync(() => {
-            this.state.showInput = true;
-        });
-        // DOM is now updated, safe to focus
-        this.refs.input.focus();
-    }
-
-    addItemAndScroll() {
-        flushSync(() => {
-            this.state.items.push(newItem);
-        });
-        // Scroll to bottom after item is rendered
-        this.refs.container.scrollTop = this.refs.container.scrollHeight;
+    async showAndFocus() {
+        this.state.showInput = true;
+        await nextRender();               // DOM committed, new branches mounted
+        this.querySelector('input').focus();
     }
 
     template() {
         return html`
             <button on-click="showAndFocus">Show Input</button>
             ${when(this.state.showInput, html`
-                <input ref="input" type="text">
+                <input type="text">
             `)}
         `;
     }
@@ -123,6 +111,37 @@ class MyComponent extends Component {
 
 defineComponent('my-component', MyComponent);
 ```
+
+**Key points:**
+- If no flush is pending, one is scheduled - `mutate; await nextRender()` always works.
+- Newly mounted conditional branches are present when the promise resolves. This is what `flushSync()` can NOT give you (see below).
+- Also available as `this.nextRender()` on components. It delegates to the global function - rendering is globally batched, so there is no per-component variant.
+- Prefer `this.querySelector(...)` over `this.refs` for nodes in a freshly shown branch (see [Refs in components.md](components.md#refs-dom-references)).
+- To wait for a **child component** (including one whose definition lazy-loads), use `this.whenMounted('child-tag')` instead - see [components.md](components.md#waiting-for-the-dom-nextrender--whenmounted).
+
+### flushSync() - Synchronous Rendering
+
+`flushSync()` forces the pending render to commit before it returns. Use it for genuinely **synchronous** needs - code that cannot yield to the event loop, such as rAF-driven scroll handlers that must commit position and contents in the same frame, or measure-after-write sequences. For ordinary "update then touch the DOM" flows, prefer `await nextRender()`.
+
+```javascript
+import { defineComponent, Component, html, flushSync } from './lib/framework.js';
+
+class MyList extends Component {
+    state = { items: [] };
+
+    addItemAndScroll(newItem) {
+        flushSync(() => {
+            this.state.items.push(newItem);
+        });
+        // Scroll to bottom after item is rendered
+        this.refs.container.scrollTop = this.refs.container.scrollHeight;
+    }
+}
+
+defineComponent('my-list', MyList);
+```
+
+**⚠️ flushSync does NOT mount new conditional branches.** A node shown by `when()` this tick is re-instantiated on a microtask after the flush - even right after `flushSync(() => this.state.editing = true)`, the branch's nodes (and their refs) can still be missing. Use `await nextRender()` whenever the state change reveals new template branches.
 
 **Use `flushSync()` sparingly** - it bypasses batching and forces immediate rendering, which can hurt performance if overused.
 
@@ -139,7 +158,7 @@ flushRenders();  // Force pending renders to complete
 expect(component.textContent).toBe('5');
 ```
 
-In normal application code, you don't need `flushRenders()` - use `flushSync()` instead when you need synchronous DOM updates.
+In normal application code, you don't need `flushRenders()` - use `await nextRender()` (or `flushSync()` for genuinely synchronous needs) instead.
 
 ## Effect System
 
@@ -479,12 +498,58 @@ defineComponent('playlist-view', PlaylistView);
 - Form data with two-way binding on nested properties
 
 **How it works:**
-1. Mark a key with `untracked()` in `data()`
+1. Mark a key with `untracked()` in your initial state
 2. Future assignments to that key are auto-untracked
 3. Items aren't wrapped in reactive proxies
 4. Must reassign the whole array/object to trigger updates
 
 > **Frozen objects:** auto-untracking works by defining a hidden marker property on the assigned value, which throws for `Object.freeze()`d objects. If you assign frozen data to an untracked key, call `untracked(obj)` on it *before* freezing (already-marked objects are skipped).
+
+### versionedList() - Reactive Structure, Raw Items
+
+For large arrays you mutate **in place**, `versionedList()` is the preferred middle ground between full reactivity and `untracked()`. It wraps a raw array in a thin proxy: structural edits (mutating methods like `push`/`splice`/`sort`, index or length writes, `delete`) bump a single reactive version, and reads of `length`, numeric indices, and iteration subscribe to it. Items are returned **raw** - item fields are not proxied or tracked, which is the same performance contract as `untracked()`:
+
+```javascript
+import { defineComponent, Component, html, versionedList } from './lib/framework.js';
+
+class PlaylistView extends Component {
+    state = {
+        songs: versionedList([]),   // structure reactive, items raw
+        currentIndex: 0
+    };
+
+    addSong(track) {
+        this.state.songs.push(track);        // structural edit -> auto version bump
+    }
+
+    moveSong(from, to) {
+        const [song] = this.state.songs.splice(from, 1);
+        this.state.songs.splice(to, 0, song);  // re-renders, no manual counter
+    }
+
+    renameSong(i, title) {
+        this.state.songs[i].title = title;   // item fields NOT tracked...
+        this.state.songs.touch();            // ...bump manually
+    }
+
+    loadSongs(newSongs) {
+        this.state.songs.replace(newSongs);  // wholesale swap, single bump
+    }
+}
+
+defineComponent('playlist-view', PlaylistView);
+```
+
+**Wrapper API** (everything else behaves like the array):
+- `.touch()` - manual version bump, for in-place item-field edits
+- `.replace(arr)` - replace all contents in one operation with a single bump (safe at 100k+ items, where spreading `push(...arr)` would overflow the call stack)
+- `.version` - the reactive version integer; rarely read directly (its main use is `memoEach` keys like `item.id + ':' + list.version` - see [performance.md](performance.md#choosing-a-memoeach-invalidation-strategy))
+
+This packages the older hand-rolled "untracked array + manual version counter" pattern into an object that can't be half-applied - no forgotten bump, no forced version read, no forgotten windowing refresh. Windowing integration is automatic: `count: () => this.state.songs.length` is now a reactive read, so `createWindowing` picks up structural changes with no manual `refresh()` call.
+
+**Choosing between the two escape hatches:**
+- `untracked()` - data you update by **replacing the whole value** (immutable API responses, snapshots)
+- `versionedList()` - large lists you **mutate in place** (push, splice, drag-reorder)
 
 ### memoEach() for Cached Rendering
 
@@ -574,9 +639,82 @@ mounted() {
 
 ## Stores
 
-Reactive stores with pub/sub pattern and optional localStorage persistence.
+Stores hold reactive state shared across components, with pub/sub and optional localStorage persistence. There are two authoring forms: **class stores** (extend `Store` - the primary form for new code) and the older **`createStore()` factory**. Both wire into components via `static stores` and coexist in the same app.
 
-### Creating a Store
+### Class Stores (Store)
+
+Author stores as classes: methods on the instance, reactive data in `this.state`, ordinary fields for non-reactive internals (audio nodes, sockets):
+
+```javascript
+import { Store } from './lib/framework.js';
+
+class UserStore extends Store {
+    constructor() {
+        super();
+        this.state = { name: '', capabilities: [] };   // reactive, like a component
+    }
+
+    _client = new ApiClient();   // plain field: NOT reactive
+
+    async logout() {
+        await this._client.logout();
+        this.state.name = '';
+    }
+
+    get isAdmin() {              // getter -> cached computed
+        return this.state.capabilities.includes('admin');
+    }
+}
+
+export const userStore = new UserStore();
+```
+
+**State promotion.** The first `this.state = {...}` assignment wraps the object reactively and promotes each top-level key onto the instance as a forwarding accessor (`userStore.name` reads/writes `userStore.state.name`). Existing template syntax is unchanged - and state fields, computed getters, AND methods now all hang off the same object:
+
+```javascript
+class MyComponent extends Component {
+    static stores = { user: userStore };
+
+    template() {
+        return html`
+            <p>${this.stores.user.name}</p>
+            ${when(this.stores.user.isAdmin, () => html`<admin-tools></admin-tools>`)}
+            <button on-click="${() => this.stores.user.logout()}">Log out</button>
+        `;
+    }
+}
+```
+
+**Rules:**
+
+- **Assign `this.state` in the constructor - never as a class field.** A `state = {...}` CLASS FIELD uses `[[Define]]` semantics, silently shadowing the reactive setter and skipping the reactive wrapping entirely. The framework detects this and **throws at first use**:
+
+  ```javascript
+  // ❌ THROWS at first use - class field bypasses the reactive setter
+  class BadStore extends Store {
+      state = { count: 0 };
+  }
+
+  // ✅ CORRECT - assign in the constructor
+  class GoodStore extends Store {
+      constructor() {
+          super();
+          this.state = { count: 0 };
+      }
+  }
+  ```
+
+- **Declare top-level keys up front.** Keys added later are reactive but not promoted onto the instance - reach them via `store.state.x`. (Same discipline as component state.)
+- **Collisions throw at construction.** A state key that would shadow an existing member - a method, a getter, or a reserved name (`state`, `subscribe`, `set`, `update`, `dispose`) - throws immediately, loud and early. Rename the state field or the member.
+- **Getters are cached computeds** - lazy, invalidated synchronously on dependency writes, never stale. A getter that tracks no reactive dependency at all is re-evaluated on every read instead of cached. A setter paired with a getter is ignored with a warning - computed store getters are read-only.
+- **Methods are auto-bound** to the instance, so `on-click="${store.add}"` works detached.
+- Subsequent `this.state = {...}` assignments merge into the existing reactive state (like `set()`), keeping the promoted accessors valid.
+
+Class stores keep the full store API: `subscribe(fn)` returns an unsubscribe function (fine-grained - the callback re-runs only when state it actually reads changes), plus `set(newState)`, `update(fn)`, and `dispose()` (disposes the computed getters; rarely needed since stores are usually singletons).
+
+### createStore() - Factory Stores
+
+The older factory form. It still works unchanged and coexists with class stores; the key practical difference is that its methods are defined in the initial state object, so they live on `.state`:
 
 ```javascript
 import { createStore } from './lib/framework.js';
@@ -586,9 +724,9 @@ const counterStore = createStore({
 });
 ```
 
-### Using Stores in Components
+### Using Factory Stores in Components
 
-Always call methods on `store.state`, not the original object:
+For factory stores, always call methods on `store.state`, not the original object (class store methods live on the instance instead):
 
 ```javascript
 import login from './auth/auth.js';
@@ -622,7 +760,7 @@ export default defineComponent('my-component', MyComponent);
 
 ### Store Methods
 
-**subscribe(callback)** - Listen to state changes. The callback also runs once immediately with the current state when you subscribe:
+**subscribe(callback)** - Listen to state changes. The callback also runs once immediately when you subscribe. Factory stores pass the state; class stores pass the store instance (equivalent reads in practice, since state keys are promoted onto it):
 ```javascript
 const unsubscribe = myStore.subscribe(state => {
     console.log('State:', state);  // Runs now, then on every change
@@ -632,7 +770,7 @@ const unsubscribe = myStore.subscribe(state => {
 unsubscribe();
 ```
 
-**set(newState)** - Replace entire state:
+**set(newState)** - Merge new values into state (keys not in `newState` are kept):
 ```javascript
 myStore.set({ count: 10 });
 ```
@@ -914,7 +1052,7 @@ mounted() {
             }
         }
     );
-},
+}
 
 unmounted() {
     if (this._unwatch) this._unwatch();
@@ -1052,10 +1190,13 @@ state = {
 
 ```javascript
 // ✅ GOOD - Store for shared state
-const authStore = createStore({
-    user: null,
-    isAuthenticated: false
-});
+class AuthStore extends Store {
+    constructor() {
+        super();
+        this.state = { user: null, isAuthenticated: false };
+    }
+}
+export const authStore = new AuthStore();
 ```
 
 ### Always Cleanup Subscriptions
@@ -1066,7 +1207,7 @@ mounted() {
     this.unsubscribe = myStore.subscribe(state => {
         this.state.data = state.data;
     });
-},
+}
 
 unmounted() {
     if (this.unsubscribe) this.unsubscribe();

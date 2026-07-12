@@ -272,12 +272,12 @@ updateMultiple() {
 
 This batching is automatic and happens via `queueMicrotask`. You don't need to do anything special.
 
-### flushSync() - Immediate DOM Updates
+### nextRender() - Waiting for the DOM
 
-Sometimes you need the DOM to update immediately after a state change (e.g., to focus an element):
+Sometimes you need to touch the DOM right after a state change (e.g., to focus an element that was just shown). `await nextRender()` resolves once the DOM is updated - including newly mounted conditional branches:
 
 ```javascript
-import { defineComponent, Component, html, when, flushSync } from './lib/framework.js';
+import { defineComponent, Component, html, when, nextRender } from './lib/framework.js';
 
 defineComponent('my-form', class extends Component {
     constructor(props) {
@@ -285,27 +285,25 @@ defineComponent('my-form', class extends Component {
         this.state = { showInput: false };
     }
 
-    showAndFocus() {
-        // Use flushSync to render immediately
-        flushSync(() => {
-            this.state.showInput = true;
-        });
-        // Now safe to focus - DOM is updated
-        this.refs.input.focus();
+    async showAndFocus() {
+        this.state.showInput = true;
+        await nextRender();
+        // Now safe to focus - DOM is updated, new branches mounted
+        this.querySelector('input').focus();
     }
 
     template() {
         return html`
             <button on-click="showAndFocus">Add Input</button>
             ${when(this.state.showInput, html`
-                <input ref="input" type="text">
+                <input type="text">
             `)}
         `;
     }
 });
 ```
 
-Use `flushSync()` sparingly - it bypasses batching and can hurt performance if overused.
+There is also a synchronous variant, `flushSync(() => { ... })`, for code that can't yield to the event loop (e.g. scroll handlers) - but it does not mount new conditional branches like the one above, so prefer `await nextRender()`. Use `flushSync()` sparingly - it bypasses batching and can hurt performance if overused.
 
 ---
 

@@ -130,6 +130,24 @@ describe('My Module', function(it) {
 });
 ```
 
+### Asserting on the DOM
+
+Renders are batched, so force them before asserting on the DOM. `flushRenders()` (or `flushSync(() => {...})`) commits synchronously; `await nextRender()` is the async equivalent, with one advantage - it also waits for **newly mounted conditional branches** (`when()` content shown this tick), which the synchronous flush does not mount:
+
+```javascript
+import { nextRender } from '../core/reactivity.js';
+
+it('shows the panel', async () => {
+    el.state.showPanel = true;
+    await nextRender();
+    assert.ok(el.querySelector('.panel'), 'Panel should be mounted');
+});
+```
+
+### Async Order-Independence (Shuffle Harness)
+
+For async-heavy code (e.g. `createTask` flows), `tests/framework/shuffle-harness.js` provides a seeded shuffle scheduler: it collects promise settlements inside a window and releases them in seeded-random order, so out-of-order async bugs surface deterministically - a failing seed reproduces exactly. It's used to demonstrate that createTask's latest-wins semantics are order-independent (only the current run ever commits, no matter how the underlying promises settle).
+
 ## Assertion API
 
 ### assert.equal(actual, expected, message)

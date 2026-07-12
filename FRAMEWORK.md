@@ -70,7 +70,7 @@ export default defineComponent('todo-list', TodoList);   // import the class to 
 
 Very old code may pass `defineComponent` an options object (`props`/`data()`/`methods`/
 `computed`/`template`) instead of a class. It still runs (classes are translated into it
-internally) but is deprecated - don't write new code in it. `scripts/convert-to-class.mjs`
+internally) but is deprecated - don't write new code in it. `tools/scripts/convert-to-class.mjs`
 converts mechanically. One timing difference to know when reading old code: `data()` runs at
 element construction, before prop *values* arrive (unlike a class constructor, which sees
 real values). Details, if ever needed: docs/components.md.
