@@ -117,6 +117,26 @@ html`<div>${malicious}</div>`
 // Renders: <div>[object Object]</div>
 ```
 
+### Style and Script Sinks
+
+Two additional sinks are refused at render time (with a console warning):
+
+```javascript
+// ❌ REFUSED - a string style value containing a dangerous CSS construct
+// (expression(), javascript:, @import, behavior:) is dropped entirely
+html`<div style="${userControlledCss}"></div>`
+
+// ✅ SAFE - object-form styles set individual properties, no CSS parsing
+html`<div style="${{ color: userColor }}"></div>`
+
+// ❌ REFUSED - interpolation inside an inline <script> would execute as JS.
+// No template value is trusted for this; the slot renders nothing.
+html`<script>${anything}</script>`
+
+// ✅ SAFE - pass data via attributes/props, or hydrate from a static
+// <script type="application/json"> using json-* props
+```
+
 ## Dynamic Content and Boolean Attributes
 
 ### Use the Template System for All Dynamic Content

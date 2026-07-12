@@ -437,3 +437,71 @@ describe('Gestures - adversarial-review regressions', function(it) {
         g.destroy();
     });
 });
+
+describe('Gestures - pre-v1 hardening regressions', function(it) {
+
+    it('pointer-mode touch drag reaches the LAST drop gap via row midpoint', async () => {
+        const el = await ready(defineGestureList('gest-ptr-lastgap', 3, {
+            gesture: { touchTarget: 'pointer', rowClass: 'row' }
+        }));
+        // elementFromPoint needs deterministic viewport placement
+        el.style.cssText = 'display:block;position:fixed;top:0;left:0;width:300px;height:200px;overflow-y:auto;z-index:9999;background:#fff;';
+        await new Promise(r => setTimeout(r, 50));
+        const g = el._g;
+
+        g.handleTouchStart(0, touchEvt(10, rowOf(el, 0).getBoundingClientRect().top + 25));
+
+        // Hover the LOWER half of the last row -> gap 3 (= count, after last row)
+        const r2 = rowOf(el, 2).getBoundingClientRect();
+        g.handleTouchMove(touchEvt(10, r2.top + r2.height * 0.75));
+        assert.ok(rowOf(el, 2).classList.contains('drag-over-below'),
+            'after-edge indicator on the last row');
+
+        g.handleTouchEnd(touchEvt(10, r2.top + r2.height * 0.75));
+        assert.equal(el._reorders.length, 1, 'reorder committed');
+        assert.equal(el._reorders[0][1], 3, 'the final gap (count) is reachable in pointer mode');
+
+        document.body.removeChild(el);
+    });
+
+    it('pointer-mode touch drag does not indicate no-op gaps', async () => {
+        const el = await ready(defineGestureList('gest-ptr-noop', 3, {
+            gesture: { touchTarget: 'pointer', rowClass: 'row' }
+        }));
+        el.style.cssText = 'display:block;position:fixed;top:0;left:0;width:300px;height:200px;overflow-y:auto;z-index:9999;background:#fff;';
+        await new Promise(r => setTimeout(r, 50));
+        const g = el._g;
+
+        g.handleTouchStart(1, touchEvt(10, rowOf(el, 1).getBoundingClientRect().top + 25));
+
+        // Upper half of row 2 -> gap 2, which hugs the dragged row 1: a no-op
+        const r2 = rowOf(el, 2).getBoundingClientRect();
+        g.handleTouchMove(touchEvt(10, r2.top + r2.height * 0.25));
+        assert.equal(el.querySelectorAll('.drag-over, .drag-over-below').length, 0,
+            'no indicator for a no-op gap');
+
+        g.handleTouchEnd(touchEvt(10, r2.top + r2.height * 0.25));
+        assert.equal(el._reorders.length, 0, 'no-op drop filtered');
+
+        document.body.removeChild(el);
+    });
+
+    it('a second finger mid-drag does not hijack the active drag', async () => {
+        const el = await ready(defineGestureList('gest-two-fingers', 20));
+        const g = el._g;
+
+        g.handleTouchStart(1, touchEvt(10, rowOf(el, 1).getBoundingClientRect().top + 25));
+        // Second finger lands on another row's handle mid-drag
+        g.handleTouchStart(3, touchEvt(10, rowOf(el, 3).getBoundingClientRect().top + 25));
+
+        const r5 = rowOf(el, 5).getBoundingClientRect();
+        g.handleTouchMove(touchEvt(10, r5.top + r5.height * 0.75));
+        g.handleTouchEnd(touchEvt(10, r5.top + r5.height * 0.75));
+
+        assert.equal(el._reorders.length, 1, 'one reorder committed');
+        assert.deepEqual(el._reorders[0][0], [1],
+            'the FIRST finger\'s row moved (second finger ignored)');
+
+        document.body.removeChild(el);
+    });
+});

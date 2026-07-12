@@ -290,3 +290,82 @@ describe('XSS Prevention - attribute sink hardening (adversarial review)', funct
         assert.deepEqual(el.querySelector('sec-data-recv').data, [1, 2, 3], 'array data prop passes through untouched');
     });
 });
+
+describe('XSS Prevention - style and script sinks (pre-v1 hardening)', function(it) {
+    const tick = (ms = 60) => new Promise(r => setTimeout(r, ms));
+
+    it('refuses style values with dangerous CSS constructs', async () => {
+        defineComponent('sec-style-inject', {
+            data() {
+                return { css: "color: red; background: url('javascript:alert(1)')" };
+            },
+            template() {
+                return html`<div class="target" style="${this.state.css}">x</div>`;
+            }
+        });
+        const warns = [];
+        const origWarn = console.warn;
+        console.warn = (...a) => warns.push(a.join(' '));
+        const el = document.createElement('sec-style-inject');
+        document.body.appendChild(el);
+        await tick();
+        console.warn = origWarn;
+
+        const target = el.querySelector('.target');
+        assert.equal(target.getAttribute('style') || '', '',
+            'the whole dangerous style value is refused');
+        assert.ok(warns.some(w => w.includes('[VDX Security]')), 'refusal is warned about');
+
+        // Benign strings still work
+        el.state.css = 'color: rgb(1, 2, 3);';
+        await tick();
+        assert.equal(target.style.color, 'rgb(1, 2, 3)', 'benign string styles still apply');
+        el.remove();
+    });
+
+    it('refuses @import and expression() in style strings', async () => {
+        defineComponent('sec-style-inject2', {
+            data() { return {}; },
+            template() {
+                return html`
+                    <div id="a" style="${"@import url('https://evil.example/x.css'); color: red"}">a</div>
+                    <div id="b" style="${"width: expression(alert(1))"}">b</div>
+                `;
+            }
+        });
+        const origWarn = console.warn;
+        console.warn = () => {};
+        const el = document.createElement('sec-style-inject2');
+        document.body.appendChild(el);
+        await tick();
+        console.warn = origWarn;
+
+        assert.equal(el.querySelector('#a').getAttribute('style') || '', '', '@import refused');
+        assert.equal(el.querySelector('#b').getAttribute('style') || '', '', 'expression() refused');
+        el.remove();
+    });
+
+    it('refuses interpolation into an inline <script>', async () => {
+        window.__vdxScriptPwned = false;
+        defineComponent('sec-script-slot', {
+            data() { return { code: 'window.__vdxScriptPwned = true;' }; },
+            template() {
+                return html`<div><script>${this.state.code}</script></div>`;
+            }
+        });
+        const origWarn = console.warn;
+        const warns = [];
+        console.warn = (...a) => warns.push(a.join(' '));
+        const el = document.createElement('sec-script-slot');
+        document.body.appendChild(el);
+        await tick();
+        console.warn = origWarn;
+
+        assert.equal(window.__vdxScriptPwned, false, 'interpolated script text did NOT execute');
+        const script = el.querySelector('script');
+        assert.ok(!script || !script.textContent.includes('Pwned'),
+            'no interpolated content landed inside the script element');
+        el.remove();
+        delete window.__vdxScriptPwned;
+    });
+});
