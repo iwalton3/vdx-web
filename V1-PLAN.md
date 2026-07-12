@@ -368,6 +368,14 @@ indefinitely, same posture as the options component format.
 
 ## Pre-v1 hardening backlog (from the adversarial review, 2026-07-12)
 
+**STATUS: RESOLVED (2026-07-12).** Every item below is fixed with regression
+tests carrying fail-before evidence, in commits: component reconnection
+`22a7496` (tests/framework/reconnection.test.js), router `09f952f`, reactivity
+`9b904e1`, gestures/security LOW `f828e32`. The B-tier core restructures also
+landed (`76a5527`) — the memoEach duplication had indeed diverged (explicit
+cache not busted on deps change in the fast path). Notes kept below for
+reference; delete this whole file at release cut per the header.
+
 Five adversarial reviewers swept the framework before external vetting. Confirmed
 findings with browser repros were FIXED and regression-tested (commits: security
 `99963c8`, reactivity `f343744`, windowing/gestures `1af57e6`, router `fc2f0f0`).
@@ -411,6 +419,10 @@ microtasks run, defeating every guard. Symptoms, all from this one cause:
 ---
 
 ## Core cleanup — B-tier restructures (maintainer go/no-go, 2026-07-12)
+
+**STATUS: ALL THREE DONE (2026-07-12, commit `76a5527`)** — verified against
+the framework suite, componentlib e2e, and a real-browser windowed-list +
+x-model pass, per the warning below. The memoEach divergence was real.
 
 A refactor survey found the core in good shape (the class-component unification is
 clean — no parallel options/class rendering machinery). Safe A-tier cleanups (dead
