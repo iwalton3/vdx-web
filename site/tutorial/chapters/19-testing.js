@@ -69,7 +69,7 @@ class TestingChapter extends TutChapter {
             <p>
                 For a real suite, VDX ships a tiny zero-dependency, in-browser runner
                 (<code>describe</code>/<code>it</code>/<code>assert</code>) — it's what the framework
-                itself is tested with (~500 tests). You point a browser at an HTML page that
+                itself is tested with (~600 tests). You point a browser at an HTML page that
                 imports your <code>*.test.js</code> files — opening the page in a normal browser
                 needs nothing installed; wiring it into CI headlessly is the one place the repo
                 reaches for a tool (Puppeteer).

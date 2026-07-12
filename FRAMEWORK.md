@@ -384,8 +384,9 @@ class SearchPage extends Component {
 - `await task.run(q)` never rejects: resolves the body's return value when current,
   `undefined` when superseded/aborted/failed. Current-run failures land on reactive
   `task.error`; `pending`/`error` are template-trackable. `task.cancel()` aborts.
-- `this.createTask(fn)` auto-disposes at unmount; standalone `createTask(fn)` (for stores)
-  needs `task.dispose()`.
+- `this.createTask(fn)` auto-cancels in-flight runs at unmount but stays usable (a class-field
+  task survives DOM moves/reconnection); the standalone `createTask(fn)` export (for stores)
+  needs a manual `task.dispose()`.
 - **Not for appends**: if aborting the previous run would lose data (overlapping
   `loadMore()` pages), it's not a createTask - use a busy-guard
   (`if (this.state.isLoading) return;`) and re-check after each load.

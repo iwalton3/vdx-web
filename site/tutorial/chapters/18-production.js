@@ -64,7 +64,7 @@ class ProductionChapter extends TutChapter {
             <p>
                 If you'd rather ship a single self-contained file than a folder, the
                 <code>dist/</code> bundles are tree-shaken and minified. <code>dist/framework.js</code>
-                (~23&nbsp;KB gzipped) has no imports of its own, so one file is all you vendor:
+                (~27&nbsp;KB gzipped) has no imports of its own, so one file is all you vendor:
             </p>
             <cl-code-block code="${this.state.bundleImportEx}" language="js" copyable="false"></cl-code-block>
             <p>

@@ -221,7 +221,7 @@ async startEdit() {
 ```
 
 #### this.whenMounted(selectorOrElement)
-Resolve when a matched child exists in this component's subtree, its custom element is defined (covers lazy `import()`ed definitions), and its first render + `mounted()` have completed. Never rejects: resolves `null` if THIS component unmounts while waiting. A defined non-VDX custom element (no VDX lifecycle) resolves after one render lap - "defined + present" is the strongest guarantee it can offer.
+Resolve when a matched child exists in this component's subtree, its custom element is defined (covers lazy `import()`ed definitions), and its first render + `mounted()` have completed. Never rejects: resolves `null` if THIS component unmounts while waiting. Never resolves a detached element - if the awaited element unmounts mid-wait, the wait continues until it re-mounts. A defined non-VDX custom element (no VDX lifecycle) resolves after one render lap - "defined + present" is the strongest guarantee it can offer.
 
 **Parameters:**
 - `selectorOrElement` (string | Element) - CSS selector queried within this component's subtree, or a specific element to wait on
@@ -235,7 +235,7 @@ list.scrollToIndex(0);
 ```
 
 #### this.createTask(fn)
-Create a latest-wins async task bound to this component's lifetime - auto-cancelled and disposed at unmount. See [`createTask()`](#createtaskfn) for full semantics.
+Create a latest-wins async task bound to this component's lifetime - in-flight runs are auto-cancelled at unmount, and the task stays usable across DOM moves (reconnection). See [`createTask()`](#createtaskfn) for full semantics.
 
 **Parameters:**
 - `fn` (function) - `(signal, ...args) => Promise` task body; `signal` aborts when the run is superseded
@@ -552,25 +552,36 @@ Clears the lazy loading cache. Rarely needed - mainly for testing or memory opti
 
 ### pruneTemplateCache()
 
-Clears the template compilation cache. The framework caches compiled templates for performance (up to 500 entries). This function clears that cache.
+Conditionally prunes the template compilation cache: least-recently-used entries are evicted only once the cache has grown past half its cap (500 entries). Usually a no-op; the router calls it on navigation. Eviction is harmless - a live component whose template is evicted recompiles to an identical tree and keeps its DOM (statics-anchored identity).
 
-**When to use:**
-- Memory-constrained environments where cache grows too large
-- Dynamic template generation (rare)
-- Testing scenarios where you need clean state
+**Parameters:** None
+
+**Returns:** `void`
+
+### clearTemplateCache()
+
+Unconditionally clears the whole template compilation cache. Use in tests that need a clean slate; applications never need it.
 
 **Parameters:** None
 
 **Returns:** `void`
 
 ```javascript
-import { pruneTemplateCache } from './lib/framework.js';
-
-// Clear the template cache
-pruneTemplateCache();
+import { clearTemplateCache } from './lib/framework.js';
+clearTemplateCache();
 ```
 
-**Note:** In most applications, you never need to call this. The cache automatically limits itself to 500 entries and provides significant performance benefits for repeated renders.
+### isHtml(v) / isRaw(v) / isContain(v) / isMemoEach(v) / isWhen(v)
+
+Type predicates for framework template values (vnodes), for authors of custom template helpers. Each returns `true` only for values built by the corresponding framework function (the `html` tagged template, `raw()`, `contain()`, `memoEach()`, function-form `when()`) - the underlying trust markers are unforgeable Symbols, so data from JSON can never pass these checks.
+
+```javascript
+import { isHtml } from './lib/framework.js';
+
+function myHelper(value) {
+    return isHtml(value) ? value : html`<span>${value}</span>`;
+}
+```
 
 ## Reactivity API
 
@@ -958,7 +969,7 @@ search.run('hello');   // supersedes any in-flight run
 ```
 
 **Notes:**
-- On components, prefer `this.createTask(fn)` - it auto-disposes at unmount. The standalone export (for stores/tests) needs a manual `dispose()`
+- On components, prefer `this.createTask(fn)` - it auto-cancels at unmount and survives reconnection. The standalone export (for stores/tests) needs a manual `dispose()`
 - **Not for appends**: if aborting the previous run would lose data (overlapping `loadMore()` pages), it's not a createTask - use a busy-guard plus re-check instead. See [components.md](components.md#async-tasks-createtask)
 - For declarative async rendering, use [`awaitThen()`](#awaitthenpromiseorvalue-thenfn-pendingcontent-catchfn)
 
@@ -1100,10 +1111,10 @@ await login.logoff();
 
 ### localStore(key, initialState)
 
-Creates a store that persists to localStorage.
+Creates a store that persists to localStorage under the key `vdx_<name>`.
 
 **Parameters:**
-- `key` (string) - localStorage key
+- `key` (string) - store name (persisted as `vdx_<name>`)
 - `initialState` (object) - Initial state if not in localStorage
 
 **Returns:** Store object
@@ -1116,6 +1127,10 @@ const prefs = localStore('user-prefs', { theme: 'light' });
 
 prefs.state.theme = 'dark'; // Automatically saves to localStorage
 ```
+
+**Key prefix.** Apps sharing an origin should claim their own prefix so their stores can't collide. Two hooks:
+- `setLocalStorePrefix('myapp')` at startup, **before creating your stores**
+- `window.__VDX_LS_PREFIX = 'myapp'` in a plain `<script>` **before any module loads** - the only way to affect stores created at module load (like the exported `darkTheme` store)
 
 ## Router API
 
@@ -1178,6 +1193,8 @@ Set the router outlet element.
 ```javascript
 router.setOutlet(document.querySelector('router-outlet'));
 ```
+
+A routed component may adopt its own `<router-outlet>` in `mounted()` (the layout pattern). The router never renders a component into an outlet that sits inside an element of that same component - the inner outlet serves the *other* (child) routes - and never renders into a detached outlet.
 
 ### router.replace(path, query)
 

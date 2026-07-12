@@ -197,7 +197,7 @@ const router = enableRouting(outlet, {
 });
 ```
 
-Redirects use `replace()`, so they don't add a history entry. Query parameters are preserved across the redirect.
+Redirects use `replace()`, so they don't add a history entry. Query parameters are preserved across the redirect. Substituted values are re-encoded (slashes in wildcard params preserved), so a param round-trips the redirect without double-decoding; `$10` and repeated tokens substitute correctly, and `:id` never eats into a longer name like `:idx`.
 
 ## Query Parameters
 

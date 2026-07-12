@@ -636,6 +636,7 @@ async startEdit() {
 
 **Key points:**
 - If no flush is pending, one is scheduled - `mutate; await this.nextRender()` always works
+- Waits through `mounted()` hooks of newly mounted children: state they write during `mounted()` is rendered by the time the promise resolves
 - Delegates to the global `nextRender()` export (rendering is globally batched - there is no per-component variant)
 - `flushSync()` still exists for genuinely synchronous needs (tests, same-frame scroll handoff), but it does **not** mount new conditional branches - `await nextRender()` does. See [reactivity.md](reactivity.md#nextrender---waiting-for-the-dom)
 
@@ -658,6 +659,7 @@ async mounted() {
 
 **Key points:**
 - Never rejects. Resolves `null` if **this** component (the waiter) unmounts while waiting - callers write `if (!el) return;`, no try/catch
+- Never resolves a **detached** element: if the awaited element unmounts mid-wait (e.g. a DOM move), the wait continues until it re-mounts (fresh render + `mounted()`) or the waiter unmounts
 - Works with lazily loaded definitions: it waits through `customElements.whenDefined()` for a not-yet-defined tag
 - A defined **non-VDX** custom element (third-party) has no first-render promise; it resolves after one render lap - "defined + present" is the strongest guarantee it can offer
 - Use it instead of `nextRender()` when you need a child's `mounted()` to have run (e.g. before calling its methods), not just the DOM to exist
@@ -692,7 +694,7 @@ class SearchPage extends Component {
 - `await task.run(q)` **never rejects**: it resolves the body's return value when the run completed and is still current, or `undefined` when superseded, aborted, or failed
 - Failures of the *current* run land on reactive `task.error` (cleared when a new run starts); `AbortError` is the mechanism, never a failure - it never lands on `error`
 - `task.cancel()` aborts the in-flight run and clears `pending`
-- `this.createTask(fn)` auto-disposes at unmount; the standalone `createTask(fn)` export (for stores/tests) needs a manual `task.dispose()`
+- `this.createTask(fn)` auto-cancels its in-flight run at unmount, but the task **stays usable** - a task created once in the constructor keeps working when the element is moved in the DOM (disconnect/reconnect). The standalone `createTask(fn)` export (for stores/tests) needs a manual `task.dispose()`
 
 **Not for appends.** The litmus test for misuse: *if aborting the previous run would lose data, it's not a createTask.* Overlapping `loadMore()` pages are the canonical counter-example - latest-wins would abort page N's fetch because page N+1 was requested, leaving a hole in the list. Append flows use a busy-guard plus a re-check instead:
 
@@ -849,7 +851,16 @@ unmounted() {
 }
 ```
 
-Tasks created with `this.createTask()` are cancelled and disposed automatically at unmount - no manual cleanup needed for those.
+Tasks created with `this.createTask()` have their in-flight runs cancelled automatically at unmount (and keep working if the element reconnects) - no manual cleanup needed for those.
+
+### Reconnection (DOM moves)
+
+Moving an element in the DOM (drag-reorder, re-parenting, list re-keying) disconnects and reconnects it **synchronously**. The framework guarantees:
+
+- `mounted()`/`unmounted()` fire as **balanced pairs** - a move delivers one `unmounted()` then one `mounted()`; `unmounted()` is never delivered for a mount that didn't complete
+- The class constructor still runs **once per element** - re-initialize per-connect resources in `mounted()`, release them in `unmounted()`
+- `props.children`/`props.slots` keep the original light-DOM capture (the component's own rendered output is never re-captured)
+- Attribute changes made while detached are applied on reconnect (`propsChanged` does not fire for them; the reconnect render reads fresh props)
 
 ### propsChanged(prop, newValue, oldValue)
 

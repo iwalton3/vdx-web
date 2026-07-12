@@ -22,7 +22,7 @@ python3 tools/test-server.py
 Both test suites require the test server running first.
 
 ```bash
-# Framework unit tests (~480 tests)
+# Framework unit tests (~620 tests)
 cd tests/e2e && node run-framework-tests.js
 # Or open http://localhost:9000/tests/framework/
 
@@ -128,7 +128,7 @@ This framework does not use shadow DOM. Light-DOM children are captured at mount
 ## Getting Help
 
 - `tests/framework/` - Working examples
-- `lib/core/` - Framework internals (~6800 lines); `lib/windowing.js` + `lib/gestures.js` are the list controllers
+- `lib/core/` - Framework internals (~8200 lines); `lib/windowing.js` + `lib/gestures.js` are the list controllers
 - `examples/personal/components/` - Component patterns
 - `ui/` - UI component library source
 - Read the docs/ folder for detailed information

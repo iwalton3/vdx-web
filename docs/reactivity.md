@@ -114,6 +114,7 @@ defineComponent('my-component', MyComponent);
 
 **Key points:**
 - If no flush is pending, one is scheduled - `mutate; await nextRender()` always works.
+- Waits through `mounted()` hooks of newly mounted children: state they write during `mounted()` is rendered by the time the promise resolves.
 - Newly mounted conditional branches are present when the promise resolves. This is what `flushSync()` can NOT give you (see below).
 - Also available as `this.nextRender()` on components. It delegates to the global function - rendering is globally batched, so there is no per-component variant.
 - Prefer `this.querySelector(...)` over `this.refs` for nodes in a freshly shown branch (see [Refs in components.md](components.md#refs-dom-references)).
@@ -706,6 +707,7 @@ class MyComponent extends Component {
 
 - **Declare top-level keys up front.** Keys added later are reactive but not promoted onto the instance - reach them via `store.state.x`. (Same discipline as component state.)
 - **Collisions throw at construction.** A state key that would shadow an existing member - a method, a getter, or a reserved name (`state`, `subscribe`, `set`, `update`, `dispose`) - throws immediately, loud and early. Rename the state field or the member.
+- **`subscribe()` before the first `this.state = {...}` assignment throws** - there is nothing reactive to track yet, so the subscriber could never fire. Seed state in the constructor first.
 - **Getters are cached computeds** - lazy, invalidated synchronously on dependency writes, never stale. A getter that tracks no reactive dependency at all is re-evaluated on every read instead of cached. A setter paired with a getter is ignored with a warning - computed store getters are read-only.
 - **Methods are auto-bound** to the instance, so `on-click="${store.add}"` works detached.
 - Subsequent `this.state = {...}` assignments merge into the existing reactive state (like `set()`), keeping the promoted accessors valid.
@@ -801,7 +803,7 @@ userPrefs.state.theme = 'dark';
 ```
 
 **Note:** `localStore()` creates a reactive store that automatically:
-- Loads initial state from localStorage
+- Loads initial state from localStorage (key `vdx_<name>`; claim your own prefix with `setLocalStorePrefix()` before creating stores, or `window.__VDX_LS_PREFIX` in a pre-module script)
 - Saves changes to localStorage on every update
 - Handles errors gracefully
 
