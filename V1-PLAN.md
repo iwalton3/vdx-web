@@ -403,3 +403,31 @@ microtasks run, defeating every guard. Symptoms, all from this one cause:
 - A second `handleTouchStart` mid-drag (second finger) hijacks the active drag (transient, cleaned up on end).
 - `style="${x}"` interpolation is unsanitized CSS injection (no script exec in modern browsers, hence low) — consider requiring object-form styles or rejecting `url(javascript:`/`expression(`/`@import`.
 - Interpolation into an inline `<script>` runs as JS (standard framework footgun; React/lit don't cover it either) — worth a lint rule / documented prohibition.
+
+---
+
+## Core cleanup — B-tier restructures (maintainer go/no-go, 2026-07-12)
+
+A refactor survey found the core in good shape (the class-component unification is
+clean — no parallel options/class rendering machinery). Safe A-tier cleanups (dead
+code, hot-path Set hoist, DANGEROUS_KEYS dedup) are DONE (commit `b9e4cb1`). These
+higher-value structural changes are left for an explicit decision — each is a
+hot-path change that can pass all tests and still regress a real app, so verify
+against a real windowed-list / x-model demo, not tests alone:
+
+- **memoEach is implemented twice** (~130 lines: the fast path at template-renderer.js
+  ~807-905 and the main handler ~1203-1339). Meant to be identical, so divergence is a
+  latent bug. Extract one `computeMemoEachChildren`. Pair with extracting the
+  3×-duplicated keyed-child transform (`toKeyedChild`). HIGHEST value, medium risk.
+- **reactivity structure-sniffs for template vnodes** (`'_compiled' in obj && '_values'
+  in obj` in the hottest get trap) because it can't import template.js without a cycle —
+  and this can misfire on user state that merely has a `_compiled` field (latent
+  correctness bug, same shape-vs-symbol class as the security findings). Fix by moving
+  the marker Symbols + `is*` predicates to a dependency-free leaf module both import.
+  Medium risk (hottest trap).
+- **x-model native value-derivation is duplicated** with `resolveEventValue`
+  (template-renderer.js ~1872-1886 vs the inline switch ~1913-1928). Delegate to the
+  shared helper. Low risk.
+
+Not worth touching (verified good shape): applyAttributeDirect's else-if chain, the
+deferred-DOM-commit system, the effect scheduler/computed, contain()'s slot handler.
