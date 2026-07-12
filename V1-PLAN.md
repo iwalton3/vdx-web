@@ -360,3 +360,46 @@ indefinitely, same posture as the options component format.
 - Then the release mechanics (separate work): `export const VERSION`, banner comment
   in dist bundles, CHANGELOG.md, git tag, targeted zips (core / +router+utils / ui /
   full), landing quickstart pointed at the zips.
+
+---
+
+## Pre-v1 hardening backlog (from the adversarial review, 2026-07-12)
+
+Five adversarial reviewers swept the framework before external vetting. Confirmed
+findings with browser repros were FIXED and regression-tested (commits: security
+`99963c8`, reactivity `f343744`, windowing/gestures `1af57e6`, router `fc2f0f0`).
+The items below reproduced too but were deferred as needing more careful work than
+a session tail warrants. Resolve before cutting v1. Repro scripts for all of these
+were in the review agents' scratchpad; each finding has a documented reproduction in
+the review notes.
+
+### Component reconnection cluster (HIGH — shared root cause)
+Custom elements fire disconnect→reconnect **synchronously** when moved in the DOM
+(drag-reorder, re-parenting, list re-keying). The async guards are the resettable
+flags `_isMounted`/`_isDestroyed`; a same-task move resets them before queued
+microtasks run, defeating every guard. Symptoms, all from this one cause:
+- `mounted()` fires twice per move (and `unmounted()` can run before `mounted()` ever did).
+- Reconnect captures the component's OWN rendered output as `props.children` (light-DOM children lost).
+- A queued structure-change re-instantiation from connect #1 runs after connect #2, creating a zombie compute effect that writes DOM after final unmount (leak).
+- `this.createTask()` created in a class constructor is permanently dead after any reconnect (constructor runs once; disconnect `dispose()`s the task and nothing re-arms it) — **this is new v1-API code**.
+- `whenMounted` can resolve a detached/never-mounted/stale element; `_ready` is never recreated on reconnect, so its "first render + mounted() done" guarantee is void for any element that ever disconnected — **new v1-API code**.
+- Attribute changes applied while detached are silently lost on reconnect.
+**Proposed fix:** a per-connect generation counter captured in `connectedCallback`, checked in all four mount/structure microtask guards; skip `unmounted()` when `mounted()` never ran; recreate `_ready`/`_resolveReady` and re-arm component-bound tasks per connect; capture light-DOM children once. This touches the mount hot path — do it deliberately with dedicated tests, not inline with other work.
+
+### Router (HIGH/MEDIUM)
+- **Nested-route flattening is broken** — the docs/routing.md nested example is unroutable: join produces `/admin//users/` and the parent is registered after (overwriting) its `'/'` child. Normalize slash joins; decide parent-vs-`'/'`-child precedence.
+- **`setOutlet` from a routed component's own `<router-outlet>`** (the documented "layout wrapper" pattern) recursively self-mounts (40 nested in 500ms); `_renderOutlet` also renders into a detached outlet after the host is removed. Guard `_renderOutlet` on `outletElement.isConnected`; don't synchronously render the current route into an outlet inside that route's element.
+- Params double-decoded through redirects; `$n` substitution consumes `$1` inside `$10` and replaces each token only once. Encode param values when building redirect paths; single-pass `$n` replace, longest index first.
+- Static routes matched against the raw percent-encoded path — `'/café/'` is unreachable. Decode path segments before matching (or encode route keys at registration).
+
+### Reactivity (MEDIUM/LOW — deferred as too invasive for a tail-of-session change)
+- **Key enumeration untracked**: `Object.keys` / `for..in` / the `in` operator don't register deps, so adding/deleting a key doesn't update readers (Vue-style `Object.entries(state.x).map(...)` in a template goes stale). Add `has`/`ownKeys` traps tracking an ITERATE_KEY, or document loudly + point at `trackMutations()`.
+- **Dependencies never dropped between effect runs**: a conditional branch that stops reading a dep still re-runs on that dep's writes (cumulative spurious work; inflates MAX_EFFECT_RUNS risk). Clear `effect.deps` at the top of each run, as Vue/Solid do — but the template-renderer's manual child management makes this delicate; verify it doesn't disturb `children`.
+- `nextRender()` resolves before state writes made by a newly-mounted child's `mounted()` hook have rendered. Either drain after the mounted-hook queue, or document that it guarantees the DOM for *your* writes, not follow-on lifecycle-hook cascades.
+- `Store.subscribe()` before the first `this.state` assignment is permanently dead (tracks nothing). Throw like `_checkFieldShadow`, or make the state-install transition triggerable.
+
+### Windowing/gestures + security (LOW)
+- Pointer-mode touch-drag can't reach the last drop gap and shows an indicator for no-op gaps (geometry mode is correct — unify them).
+- A second `handleTouchStart` mid-drag (second finger) hijacks the active drag (transient, cleaned up on end).
+- `style="${x}"` interpolation is unsanitized CSS injection (no script exec in modern browsers, hence low) — consider requiring object-form styles or rejecting `url(javascript:`/`expression(`/`@import`.
+- Interpolation into an inline `<script>` runs as JS (standard framework footgun; React/lit don't cover it either) — worth a lint rule / documented prohibition.
