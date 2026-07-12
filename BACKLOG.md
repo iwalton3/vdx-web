@@ -14,7 +14,10 @@ mechanics for cutting the tag:
       bundles (bundler stamps it from the framework.js export; source maps
       line-shifted to stay valid)
 - [x] `CHANGELOG.md` (first entry: v1.0.0)
-- [ ] Git tag `v1.0.0` (after downstream port verification) + GitHub release:
+- [x] Git tag `v1.0.0` — annotated, local, on `c0bafa7`; both downstreams
+      verified at that commit (mrepo-web `7aeb970` e2e 394/0, private
+      `da3ffc5` 635/635 + music smoke)
+- [ ] Push the tag + GitHub release (Izzie):
       `node tools/make-release-zips.js && gh release create v1.0.0 release/*.zip
       --title "VDX v1.0.0" --notes-file CHANGELOG.md`
 - [x] Targeted zips: `tools/make-release-zips.js` → release/ (gitignored) —
