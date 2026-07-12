@@ -10,6 +10,11 @@ Guiding constraint: **these APIs get frozen at v1.** Every design below prefers 
 shape we won't regret over the shape that demos best. All four are additive — nothing
 existing breaks, and the old forms stay supported.
 
+Settled decisions (2026-07-11): store seeding is `super(); this.state = {...}` for
+symmetry with components; the task primitive is named `createTask` (matching the
+`create*` family) and **carries status, never data** — see section 3's design
+principle.
+
 Suggested implementation order (each lands with unit tests in `tests/framework/`,
 bundle regen, then a docs pass at the end):
 
@@ -123,13 +128,27 @@ mental model is being frozen. `touch()`/`replace()`/`version` are the whole surf
 
 ## 3. `createTask()` — stale-async primitive
 
+**Design principle (settled 2026-07-11): a task carries status, never data.** The
+completed work commits to *real state* — `this.state` / a store — from inside the
+task body. There is no `task.value`: a side-container for async results would be a
+second home for state, which is the exact smell of saving promises into state.
+`pending`/`error` stay on the task because they're per-operation metadata, not
+application state.
+
+Context worth remembering: promise-in-state is already the blessed *declarative*
+pattern (`this.state.profile = this.load()` + `awaitThen`; promises are exempt from
+proxying, and the promise's identity in state IS the staleness guard — a late
+resolution of a replaced promise is ignored). Tasks exist for the *imperative* flows
+awaitThen can't express: merging results into existing state (pagination appends,
+multi-field updates), which is where mrepo hand-rolls its ten request-ID guards.
+
 ### API
 
 ```javascript
 class SearchPage extends Component {
-    search = this.task(async (signal, query) => {
+    search = this.createTask(async (signal, query) => {
         const r = await fetch('/api/search?q=' + encodeURIComponent(query), { signal });
-        return r.json();
+        this.state.hits = (await r.json()).hits;   // ← reached only if still current
     });
 
     onInput(e, value) { this.search.run(value); }
@@ -137,45 +156,53 @@ class SearchPage extends Component {
     template() {
         return html`
             ${when(this.search.pending, () => html`<cl-spinner></cl-spinner>`)}
-            ${each(this.search.value?.hits ?? [], hit => html`...`, h => h.id)}
+            ${each(this.state.hits, hit => html`...`, h => h.id)}
         `;
     }
 }
 ```
 
-- `this.task(fn)` on Component: lifetime-bound (auto-cancelled at unmount).
+- `this.createTask(fn)` on Component: lifetime-bound (auto-cancelled at unmount).
   Standalone `createTask(fn)` export for stores/tests (manual `.dispose()`).
-- Task shape: `{ run(...args), cancel(), pending, value, error }` — the last three
-  are reactive, so templates track them directly.
-- **Semantics (the part being frozen):** last-write-wins.
-  - `run()` aborts the previous in-flight run (its `AbortSignal` fires) and starts
-    `fn(signal, ...args)`.
-  - A run's result is committed to `value`/`error` **only if it is still the current
-    run**. Superseded results are dropped silently.
-  - `await task.run(q)` **never rejects**: it resolves with the value when the run
-    completed and is current, and `undefined` when superseded, aborted, or failed
-    (failures of the *current* run also set `task.error`). Imperative call sites are
-    one guard: `const data = await this.search.run(q); if (data === undefined) return;`
-  - `AbortError` is always swallowed; bodies pass `signal` to fetch and check
-    `signal.aborted` after non-abortable awaits (documented pattern).
+  Name settled: matches `createStore`/`createWindowing`/`createRowGestures`.
+- Task shape: `{ run(...args), cancel(), pending, error }` — `pending`/`error` are
+  reactive, so templates track them directly. **No `value`.**
+- **Semantics (the part being frozen):** last-write-wins via abort propagation.
+  - `run()` aborts the previous in-flight run and starts `fn(signal, ...args)`.
+  - **Why direct state commits are safe:** supersession aborts, and abort *throws*.
+    `fetch(url, { signal })` (and any abort-aware await) rejects with `AbortError`
+    the moment the run is superseded, so the stale body's continuation dies before
+    its commit lines. No commit gating needed — the stale code never gets there.
+  - For a non-abort-aware await, the platform pattern is
+    `signal.throwIfAborted()` immediately after it (documented; this is the one
+    discipline point, and it's a standard DOM API).
+  - `AbortError` is always swallowed by the task machinery — it's the mechanism,
+    not a failure. It never lands on `task.error`.
+  - `await task.run(q)` **never rejects**: resolves with the body's return value
+    when the run completed and is current, `undefined` when superseded/aborted/
+    failed (failures of the current run also set reactive `task.error`). The return
+    path exists for call sites that compose rather than commit:
+    `const d = await t.run(q); if (d === undefined) return;`
+  - `pending` is true while the latest run is in flight; `error` clears when a new
+    run starts.
 
 ### Why this shape
 
-This is precisely the guard mrepo hand-rolls ten times ("ignore results from a
-superseded request"), and the router already ships the same logic internally
-(`_navToken`). `awaitThen` stays for declarative render-a-promise cases; tasks cover
-the imperative flows (pagination, append, search-as-you-type) where `awaitThen` was
-used zero times.
+This is the guard mrepo hand-rolls ten times ("ignore results from a superseded
+request"), and the router ships the same logic internally (`_navToken`). The split of
+labor is clean: `awaitThen` renders a promise (declarative, replacement semantics);
+`createTask` runs an operation that commits to real state (imperative, merge
+semantics). Both use identity/abort for staleness rather than manual tokens.
 
-Won't-regret check: only one concurrency mode (latest-wins) is frozen — it's the mode
-every observed call site wants. Queue/exhaust modes, debounce, retries can arrive
-later as an options bag without changing the core contract. The never-rejects
-contract keeps one error channel (`task.error`) instead of two.
+Won't-regret check: only latest-wins is frozen — queue/exhaust/debounce/retry can
+arrive later as options without changing the contract. One error channel. And since
+tasks hold no data, there's no cache/invalidation surface to regret: state ownership
+stays entirely with the app.
 
-Open question to settle before implementing: name — `this.task()` reads well but
-`task` is a plausible user method name; `this.createTask()` is clunkier but safer.
-(Leaning `createTask` for both, matching `createStore`/`createWindowing`/
-`createRowGestures` naming.)
+Consciously deferred: an "async computed" / `resource(depsFn, fetcher)` that
+re-fetches when reactive deps change. It's replacement-only (can't express appends),
+overlaps `awaitThen`, and can be built on `createTask` additively post-v1 if a real
+need shows up. Not freezing a third async idiom at v1.
 
 ---
 
