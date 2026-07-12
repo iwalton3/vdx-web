@@ -216,36 +216,36 @@ arrive later as options without changing the contract. One error channel. And si
 tasks hold no data, there's no cache/invalidation surface to regret: state ownership
 stays entirely with the app.
 
-### The kernel underneath: the settle gate (internal at v1)
+### Implementation posture (settled 2026-07-11)
 
-Design insight (2026-07-11): the primitive under all of this is a **commit gate** —
-an object with a delivery policy, fed promises, invoking callbacks per policy:
+`createTask` is a **self-contained util**: an identity token, an `AbortController`,
+and a small `reactive()` object for `pending`/`error`. It needs zero framework-core
+changes — public reactivity API only. Ship it as such; don't build speculative
+machinery underneath it. Prior art confirms the mechanism is mainstream: RxJS
+(`switchMap`/`exhaustMap`/`concatMap`), redux-saga (`takeLatest`/`takeLeading`/
+`takeEvery`), and ember-concurrency (`restartable`/`drop`/`enqueue`) independently
+converged on the same mode taxonomy, which is why `mode:` is the reserved extension
+point; TanStack Query shows what happens when the primitive grows a caching product
+around it (vdx ships the primitive).
 
-- `latest`: feeding a new promise supersedes the previous one; a superseded
-  fulfillment is discarded by **identity comparison** (the same mechanism that makes
-  `awaitThen` safe — no tokens). Slot-watching sugar makes *assignment the trigger*:
-  watch `() => this.state.searchP`, and `this.state.searchP = doFetch(q)` IS the run.
-- `queue`: fulfillments deliver in feed order regardless of settle order. Note this
-  orders *commits*, not execution — fetches still race concurrently, which beats a
-  mutex for loadMore-style appends (full concurrency, no holes). It also breaks the
-  slot model (a slot holds one promise; a queue has several in flight), which is why
-  the gate is an object, not a state convention.
+### Consciously deferred (design notes kept for when something needs them)
 
-`createTask` = the gate with `latest` policy + factory + AbortController + reactive
-`pending`/`error`. Implement it that way. What the bare gate lacks (and why the
-bundle ships first): identity discards stale *results* but can't cancel stale
-*requests* (promises don't cancel — that's the gap AbortSignal exists to fill), and
-pending/error revert to manual flag discipline.
-
-**v1 posture:** the gate stays internal. Promote it to a public API (`onFulfill` /
-slot-watch / queue) post-v1 once its shape survives internal use AND queue mode's
-error policy is settled (when an earlier feed rejects: skip — accepting the hole —
-or halt the line? Not a decision to freeze casually).
-
-Consciously deferred: an "async computed" / `resource(depsFn, fetcher)` that
-re-fetches when reactive deps change. It's replacement-only (can't express appends),
-overlaps `awaitThen`, and is buildable on the gate additively post-v1 if a real
-need shows up. Not freezing a third async idiom at v1.
+- **`onFulfill` / the settle gate** — the decomposed kernel: a commit gate fed
+  promises, delivering per policy. `latest` = identity comparison (the awaitThen
+  mechanism; slot-watching sugar makes assignment the trigger — it's "async
+  watch()", and Vue's `watchEffect` + `onCleanup` is the closest prior art).
+  `queue` = commits delivered in feed order while fetches race concurrently — beats
+  a mutex for appends. Deferred because it's real surface (the framework tracking
+  and queueing promises) for which nothing currently asks: createTask covers the
+  evidence-backed case without it. Two policy questions must be settled before any
+  queue mode ships publicly: (1) when an earlier feed rejects — skip (accepting the
+  hole) or halt the line; (2) queued tasks run blind to predecessors' failures —
+  a queue is not a pipeline. Both observed in practice: an ordered-dispatch lock in
+  a prior redux app let a failed action correct course before the next ran, but the
+  next still ran with no knowledge of the failure.
+- **`resource(depsFn, fetcher)`** — async computed, source-driven refetch
+  (Solid's createResource shape). Replacement-only, overlaps `awaitThen`, buildable
+  on createTask additively post-v1. Not freezing a third async idiom at v1.
 
 ### Testing: the shuffle harness
 
