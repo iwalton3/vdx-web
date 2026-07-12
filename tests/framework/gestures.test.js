@@ -399,3 +399,41 @@ describe('Row Gesture Long-press / Tap', function(it) {
         document.body.removeChild(el);
     });
 });
+
+describe('Gestures - adversarial-review regressions', function(it) {
+    const touch = (x, y) => ({ touches: [{ clientX: x, clientY: y }], target: document.body, preventDefault() {}, stopPropagation() {} });
+
+    it('a slow tap fires onTap when only onTap is configured', async () => {
+        const taps = [];
+        const g = createRowGestures(document.body, { itemHeight: 50, count: () => 5, longPressMs: 40, onTap: (i) => taps.push(i) });
+        g.touchStart(2, touch(10, 110));
+        await new Promise(r => setTimeout(r, 90));   // hold past longPressMs
+        g.touchEnd(2, { preventDefault() {} });
+        g.click(2, { preventDefault() {} });         // browser-synthesized ghost click
+        assert.equal(taps.length, 1, 'onTap fired once');
+        assert.equal(taps[0], 2, 'correct index');
+        g.destroy();
+    });
+
+    it('touchCancel() prevents a pending long-press from firing', async () => {
+        const lps = [];
+        const g = createRowGestures(document.body, { itemHeight: 50, count: () => 5, longPressMs: 40, onLongPress: (i) => lps.push(i) });
+        g.touchStart(3, touch(10, 160));
+        g.touchCancel();
+        await new Promise(r => setTimeout(r, 90));
+        assert.equal(lps.length, 0, 'no ghost long-press after cancel');
+        g.destroy();
+    });
+
+    it('long-press + native contextmenu (Android) opens the menu once', async () => {
+        const lps = [], cms = [];
+        const g = createRowGestures(document.body, { itemHeight: 50, count: () => 5, longPressMs: 40,
+            onLongPress: (i) => lps.push(i), onContextMenu: (i) => cms.push(i) });
+        g.touchStart(2, touch(10, 110));
+        await new Promise(r => setTimeout(r, 70));   // long-press fires
+        g.contextMenu(2, { preventDefault() {} });   // native contextmenu right after
+        assert.equal(lps.length, 1, 'long-press fired');
+        assert.equal(cms.length, 0, 'contextmenu deduped away');
+        g.destroy();
+    });
+});
