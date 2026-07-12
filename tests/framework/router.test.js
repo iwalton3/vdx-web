@@ -980,3 +980,44 @@ describe('Router Component Name Security', function(it) {
         }
     });
 });
+
+describe('Router - adversarial-review regressions', function(it) {
+    it('preserves query values containing = and ?', async () => {
+        const router = new Router({ '/': { component: 'home-page' }, '/q/': { component: 'home-page' } });
+        router.navigate('/q/', { token: 'eyJhbGci=abc', next: '/detail?tab=2' });
+        await new Promise(r => setTimeout(r, 50));
+        const q = router.currentRoute.state.query;
+        assert.equal(q.token, 'eyJhbGci=abc', 'value with = not truncated');
+        assert.equal(q.next, '/detail?tab=2', 'value with ? not truncated');
+        router.destroy();
+    });
+
+    it('aborts a redirect loop instead of hanging', async () => {
+        const errs = [];
+        const orig = console.error;
+        console.error = (...a) => errs.push(a.join(' '));
+        const router = new Router({ '/': { component: 'home-page' },
+            '/a/': { redirect: '/b/' }, '/b/': { redirect: '/a/' } });
+        let threw = false;
+        try { router.navigate('/a/'); await new Promise(r => setTimeout(r, 120)); } catch { threw = true; }
+        console.error = orig;
+        assert.ok(!threw, 'no stack overflow');
+        assert.ok(errs.some(e => /loop/i.test(e)), 'loop detected and aborted');
+        router.destroy();
+    });
+
+    it('fails closed (not dead) when checkCapability throws', async () => {
+        let unauthorized = false;
+        const orig = console.error;
+        console.error = () => {};
+        const router = new Router({ '/': { component: 'home-page' },
+            '/admin/': { component: 'admin-page', require: 'admin' } },
+            { checkCapability: async () => { throw new Error('boom'); },
+              onUnauthorized: () => { unauthorized = true; } });
+        router.navigate('/admin/');
+        await new Promise(r => setTimeout(r, 50));
+        console.error = orig;
+        assert.ok(unauthorized, 'throwing capability check denies via onUnauthorized');
+        router.destroy();
+    });
+});
