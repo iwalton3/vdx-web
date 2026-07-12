@@ -750,19 +750,20 @@ console.log(isReactive({})); // false
 
 ### memo(fn, deps)
 
-Memoizes a function result based on dependencies.
+Memoizes a function result, recomputing only when its dependencies change.
 
 **Parameters:**
 - `fn` (function) - Function to memoize
-- `deps` (Array) - Dependency array
+- `deps` (Array | function) - Dependencies. **Prefer the function form** `() => [...]`: it is re-evaluated on every call, so it always sees current values. A plain array is snapshotted once at `memo()` time and never re-read, so it will not detect later changes.
 
 **Example:**
 ```javascript
 import { memo } from './lib/framework.js';
 
-const expensiveComputation = memo(
-    (a, b) => a * b * Math.random(),
-    [a, b]
+// ✅ Function form - deps are re-read each call
+const render = memo(
+    () => html`<ul>${each(this.state.items, ...)}</ul>`,
+    () => [this.state.items]
 );
 ```
 

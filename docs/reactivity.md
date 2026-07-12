@@ -15,7 +15,7 @@ Complete guide to the reactivity system, stores, and computed properties.
   - [createRoot for Scopes](#createroot-for-scopes)
   - [Error Handling](#error-handling)
 - [Critical Gotchas](#critical-gotchas)
-  - [Large Arrays - untracked()](#-large-arrays-cause-performance-issues)
+  - [Large Arrays - untracked()](#untracked---skip-reactive-proxying)
   - [versionedList() - Reactive Structure, Raw Items](#versionedlist---reactive-structure-raw-items)
 - [Stores](#stores)
   - [Class Stores (Store)](#class-stores-store)

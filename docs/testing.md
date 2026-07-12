@@ -14,8 +14,8 @@ Complete guide to running and writing tests for the framework.
 ## Running Tests
 
 The framework has two test suites:
-1. **Framework Unit Tests** (~420 tests) - Core framework functionality
-2. **Component Library E2E Tests** (~260 tests) - UI component testing with Puppeteer
+1. **Framework Unit Tests** (~560 tests across `tests/framework/`) - Core framework functionality
+2. **Component Library E2E Tests** (~260 tests in `tests/e2e/`) - UI component testing with Puppeteer
 
 Both require the test server running first:
 
@@ -245,24 +245,31 @@ assert.isNotNull(user, 'User should not be null');
 ## Test Structure
 
 ```
-tests/
-├── index.html           # Test runner page
-├── test-runner.js       # Test framework (~190 lines)
-├── reactivity.test.js   # Reactivity tests
-├── store.test.js        # Store tests
-├── template.test.js     # Template/security tests
-├── component.test.js    # Component tests
-├── router.test.js       # Router tests
-└── README.md            # This file
+tests/framework/
+├── index.html            # Test runner page (imports every *.test.js)
+├── test-runner.js        # In-browser describe/it/assert harness
+├── shuffle-harness.js    # Seeded settlement reordering for async order-independence tests
+├── reactivity.test.js    # Reactivity tests
+├── store.test.js         # Factory-store tests
+├── store-class.test.js   # Class-store tests
+├── template.test.js      # Template/security tests
+├── component.test.js     # Component tests
+├── router.test.js        # Router tests
+├── task.test.js          # createTask tests (run under the shuffle harness)
+├── versioned-list.test.js
+├── next-render.test.js
+└── ...                   # ~32 files total
 ```
+
+Headless runs go through `tests/e2e/run-framework-tests.js` (Puppeteer).
 
 ## Adding New Tests
 
-1. Create a new test file in `tests/` directory:
+1. Create a new test file in `tests/framework/`:
    ```javascript
-   // tests/myfeature.test.js
+   // tests/framework/myfeature.test.js
    import { describe, assert } from './test-runner.js';
-   import { myFeature } from '../core/myfeature.js';
+   import { myFeature } from '../../lib/framework.js';
 
    describe('My Feature', function(it) {
        it('works correctly', () => {
