@@ -4,7 +4,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { defineComponent, html, createStore } from '../../lib/framework.js';
+import { defineComponent, html, createStore, Component } from '../../lib/framework.js';
 
 describe('Prototype Pollution Prevention', function(it) {
     it('blocks __proto__ in x-model paths', (done) => {
@@ -240,5 +240,53 @@ describe('XSS Prevention', function(it) {
             document.body.removeChild(el);
             done();
         }, 100);
+    });
+});
+
+describe('XSS Prevention - attribute sink hardening (adversarial review)', function(it) {
+    const mount = (tag) => { const el = document.createElement(tag); document.body.appendChild(el); return el; };
+    const settle = () => new Promise(r => setTimeout(r, 60));
+
+    it('refuses innerHTML/srcdoc set from a template', async () => {
+        defineComponent('sec-inner', class extends Component {
+            constructor(p){ super(p); this.state = { h: '<img src=x onerror="window.__secInner=1">' }; }
+            template(){ return html`<div innerHTML="${this.state.h}"></div><iframe srcdoc="${this.state.h}"></iframe>`; }
+        });
+        window.__secInner = 0;
+        const el = mount('sec-inner'); await settle(); await settle();
+        assert.ok(!el.querySelector('div').querySelector('img'), 'innerHTML refused');
+        assert.equal(el.querySelector('iframe').getAttribute('srcdoc'), null, 'srcdoc refused');
+        assert.equal(window.__secInner, 0, 'no script executed');
+    });
+
+    it('sanitizes javascript: on formaction/object-data/xlink:href (string AND non-string)', async () => {
+        defineComponent('sec-url', class extends Component {
+            constructor(p){ super(p); this.state = {
+                s: 'javascript:alert(1)',
+                arr: ['javascript:alert(2)']          // non-string from JSON
+            }; }
+            template(){ return html`
+                <form><button formaction="${this.state.s}">a</button><button formaction="${this.state.arr}">b</button></form>
+                <object data="${this.state.s}"></object>`; }
+        });
+        const el = mount('sec-url'); await settle();
+        const btns = el.querySelectorAll('button');
+        assert.ok(!(btns[0].getAttribute('formaction') || '').includes('javascript:'), 'string formaction sanitized');
+        assert.ok(!(btns[1].getAttribute('formaction') || '').includes('javascript:'), 'non-string formaction sanitized');
+        assert.ok(!(el.querySelector('object').getAttribute('data') || '').includes('javascript:'), 'object data sanitized');
+    });
+
+    it('does NOT mangle a data property on a non-object element/component', async () => {
+        if (!customElements.get('sec-data-recv')) {
+            customElements.define('sec-data-recv', class extends HTMLElement {
+                set data(v){ this._d = v; } get data(){ return this._d; }
+            });
+        }
+        defineComponent('sec-data-host', class extends Component {
+            constructor(p){ super(p); this.state = { rows: [1, 2, 3] }; }
+            template(){ return html`<sec-data-recv data="${this.state.rows}"></sec-data-recv>`; }
+        });
+        const el = mount('sec-data-host'); await settle();
+        assert.deepEqual(el.querySelector('sec-data-recv').data, [1, 2, 3], 'array data prop passes through untouched');
     });
 });
