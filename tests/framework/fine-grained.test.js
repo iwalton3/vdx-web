@@ -1995,6 +1995,55 @@ describe('Fine-Grained Renderer - memoEach() Per-Item Caching', function(it) {
 
         container.remove();
     });
+
+    it('memoEach() deps change busts an EXPLICIT cache on the update path', async () => {
+        // Regression: the update fast path and the initial handler were separate
+        // copies of the memoization logic; the fast path forgot to clear an
+        // explicit cache when deps changed, so items rendered stale until the
+        // key set changed. (The slot-level rotating caches were cleared fine.)
+        const cache = new Map();
+
+        defineComponent('test-memoeach-deps-cache', {
+            data() {
+                return {
+                    items: [{ id: 1, name: 'A' }, { id: 2, name: 'B' }],
+                    selected: -1
+                };
+            },
+            template() {
+                return html`
+                    <div>
+                        ${memoEach(this.state.items, (item, idx) => {
+                            const sel = this.state.selected === idx;
+                            return html`<span class="item${sel ? ' sel' : ''}">${item.name}</span>`;
+                        }, item => item.id, { cache, deps: [this.state.selected] })}
+                    </div>
+                `;
+            }
+        });
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        container.innerHTML = '<test-memoeach-deps-cache></test-memoeach-deps-cache>';
+
+        await waitForRender();
+
+        const comp = container.querySelector('test-memoeach-deps-cache');
+        assert.equal(comp.querySelectorAll('.item').length, 2, 'Should have 2 items');
+        assert.equal(comp.querySelectorAll('.sel').length, 0, 'No item selected initially');
+
+        // Change ONLY the dep (same items, same keys) - exercises the update
+        // fast path, which must clear the explicit cache and re-render items
+        comp.state.selected = 1;
+        await waitForRender();
+
+        assert.equal(comp.querySelectorAll('.sel').length, 1,
+            'deps change re-rendered items despite explicit cache');
+        assert.ok(comp.querySelectorAll('.item')[1].className.includes('sel'),
+            'the selected row carries the class');
+
+        container.remove();
+    });
 });
 
 describe('When callback with early return cleanup', function(it) {

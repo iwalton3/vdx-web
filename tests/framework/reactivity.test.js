@@ -1109,3 +1109,43 @@ describe('Reactivity - adversarial-review regressions', function(it) {
         assert.equal(seen, 5, 'dependent re-ran after the computed healed');
     });
 });
+
+describe('Reactivity - vnode detection by marker (not shape)', function(it) {
+    it('user state with a _compiled field is still deeply reactive', () => {
+        // Regression: the old shape-sniff ('_compiled' in obj && '_values' in obj)
+        // silently froze user objects that merely had those field names.
+        const state = reactive({ doc: { _compiled: 'v1', _values: [1], name: 'draft' } });
+        assert.ok(isReactive(state.doc), 'object with _compiled/_values fields is wrapped');
+        let seen;
+        createEffect(() => { seen = state.doc.name; });
+        flushEffects();
+        state.doc.name = 'final';
+        flushEffects();
+        assert.equal(seen, 'final', 'nested writes trigger effects');
+    });
+
+    it('user state with _compiled + _renderFn / _array fields is still reactive', () => {
+        const state = reactive({
+            a: { _compiled: 1, _renderFn: 2, val: 0 },
+            b: { _compiled: 1, _array: [], val: 0 }
+        });
+        assert.ok(isReactive(state.a), 'contain-shaped user object is wrapped');
+        assert.ok(isReactive(state.b), 'memoEach-shaped user object is wrapped');
+        let runs = 0;
+        createEffect(() => { runs++; void state.a.val; void state.b.val; });
+        flushEffects();
+        state.a.val = 1;
+        flushEffects();
+        state.b.val = 1;
+        flushEffects();
+        assert.equal(runs, 3, 'writes to both objects trigger the effect');
+    });
+
+    it('framework vnodes stored in state are NOT proxied', async () => {
+        const { html } = await import('../../lib/framework.js');
+        const vnode = html`<div>${1}</div>`;
+        const state = reactive({ tpl: vnode });
+        assert.ok(!isReactive(state.tpl), 'html vnode passes through unwrapped');
+        assert.ok(state.tpl === vnode, 'identity preserved');
+    });
+});
