@@ -1,3 +1,4 @@
+/*! VDX opt v1.0.0 | MIT | https://github.com/iwalton3/vdx-web */
 export function opt(templateFn){const source=templateFn.toString();const converted=convertArrowToFunction(source);const mangled=mangleTemplateSource(converted);return'('+mangled+')';}
 function convertArrowToFunction(source){const trimmed=source.trim();if (/^\(\s*\)\s*=>\s*\{/.test(trimmed)){return trimmed.replace(/^\(\s*\)\s*=>\s*\{/,'function() {');}if (/^\(\s*\)\s*=>\s*/.test(trimmed)){const expr=trimmed.replace(/^\(\s*\)\s*=>\s*/,'');return'function() { return '+expr+'; }';}
 return source;}

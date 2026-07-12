@@ -10,14 +10,23 @@ version.
 The code, docs, and tutorial are release-ready; these are the remaining
 mechanics for cutting the tag:
 
-- [ ] `export const VERSION` from framework.js; version banner comment in dist bundles
-- [ ] `CHANGELOG.md` (first entry: v1)
-- [ ] Git tag
-- [ ] Targeted zips (core / +router+utils / ui / full) from dist/ + lib/ + ui/ + styles/
-- [ ] Point the landing quickstart at the zips (currently documents clone + copy, accurate today)
-- [ ] Private deployment note: set `window.__VDX_LS_PREFIX = 'swapi'` in a
-      pre-module script when merging main, or persisted localStore data
-      (including darkTheme) resets under the new `vdx_` default prefix
+- [x] `export const VERSION` from framework.js; version banner comment in dist
+      bundles (bundler stamps it from the framework.js export; source maps
+      line-shifted to stay valid)
+- [x] `CHANGELOG.md` (first entry: v1.0.0)
+- [ ] Git tag `v1.0.0` (after downstream port verification) + GitHub release:
+      `node tools/make-release-zips.js && gh release create v1.0.0 release/*.zip
+      --title "VDX v1.0.0" --notes-file CHANGELOG.md`
+- [x] Targeted zips: `tools/make-release-zips.js` → release/ (gitignored) —
+      vdx-core / vdx-framework (+router+utils+windowing+gestures+opt) /
+      vdx-ui (pairs with vdx-framework; showcase example files excluded) /
+      vdx-full. Each unpacks to `vdx/` with LICENSE, CHANGELOG, README.txt.
+- [x] Landing quickstart points at `releases/latest/download/vdx-full.zip`
+      (clone + copy kept as the alternative)
+- [x] Private deployment `__VDX_LS_PREFIX = 'swapi'` guard — already in both
+      apps' index.html (public mrepo-web + private music) since the v1 adopt
+      sync; kept here as a reminder for any OTHER deployment with pre-v1
+      persisted data
 
 ## Post-v1: consciously deferred features
 

@@ -2282,11 +2282,41 @@ function bundleSingleFile(options) {
 }
 
 /**
+ * Read the framework version from lib/framework.js's VERSION export -
+ * the single source of truth for release stamping.
+ * @param {string} baseDir - Repo root
+ * @returns {string} Version string (e.g. "1.0.0")
+ */
+function getFrameworkVersion(baseDir) {
+    const src = fs.readFileSync(path.join(baseDir, 'lib', 'framework.js'), 'utf-8');
+    const m = src.match(/export const VERSION = '([^']+)'/);
+    return m ? m[1] : '0.0.0';
+}
+
+/**
+ * Prepend the release banner to minified bundle content. The banner is
+ * exactly one line, so the source map stays valid by prefixing one ';'
+ * (one empty line) to its mappings.
+ * @param {string} content - Minified bundle content
+ * @param {Object|null} map - Source map object (mutated: mappings shifted one line)
+ * @param {string} bundleName - Short name for the banner (e.g. "framework")
+ * @param {string} version - Version string
+ * @returns {string} Content with banner prepended
+ */
+function addBanner(content, map, bundleName, version) {
+    if (map && typeof map.mappings === 'string') {
+        map.mappings = ';' + map.mappings;
+    }
+    return `/*! VDX ${bundleName} v${version} | MIT | https://github.com/iwalton3/vdx-web */\n` + content;
+}
+
+/**
  * Process a simple file (router, utils) - minify with source map
  * @param {string} srcPath - Source file path
  * @param {string} destPath - Destination path (minified output)
+ * @param {string} [version] - When set, stamp the release banner
  */
-function processSimpleFile(srcPath, destPath) {
+function processSimpleFile(srcPath, destPath, version) {
     // Read source file (keep original formatting for source map)
     const originalContent = fs.readFileSync(srcPath, 'utf-8');
 
@@ -2305,6 +2335,11 @@ function processSimpleFile(srcPath, destPath) {
 
     // Add sourceMappingURL
     minContent += `\n//# sourceMappingURL=${baseName}.map\n`;
+
+    // Stamp the release banner (shifts the source map by its one line)
+    if (version) {
+        minContent = addBanner(minContent, sourceMap, baseName.replace(/\.js$/, ''), version);
+    }
 
     // Write minified file
     fs.writeFileSync(destPath, minContent);
@@ -2327,7 +2362,8 @@ function bundleAll(verbose) {
     const distDir = path.join(baseDir, 'dist');
 
     console.log('ESM Bundler - Default Mode\n');
-    console.log('Building all framework files...\n');
+    const version = getFrameworkVersion(baseDir);
+    console.log(`Building all framework files (v${version})...\n`);
 
     // Ensure dist directory exists
     if (!fs.existsSync(distDir)) {
@@ -2373,6 +2409,9 @@ function bundleAll(verbose) {
     // Add sourceMappingURL
     frameworkContent += `\n//# sourceMappingURL=framework.js.map\n`;
 
+    // Stamp the release banner (shifts the source map by its one line)
+    frameworkContent = addBanner(frameworkContent, frameworkMap, 'framework', version);
+
     // Write minified bundle and source map
     const frameworkPath = path.join(distDir, 'framework.js');
     fs.writeFileSync(frameworkPath, frameworkContent);
@@ -2383,7 +2422,8 @@ function bundleAll(verbose) {
     console.log('\n=== router.js ===');
     const routerSizes = processSimpleFile(
         path.join(baseDir, 'lib', 'router.js'),
-        path.join(distDir, 'router.js')
+        path.join(distDir, 'router.js'),
+        version
     );
     console.log(`  Readable: ${(routerSizes.readable / 1024).toFixed(2)} KB`);
     console.log(`  ✓ router.js (${(routerSizes.minified / 1024).toFixed(2)} KB) + .map`);
@@ -2392,7 +2432,8 @@ function bundleAll(verbose) {
     console.log('\n=== utils.js ===');
     const utilsSizes = processSimpleFile(
         path.join(baseDir, 'lib', 'utils.js'),
-        path.join(distDir, 'utils.js')
+        path.join(distDir, 'utils.js'),
+        version
     );
     console.log(`  Readable: ${(utilsSizes.readable / 1024).toFixed(2)} KB`);
     console.log(`  ✓ utils.js (${(utilsSizes.minified / 1024).toFixed(2)} KB) + .map`);
@@ -2401,7 +2442,8 @@ function bundleAll(verbose) {
     console.log('\n=== opt.js ===');
     const optSizes = processSimpleFile(
         path.join(baseDir, 'lib', 'opt.js'),
-        path.join(distDir, 'opt.js')
+        path.join(distDir, 'opt.js'),
+        version
     );
     console.log(`  Readable: ${(optSizes.readable / 1024).toFixed(2)} KB`);
     console.log(`  ✓ opt.js (${(optSizes.minified / 1024).toFixed(2)} KB) + .map`);
@@ -2410,7 +2452,8 @@ function bundleAll(verbose) {
     console.log('\n=== windowing.js ===');
     const windowingSizes = processSimpleFile(
         path.join(baseDir, 'lib', 'windowing.js'),
-        path.join(distDir, 'windowing.js')
+        path.join(distDir, 'windowing.js'),
+        version
     );
     console.log(`  ✓ windowing.js (${(windowingSizes.minified / 1024).toFixed(2)} KB) + .map`);
 
@@ -2418,7 +2461,8 @@ function bundleAll(verbose) {
     console.log('\n=== gestures.js ===');
     const gesturesSizes = processSimpleFile(
         path.join(baseDir, 'lib', 'gestures.js'),
-        path.join(distDir, 'gestures.js')
+        path.join(distDir, 'gestures.js'),
+        version
     );
     console.log(`  \u2713 gestures.js (${(gesturesSizes.minified / 1024).toFixed(2)} KB) + .map`);
 
