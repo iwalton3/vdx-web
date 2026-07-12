@@ -130,12 +130,13 @@ The framework automatically uses the correct attribute (`value` or `checked`), s
 
 | Demo | Description |
 |------|-------------|
-| [E-commerce Shop](https://vanilladx.dev/examples/shop/) | Full shopping experience with routing and state management |
 | [Component Library](https://vanilladx.dev/site/showcase/) | Interactive showcase of all vdx-ui components |
+| [Interactive Tutorial](https://vanilladx.dev/site/tutorial.html) | Full shopping experience with routing and state management |
+| [Interactive Sandbox](https://vanilladx.dev/site/tutorial/playground.html) | Full shopping experience with routing and state management |
+| [E-commerce Shop](https://vanilladx.dev/examples/shop/) | Full shopping experience with routing and state management |
 | [Playground](https://vanilladx.dev/site/playground.html) | Core framework features demo |
 | [Static Integration](https://vanilladx.dev/site/embedding/static-integration-demo.html) | Embedding components in static HTML |
 | [PWA Offline](https://vanilladx.dev/site/embedding/pwa-offline/) | Service worker with versioned caching for offline support |
-| [Task Manager (TS Demo)](https://vanilladx.dev/examples/ts-demo/) | Task management demo application written in typescript |
 | [Framework Tests](https://vanilladx.dev/tests/framework/) | Comprehensive test suite |
 
 ## Documentation
