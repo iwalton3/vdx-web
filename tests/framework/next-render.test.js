@@ -162,3 +162,34 @@ describe('whenMounted()', function(it) {
         document.body.removeChild(el);
     });
 });
+
+describe('nextRender() - mounted() hook cascades', function(it) {
+    it('resolves only after a newly-mounted child\'s mounted() state writes rendered', async () => {
+        defineComponent('nr-cascade-child', {
+            data() { return { msg: 'pending' }; },
+            mounted() { this.state.msg = 'ready'; },
+            template() { return html`<span class="msg">${this.state.msg}</span>`; }
+        });
+        defineComponent('nr-cascade-parent', {
+            data() { return { show: false }; },
+            template() {
+                return html`<div>${when(this.state.show, () => html`<nr-cascade-child></nr-cascade-child>`)}</div>`;
+            }
+        });
+
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        container.innerHTML = '<nr-cascade-parent></nr-cascade-parent>';
+        await new Promise(r => setTimeout(r, 60));
+
+        const parent = container.querySelector('nr-cascade-parent');
+        parent.state.show = true;
+        await parent.nextRender();
+
+        const msg = parent.querySelector('.msg');
+        assert.ok(msg, 'child branch mounted when nextRender resolves');
+        assert.equal(msg.textContent, 'ready',
+            "the child's mounted() state write is rendered before nextRender resolves");
+        container.remove();
+    });
+});

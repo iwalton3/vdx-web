@@ -1149,3 +1149,133 @@ describe('Reactivity - vnode detection by marker (not shape)', function(it) {
         assert.ok(state.tpl === vnode, 'identity preserved');
     });
 });
+
+describe('Reactivity - key enumeration tracking', function(it) {
+    it('Object.keys() readers re-run when a key is added or deleted', () => {
+        const state = reactive({ obj: { a: 1 } });
+        let keys = null;
+        createEffect(() => { keys = Object.keys(state.obj).join(','); });
+        flushEffects();
+        assert.equal(keys, 'a', 'initial keys');
+
+        state.obj.b = 2;
+        flushEffects();
+        assert.equal(keys, 'a,b', 'adding a key re-ran the enumerator');
+
+        delete state.obj.a;
+        flushEffects();
+        assert.equal(keys, 'b', 'deleting a key re-ran the enumerator');
+    });
+
+    it('for..in and spread track the key set', () => {
+        const state = reactive({ obj: { x: 1 } });
+        let viaForIn = null;
+        let viaSpread = null;
+        createEffect(() => {
+            const ks = [];
+            for (const k in state.obj) ks.push(k);
+            viaForIn = ks.join(',');
+        });
+        createEffect(() => { viaSpread = Object.keys({ ...state.obj }).join(','); });
+        flushEffects();
+
+        state.obj.y = 2;
+        flushEffects();
+        assert.equal(viaForIn, 'x,y', 'for..in re-ran on key add');
+        assert.equal(viaSpread, 'x,y', 'spread re-ran on key add');
+    });
+
+    it("the `in` operator tracks its key", () => {
+        const state = reactive({ obj: {} });
+        let present = null;
+        createEffect(() => { present = 'flag' in state.obj; });
+        flushEffects();
+        assert.equal(present, false);
+
+        state.obj.flag = 1;
+        flushEffects();
+        assert.equal(present, true, 'adding the key re-ran the `in` reader');
+
+        delete state.obj.flag;
+        flushEffects();
+        assert.equal(present, false, 'deleting the key re-ran the `in` reader');
+    });
+
+    it('overwriting an existing key does not wake pure enumerators', () => {
+        const state = reactive({ obj: { a: 1 } });
+        let runs = 0;
+        createEffect(() => { runs++; void Object.keys(state.obj).length; });
+        flushEffects();
+        assert.equal(runs, 1);
+
+        state.obj.a = 2;   // same key set
+        flushEffects();
+        assert.equal(runs, 1, 'value change without key-set change does not re-run Object.keys reader');
+    });
+});
+
+describe('Reactivity - stale dependency dropping', function(it) {
+    it('an effect stops re-running on deps its current branch no longer reads', () => {
+        const state = reactive({ useA: true, a: 0, b: 0 });
+        let runs = 0;
+        createEffect(() => {
+            runs++;
+            if (state.useA) { void state.a; } else { void state.b; }
+        });
+        flushEffects();
+        assert.equal(runs, 1);
+
+        state.useA = false;   // switch branch: now reads b, not a
+        flushEffects();
+        assert.equal(runs, 2);
+
+        state.a = 99;         // stale dep - must NOT re-run
+        flushEffects();
+        assert.equal(runs, 2, 'write to the abandoned branch dep did not re-run the effect');
+
+        state.b = 1;          // live dep - must re-run
+        flushEffects();
+        assert.equal(runs, 3, 'write to the live dep still re-runs the effect');
+    });
+
+    it('computed still invalidates after branch switches', () => {
+        const state = reactive({ useA: true, a: 1, b: 10 });
+        const c = computed(() => (state.useA ? state.a : state.b));
+        assert.equal(c.get(), 1);
+
+        state.useA = false;
+        assert.equal(c.get(), 10, 'branch switch recomputes');
+
+        state.b = 20;
+        assert.equal(c.get(), 20, 'new-branch dep invalidates');
+
+        state.useA = true;
+        assert.equal(c.get(), 1, 'switching back recomputes');
+        state.a = 2;
+        assert.equal(c.get(), 2, 'original dep tracks again');
+        c.dispose();
+    });
+});
+
+describe('Store - subscribe before state initialization', function(it) {
+    it('throws loudly instead of creating a permanently dead subscriber', async () => {
+        const { Store } = await import('../../lib/framework.js');
+        class LateStore extends Store {}
+        const s = new LateStore();
+        assert.throws(() => s.subscribe(() => {}), Error,
+            'subscribe() before this.state assignment must throw');
+
+        // And works normally once state exists
+        class OkStore extends Store {
+            constructor() { super(); this.state = { n: 0 }; }
+        }
+        const ok = new OkStore();
+        let seen = -1;
+        const unsub = ok.subscribe(store => { seen = store.state.n; });
+        flushEffects();
+        ok.state.n = 5;
+        flushEffects();
+        assert.equal(seen, 5, 'subscriber fires after state init');
+        unsub();
+    });
+});
