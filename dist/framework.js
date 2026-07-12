@@ -16,7 +16,7 @@ function runAsEffect(effect,fn){const savedEffect=activeEffect;activeEffect=effe
 function track(target,key){if (activeEffect&&activeEffect.deps){let depsMap=targetMap.get(target);if (!depsMap){targetMap.set(target,(depsMap=new Map()));}
 let deps=depsMap.get(key);if (!deps){depsMap.set(key,(deps=new Set()));}
 deps.add(activeEffect);activeEffect.deps.add(deps);}}
-const targetMap=new WeakMap();const runningEffects=new Set();const pendingEffects=new Set();let flushScheduled=false;let isFlushing=false;const MAX_FLUSH_ITERATIONS=100;let nextRenderResolvers=[];function registerNextRenderFlush(fn){nextRenderFlushHook=fn;}
+const targetMap=new WeakMap();const runningEffects=new Set();const pendingEffects=new Set();let flushScheduled=false;let isFlushing=false;const MAX_FLUSH_ITERATIONS=100;let nextRenderResolvers=[];let nextRenderFlushHook=null;function registerNextRenderFlush(fn){nextRenderFlushHook=fn;}
 let pendingLifecycleHolds=0;function holdNextRender(){pendingLifecycleHolds++;}
 function releaseNextRender(){if (pendingLifecycleHolds>0) pendingLifecycleHolds--;if (pendingLifecycleHolds===0&&nextRenderResolvers.length>0){queueMicrotask(drainNextRender);}}
 function drainNextRender(){if (nextRenderResolvers.length===0) return;if (isFlushing||flushScheduled||pendingEffects.size>0){if (pendingEffects.size>0) scheduleFlush();return;}if (pendingLifecycleHolds>0) return;if (nextRenderFlushHook) nextRenderFlushHook();if (flushScheduled||pendingEffects.size>0){scheduleFlush();return;}

@@ -541,6 +541,29 @@ function stripImportsExports(code) {
     const len = code.length;
 
     while (i < len) {
+        // Preserve comments verbatim: their contents must NEVER be scanned for
+        // import/export keywords. A JSDoc line such as
+        //   *  import - reactivity.js must not import from template-renderer. */
+        // was matching the keyword check below, which then deleted from "import"
+        // to end-of-line - taking the comment's closing */ with it. The comment
+        // became unterminated and swallowed the declaration on the next line
+        // (e.g. `let nextRenderFlushHook = null;`), producing a ReferenceError in
+        // the shipped bundle. Copy comments through untouched instead.
+        if (code[i] === '/' && code[i + 1] === '/') {
+            const start = i;
+            while (i < len && code[i] !== '\n') i++;
+            result += code.substring(start, i);
+            continue;
+        }
+        if (code[i] === '/' && code[i + 1] === '*') {
+            const start = i;
+            i += 2;
+            while (i < len && !(code[i] === '*' && code[i + 1] === '/')) i++;
+            i = Math.min(len, i + 2); // include the closing */
+            result += code.substring(start, i);
+            continue;
+        }
+
         // Check for 'import' keyword
         if (code.substring(i, i + 6) === 'import' &&
             (i === 0 || /\s/.test(code[i - 1])) &&
