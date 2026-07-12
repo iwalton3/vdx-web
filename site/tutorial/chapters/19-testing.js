@@ -40,8 +40,9 @@ class TestingChapter extends TutChapter {
             <p>
                 Renders are batched, which is why the change is wrapped in <code>flushSync()</code>
                 (chapter 15): it guarantees the DOM is updated before the <code>textContent</code>
-                assert runs. Reads of <code>.state</code> and getters are synchronous and need no
-                flush — only DOM assertions do.
+                assert runs. In an async test, <code>await nextRender()</code> does the same job —
+                and also waits for newly mounted branches. Reads of <code>.state</code> and getters
+                are synchronous and need no flush — only DOM assertions do.
             </p>
 
             <tut-live-example

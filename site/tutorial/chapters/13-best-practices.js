@@ -67,6 +67,10 @@ class BestPracticesChapter extends TutChapter {
                     hand.</li>
                 <li>Isolate high-frequency updates with <code>contain()</code> so they don't
                     re-render expensive neighbours.</li>
+                <li>Need the DOM after a change? <code>await this.nextRender()</code> — not
+                    <code>requestAnimationFrame</code> or timeouts.</li>
+                <li>Fetching on user input? <code>this.createTask()</code> so a stale response
+                    can't overwrite a newer one.</li>
                 <li>Pass objects and arrays as real values
                     (<code>options="\${items}"</code>) — never <code>JSON.stringify</code> them.</li>
                 <li>Write components as classes. Very old code may use a deprecated

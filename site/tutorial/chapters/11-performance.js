@@ -64,12 +64,13 @@ class PerformanceChapter extends TutChapter {
 
             <h2>Reactivity escape hatches</h2>
             <p>
-                When even that isn't enough, two opt-outs (both covered in
+                When even that isn't enough, the opt-outs (covered in
                 <a href="/site/tutorial.html#reactivity">chapter&nbsp;15</a>) trade some
-                convenience for speed: <code>untracked()</code> marks a large array so the framework
-                skips per-item tracking — you reassign the whole thing to update it — and
-                <code>flushSync()</code> forces a synchronous render for the rare moment you must read
-                the DOM (measure, focus, scroll) immediately after a change.
+                convenience for speed: <code>versionedList()</code> wraps a large array so items
+                skip per-item tracking while pushes, splices, and index writes still notify —
+                it even drives <code>&lt;cl-virtual-list&gt;</code> with no manual refresh — and
+                <code>await this.nextRender()</code> pauses until the DOM is committed for the
+                rare moment you must measure, focus, or scroll right after a change.
             </p>
 
             <div class="callout tip">

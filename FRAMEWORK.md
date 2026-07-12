@@ -66,40 +66,14 @@ export default defineComponent('todo-list', TodoList);   // import the class to 
 - `data()` has no special meaning on classes (kept as a plain method, with a warning) - state
   initialization belongs in the constructor or a field.
 
-## Legacy Options Format
+## Legacy Options Format (deprecated)
 
-The original object-based format remains fully supported (class components are translated into
-it internally). Existing code needs no migration; `scripts/convert-to-class.mjs` converts
-mechanically if wanted. Key semantic difference: `data()` runs at element construction, before
-prop *values* arrive - unlike the class constructor.
-
-```javascript
-export default defineComponent('my-component', {
-    props: { title: 'Default' },          // Observed attributes
-    data() { return { count: 0 }; },      // this.props exists here, but values arrive later
-
-    mounted() { /* DOM ready */ },
-    unmounted() { /* cleanup timers/subscriptions */ },
-
-    methods: {
-        increment() { this.state.count++; }
-    },
-
-    computed: {                           // Lazy cached values, auto-disposed
-        doubled() { return this.state.count * 2; }
-    },
-
-    template() {
-        return html`
-            <h1>${this.props.title}</h1>
-            <p>Count: ${this.state.count} (doubled: ${this.doubled})</p>
-            <button on-click="increment">+1</button>
-        `;
-    },
-
-    styles: /*css*/`button { background: #007bff; color: white; }`
-});
-```
+Very old code may pass `defineComponent` an options object (`props`/`data()`/`methods`/
+`computed`/`template`) instead of a class. It still runs (classes are translated into it
+internally) but is deprecated - don't write new code in it. `scripts/convert-to-class.mjs`
+converts mechanically. One timing difference to know when reading old code: `data()` runs at
+element construction, before prop *values* arrive (unlike a class constructor, which sees
+real values). Details, if ever needed: docs/components.md.
 
 ## Event Binding
 
@@ -237,20 +211,23 @@ focus() { this.refs.myInput.focus(); }
 
 **Refs are for already-mounted nodes.** A `ref` on a node that is *conditionally shown this
 tick* is not populated synchronously - even right after `flushSync(() => this.state.editing = true)`,
-`this.refs.myInput` (and `this.querySelector('.my-input')`) can still be empty. To focus a
-just-revealed input, defer to the next frame and query the light DOM:
+`this.refs.myInput` can still be empty. `await this.nextRender()` waits through branch
+mounting, so the node IS there afterwards:
 
 ```javascript
-startEdit() {
+async startEdit() {
     this.state.editing = true;
-    requestAnimationFrame(() => {
-        const input = this.querySelector('.my-input');
-        if (input) { input.focus(); input.select(); }
-    });
+    await this.nextRender();               // DOM committed, new branches mounted
+    const input = this.querySelector('.my-input');
+    if (input) { input.focus(); input.select(); }
 }
 ```
 
-Prefer `this.querySelector(...)` over `this.refs` for nodes in a freshly-swapped template branch.
+Prefer `this.querySelector(...)` over `this.refs` for nodes in a freshly-swapped template
+branch. To wait for a **child component** (including one whose definition lazy-loads), use
+`const el = await this.whenMounted('child-tag'); if (!el) return;` - it resolves after the
+child's first render + `mounted()`, and resolves `null` if *this* component unmounts while
+waiting.
 
 ## Reactivity Rules
 
@@ -311,10 +288,12 @@ ${when(isAdmin, () => html`<admin-panel></admin-panel>`)}
 ${when(this.state.user, () => html`<p>${this.state.user.name}</p>`)}
 ```
 
-**Optional: untracked() to skip proxying entirely:**
+**Optional: untracked() / versionedList() to skip per-item proxying:**
 ```javascript
-import { untracked } from 'vdx/lib/framework.js';
-state = { songs: untracked([]) };  // Items aren't reactive
+import { untracked, versionedList } from 'vdx/lib/framework.js';
+state = { raw: untracked([]) };           // fully inert: reassign to update
+state = { songs: versionedList([]) };     // items raw, but push/splice/index
+                                          // writes auto-notify (preferred)
 ```
 
 **Computed values are never stale** - invalidation is synchronous on writes, so reading a computed right after mutating its deps is safe (mutate-then-emit-event patterns):
@@ -325,28 +304,91 @@ this.emitChange(null, this.total);  // computed `total` is already fresh
 
 **Proxy identity is stable** - `state.items[0] === state.items[0]` holds (cached proxies). But a raw object captured before insertion !== its proxied read; compare primitives when mixing raw and proxied references.
 
-**Immediate DOM updates:**
+**Waiting for the DOM (prefer async):**
 ```javascript
-import { flushSync } from 'vdx/lib/framework.js';
-flushSync(() => { this.state.showInput = true; });
-this.refs.input.focus();
+import { nextRender } from 'vdx/lib/framework.js';
+this.state.showInput = true;
+await nextRender();            // effects flushed, DOM committed, new branches mounted
+this.querySelector('input').focus();
 ```
+`flushSync(() => { ... })` still exists for genuinely synchronous needs (tests, same-frame
+scroll handoff), but it does NOT mount new conditional branches - `await nextRender()` does.
+
+**Large lists (versionedList):** for arrays too big to deep-proxy, `versionedList([])` wraps a
+raw array so structural edits (`push`/`splice`/index writes) auto-notify while items stay
+untracked. Reads of `length`/indices subscribe, so templates and `createWindowing`'s `count()`
+update with no manual refresh. `.touch()` for in-place item edits, `.replace(arr)` for
+wholesale swaps. This replaces the hand-rolled untracked-array + version-counter pattern.
 
 ## Stores
 
-```javascript
-// Auto-subscribe pattern (recommended)
-import userStore from './stores/user.js';
+Author stores as classes - methods on the instance, reactive data in `this.state`, ordinary
+fields for non-reactive internals (audio nodes, sockets):
 
-class MyComponent extends Component {
-    static stores = { userStore };
-    template() {
-        return html`<p>${this.stores.userStore.name}</p>`;
+```javascript
+import { Store } from 'vdx/lib/framework.js';
+
+class UserStore extends Store {
+    constructor() {
+        super();
+        this.state = { name: '', capabilities: [] };   // reactive, like a component
     }
-    logout() { userStore.state.logout(); }  // Call methods on .state
+    _client = new ApiClient();                          // plain field: NOT reactive
+    async logout() { await this._client.logout(); this.state.name = ''; }
+    get isAdmin() { return this.state.capabilities.includes('admin'); }  // cached computed
 }
-defineComponent('my-component', MyComponent);
+export const userStore = new UserStore();
 ```
+
+State keys are promoted onto the instance (`userStore.name` ⇄ `userStore.state.name`), so in
+components state fields, computed getters, AND methods all hang off `this.stores.name`:
+
+```javascript
+class MyComponent extends Component {
+    static stores = { user: userStore };
+    template() {
+        return html`<p>${this.stores.user.name}</p>
+            <button on-click="${() => this.stores.user.logout()}">Log out</button>`;
+    }
+}
+```
+
+Rules: assign `this.state` in the constructor (a `state = {...}` CLASS FIELD bypasses the
+reactive setter and throws at first use); declare top-level keys up front; a state key that
+collides with a method/getter/reserved name throws at construction. `subscribe(fn)` returns
+an unsubscribe function. The older `createStore(initial)` factory still works (methods live
+on `.state` there, called as `store.state.method()`); both kinds coexist in one component.
+
+## Async Tasks (createTask)
+
+The latest-wins primitive for imperative async flows (search-as-you-type, re-fetch on
+navigation). **A task carries status, never data** - the body commits results to real state:
+
+```javascript
+class SearchPage extends Component {
+    search = this.createTask(async (signal, query) => {
+        const r = await fetch('/api/search?q=' + encodeURIComponent(query), { signal });
+        this.state.hits = (await r.json()).hits;   // reached only if still current
+    });
+    onInput(e, value) { this.search.run(value); }
+    template() {
+        return html`${when(this.search.pending, () => html`<cl-spinner></cl-spinner>`)}
+            ${each(this.state.hits, h => html`...`, h => h.id)}`;
+    }
+}
+```
+
+- `run()` aborts the previous in-flight run; abort **throws** through abort-aware awaits
+  (fetch), so a superseded body never reaches its commit lines. After a non-abort-aware
+  await, call `signal.throwIfAborted()`.
+- `await task.run(q)` never rejects: resolves the body's return value when current,
+  `undefined` when superseded/aborted/failed. Current-run failures land on reactive
+  `task.error`; `pending`/`error` are template-trackable. `task.cancel()` aborts.
+- `this.createTask(fn)` auto-disposes at unmount; standalone `createTask(fn)` (for stores)
+  needs `task.dispose()`.
+- **Not for appends**: if aborting the previous run would lose data (overlapping
+  `loadMore()` pages), it's not a createTask - use a busy-guard
+  (`if (this.state.isLoading) return;`) and re-check after each load.
 
 ## Router
 
@@ -432,7 +474,10 @@ template() {
 }
 ```
 
-Call `this._win.refresh()` after replacing an `untracked()` item source or a programmatic scroll. Or just use `<cl-virtual-list>`. Full guide: [docs/performance.md](docs/performance.md).
+With a `versionedList()` item source, `count: () => this.state.songs.length` is a reactive
+read - the window recomputes on structural edits with no manual call. Call
+`this._win.refresh()` only after replacing a fully-`untracked()` source or a programmatic
+scroll. Or just use `<cl-virtual-list>`. Full guide: [docs/performance.md](docs/performance.md).
 
 ## List Gestures (createRowGestures)
 

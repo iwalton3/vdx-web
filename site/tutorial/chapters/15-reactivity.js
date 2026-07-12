@@ -8,21 +8,20 @@ class ReactivityChapter extends TutChapter {
         super(props);
         this.state = {
             untrackedEx: [
-                "import { untracked } from 'vdx/lib/framework.js';",
+                "import { versionedList, untracked } from 'vdx/lib/framework.js';",
                 '',
-                'this.state.rows = untracked(bigArray);        // skip deep tracking',
+                'this.state.rows = versionedList(bigArray);    // items raw, edits notify',
+                'this.state.rows.push(newRow);                 // re-renders readers',
+                "this.state.rows[0].name = 'x';                // item fields: NOT tracked...",
+                'this.state.rows.touch();                      // ...bump manually when needed',
                 '',
-                '// To update, reassign the whole thing (re-wrap it):',
-                'this.state.rows = untracked([...this.state.rows, newRow]);',
-                '',
-                '// In-place item edits deliberately do NOT re-render:',
-                "this.state.rows[0].name = 'x';                // no update"
+                '// Fully inert alternative - reassign the whole thing to update:',
+                'this.state.raw = untracked(bigArray);'
             ].join('\n'),
             flushEx: [
-                "import { flushSync } from 'vdx/lib/framework.js';",
-                '',
-                'addRow() {',
-                '    flushSync(() => { this.state.rows.push(newRow); });',
+                'async addRow() {',
+                '    this.state.rows.push(newRow);',
+                '    await this.nextRender();',
                 '    // the new row is in the DOM now, so this measures correctly:',
                 '    this.refs.list.scrollTop = this.refs.list.scrollHeight;',
                 '}'
@@ -94,24 +93,31 @@ class ReactivityChapter extends TutChapter {
                 a component? <code>computed(getter)</code> does the same thing.)
             </div>
 
-            <h2>Opting out for big data: <code>untracked()</code></h2>
+            <h2>Opting out for big data: <code>versionedList()</code> and <code>untracked()</code></h2>
             <p>
-                Deep reactivity has a per-item cost. For a large array whose <em>individual items</em>
-                never change in place — a 10,000-row dataset you only ever replace wholesale —
-                <code>untracked()</code> marks it so the framework skips per-element tracking:
+                Deep reactivity has a per-item cost. For a large array, wrap it in
+                <code>versionedList()</code>: items stay raw (no per-element tracking), but
+                structural edits — <code>push</code>, <code>splice</code>, index writes — still
+                notify everything reading the list. For in-place <em>item field</em> edits, call
+                <code>.touch()</code>; to swap wholesale, <code>.replace(newArray)</code>. The
+                lower-level <code>untracked()</code> marks data fully inert — nothing notifies,
+                you reassign the whole value to update:
             </p>
             <cl-code-block code="${this.state.untrackedEx}" language="js" copyable="false"></cl-code-block>
 
-            <h2>Forcing a synchronous update: <code>flushSync()</code></h2>
+            <h2>Waiting for the DOM: <code>nextRender()</code> and <code>flushSync()</code></h2>
             <p>
-                Renders are batched by default. When you need the DOM updated <em>right now</em> —
+                Renders are batched. When you need the DOM updated before your next line runs —
                 to measure an element, set focus, or scroll to a freshly-added node —
-                <code>flushSync()</code> flushes pending changes synchronously:
+                <code>await this.nextRender()</code> resolves once effects have flushed and the
+                DOM is committed, <em>including newly mounted conditional branches</em>:
             </p>
             <cl-code-block code="${this.state.flushEx}" language="js" copyable="false"></cl-code-block>
             <div class="callout">
-                Use <code>flushSync()</code> sparingly — it bypasses batching, so leaning on it in hot
-                paths costs performance. Most code never needs it.
+                <code>flushSync(() =&gt; { … })</code> is the synchronous variant for the rare
+                case that can't await (tests, same-frame scroll handoff) — but it does
+                <em>not</em> mount new conditional branches, and it bypasses batching, so hot
+                paths pay for it. Reach for <code>nextRender()</code> first.
             </div>
 
             <div class="callout tip">
