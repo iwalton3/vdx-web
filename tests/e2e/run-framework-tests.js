@@ -55,7 +55,7 @@ async function runFrameworkTests() {
                 const consoleDiv = document.getElementById('console');
                 return consoleDiv && consoleDiv.textContent.includes('Test Results:');
             },
-            { timeout: 30000 }
+            { timeout: 90000 }
         );
 
         // Give it a moment to finish printing

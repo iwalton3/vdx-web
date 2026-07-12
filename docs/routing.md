@@ -76,7 +76,6 @@ const router = enableRouting(outlet, {
 
     // Nested admin routes
     '/admin/': {
-        component: 'admin-layout',
         routes: {
             '/': { component: 'admin-dashboard' },  // /admin/
             '/users/': { component: 'admin-users' },  // /admin/users/
@@ -99,7 +98,9 @@ const router = enableRouting(outlet, {
 **How nesting works:**
 1. The `routes` property contains child routes
 2. Child paths are prefixed with the parent path
-3. Parent routes can have their own `component` (for layout wrappers)
+3. A parent route may have its own `component` - it renders at the parent path
+   *unless* the children include an index route (`'/'`), which takes precedence
+   (defining both logs a warning; keep one)
 4. Routes are flattened internally: `/admin/users/` becomes a single route entry
 
 **Use cases:**

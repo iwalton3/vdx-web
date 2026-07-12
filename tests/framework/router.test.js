@@ -4,6 +4,7 @@
 
 import { describe, assert } from './test-runner.js';
 import { Router, enableRouting, getRouter } from '../../lib/router.js';
+import { defineComponent, html } from '../../lib/framework.js';
 
 describe('Router', function(it) {
     it('creates router with routes', () => {
@@ -1019,5 +1020,155 @@ describe('Router - adversarial-review regressions', function(it) {
         console.error = orig;
         assert.ok(unauthorized, 'throwing capability check denies via onUnauthorized');
         router.destroy();
+    });
+});
+
+describe('Router - pre-v1 hardening regressions', function(it) {
+    const tick = (ms = 60) => new Promise(r => setTimeout(r, ms));
+
+    it('flattens the documented nested-route example routably', async () => {
+        const warns = [];
+        const origWarn = console.warn;
+        console.warn = (...a) => warns.push(a.join(' '));
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/admin/': {
+                component: 'admin-layout',
+                routes: {
+                    '/': { component: 'admin-dashboard' },
+                    '/users/': { component: 'admin-users' },
+                    '/users/:id/': { component: 'admin-user-edit' }
+                }
+            }
+        });
+        console.warn = origWarn;
+
+        assert.ok(!router.routes['/admin//users/'], 'no double-slash route keys');
+        assert.equal(router.routes['/admin/users/'].component, 'admin-users',
+            'nested child joined with exactly one slash');
+        assert.equal(router.routes['/admin/'].component, 'admin-dashboard',
+            "the index '/' child wins over the parent component");
+        assert.ok(warns.some(w => w.includes('/admin/')),
+            'parent-component vs index-child conflict is warned about');
+
+        router.navigate('/admin/users/42/');
+        await tick();
+        assert.equal(router.currentRoute.state.component, 'admin-user-edit', 'param child reachable');
+        assert.equal(router.currentRoute.state.params.id, '42', 'param extracted');
+        router.destroy();
+    });
+
+    it('substitutes $10 and repeated redirect tokens correctly', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/dest/:x/:y/:z/': { component: 'dest-page' },
+            '/r/:a/:b/:c/:d/:e/:f/:g/:h/:i/:j/': { redirect: '/dest/$10/$1/$1/' }
+        });
+        router.navigate('/r/A/B/C/D/E/F/G/H/I/J/');
+        await tick(120);
+        assert.equal(router.currentRoute.state.component, 'dest-page');
+        assert.equal(router.currentRoute.state.params.x, 'J', '$10 is the tenth param, not $1 + "0"');
+        assert.equal(router.currentRoute.state.params.y, 'A', '$1 still works');
+        assert.equal(router.currentRoute.state.params.z, 'A', 'the SAME token twice is replaced both times');
+        router.destroy();
+    });
+
+    it('named redirect tokens do not eat into longer names', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/n/:idx/:id/': { component: 'dest-page' },
+            '/o/:id/:idx/': { redirect: '/n/:idx/:id/' }
+        });
+        router.navigate('/o/AA/BB/');
+        await tick(120);
+        assert.equal(router.currentRoute.state.params.idx, 'BB', ':id must not consume the ":id" prefix of ":idx"');
+        assert.equal(router.currentRoute.state.params.id, 'AA', ':id lands in its own slot');
+        router.destroy();
+    });
+
+    it('does not double-decode params through a redirect', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/new/:v/': { component: 'dest-page' },
+            '/old/:v/': { redirect: '/new/:v/' }
+        });
+        // The literal value '50%25' arrives percent-encoded as '50%2525'
+        router.navigate('/old/50%2525/');
+        await tick(120);
+        assert.equal(router.currentRoute.state.params.v, '50%25',
+            'value decoded exactly once across the redirect hop');
+        router.destroy();
+    });
+
+    it('static routes with non-ASCII segments are reachable', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/café/': { component: 'cafe-page' }
+        });
+        router.navigate('/caf%C3%A9/');
+        await tick();
+        assert.equal(router.currentRoute.state.component, 'cafe-page',
+            'percent-encoded path matches the literal route key');
+        router.destroy();
+    });
+
+    it('does not render into a detached outlet', async () => {
+        const outlet = document.createElement('div');
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/about2/': { component: 'about2-page' }
+        });
+        router.setOutlet(outlet);   // detached: subscribe fires _renderOutlet immediately
+        await tick();
+        assert.equal(outlet.children.length, 0, 'nothing rendered while the outlet is detached');
+
+        document.body.appendChild(outlet);
+        router.navigate('/about2/');
+        await tick();
+        assert.ok(outlet.querySelector('about2-page'), 'renders once the outlet is connected');
+        router.destroy();
+        outlet.remove();
+    });
+});
+
+describe('Router - layout outlet self-mount guard', function(it) {
+    const tick = (ms = 80) => new Promise(r => setTimeout(r, ms));
+
+    it('setOutlet from a routed component\'s own outlet does not recurse', async () => {
+        let testRouter = null;
+        defineComponent('recur-layout', {
+            data() { return {}; },
+            mounted() {
+                // The documented layout pattern: a routed component adopts its
+                // own <router-outlet> for child routes.
+                if (testRouter) testRouter.setOutlet(this.querySelector('router-outlet'));
+            },
+            template() {
+                return html`<div class="chrome"><router-outlet></router-outlet></div>`;
+            }
+        });
+
+        const outerOutlet = document.createElement('div');
+        document.body.appendChild(outerOutlet);
+        testRouter = new Router({
+            '/': { component: 'home-page' },
+            '/lay/': { component: 'recur-layout' },
+            '/lay/child/': { component: 'child-page' }
+        });
+        testRouter.setOutlet(outerOutlet);
+
+        testRouter.navigate('/lay/');
+        await tick(300);
+        assert.equal(document.querySelectorAll('recur-layout').length, 1,
+            'the layout mounts exactly once (no recursive self-mounting)');
+
+        // Child routes render into the adopted inner outlet
+        testRouter.navigate('/lay/child/');
+        await tick();
+        assert.ok(outerOutlet.querySelector('recur-layout router-outlet child-page'),
+            'child route renders inside the layout\'s own outlet');
+
+        testRouter.destroy();
+        outerOutlet.remove();
     });
 });
