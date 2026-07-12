@@ -16,7 +16,7 @@ class StoresChapter extends TutChapter {
             <p>
                 <code>createStore(initial)</code> makes a reactive store. Put methods and getters
                 right on the state object and call them via <code>store.state.method()</code>. This
-                example has <strong>three files</strong> — click the tabs:
+                example has <strong>three source files</strong> (plus the page) — click the tabs:
             </p>
             <ul>
                 <li><code>store.js</code> — the shared cart store</li>
@@ -50,6 +50,15 @@ class StoresChapter extends TutChapter {
                 module is only evaluated once, they share the exact same store instance — that's
                 what keeps them in sync.
             </div>
+
+            <h2>Persisting a store</h2>
+            <p>
+                Want the cart to survive a reload? Swap <code>createStore</code> for
+                <code>localStore</code> from <code>vdx/lib/utils.js</code>:
+                <code>localStore('cart', { items: [] })</code> loads its initial state from
+                <code>localStorage</code> and writes every change back automatically. Same API,
+                one changed line.
+            </p>
         `;
     }
 }

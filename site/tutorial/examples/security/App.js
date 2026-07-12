@@ -25,7 +25,7 @@ class SecurityDemo extends Component {
                 <h4>2 · URLs are scheme-checked</h4>
                 <input x-model="url" spellcheck="false">
                 <p>Link: <a href="${this.state.url}">click me</a></p>
-                <small><code>javascript:</code>, <code>data:</code>, <code>vbscript:</code> collapse to an empty href.</small>
+                <small><code>javascript:</code>, <code>vbscript:</code> and scriptable <code>data:</code> URLs collapse to an empty href.</small>
             </section>
 
             <section>

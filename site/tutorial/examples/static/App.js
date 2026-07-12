@@ -1,4 +1,4 @@
-import { defineComponent, Component, html, when } from 'vdx/lib/framework.js';
+import { defineComponent, Component, html, when, each } from 'vdx/lib/framework.js';
 
 // Static-site integration: VDX components are just custom elements. Drop them
 // into any HTML page and configure them with plain attributes - no build step,
@@ -71,3 +71,30 @@ class NewsletterSignup extends Component {
     `;
 }
 defineComponent('newsletter-signup', NewsletterSignup);
+
+// Rich data doesn't fit in an attribute. The `json-posts="related-data"`
+// attribute in index.html points at a <script type="application/json"> block;
+// the framework parses it into this.props.posts before mount. No escaping
+// tricks, no base64 - the JSON stays readable in view-source.
+class RelatedPosts extends Component {
+    static props = { posts: [] };
+
+    template() {
+        return html`
+            <ul class="related">
+                ${each(this.props.posts, (p) => html`
+                    <li><a href="${p.href}">${p.title}</a><span>${p.readTime} min</span></li>
+                `)}
+            </ul>
+        `;
+    }
+
+    static styles = /*css*/`
+        .related { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+        .related li { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; }
+        .related a { color: var(--primary-color, #007bff); text-decoration: none; }
+        .related a:hover { text-decoration: underline; }
+        .related span { color: #8898a8; font-size: 12.5px; }
+    `;
+}
+defineComponent('related-posts', RelatedPosts);

@@ -23,9 +23,10 @@ import './14-legacy.js';
 import './15-security.js';
 import './16-reactivity.js';
 import './17-components.js';
-import './18-production.js';
-import './19-testing.js';
-import './20-typescript.js';
+import './18-interactive-lists.js';
+import './19-production.js';
+import './20-testing.js';
+import './21-typescript.js';
 
 export const chapters = [
     { id: 'first', num: 1, group: 'Getting started', title: 'Your first component', mount: '<tut-ch-first></tut-ch-first>' },
@@ -45,7 +46,8 @@ export const chapters = [
     { id: 'security', num: 15, group: 'Guides', title: 'Security & trusted HTML', mount: '<tut-ch-security></tut-ch-security>' },
     { id: 'reactivity', num: 16, group: 'Guides', title: 'Reactivity in depth', mount: '<tut-ch-reactivity></tut-ch-reactivity>' },
     { id: 'components', num: 17, group: 'Guides', title: 'The component library', mount: '<tut-ch-components></tut-ch-components>' },
-    { id: 'production', num: 18, group: 'Guides', title: 'Shipping to production', mount: '<tut-ch-production></tut-ch-production>' },
-    { id: 'testing', num: 19, group: 'Guides', title: 'Testing components', mount: '<tut-ch-testing></tut-ch-testing>' },
-    { id: 'typescript', num: 20, group: 'Guides', title: 'TypeScript', mount: '<tut-ch-typescript></tut-ch-typescript>' }
+    { id: 'lists', num: 18, group: 'Guides', title: 'Interactive lists', mount: '<tut-ch-lists></tut-ch-lists>' },
+    { id: 'production', num: 19, group: 'Guides', title: 'Shipping to production', mount: '<tut-ch-production></tut-ch-production>' },
+    { id: 'testing', num: 20, group: 'Guides', title: 'Testing components', mount: '<tut-ch-testing></tut-ch-testing>' },
+    { id: 'typescript', num: 21, group: 'Guides', title: 'TypeScript', mount: '<tut-ch-typescript></tut-ch-typescript>' }
 ];

@@ -41,9 +41,12 @@ class HelpersChapter extends TutChapter {
             </p>
 
             <div class="callout tip">
-                <code>when()</code> and <code>each()</code> take function callbacks for a reason —
-                access state <em>inside</em> the callback so the reactive dependency is tracked. A
-                value captured in a variable beforehand won't update.
+                Unlike <code>contain()</code> (chapter 11), <code>when()</code> and
+                <code>each()</code> don't create reactive boundaries — variables you captured
+                before the call still update fine. The function forms buy you something else:
+                <code>when(cond, () =&gt; …)</code> only evaluates the branch that's actually
+                shown, so the hidden branch can safely reference data that doesn't exist yet
+                (<code>when(this.state.user, () =&gt; html\`\${this.state.user.name}\`)</code>).
             </div>
         `;
     }

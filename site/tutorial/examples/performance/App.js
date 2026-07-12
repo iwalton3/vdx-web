@@ -2,8 +2,8 @@ import { defineComponent, Component, html } from 'vdx/lib/framework.js';
 import 'vdx/ui/data/virtual-list.js';
 
 // Rendering 10,000 rows would normally choke the DOM. <cl-virtual-list> only
-// renders the rows in view (plus a small buffer) and recycles them as you
-// scroll, so it stays smooth no matter how big the list is.
+// renders the rows in view (plus a small buffer), swapping rows in and out as
+// you scroll, so it stays smooth no matter how big the list is.
 class BigList extends Component {
     constructor(props) {
         super(props);

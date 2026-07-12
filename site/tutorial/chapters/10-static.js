@@ -35,10 +35,23 @@ class StaticChapter extends TutChapter {
                 activeFile="index.html">
             </tut-live-example>
 
+            <h2>Rich data: JSON hydration</h2>
+            <p>
+                Attributes are strings, and stuffing JSON into one means escaping every quote
+                (people resort to base64 for this — don't). VDX has a first-class answer: a
+                <code>json-*</code> attribute names a <code>&lt;script type="application/json"&gt;</code>
+                block by id, and the framework parses it straight into the matching prop before
+                mount. The <em>Related posts</em> island in the example gets its whole array this
+                way — <code>json-posts="related-data"</code> becomes
+                <code>this.props.posts</code>. The JSON needs no escaping, stays readable in
+                view-source, is trivial for a static-site generator to emit, and several
+                components can share one block.
+            </p>
+
             <p class="try">
-                <strong>Try it:</strong> change <code>count="128"</code> in the HTML, or add a
-                second <code>&lt;like-button label="Star"&gt;</code> somewhere in the article. No
-                rebuild — just edit and run.
+                <strong>Try it:</strong> change <code>count="128"</code> in the HTML, add a
+                second <code>&lt;like-button label="Star"&gt;</code>, or add a fourth post to the
+                JSON block and watch the list grow. No rebuild — just edit and run.
             </p>
 
             <div class="callout">

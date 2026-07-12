@@ -41,9 +41,29 @@
         </div>
 
         <p>
-            One <code>&lt;script type="module"&gt;</code> boots both islands. No build
-            tools, no bundler, no hydration step — this is exactly how VDX ships into
-            a static site.
+            Attributes are strings, so for <em>rich</em> data an island can point at a
+            JSON block instead — <code>json-posts="related-data"</code> below hydrates
+            an array into the component's props. Easy for any static-site generator
+            to emit, and nothing needs escaping:
+        </p>
+
+        <div class="island">
+            <h4>Related posts</h4>
+            <related-posts json-posts="related-data"></related-posts>
+        </div>
+
+        <script type="application/json" id="related-data">
+        [
+            { "title": "You might not need a bundler", "href": "#", "readTime": 4 },
+            { "title": "Custom elements in anger",     "href": "#", "readTime": 7 },
+            { "title": "The case for boring tech",     "href": "#", "readTime": 5 }
+        ]
+        </script>
+
+        <p>
+            One <code>&lt;script type="module"&gt;</code> boots all three islands. No
+            build tools, no bundler, no hydration framework — this is exactly how VDX
+            ships into a static site.
         </p>
     </article>
 

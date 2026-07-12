@@ -258,7 +258,7 @@
             <div>
                 <p class="eyebrow"># no build · no deps · no rot · ai-native</p>
                 <h1>Build like it's a modern framework. <span class="u">Ship like it's just files.</span></h1>
-                <p class="lead">Reactive components, two-way binding, routing and a 30-component UI
+                <p class="lead">Reactive components, two-way binding, routing and a 60+ component UI
                     library — running straight from source in the browser.</p>
                 <div class="cta-row">
                     <a class="btn" href="/site/tutorial.html">Start the tutorial</a>
@@ -445,8 +445,9 @@
             <h2>Vendor it in two minutes</h2>
             <p class="sub">No installer to trust, no toolchain to set up. Drop the files in, serve them, done.</p>
             <div class="steps">
-                <div class="step"><span class="n">1</span><pre class="code">git clone https://github.com/iwalton3/vdx-web.git &amp;&amp; cd vdx-web</pre></div>
-                <div class="step"><span class="n">2</span><pre class="code">python3 -m http.server 9000   <span class="c"># any static server — nothing to install</span></pre></div>
+                <div class="step"><span class="n">1</span><pre class="code">git clone https://github.com/iwalton3/vdx-web.git
+mkdir your-app/vdx &amp;&amp; cp -r vdx-web/{lib,ui,styles} your-app/vdx/   <span class="c"># vendored</span></pre></div>
+                <div class="step"><span class="n">2</span><pre class="code">cd your-app &amp;&amp; python3 -m http.server 9000   <span class="c"># any static server — nothing to install</span></pre></div>
                 <div class="step"><span class="n">3</span><pre class="code"><span class="c">&lt;!-- in your page --&gt;</span>
 &lt;my-widget&gt;&lt;/my-widget&gt;
 &lt;script type="module"&gt;

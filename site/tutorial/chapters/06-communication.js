@@ -1,8 +1,25 @@
 import { defineComponent, html } from '../../../lib/framework.js';
 import { TutChapter } from './chapter-base.js';
 import '../live-example.js';
+import '../../../ui/misc/code-block.js';
 
 class CommunicationChapter extends TutChapter {
+    constructor(props) {
+        super(props);
+        this.state = {
+            emitEx: [
+                'class StarPicker extends Component {',
+                '    static props = { value: 0 };',
+                '',
+                '    pick(e, star) {',
+                '        this.emitChange(e, star);   // parents can now x-model="score"',
+                '    }',
+                '    // ...',
+                '}'
+            ].join('\n')
+        };
+    }
+
     template() {
         return html`
             <p class="eyebrow">Chapter 6 · Working with data</p>
@@ -45,6 +62,21 @@ class CommunicationChapter extends TutChapter {
                 Passing a callback down as a prop
                 (<code>onSelect="\${this.handleSelect}"</code>) is also fine — but reaching
                 <em>up</em> with an event keeps children reusable and unaware of who's listening.
+            </div>
+
+            <h2>Making your component <code>x-model</code>-able</h2>
+            <p>
+                Chapter 4's two-way binding works on any component that emits its own change
+                event. Give your component a <code>value</code> prop and call
+                <code>this.emitChange(e, newValue)</code> when the user picks something — that's
+                all <code>x-model</code> needs:
+            </p>
+            <cl-code-block code="${this.state.emitEx}" language="js" copyable="false"></cl-code-block>
+            <div class="callout warn">
+                If your component <em>wraps</em> a native <code>&lt;input&gt;</code>, you must still
+                call <code>emitChange</code> yourself: native <code>input</code>/<code>change</code>
+                events bubbling up from inside are deliberately ignored by <code>x-model</code>, so
+                they can't clobber the binding.
             </div>
         `;
     }

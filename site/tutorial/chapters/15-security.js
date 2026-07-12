@@ -21,7 +21,7 @@ class SecurityChapter extends TutChapter {
             </p>
             <ul>
                 <li><strong>Text</strong> — <code>&lt;img onerror&gt;</code> typed by a user renders as literal characters, not an element.</li>
-                <li><strong>URLs</strong> — <code>javascript:</code>, <code>data:</code> and <code>vbscript:</code> in a bound <code>href</code>/<code>src</code> collapse to an empty string; <code>http(s)</code>, <code>mailto</code>, <code>tel</code> and friends pass through.</li>
+                <li><strong>URLs</strong> — <code>javascript:</code>, <code>vbscript:</code> and scriptable <code>data:</code> URLs (<code>text/html</code>, SVG) in a bound <code>href</code>/<code>src</code> collapse to an empty string; <code>http(s)</code>, <code>mailto</code>, <code>tel</code> and friends pass through, as do <code>data:</code> URLs for safe media types like plain images and audio.</li>
             </ul>
 
             <tut-live-example

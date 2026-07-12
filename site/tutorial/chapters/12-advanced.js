@@ -39,6 +39,20 @@ class AdvancedChapter extends TutChapter {
                 that's only shown <em>this</em> render isn't available synchronously; defer to the
                 next frame with <code>requestAnimationFrame</code> and query the light DOM.
             </p>
+
+            <tut-live-example
+                title="Crash, catch, recover"
+                base="/site/tutorial/examples/errors"
+                files="App.js, index.html">
+            </tut-live-example>
+
+            <p class="try">
+                <strong>Try it:</strong> click <em>Break it</em> — the child's template throws and
+                <code>renderError()</code> takes over. <em>Recover</em> dispatches a
+                <code>CustomEvent</code> up to the parent, which restores the data and focuses the
+                input through <code>this.refs.name</code>. Delete the <code>renderError()</code>
+                method and break it again to see what an uncaught render error looks like.
+            </p>
         `;
     }
 }

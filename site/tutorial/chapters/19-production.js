@@ -1,10 +1,27 @@
 import { defineComponent, html } from '../../../lib/framework.js';
 import { TutChapter } from './chapter-base.js';
+import '../../../ui/misc/code-block.js';
 
 class ProductionChapter extends TutChapter {
+    constructor(props) {
+        super(props);
+        this.state = {
+            importMapEx: [
+                '<script type="importmap">',
+                '{ "imports": { "vdx/": "/vdx/" } }',
+                '<\/script>',
+                '',
+                '<script type="module">',
+                "  import { defineComponent, Component, html } from 'vdx/lib/framework.js';",
+                '<\/script>'
+            ].join('\n'),
+            bundleImportEx: "import { defineComponent, Component, html } from './vdx/framework.js';"
+        };
+    }
+
     template() {
         return html`
-            <p class="eyebrow">Chapter 18 · Guides</p>
+            <p class="eyebrow">Chapter 19 · Guides</p>
             <h1>Shipping to production</h1>
             <p class="lead">
                 "No build step" is true all the way to production — you deploy the same files you
@@ -37,13 +54,7 @@ class ProductionChapter extends TutChapter {
                 the same mechanism this tutorial's live sandbox uses. Declare it once, and every
                 module in your app can use the tidy path:
             </p>
-            <pre class="ex"><code>&lt;script type="importmap"&gt;
-{ "imports": { "vdx/": "/vdx/" } }
-&lt;/script&gt;
-
-&lt;script type="module"&gt;
-  import { defineComponent, Component, html } from 'vdx/lib/framework.js';
-&lt;/script&gt;</code></pre>
+            <cl-code-block code="${this.state.importMapEx}" language="html" copyable="false"></cl-code-block>
             <div class="callout tip">
                 Import maps are native to browsers — no tooling required. Point <code>"vdx/"</code> at
                 wherever you vendored the folder and every <code>vdx/…</code> import resolves there.
@@ -55,7 +66,7 @@ class ProductionChapter extends TutChapter {
                 <code>dist/</code> bundles are tree-shaken and minified. <code>dist/framework.js</code>
                 (~23&nbsp;KB gzipped) has no imports of its own, so one file is all you vendor:
             </p>
-            <pre class="ex"><code>import { defineComponent, Component, html } from './vdx/framework.js';</code></pre>
+            <cl-code-block code="${this.state.bundleImportEx}" language="js" copyable="false"></cl-code-block>
             <p>
                 Regenerate them after changing framework source with
                 <code>node tools/bundler-esm.js</code>. This is the approach the

@@ -34,9 +34,18 @@ class LifecycleChapter extends TutChapter {
 
             <h2>propsChanged()</h2>
             <p>
-                When a prop changes, <code>propsChanged(name, newValue)</code> fires. Read
-                <code>newValue</code> directly rather than <code>this.props[name]</code>, which may
-                still hold the previous value at that moment.
+                When a prop changes, <code>propsChanged(name, newValue)</code> fires. Work from
+                the <code>newValue</code> argument, and be careful reading <em>other</em> props in
+                the callback — when several props change in the same update, a sibling prop may
+                not have been applied yet when your callback fires for this one.
+            </p>
+
+            <h2>afterRender()</h2>
+            <p>
+                <code>afterRender()</code> runs after each render, with the DOM up to date — the
+                hook for imperative DOM work like measuring an element or integrating a
+                third-party library. Use it sparingly: the framework already keeps values and
+                events in sync, so most components never need it.
             </p>
 
             <div class="callout">

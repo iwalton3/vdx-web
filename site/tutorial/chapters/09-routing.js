@@ -38,6 +38,22 @@ class RoutingChapter extends TutChapter {
                 <code>&lt;router-link&gt;</code> to reach it.
             </p>
 
+            <h2>Programmatic navigation &amp; query strings</h2>
+            <p>
+                <code>enableRouting()</code> returns the router, so after a form submits or a
+                login succeeds you can call
+                <code>router.navigate('/search', { q: 'hello' })</code> yourself. Query strings
+                arrive as a <code>query</code> prop (declare it in <code>static props</code>, like
+                <code>params</code>) — <code>?q=hello&amp;page=2</code> becomes
+                <code>this.props.query</code> = <code>{ q: 'hello', page: '2' }</code>, in hash
+                and HTML5 mode alike.
+            </p>
+            <p>
+                Navigating to the <em>same</em> component with different params doesn't recreate
+                it — the router updates its props, and <code>propsChanged()</code> (chapter 7) is
+                where you react, for example by fetching the newly selected item.
+            </p>
+
             <div class="callout">
                 Routes can be lazy-loaded (<code>load: () =&gt; import('./page.js')</code>) and
                 guarded (<code>require: 'admin'</code> with a <code>checkCapability</code>

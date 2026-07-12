@@ -1,8 +1,19 @@
 import { defineComponent, html } from '../../../lib/framework.js';
 import { TutChapter } from './chapter-base.js';
 import '../live-example.js';
+import '../../../ui/misc/code-block.js';
 
 class PerformanceChapter extends TutChapter {
+    constructor(props) {
+        super(props);
+        this.state = {
+            memoEx: [
+                '${memoEach(this.state.rows, row => html`<task-row task="${row}"></task-row>`,',
+                '    row => row.id)}'
+            ].join('\n')
+        };
+    }
+
     template() {
         return html`
             <p class="eyebrow">Chapter 11 · Building apps</p>
@@ -25,6 +36,23 @@ class PerformanceChapter extends TutChapter {
                 base="/site/tutorial/examples/performance"
                 files="App.js, index.html">
             </tut-live-example>
+
+            <h2>Memoised lists: <code>memoEach()</code></h2>
+            <p>
+                Before a list is big enough to window, it's often big enough that re-running every
+                row template on each render hurts. <code>memoEach(items, mapFn, keyFn)</code> is
+                <code>each()</code> plus a cache: a row is only re-rendered when its key or item
+                reference changes.
+            </p>
+            <cl-code-block code="${this.state.memoEx}" language="js" copyable="false"></cl-code-block>
+            <p>
+                The cache trades one thing away: state read <em>inside</em> the row template is no
+                longer tracked. If something outside the item affects how a row renders — the
+                selected row, a display mode — fold it into the key (so only affected rows
+                invalidate) or pass <code>{ deps: [...] }</code> as a fourth argument (re-render
+                every row when a dep changes). The full strategy table is in
+                <a href="https://github.com/iwalton3/vdx-web/blob/main/docs/performance.md">docs/performance.md</a>.
+            </p>
 
             <h2>Reactive boundaries</h2>
             <p>

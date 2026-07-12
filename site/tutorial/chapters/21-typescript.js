@@ -1,10 +1,41 @@
 import { defineComponent, html } from '../../../lib/framework.js';
 import { TutChapter } from './chapter-base.js';
+import '../../../ui/misc/code-block.js';
 
 class TypeScriptChapter extends TutChapter {
+    constructor(props) {
+        super(props);
+        this.state = {
+            typedEx: [
+                "import { defineComponent, Component, html, each } from 'vdx/lib/framework.js';",
+                '',
+                'interface TaskProps { title: string; }',
+                'interface TaskState { items: string[]; }',
+                '',
+                'class TaskList extends Component<TaskProps, TaskState> {',
+                "    static props = { title: 'Tasks' };",
+                '',
+                '    constructor(props: TaskProps) {',
+                '        super(props);',
+                '        this.state = { items: [] };      // typed as string[]',
+                '    }',
+                '',
+                '    add(name: string) { this.state.items.push(name); }',
+                '',
+                '    template() {',
+                '        return html`<h2>${this.props.title}</h2>',
+                '            <ul>${each(this.state.items, (t) => html`<li>${t}</li>`)}</ul>`;',
+                '    }',
+                '}',
+                '',
+                "defineComponent('task-list', TaskList);"
+            ].join('\n')
+        };
+    }
+
     template() {
         return html`
-            <p class="eyebrow">Chapter 20 · Guides</p>
+            <p class="eyebrow">Chapter 21 · Guides</p>
             <h1>TypeScript</h1>
             <p class="lead">
                 TypeScript is fully supported and entirely optional. VDX ships hand-written
@@ -28,28 +59,7 @@ tsc --noEmit</code></pre>
                 <code>Component&lt;Props, State&gt;</code>. Declare interfaces for each and everything
                 downstream is checked:
             </p>
-            <pre class="ex"><code>import { defineComponent, Component, html, each } from 'vdx/lib/framework.js';
-
-interface TaskProps { title: string; }
-interface TaskState { items: string[]; }
-
-class TaskList extends Component&lt;TaskProps, TaskState&gt; {
-    static props = { title: 'Tasks' };
-
-    constructor(props: TaskProps) {
-        super(props);
-        this.state = { items: [] };      // typed as string[]
-    }
-
-    add(name: string) { this.state.items.push(name); }
-
-    template() {
-        return html&#96;&lt;h2&gt;$&#123;this.props.title}&lt;/h2&gt;
-            &lt;ul&gt;$&#123;each(this.state.items, (t) =&gt; html&#96;&lt;li&gt;$&#123;t}&lt;/li&gt;&#96;)}&lt;/ul&gt;&#96;;
-    }
-}
-
-defineComponent('task-list', TaskList);</code></pre>
+            <cl-code-block code="${this.state.typedEx}" language="js" copyable="false"></cl-code-block>
             <p>
                 Router definitions are typed too — <code>import type { RouteDefinitions } from
                 'vdx/lib/router.js'</code> gives you a checked route map.
@@ -59,7 +69,7 @@ defineComponent('task-list', TaskList);</code></pre>
             <p>
                 TypeScript is the one case where a compile step buys you something (stripping types),
                 and it slots in cleanly: compile your <code>.ts</code> to <code>.js</code> and deploy
-                the output exactly as in <a href="/site/tutorial.html#production">chapter&nbsp;18</a>.
+                the output exactly as in <a href="/site/tutorial.html#production">chapter&nbsp;19</a>.
                 It stays your choice — the framework never requires it.
             </p>
 

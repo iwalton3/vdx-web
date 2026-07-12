@@ -8,8 +8,10 @@ class EventsChapter extends TutChapter {
             <p class="eyebrow">Chapter 3 · Getting started</p>
             <h1>Event handling</h1>
             <p class="lead">
-                Wire up interactivity with <code>on-*</code> attributes. Never
-                <code>onclick</code>, never <code>addEventListener</code>.
+                Wire up interactivity with <code>on-*</code> attributes. For elements you render,
+                never <code>onclick</code>, never <code>addEventListener</code>. (Global targets
+                like <code>window</code> still take a listener — added in <code>mounted()</code>,
+                removed in <code>unmounted()</code>; chapter 7.)
             </p>
 
             <h2>on-* handlers</h2>

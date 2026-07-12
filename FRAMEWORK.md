@@ -299,14 +299,16 @@ template() {
 }
 ```
 
-**Same applies to when()/each() function callbacks** (they create reactive boundaries):
+**when()/each() do NOT create boundaries** — captured variables work fine there (the
+template's own effect re-runs); this rule is specific to `contain()`/`opt()`. Function-form
+`when()` branches exist for lazy evaluation, not tracking:
 ```javascript
-// ❌ BAD - isAdmin captured before callback
+// ✅ FINE - when/each have no boundary; isAdmin still updates
 const isAdmin = this.stores.auth.isAdmin;
 ${when(isAdmin, () => html`<admin-panel></admin-panel>`)}
 
-// ✅ GOOD - Access inside callback
-${when(this.stores.auth.isAdmin, () => html`<admin-panel></admin-panel>`)}
+// Function-form branch: only evaluated when shown, so this is null-safe
+${when(this.state.user, () => html`<p>${this.state.user.name}</p>`)}
 ```
 
 **Optional: untracked() to skip proxying entirely:**

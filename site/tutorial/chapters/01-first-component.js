@@ -13,8 +13,8 @@ class FirstComponent extends TutChapter {
             </p>
 
             <p>
-                Every example in this tutorial is <strong>live and editable</strong>. The tabs on
-                the left of each example are real files — <code>App.js</code> is the component,
+                Every example in this tutorial is <strong>live and editable</strong>. The tabs
+                across the top of each example are real files — <code>App.js</code> is the component,
                 <code>index.html</code> is the page that uses it. Edit either one and the preview
                 re-runs automatically.
             </p>
@@ -24,8 +24,9 @@ class FirstComponent extends TutChapter {
                 A component extends <code>Component</code>, keeps reactive data in
                 <code>this.state</code>, and returns markup from <code>template()</code> using the
                 <code>html\`\`</code> tag. Methods are auto-bound, so
-                <code>on-click="increment"</code> just works. Assigning to <code>this.state</code>
-                re-renders — there is no <code>setState</code> and no virtual DOM.
+                <code>on-click="increment"</code> just works. Assigning to a property of
+                <code>this.state</code> re-renders — there is no <code>setState</code> and no
+                virtual DOM.
             </p>
 
             <tut-live-example
