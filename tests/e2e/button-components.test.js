@@ -50,6 +50,28 @@ async function runTests() {
         await test.assert(disabledExists, 'Should have disabled button example');
     });
 
+    await test.test('Button forwards type to the inner <button>', async () => {
+        await test.selectComponent('Button');
+
+        const types = await test.page.evaluate(() => {
+            const byLabel = (label) => {
+                const host = Array.from(document.querySelectorAll('cl-button'))
+                    .find(b => (b.querySelector('.button-label')?.textContent || '').trim() === label);
+                return host?.querySelector('button')?.getAttribute('type') ?? null;
+            };
+            return {
+                def: byLabel('Default Type'),   // no type attr -> defaults to submit
+                button: byLabel('Button Type'), // explicit opt-out
+                reset: byLabel('Reset Type'),
+            };
+        });
+
+        // Default is 'submit' (matches a bare <button>), and explicit values forward.
+        await test.assert(types.def === 'submit', `Default cl-button type should be submit (got ${types.def})`);
+        await test.assert(types.button === 'button', `type="button" should forward to inner button (got ${types.button})`);
+        await test.assert(types.reset === 'reset', `type="reset" should forward to inner button (got ${types.reset})`);
+    });
+
     await test.test('Button can show loading state', async () => {
         await test.selectComponent('Button');
 

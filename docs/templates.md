@@ -1072,6 +1072,13 @@ When the value is `true`, the attribute is added with an empty value (`selected=
 - `selected="${true}"` → `<option selected="">` (boolean true)
 - `selected="${'true'}"` → `<option selected="true">` (string "true")
 
+> **No Lit-style `?attr` sugar.** VDX resolves boolean attributes from the value
+> of a *plain* attribute (`disabled="${cond}"`), so there is no `?disabled=`
+> binding form. Writing `?disabled="${cond}"` keeps the `?` in the attribute
+> name and throws at render (`'?disabled' is not a valid attribute name`).
+> Likewise there is no `@event`/`.prop` sugar — use `on-event` and plain
+> attribute binding. The `t7-binding` lint check flags all three.
+
 ## Form Handling
 
 ### Basic Form Pattern

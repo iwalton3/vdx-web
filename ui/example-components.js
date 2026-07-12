@@ -1033,6 +1033,12 @@ class ExampleButton extends Component {
                     <cl-button label="With Icon" icon="📄" severity="primary"></cl-button>
                     <cl-button label="Icon Right" icon="→" iconpos="right" severity="success"></cl-button>
                 </div>
+
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <cl-button label="Default Type" severity="primary"></cl-button>
+                    <cl-button label="Button Type" type="button" severity="secondary"></cl-button>
+                    <cl-button label="Reset Type" type="reset" severity="secondary"></cl-button>
+                </div>
             </div>
         `;
     }

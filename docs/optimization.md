@@ -155,6 +155,12 @@ Checks (design spec: `docs/proposals/template-lint-spec.md`). Severities:
   ∪ native events. No JSDoc → no output.
 - **t6-prop-docs** (warn) — JSDoc `@prop` names that don't match any declared
   prop (doc drift).
+- **t7-binding** (error) — Lit-style binding syntax, which VDX does not
+  support: `?attr="${x}"`, `@event="${fn}"`, `.prop="${x}"`. VDX keeps the
+  prefix in the attribute name, so `?disabled` reaches
+  `setAttribute('?disabled', …)` and the DOM throws at render. Use
+  `attr="${x}"` (booleans set/removed by value), `on-event="handler"`, and
+  plain attribute binding instead. Applies to every element.
 
 Template HTML is parsed with the framework's own parser (`htmlParse`), so event
 name and modifier parsing (`on-status-change-prevent` → event `status-change` +

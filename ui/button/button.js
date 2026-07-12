@@ -15,7 +15,11 @@ export class ClButton extends Component {
         outlined: false,
         text: false,
         disabled: false,
-        loading: false
+        loading: false,
+        // 'submit' | 'button' | 'reset'. Forwarded to the inner native <button>.
+        // Defaults to 'submit' to match a bare <button>'s native default, so a
+        // <cl-button> inside a <form> submits on click; pass type="button" to opt out.
+        type: 'submit'
     }
 
     handleClick(e) {
@@ -42,6 +46,7 @@ export class ClButton extends Component {
 
         return html`
             <button
+                type="${this.props.type}"
                 class="${classes}"
                 disabled="${this.props.disabled || this.props.loading}"
                 on-click="handleClick">
