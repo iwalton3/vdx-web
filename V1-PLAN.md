@@ -98,6 +98,9 @@ songs.version;              // reactive integer, rarely read directly
   signal. Items themselves are returned raw — no per-item proxying, same perf
   contract as `untracked()`.
 - Works identically inside component state and store state.
+- **Footgun (see hardening backlog):** update in place via `.replace(newArray)` —
+  never reassign the field (`state.songs = rawArray`), which drops the wrapper and
+  leaves a plain reactive array with no `.replace()`/`.version`.
 
 ### Implementation notes
 
@@ -397,6 +400,7 @@ microtasks run, defeating every guard. Symptoms, all from this one cause:
 - **Dependencies never dropped between effect runs**: a conditional branch that stops reading a dep still re-runs on that dep's writes (cumulative spurious work; inflates MAX_EFFECT_RUNS risk). Clear `effect.deps` at the top of each run, as Vue/Solid do — but the template-renderer's manual child management makes this delicate; verify it doesn't disturb `children`.
 - `nextRender()` resolves before state writes made by a newly-mounted child's `mounted()` hook have rendered. Either drain after the mounted-hook queue, or document that it guarantees the DOM for *your* writes, not follow-on lifecycle-hook cascades.
 - `Store.subscribe()` before the first `this.state` assignment is permanently dead (tracks nothing). Throw like `_checkFieldShadow`, or make the state-install transition triggerable.
+- **`versionedList()` doesn't restore itself on reassignment** (found via mrepo adoption, 2026-07-12). Assigning a fresh raw array — `this.state.songs = await fetchSongs()` — drops the versioned proxy: `reactive()` wraps the plain array as an ordinary reactive array, so `.replace()`/`.touch()`/`.version` vanish and the next call throws `replace is not a function`. This is the same class of footgun as `untracked()` not resurviving reassignment, but sharper because the *object identity* carries the API surface. The reassignment succeeds silently and only blows up on the next method call, far from the cause. Correct usage is `state.songs.replace(newArray)`, never reassignment. Options: (a) doc callout + a dev-mode `console.warn` when a `SELF_MANAGED` field is overwritten with a non-self-managed value; (b) have the reactive `set` trap re-wrap a plain array back into a `versionedList` when the previous value was one (preserves the contract automatically, but adds a branch to the write hot path and a bit of magic). Lean (a) for v1 — the litmus is whether auto-re-wrap is worth hot-path cost and hidden behavior. Adoption code in mrepo was fixed to use `.replace()`; this is the framework-side decision.
 
 ### Windowing/gestures + security (LOW)
 - Pointer-mode touch-drag can't reach the last drop gap and shows an indicator for no-op gaps (geometry mode is correct — unify them).
