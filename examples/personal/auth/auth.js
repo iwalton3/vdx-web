@@ -82,20 +82,18 @@ class Login {
 /**
  * Create reactive login store
  */
-function loginStore() {
-    const login = new Login();
-    const store = createStore(login);
+const login = new Login();
+const store = createStore(login);
 
-    login.updated = (value) => store.set(value);
+login.updated = (value) => store.set(value);
 
-    // Initialize - with error handling for initial auth sync
-    login.upd().catch(error => {
-        console.error('[Auth] Failed to initialize auth state:', error);
-        // Set default unauthenticated state on error
-        store.set({ user: null, capabilities: [] });
-    });
+// Kick off the initial auth sync. `authReady` resolves once it settles (success
+// OR failure), so capability guards can await it instead of racing the network
+// on a direct page load. See checkCapability in app.js.
+export const authReady = login.upd().catch(error => {
+    console.error('[Auth] Failed to initialize auth state:', error);
+    // Set default unauthenticated state on error
+    store.set({ user: null, capabilities: [] });
+});
 
-    return store;
-}
-
-export default loginStore();
+export default store;

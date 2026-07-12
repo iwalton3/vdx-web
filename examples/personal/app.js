@@ -3,7 +3,7 @@
  */
 
 import { enableRouting } from '../../lib/router.js';
-import login from './auth/auth.js';
+import login, { authReady } from './auth/auth.js';
 
 // Import core components (needed immediately)
 import './components/app-header.js';
@@ -83,7 +83,12 @@ const router = enableRouting(outlet, {
 }, {
     // Routes with `require` fail closed - the router denies them unless
     // this approves. (Replaces the old beforeEach capability hook.)
-    checkCapability: (required) => login.state.has(required),
+    // Await the initial auth sync first so a direct load of a gated URL
+    // doesn't race the network and get wrongly denied.
+    checkCapability: async (required) => {
+        await authReady;
+        return login.state.has(required);
+    },
 
     onUnauthorized: ({ path, require }) => {
         console.warn(`Route ${path} requires capability "${require}" which user does not have`);
