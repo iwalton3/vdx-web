@@ -69,6 +69,9 @@ class BestPracticesChapter extends TutChapter {
                     re-render expensive neighbours.</li>
                 <li>Pass objects and arrays as real values
                     (<code>options="\${items}"</code>) — never <code>JSON.stringify</code> them.</li>
+                <li>Write components as classes. Very old code may use a deprecated
+                    options-object form of <code>defineComponent</code> — it still runs, but don't
+                    write new code in it.</li>
             </ul>
         `;
     }

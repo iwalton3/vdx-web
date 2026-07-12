@@ -32,7 +32,7 @@ class ReactivityChapter extends TutChapter {
 
     template() {
         return html`
-            <p class="eyebrow">Chapter 16 · Guides</p>
+            <p class="eyebrow">Chapter 15 · Guides</p>
             <h1>Reactivity in depth</h1>
             <p class="lead">
                 You've been using reactive state since chapter 2. Here's what's happening underneath,

@@ -65,7 +65,7 @@ class PerformanceChapter extends TutChapter {
             <h2>Reactivity escape hatches</h2>
             <p>
                 When even that isn't enough, two opt-outs (both covered in
-                <a href="/site/tutorial.html#reactivity">chapter&nbsp;16</a>) trade some
+                <a href="/site/tutorial.html#reactivity">chapter&nbsp;15</a>) trade some
                 convenience for speed: <code>untracked()</code> marks a large array so the framework
                 skips per-item tracking — you reassign the whole thing to update it — and
                 <code>flushSync()</code> forces a synchronous render for the rare moment you must read

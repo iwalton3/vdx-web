@@ -5,7 +5,7 @@ import '../live-example.js';
 class SecurityChapter extends TutChapter {
     template() {
         return html`
-            <p class="eyebrow">Chapter 15 · Guides</p>
+            <p class="eyebrow">Chapter 14 · Guides</p>
             <h1>Security &amp; trusted HTML</h1>
             <p class="lead">
                 In VDX the safe path is the default one. Everything you interpolate is escaped for

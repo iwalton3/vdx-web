@@ -19,14 +19,13 @@ import './10-static.js';
 import './11-performance.js';
 import './12-advanced.js';
 import './13-best-practices.js';
-import './14-legacy.js';
-import './15-security.js';
-import './16-reactivity.js';
-import './17-components.js';
-import './18-interactive-lists.js';
-import './19-production.js';
-import './20-testing.js';
-import './21-typescript.js';
+import './14-security.js';
+import './15-reactivity.js';
+import './16-components.js';
+import './17-interactive-lists.js';
+import './18-production.js';
+import './19-testing.js';
+import './20-typescript.js';
 
 export const chapters = [
     { id: 'first', num: 1, group: 'Getting started', title: 'Your first component', mount: '<tut-ch-first></tut-ch-first>' },
@@ -42,12 +41,11 @@ export const chapters = [
     { id: 'performance', num: 11, group: 'Building apps', title: 'Performance', mount: '<tut-ch-performance></tut-ch-performance>' },
     { id: 'advanced', num: 12, group: 'Going further', title: 'Advanced patterns', mount: '<tut-ch-advanced></tut-ch-advanced>' },
     { id: 'best', num: 13, group: 'Going further', title: 'Best practices', mount: '<tut-ch-best></tut-ch-best>' },
-    { id: 'legacy', num: 14, group: 'Going further', title: 'The legacy format', mount: '<tut-ch-legacy></tut-ch-legacy>' },
-    { id: 'security', num: 15, group: 'Guides', title: 'Security & trusted HTML', mount: '<tut-ch-security></tut-ch-security>' },
-    { id: 'reactivity', num: 16, group: 'Guides', title: 'Reactivity in depth', mount: '<tut-ch-reactivity></tut-ch-reactivity>' },
-    { id: 'components', num: 17, group: 'Guides', title: 'The component library', mount: '<tut-ch-components></tut-ch-components>' },
-    { id: 'lists', num: 18, group: 'Guides', title: 'Interactive lists', mount: '<tut-ch-lists></tut-ch-lists>' },
-    { id: 'production', num: 19, group: 'Guides', title: 'Shipping to production', mount: '<tut-ch-production></tut-ch-production>' },
-    { id: 'testing', num: 20, group: 'Guides', title: 'Testing components', mount: '<tut-ch-testing></tut-ch-testing>' },
-    { id: 'typescript', num: 21, group: 'Guides', title: 'TypeScript', mount: '<tut-ch-typescript></tut-ch-typescript>' }
+    { id: 'security', num: 14, group: 'Guides', title: 'Security & trusted HTML', mount: '<tut-ch-security></tut-ch-security>' },
+    { id: 'reactivity', num: 15, group: 'Guides', title: 'Reactivity in depth', mount: '<tut-ch-reactivity></tut-ch-reactivity>' },
+    { id: 'components', num: 16, group: 'Guides', title: 'The component library', mount: '<tut-ch-components></tut-ch-components>' },
+    { id: 'lists', num: 17, group: 'Guides', title: 'Interactive lists', mount: '<tut-ch-lists></tut-ch-lists>' },
+    { id: 'production', num: 18, group: 'Guides', title: 'Shipping to production', mount: '<tut-ch-production></tut-ch-production>' },
+    { id: 'testing', num: 19, group: 'Guides', title: 'Testing components', mount: '<tut-ch-testing></tut-ch-testing>' },
+    { id: 'typescript', num: 20, group: 'Guides', title: 'TypeScript', mount: '<tut-ch-typescript></tut-ch-typescript>' }
 ];

@@ -5,7 +5,7 @@ import '../live-example.js';
 class ComponentsChapter extends TutChapter {
     template() {
         return html`
-            <p class="eyebrow">Chapter 17 · Guides</p>
+            <p class="eyebrow">Chapter 16 · Guides</p>
             <h1>The component library</h1>
             <p class="lead">
                 VDX ships <strong>vdx-ui</strong> — 60+ ready-made <code>cl-*</code> components

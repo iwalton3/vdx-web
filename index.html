@@ -488,7 +488,8 @@
                 <div>
                     <h3>What about SEO and SSR?</h3>
                     <p>No SSR, on purpose. Where SEO actually matters — content pages — the islands
-                        model keeps your content as real static HTML and drops components into it,
+                        model keeps your content (or whatever your backend, CMS, or Hugo generates)
+                        as real static HTML and drops components into it,
                         so there's nothing to hydrate and no server-side rendering surface to secure.
                         For app screens behind a login, SSR was never buying you much. Service
                         workers and offline support are in the box.</p>

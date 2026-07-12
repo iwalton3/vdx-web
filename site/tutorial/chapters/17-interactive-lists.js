@@ -5,7 +5,7 @@ import '../live-example.js';
 class InteractiveListsChapter extends TutChapter {
     template() {
         return html`
-            <p class="eyebrow">Chapter 18 · Guides</p>
+            <p class="eyebrow">Chapter 17 · Guides</p>
             <h1>Interactive lists</h1>
             <p class="lead">
                 Drag-reorder, right-click menus, long-press — the fiddly parts of a list UI,

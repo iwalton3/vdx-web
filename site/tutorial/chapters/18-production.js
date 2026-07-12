@@ -21,7 +21,7 @@ class ProductionChapter extends TutChapter {
 
     template() {
         return html`
-            <p class="eyebrow">Chapter 19 · Guides</p>
+            <p class="eyebrow">Chapter 18 · Guides</p>
             <h1>Shipping to production</h1>
             <p class="lead">
                 "No build step" is true all the way to production — you deploy the same files you

@@ -22,7 +22,7 @@ class TestingChapter extends TutChapter {
 
     template() {
         return html`
-            <p class="eyebrow">Chapter 20 · Guides</p>
+            <p class="eyebrow">Chapter 19 · Guides</p>
             <h1>Testing components</h1>
             <p class="lead">
                 A component <em>is</em> its element, and its methods and state are right there on it.
@@ -39,7 +39,7 @@ class TestingChapter extends TutChapter {
             <cl-code-block code="${this.state.pokeEx}" language="js" copyable="false"></cl-code-block>
             <p>
                 Renders are batched, which is why the change is wrapped in <code>flushSync()</code>
-                (chapter 16): it guarantees the DOM is updated before the <code>textContent</code>
+                (chapter 15): it guarantees the DOM is updated before the <code>textContent</code>
                 assert runs. Reads of <code>.state</code> and getters are synchronous and need no
                 flush — only DOM assertions do.
             </p>

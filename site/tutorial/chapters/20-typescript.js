@@ -35,7 +35,7 @@ class TypeScriptChapter extends TutChapter {
 
     template() {
         return html`
-            <p class="eyebrow">Chapter 21 · Guides</p>
+            <p class="eyebrow">Chapter 20 · Guides</p>
             <h1>TypeScript</h1>
             <p class="lead">
                 TypeScript is fully supported and entirely optional. VDX ships hand-written
@@ -69,7 +69,7 @@ tsc --noEmit</code></pre>
             <p>
                 TypeScript is the one case where a compile step buys you something (stripping types),
                 and it slots in cleanly: compile your <code>.ts</code> to <code>.js</code> and deploy
-                the output exactly as in <a href="/site/tutorial.html#production">chapter&nbsp;19</a>.
+                the output exactly as in <a href="/site/tutorial.html#production">chapter&nbsp;18</a>.
                 It stays your choice — the framework never requires it.
             </p>
 
