@@ -61,22 +61,36 @@ describe('createTask: semantics', function(it) {
         assert.deepEqual(commits, ['B'], 'only the current run committed');
     });
 
-    it('AbortError never lands on task.error', async () => {
-        const d = deferred();
-        const task = createTask(async (signal) => {
-            // Reject with AbortError when superseded (like fetch(signal))
-            signal.addEventListener('abort', () => d.reject(Object.assign(new Error('x'), { name: 'AbortError' })), { once: true });
-            await d.promise;
-            return 'ok';
+    it('a superseded run\'s AbortError does NOT land on task.error', async () => {
+        // Each run gets its OWN deferred, keyed on its signal - so supersession
+        // aborts run A while run B proceeds independently (the realistic shape).
+        const task = createTask((signal) => new Promise((resolve, reject) => {
+            signal.addEventListener('abort',
+                () => reject(Object.assign(new Error('x'), { name: 'AbortError' })),
+                { once: true });
+            // B resolves promptly; A never resolves on its own, only aborts.
+            if (!signal.aborted) setTimeout(() => resolve('ok'), 5);
+        }));
+        const pA = task.run();   // A
+        const pB = task.run();   // supersede A -> A rejects AbortError (must be swallowed)
+        const [rA, rB] = await Promise.all([pA, pB]);
+        assert.equal(rA, undefined, 'superseded run resolves undefined');
+        assert.equal(rB, 'ok', 'current run resolves its value');
+        assert.isNull(task.error, 'superseded AbortError swallowed, error stays null');
+        assert.equal(task.pending, false, 'pending cleared');
+    });
+
+    it('a CURRENT run\'s own AbortError IS reported and clears pending', async () => {
+        // A foreign abort (e.g. the app's AbortSignal.timeout) surfaces as an
+        // AbortError on the current run - it must be treated as a real failure,
+        // never silently swallowed (which would strand pending=true forever).
+        const task = createTask(async () => {
+            throw Object.assign(new Error('own timeout'), { name: 'AbortError' });
         });
-        task.run();          // A
-        const pB = task.run();  // supersede A -> A rejects AbortError (swallowed)
-        d.resolve();         // let B proceed (its own await already resolved? no)
-        // B has its own signal/promise; resolve B via a fresh run:
-        const task2 = createTask(async () => 'ok2');
-        await task2.run();
-        await pB.catch(() => {});
-        assert.isNull(task.error, 'AbortError swallowed, error stays null');
+        const r = await task.run();
+        assert.equal(r, undefined, 'failed run resolves undefined');
+        assert.ok(task.error instanceof Error, 'current-run AbortError captured');
+        assert.equal(task.pending, false, 'pending cleared - not stuck');
     });
 
     it('a failing CURRENT run sets task.error and clears pending', async () => {

@@ -3,7 +3,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { reactive, createEffect, computed, watch, isReactive, trackAllDependencies, trackMutations, memo, flushEffects, reactiveSet, reactiveMap, isReactiveCollection, untracked, isUntracked } from '../../lib/framework.js';
+import { reactive, createEffect, createRoot, computed, watch, isReactive, trackAllDependencies, trackMutations, memo, flushEffects, reactiveSet, reactiveMap, isReactiveCollection, untracked, isUntracked } from '../../lib/framework.js';
 
 describe('Reactivity System', function(it) {
     it('creates reactive proxy', () => {
@@ -1065,5 +1065,47 @@ describe('Array Index Optimization', function(it) {
         state.items[0].name = 'modified';
         flushEffects();
         assert.equal(effectRuns, 2, 'Effect should re-run on nested property change');
+    });
+});
+
+describe('Reactivity - adversarial-review regressions', function(it) {
+    it('createRoot disposes EVERY effect created in it, not just the first', () => {
+        const state = reactive({ a: 0, b: 0 });
+        let r1 = 0, r2 = 0;
+        const disposeRoot = createRoot(() => {
+            createEffect(() => { r1++; void state.a; });
+            createEffect(() => { r2++; void state.b; });
+        });
+        disposeRoot();
+        state.a++; state.b++; flushEffects();
+        assert.equal(r1, 1, 'first effect disposed');
+        assert.equal(r2, 1, 'second effect ALSO disposed (was orphaned)');
+    });
+
+    it('sort() on a large reactive array does not overflow or lose data', () => {
+        const state = reactive({ items: Array.from({ length: 200000 }, (_, i) => i) });
+        state.items.sort((a, b) => b - a);
+        assert.equal(state.items.length, 200000, 'length preserved');
+        assert.equal(state.items[0], 199999, 'sorted, data intact');
+    });
+
+    it('delete arr[i] notifies index/length readers', () => {
+        const state = reactive({ arr: [1, 2, 3] });
+        let seen;
+        createEffect(() => { seen = state.arr[1]; });
+        delete state.arr[1];
+        flushEffects();
+        assert.equal(seen, undefined, 'reader saw the deletion');
+    });
+
+    it('computed that threw on first run heals and notifies dependents', () => {
+        const state = reactive({ obj: null });
+        const c = computed(() => state.obj.x);   // throws first run
+        let seen;
+        createEffect(() => { try { seen = c.get(); } catch { seen = 'ERR'; } });
+        assert.equal(seen, 'ERR', 'first run errored');
+        state.obj = { x: 5 };
+        flushEffects();
+        assert.equal(seen, 5, 'dependent re-ran after the computed healed');
     });
 });

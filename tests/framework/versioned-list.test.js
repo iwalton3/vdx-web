@@ -174,3 +174,28 @@ describe('versionedList: replace at scale', function(it) {
         assert.equal(list[0], 7, 'content correct after shrink');
     });
 });
+
+describe('versionedList: adversarial-review regressions', function(it) {
+    it('does not poison a later plain-array assignment to the same key', () => {
+        const state = reactive({ songs: versionedList([1]) });
+        let seen;
+        createEffect(() => { seen = state.songs.length; });
+        state.songs = [9, 9, 9];   // user swaps in a PLAIN array
+        flushEffects();
+        state.songs.push(9);       // expect normal reactivity
+        flushEffects();
+        assert.equal(seen, 4, 'plain array assigned later is reactive, not force-untracked');
+    });
+
+    it('accepts a frozen input array without throwing', () => {
+        let threw = false;
+        try { versionedList(Object.freeze([1, 2])); } catch { threw = true; }
+        assert.ok(!threw, 'frozen input is copied, not stamped in place');
+    });
+
+    it('does not mutate the caller-provided array', () => {
+        const orig = [1, 2];
+        versionedList(orig);
+        assert.equal(Object.getOwnPropertySymbols(orig).length, 0, 'no markers stamped on caller data');
+    });
+});
