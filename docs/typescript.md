@@ -237,29 +237,38 @@ export default defineComponent('my-counter', options);
 
 ### With Stores
 
-```typescript
-import { defineComponent, html, createStore } from './lib/framework.js';
-import type { Store } from './lib/framework.js';
+Author stores as classes. The type parameter on `Store<T>` describes the full
+surface a consumer sees on `this.stores.auth` — reactive fields plus methods and
+getters — because the framework unwraps `Store<T>` to `T` (see below).
 
-interface AuthState {
+```typescript
+import { defineComponent, html, Store } from './lib/framework.js';
+
+interface Auth {
   user: { name: string; email: string } | null;
   isLoggedIn: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  login(email: string, password: string): Promise<void>;
+  logout(): void;
 }
 
-const authStore: Store<AuthState> = createStore({
-  user: null,
-  isLoggedIn: false,
-  async login(email: string, password: string) {
-    // ... login logic
-  },
-  logout() {
-    this.user = null;
-    this.isLoggedIn = false;
+class AuthStore extends Store<Auth> {
+  constructor() {
+    super();
+    // Seed only the reactive fields; the methods below live on the class.
+    this.state = { user: null, isLoggedIn: false } as Auth;
   }
-});
 
+  async login(email: string, password: string): Promise<void> {
+    // ... login logic
+  }
+
+  logout(): void {
+    this.state.user = null;
+    this.state.isLoggedIn = false;
+  }
+}
+
+const authStore = new AuthStore();
 export default authStore;
 ```
 
@@ -278,7 +287,7 @@ class UserProfile extends Component {
   static stores = stores;  // Clean - no casting needed!
 
   template() {
-    // Access state directly - TypeScript knows this is AuthState
+    // Access state directly - TypeScript knows this is the Auth surface
     const user = this.stores.auth.user;
 
     return html`
@@ -295,7 +304,7 @@ class UserProfile extends Component {
 defineComponent('user-profile', UserProfile);
 ```
 
-**How it works:** The framework provides `UnwrapStores<T>` utility type that converts `{ auth: Store<AuthState> }` to `{ auth: AuthState }` automatically. By defining stores as a const outside the component, TypeScript infers the correct types.
+**How it works:** The framework provides `UnwrapStores<T>` utility type that converts `{ auth: Store<Auth> }` to `{ auth: Auth }` automatically. By defining stores as a const outside the component, TypeScript infers the correct types.
 
 **Alternative - explicit typing:**
 ```typescript
@@ -304,7 +313,7 @@ import type { UnwrapStores } from './lib/framework.js';
 // If you need explicit type annotation
 const stores = { auth: authStore, theme: themeStore };
 type MyStores = UnwrapStores<typeof stores>;
-// MyStores = { auth: AuthState; theme: ThemeState }
+// MyStores = { auth: Auth; theme: ThemeState }
 ```
 
 ### With Router

@@ -196,7 +196,7 @@ export class ComponentShowcase extends Component {
         }
         let preamble =
             "import { defineComponent, Component, html, when, each, raw, contain, memoEach, "
-            + "untracked, awaitThen, computed, createStore, flushSync } from 'vdx/lib/framework.js';\n"
+            + "untracked, awaitThen, computed, Store, createStore, flushSync } from 'vdx/lib/framework.js';\n"
             + "import 'vdx/ui/all.js';\n";
         // Pull in the list controllers only when a source actually uses them.
         if (/\bcreateWindowing\b/.test(source)) {

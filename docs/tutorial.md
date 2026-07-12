@@ -937,11 +937,16 @@ To use capability-based route guards (`require: 'admin'`), you need to connect t
 
 ```javascript
 // stores/auth.js
-import { createStore } from './lib/framework.js';
+import { Store } from './lib/framework.js';
 
-const authStore = createStore({
-    user: null,
-    capabilities: [],
+// A store is a class, just like a component: reactive data goes in this.state,
+// methods and getters live on the class. Export one instance and every importer
+// shares it.
+class AuthStore extends Store {
+    constructor() {
+        super();
+        this.state = { user: null, capabilities: [] };
+    }
 
     async login(username, password) {
         const response = await fetch('/api/login', {
@@ -950,22 +955,23 @@ const authStore = createStore({
             body: JSON.stringify({ username, password })
         });
         const data = await response.json();
-        this.user = data.user;
-        this.capabilities = data.capabilities || [];
+        this.state.user = data.user;
+        this.state.capabilities = data.capabilities || [];
         return data;
-    },
+    }
 
     async logout() {
         await fetch('/api/logout', { method: 'POST' });
-        this.user = null;
-        this.capabilities = [];
-    },
+        this.state.user = null;
+        this.state.capabilities = [];
+    }
 
     hasCapability(cap) {
-        return this.capabilities.includes(cap);
+        return this.state.capabilities.includes(cap);
     }
-});
+}
 
+const authStore = new AuthStore();
 export default authStore;
 ```
 
@@ -990,7 +996,7 @@ const router = enableRouting(outlet, {
 }, {
     // Routes with `require` fail closed - denied unless this approves.
     // Passed via options so the initial route is also checked.
-    checkCapability: (required) => authStore.state.hasCapability(required),
+    checkCapability: (required) => authStore.hasCapability(required),
 
     // Optional: redirect unauthorized users (default renders the 404 page)
     onUnauthorized: ({ path, require }) => {
@@ -1045,20 +1051,24 @@ defineComponent('nav-bar', class extends Component {
 ### Creating a Store
 
 ```javascript
-import { createStore } from './lib/framework.js';
+import { Store } from './lib/framework.js';
 
-const counterStore = createStore({
-    count: 0,
-
-    // Methods can be added to state
-    increment() {
-        this.count++;
-    },
-    decrement() {
-        this.count--;
+class CounterStore extends Store {
+    constructor() {
+        super();
+        this.state = { count: 0 };   // reactive, like a component
     }
-});
 
+    // Methods live on the class
+    increment() {
+        this.state.count++;
+    }
+    decrement() {
+        this.state.count--;
+    }
+}
+
+const counterStore = new CounterStore();
 export default counterStore;
 ```
 
@@ -1983,13 +1993,16 @@ async loadData() {
 
 ```javascript
 // auth-store.js
-export const authStore = createStore({
-    user: null,
-    isAuthenticated: false,
+class AuthStore extends Store {
+    constructor() {
+        super();
+        this.state = { user: null, isAuthenticated: false };
+    }
 
-    async login(credentials) { ... },
+    async login(credentials) { ... }
     async logout() { ... }
-});
+}
+export const authStore = new AuthStore();
 
 // Any component can subscribe
 static stores = { auth: authStore };

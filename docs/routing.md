@@ -468,12 +468,15 @@ const router = enableRouting(outlet, {
 
 ```javascript
 // In auth/auth.js
-const login = createStore({
-    user: null,
-    capabilities: [],
+class LoginStore extends Store {
+    constructor() {
+        super();
+        this.state = { user: null, capabilities: [] };
+    }
 
     // ... auth methods
-});
+}
+const login = new LoginStore();
 
 // Pass via options so the initial route is also checked
 const router = enableRouting(outlet, routes, {
