@@ -26,7 +26,7 @@ export const eventBus=new EventBus();export function isEmpty(value){if (value==n
 export function clamp(value,min,max){return Math.min(Math.max(value,min),max);}
 export function randomId(prefix='id'){return`${prefix}-${Math.random().toString(36).slice(2,11)}`;}
 export function relativeTime(date){const now=new Date();const then=new Date(date);const seconds=Math.floor((now-then)/1000);if (seconds<60) return'just now';const unit=(n,word)=>`${n} ${word}${n===1?'':'s'} ago`;if (seconds<3600) return unit(Math.floor(seconds/60),'minute');if (seconds<86400) return unit(Math.floor(seconds/3600),'hour');if (seconds<604800) return unit(Math.floor(seconds/86400),'day');return then.toLocaleDateString();}
-let LOCALSTORAGE_PREFIX='swapi';export function setLocalStorePrefix(prefix){if (typeof prefix==='string'&&prefix){LOCALSTORAGE_PREFIX=prefix;}}
+let LOCALSTORAGE_PREFIX=(typeof window!=='undefined'&&typeof window.__VDX_LS_PREFIX==='string'&&window.__VDX_LS_PREFIX)||'vdx';export function setLocalStorePrefix(prefix){if (typeof prefix==='string'&&prefix){LOCALSTORAGE_PREFIX=prefix;}}
 export function localStore(name,initial){const key=`${LOCALSTORAGE_PREFIX}_${name}`;try{const data=window.localStorage.getItem(key);if (data!==null){initial=JSON.parse(data);}}catch (e){console.error('Failed to load from localStorage:',e);}
 const store=createStore(initial);store.subscribe(value=>{try{window.localStorage.setItem(key,JSON.stringify(value));}catch (e){console.error('Failed to save to localStorage:',e);}});return store;}
 export const THEME_MODES=['auto','light','dark'];export function systemPrefersDark(){return typeof window!=='undefined'&&typeof window.matchMedia==='function'&&window.matchMedia('(prefers-color-scheme: dark)').matches;}

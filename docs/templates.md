@@ -77,6 +77,30 @@ template() {
 - `on-click-outside` - Fires when a click lands outside the element (useful for dismissing dropdowns/menus; `on-click-outside-stop` also stops propagation)
 - Any other DOM or custom event name works the same way
 
+### Inline Handlers: Read State at Call Time
+
+Inline arrow handlers should read what they need from `this`/`this.state`
+**when the event fires**, not capture variables computed inside `template()`:
+
+```javascript
+template() {
+    const visible = this.state.items.slice(0, 10);   // template-local
+    return html`
+        <!-- ❌ Captures a template-local: may see a previous render's slice -->
+        <button on-click="${() => this.use(visible)}">Use</button>
+
+        <!-- ✅ Reads current state when clicked - always fresh -->
+        <button on-click="${() => this.use(this.state.items.slice(0, 10))}">Use</button>
+    `;
+}
+```
+
+The reason: handler closures at the component's top level are registered once
+(function values keep stable identity so function-valued *props* like
+`renderItem` don't churn children), while handlers inside `each()` rows and
+nested templates are re-read per event. Reading state at call time behaves
+identically everywhere.
+
 ### Event Modifiers
 
 Add modifiers to the end of event names:

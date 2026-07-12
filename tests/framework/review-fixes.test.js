@@ -234,3 +234,85 @@ describe('Review fixes - utils and stores', function(it) {
             store.state.__proto__ === Object.prototype, 'dangerous key filtered');
     });
 });
+
+describe('Template cache eviction - identity preservation', function(it) {
+    it('a post-eviction recompile updates in place instead of re-instantiating', async () => {
+        const { clearTemplateCache } = await import('../../lib/framework.js');
+        defineComponent('rf-evict-identity', {
+            data() { return { n: 1 }; },
+            template() {
+                return html`<div class="wrap"><input class="field"><span class="n">${this.state.n}</span></div>`;
+            }
+        });
+        const el = document.createElement('rf-evict-identity');
+        document.body.appendChild(el);
+        await tick();
+
+        const input = el.querySelector('.field');
+        input.value = 'preserved';
+
+        // Simulate LRU eviction of this component's (still mounted) template
+        clearTemplateCache();
+
+        // Re-render: template() recompiles to a fresh _compiled object
+        el.state.n = 2;
+        await tick();
+
+        assert.equal(el.querySelector('.n').textContent, '2', 'value updated');
+        assert.ok(el.querySelector('.field') === input,
+            'DOM node identity preserved across the eviction (no re-instantiation)');
+        assert.equal(input.value, 'preserved', 'transient input state survived');
+        el.remove();
+    });
+
+    it('keyed each() rows survive an eviction without rebuilding', async () => {
+        const { clearTemplateCache } = await import('../../lib/framework.js');
+        defineComponent('rf-evict-rows', {
+            data() { return { rows: [{ id: 1 }, { id: 2 }] }; },
+            template() {
+                return html`<ul>${each(this.state.rows,
+                    r => html`<li class="row" data-id="${r.id}">${r.id}</li>`,
+                    r => r.id)}</ul>`;
+            }
+        });
+        const el = document.createElement('rf-evict-rows');
+        document.body.appendChild(el);
+        await tick();
+
+        const firstRow = el.querySelector('.row');
+        clearTemplateCache();
+
+        el.state.rows = [...el.state.rows, { id: 3 }];
+        await tick();
+
+        assert.equal(el.querySelectorAll('.row').length, 3, 'row added');
+        assert.ok(el.querySelector('.row') === firstRow,
+            'existing row DOM identity preserved (statics+index _src fallback)');
+        el.remove();
+    });
+});
+
+describe('localStore prefix', function(it) {
+    it('defaults to vdx and is configurable', async () => {
+        const { localStore, setLocalStorePrefix } = await import('../../lib/utils.js');
+        try {
+            const s1 = localStore('rf-prefix-test', { v: 1 });
+            s1.state.v = 2;
+            await tick(20);
+            assert.ok(window.localStorage.getItem('vdx_rf-prefix-test'),
+                'persists under the vdx_ prefix by default');
+
+            setLocalStorePrefix('rf-custom');
+            const s2 = localStore('rf-prefix-test2', { v: 1 });
+            s2.state.v = 2;
+            await tick(20);
+            assert.ok(window.localStorage.getItem('rf-custom_rf-prefix-test2'),
+                'setLocalStorePrefix takes effect for later stores');
+        } finally {
+            const { setLocalStorePrefix } = await import('../../lib/utils.js');
+            setLocalStorePrefix('vdx');
+            window.localStorage.removeItem('vdx_rf-prefix-test');
+            window.localStorage.removeItem('rf-custom_rf-prefix-test2');
+        }
+    });
+});

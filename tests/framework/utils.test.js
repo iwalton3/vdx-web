@@ -137,7 +137,7 @@ describe('Local Storage', function(it) {
 
         // Give it a moment to persist
         setTimeout(() => {
-            const stored = localStorage.getItem('swapi_test-persist');
+            const stored = localStorage.getItem('vdx_test-persist');
             assert.ok(stored, 'Should save to localStorage');
 
             const parsed = JSON.parse(stored);
@@ -147,7 +147,7 @@ describe('Local Storage', function(it) {
 
     it('loads existing values from localStorage', () => {
         // Set a value first
-        localStorage.setItem('swapi_test-load', JSON.stringify({ loaded: true }));
+        localStorage.setItem('vdx_test-load', JSON.stringify({ loaded: true }));
 
         const store = localStore('test-load', { loaded: false });
 

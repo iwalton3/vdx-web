@@ -457,24 +457,34 @@ confirmed findings were FIXED and regression-tested (tests/framework/
 review-fixes.test.js, all with fail-before evidence). The items below are real
 but deferred — each needs a design decision or nontrivial machinery:
 
-- **Parser has no RAWTEXT mode for `<script>`/`<style>`** (MED). A `<` inside
-  static script/style content (e.g. `if (a < b)`) opens a bogus tag and
-  mangles the rest of the template. Slot interpolation into `<script>` is now
-  refused at render, but static content with `<` still parses wrong. Fix is a
-  state-machine addition (scan to the matching close tag); do it deliberately.
-- **Template-cache LRU eviction breaks `_compiled` identity for mounted
-  components** (MED, >250 cached templates only). `pruneTemplateCache()` runs
-  per navigation; evicting a mounted component's template means its next
-  render recompiles to a fresh object → full re-instantiation (focus/scroll/
-  input state loss). Needs liveness tracking or identity-preserving recompile.
+- **Parser has no RAWTEXT mode for `<script>`/`<style>`** — **DECIDED 2026-07-12:
+  won't fix.** Script/style elements are deliberately unsupported in component
+  templates (components have the `styles` option; scripts don't belong in
+  templates). Slot interpolation into `<script>` is refused and `<style>` slots
+  are CSS-filtered; static content containing `<` remains unsupported by
+  design. Documented in docs/templates.md.
+- **Template-cache LRU eviction breaks `_compiled` identity** — **FIXED
+  2026-07-12** via statics-anchored identity instead of liveness tracking:
+  compiled trees carry their statics array (stable per call site, never
+  evicted), and isSameCompiled()/isSameStructure() accept same-statics as
+  same-template. Eviction is now harmless — a post-eviction recompile updates
+  values in place instead of re-instantiating. Regression-tested against
+  clearTemplateCache().
 - **Top-level inline handlers freeze their closure; nested ones stay live**
-  (MED trap). component.js passes function template values through unwrapped
-  (registered once), while nested/each() values go through VALUE_GETTER
-  getters (re-read per event). Unifying means wrapping top-level functions
-  too — touches every function-valued prop (renderItem etc.); design first.
-- **`localStore()` prefix**: now configurable via `setLocalStorePrefix()`, but
-  the DEFAULT is still the historical `'swapi'`. Decide before v1 whether to
-  change the default (breaks existing persisted keys) or ship as-is.
+  (MED trap) — **DECIDED 2026-07-12: document for v1, unify post-v1.** The
+  tension is real: events want closure freshness, function-valued props
+  (renderItem) want identity stability, and one value array feeds both.
+  Nested rows currently choose freshness (paying prop-identity churn); top
+  level chooses stability (freezing closures). The idiom that always works —
+  handlers read `this`/state at call time, never captured template-locals —
+  is now documented in docs/templates.md. A deliberate post-v1 change could
+  give event positions getter freshness while keeping prop positions stable.
+- **`localStore()` prefix** — **DECIDED 2026-07-12: default changed to
+  `'vdx'`** on the public repo. Override hooks: `window.__VDX_LS_PREFIX`
+  (pre-module, needed for the module-load-created darkTheme store) or
+  `setLocalStorePrefix()` (before creating app stores). The private
+  deployment keeps its persisted data by setting
+  `window.__VDX_LS_PREFIX = 'swapi'` before loading the framework.
 - **Compile-time freeze of `isCustomElement`** (unconfirmed): a template
   compiled before its component's defineComponent() runs is cached with
   `isCustomElement: false` (children not deferred). Needs a browser repro
