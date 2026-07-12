@@ -11,7 +11,7 @@ coherency you'd normally get from a bundler — an atomic, versioned offline cac
 
 A complete working example lives in
 [`site/embedding/pwa-offline/`](../site/embedding/pwa-offline/) (linked from the
-[embedding page](https://vdx-web.github.io/site/embedding/)).
+[embedding page](https://vanilladx.dev/site/embedding/)).
 
 ## Why this exists
 

@@ -130,13 +130,13 @@ The framework automatically uses the correct attribute (`value` or `checked`), s
 
 | Demo | Description |
 |------|-------------|
-| [E-commerce Shop](https://iwalton.com/apps/shop/) | Full shopping experience with routing and state management |
-| [Component Library](https://iwalton.com/componentlib/) | Interactive showcase of all vdx-ui components |
-| [Playground](https://iwalton.com/playground.html) | Core framework features demo |
-| [Static Integration](https://iwalton.com/bundle-demo/static-integration-demo.html) | Embedding components in static HTML |
-| [PWA Offline](https://iwalton.com/bundle-demo/pwa-offline/) | Service worker with versioned caching for offline support |
-| [Task Manager (TS Demo)](https://iwalton.com/ts-demo/) | Task management demo application written in typescript |
-| [Framework Tests](https://iwalton.com/tests/) | Comprehensive test suite |
+| [E-commerce Shop](https://vanilladx.dev/examples/shop/) | Full shopping experience with routing and state management |
+| [Component Library](https://vanilladx.dev/site/showcase/) | Interactive showcase of all vdx-ui components |
+| [Playground](https://vanilladx.dev/site/playground.html) | Core framework features demo |
+| [Static Integration](https://vanilladx.dev/site/embedding/static-integration-demo.html) | Embedding components in static HTML |
+| [PWA Offline](https://vanilladx.dev/site/embedding/pwa-offline/) | Service worker with versioned caching for offline support |
+| [Task Manager (TS Demo)](https://vanilladx.dev/examples/ts-demo/) | Task management demo application written in typescript |
+| [Framework Tests](https://vanilladx.dev/tests/framework/) | Comprehensive test suite |
 
 ## Documentation
 
@@ -392,7 +392,7 @@ You can use a service worker with vdx-web, which retains the caching and update 
 node tools/spider-deps.js site/embedding/pwa-offline .
 ```
 
-See the [PWA Offline Demo](https://iwalton.com/bundle-demo/pwa-offline/) for a working example, or check out the [source code](/site/embedding/pwa-offline/).
+See the [PWA Offline Demo](https://vanilladx.dev/site/embedding/pwa-offline/) for a working example, or check out the [source code](/site/embedding/pwa-offline/).
 
 ## Use Cases
 
