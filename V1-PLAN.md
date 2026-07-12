@@ -447,3 +447,54 @@ against a real windowed-list / x-model demo, not tests alone:
 
 Not worth touching (verified good shape): applyAttributeDirect's else-if chain, the
 deferred-DOM-commit system, the effect scheduler/computed, contain()'s slot handler.
+
+---
+
+## Post-backlog full review (2026-07-12) — deferred findings
+
+Three fresh reviewers swept lib/ after the hardening backlog closed. Twenty-one
+confirmed findings were FIXED and regression-tested (tests/framework/
+review-fixes.test.js, all with fail-before evidence). The items below are real
+but deferred — each needs a design decision or nontrivial machinery:
+
+- **Parser has no RAWTEXT mode for `<script>`/`<style>`** (MED). A `<` inside
+  static script/style content (e.g. `if (a < b)`) opens a bogus tag and
+  mangles the rest of the template. Slot interpolation into `<script>` is now
+  refused at render, but static content with `<` still parses wrong. Fix is a
+  state-machine addition (scan to the matching close tag); do it deliberately.
+- **Template-cache LRU eviction breaks `_compiled` identity for mounted
+  components** (MED, >250 cached templates only). `pruneTemplateCache()` runs
+  per navigation; evicting a mounted component's template means its next
+  render recompiles to a fresh object → full re-instantiation (focus/scroll/
+  input state loss). Needs liveness tracking or identity-preserving recompile.
+- **Top-level inline handlers freeze their closure; nested ones stay live**
+  (MED trap). component.js passes function template values through unwrapped
+  (registered once), while nested/each() values go through VALUE_GETTER
+  getters (re-read per event). Unifying means wrapping top-level functions
+  too — touches every function-valued prop (renderItem etc.); design first.
+- **`localStore()` prefix**: now configurable via `setLocalStorePrefix()`, but
+  the DEFAULT is still the historical `'swapi'`. Decide before v1 whether to
+  change the default (breaks existing persisted keys) or ship as-is.
+- **Compile-time freeze of `isCustomElement`** (unconfirmed): a template
+  compiled before its component's defineComponent() runs is cached with
+  `isCustomElement: false` (children not deferred). Needs a browser repro
+  against lazy-loading scenarios.
+- **Parser small edges** (LOW): unquoted attr values containing `/` truncate
+  (`href=/docs`); a `${x}` after a bare boolean attribute becomes that
+  attribute's value; `</div junk>` never closes the element; multiline
+  templates keep boundary whitespace text nodes, which defeats
+  toKeyedChild's single-element unwrap for multiline each() items (falls back
+  to the fragment path — works, but skips the keyed-element optimization).
+- **Duplication worth consolidating eventually** (LOW): store.js re-implements
+  component-class.js's prototype scan + dep-free-getter fallback;
+  utils.memoize vs reactivity.memo; windowing/gestures' identical
+  resolve()/resolveNum() helpers.
+- **opt.js edges** (LOW): default-param arrows (`${(a = f()) => ...}`) are
+  wrapped as contain vnodes (breaks the handler); dead `inString` tracking in
+  extractExpressions; a regex literal containing `//` is misparsed as a
+  comment.
+- **Misc** (LOW): x-await-then keeps a detached element alive via a
+  never-settling promise's .then closure (retention, not a leak loop);
+  fetchJSON forces Content-Type on GETs (extra CORS preflights); utils
+  throttle() drops the trailing call; debug.js vnodeToString/diffVNodes
+  expect a vnode shape this framework never produces.

@@ -3,7 +3,7 @@ function findScrollableParent(el){let parent=el.parentElement;while (parent){con
 parent=parent.parentElement;}
 return null;}
 export function createWindowing(host,options){const opts=options||{};if (!host||!opts.itemHeight||typeof opts.count!=='function'){throw new Error('[windowing] createWindowing(host, { itemHeight, count }) - host, itemHeight, and count are required');}
-const itemHeight=()=>resolve(opts.itemHeight,1);const buffer=()=>resolve(opts.buffer,10);const fallbackHeight=()=>resolve(opts.fallbackHeight,400);const overscan=()=>resolve(opts.overscan,0);function measureElement(){if (typeof opts.measureElement==='function'){return opts.measureElement()||host;}
+const itemHeight=()=>resolve(opts.itemHeight,1)||1;const buffer=()=>resolve(opts.buffer,10);const fallbackHeight=()=>resolve(opts.fallbackHeight,400);const overscan=()=>resolve(opts.overscan,0);function measureElement(){if (typeof opts.measureElement==='function'){return opts.measureElement()||host;}
 return opts.measureElement||host;}let initialEnd=20;try{initialEnd=Math.ceil(fallbackHeight()/itemHeight())+buffer();}catch{}const state=reactive({scrollTop:0,containerHeight:0,visibleStart:0,visibleEnd:initialEnd});let scrollTarget=null;let scrollHandler=null;let scrollMode=opts.scrollContainer||'self';let resizeObserver=null;let countEffect=null;let destroyed=false;function measureHeight(){if (scrollMode==='self'){return host.clientHeight||fallbackHeight();}
 if (scrollTarget===window){return window.innerHeight;}
 if (scrollTarget){return scrollTarget.clientHeight;}
