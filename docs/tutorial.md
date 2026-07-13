@@ -1941,17 +1941,57 @@ template() {
 }
 ```
 
-### 5. Use `when()` for Conditionals
+### 5. Use `when()` and `each()`, Not Ternaries or `.map()`
+
+`when()` and `each()` build the keyed placeholder nodes the renderer needs to
+patch the DOM. An inline ternary bypasses that placeholder, and a raw array /
+`.map()` of templates in a slot **throws** — it produces no placeholders and
+would desync the DOM as the list changes.
 
 ```javascript
 // GOOD
 ${when(this.state.loading, html`<spinner>`, html`<content>`)}
+${each(this.state.items, item => html`<li>${item.name}</li>`, item => item.id)}
 
-// BAD: Ternaries are harder to read
+// BAD: bypasses when()'s placeholder
 ${this.state.loading ? html`<spinner>` : html`<content>`}
+
+// BAD: throws at render — no keyed placeholders
+${this.state.items.map(item => html`<li>${item.name}</li>`)}
 ```
 
-### 6. Validate User Input
+### 6. Don't Name Methods After DOM Methods
+
+A component's methods are bound directly onto the custom element, so a method
+named after a native DOM method **shadows** it and breaks the framework.
+`defineComponent` **throws** for structural/attribute/event names — and for a
+method whose name collides with a prop:
+
+```javascript
+// BAD: shadows Element.remove(); throws at definition
+remove(id) { ... }
+
+// GOOD
+dismiss(id) { ... }
+```
+
+Behavioral names a custom element may legitimately expose (`focus`, `blur`,
+`click`, `scrollIntoView`) are allowed.
+
+### 7. No Lit/Vue Binding Syntax
+
+VDX has no `?attr`, `@event`, `.prop`, or `:attr` sugar — the parser **throws**
+on all four. Booleans come from a plain attribute's value:
+
+```javascript
+// BAD (throws)          // GOOD
+<button ?disabled="${x}">   <button disabled="${x}">
+<button @click="${fn}">     <button on-click="handler">
+<input .value="${v}">       <input value="${v}">
+<a :href="${u}">            <a href="${u}">
+```
+
+### 8. Validate User Input
 
 ```javascript
 async handleSubmit(e) {
@@ -1971,7 +2011,7 @@ isValidEmail(email) {
 }
 ```
 
-### 7. Handle Errors Gracefully
+### 9. Handle Errors Gracefully
 
 ```javascript
 async loadData() {
@@ -1989,7 +2029,7 @@ async loadData() {
 }
 ```
 
-### 8. Use Stores for Shared State
+### 10. Use Stores for Shared State
 
 ```javascript
 // auth-store.js

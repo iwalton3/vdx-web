@@ -2,7 +2,7 @@
  * Segmented - Segmented control / select-button for choosing one of a few
  * mutually exclusive options (view switches, filters). x-model compatible.
  */
-import { defineComponent, html, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, each, when, Component } from '../../lib/framework.js';
 
 function normalize(options) {
     return (options || []).map(o =>
@@ -70,7 +70,7 @@ export class ClSegmented extends Component {
                             aria-checked="${active ? 'true' : 'false'}"
                             disabled="${this.props.disabled}"
                             on-click="${() => this.select(opt.value)}">
-                            ${opt.icon ? html`<span class="seg-icon">${opt.icon}</span>` : ''}
+                            ${when(opt.icon, html`<span class="seg-icon">${opt.icon}</span>`)}
                             ${opt.label}
                         </button>
                     `;

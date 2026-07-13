@@ -2,7 +2,7 @@
  * App Header Component
  * Displays site branding and current page info
  */
-import { defineComponent, html, Component } from '../../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../../lib/framework.js';
 import conf from '../conf.js';
 
 export class AppHeader extends Component {
@@ -25,9 +25,9 @@ export class AppHeader extends Component {
                         ${conf.site}
                     </router-link>
                 </h1>
-                ${this.state.pageTitle ? html`
+                ${when(this.state.pageTitle, html`
                     <h3 style="font-size: 1.17em; margin: 0.5em 0 0 0;">${this.state.appName} - ${this.state.pageTitle}</h3>
-                ` : ''}
+                `)}
             </nav>
         `;
     }
