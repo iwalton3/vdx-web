@@ -5,7 +5,7 @@ vendoring — check the banner comment at the top of your `dist/*.js` bundles
 (or `import { VERSION } from './vdx/lib/framework.js'`) to see which version
 you have.
 
-## Unreleased
+## 1.1.0 — 2026-07-13
 
 ### Safeguards (fail fast on common footguns)
 
