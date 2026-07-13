@@ -5,6 +5,39 @@ vendoring — check the banner comment at the top of your `dist/*.js` bundles
 (or `import { VERSION } from './vdx/lib/framework.js'`) to see which version
 you have.
 
+## Unreleased
+
+### Safeguards (fail fast on common footguns)
+
+- **Lit/Vue attribute syntax now throws.** The template parser rejects binding
+  sigils — `?attr`, `@event`, `.prop`, `:attr` — pointing at the VDX equivalent
+  (`disabled="${cond}"`, `on-*`, plain attributes). Previously they became
+  silent dead attributes.
+- **DOM-method name collisions now throw.** `defineComponent` rejects a method
+  or computed named after a structural/attribute/event DOM method (`remove`,
+  `append`, `closest`, `getAttribute`, `addEventListener`, …) — these are bound
+  onto the element and would shadow the native method, breaking rendering and
+  teardown. Behavioral names (`focus`, `click`, `scrollIntoView`, …) are still
+  allowed. A method whose name collides with a prop is rejected too.
+- **A raw array / `.map()` of templates in a slot now throws** with an `each()`
+  hint, instead of silently rendering unkeyed nodes that desync when the list
+  changes.
+- **Template lint T8** flags `.map()` / ternary returning `html\`\`` in a slot;
+  T7 now also covers `:attr`.
+
+### Fixes
+
+- `cl-toast`: `remove()` → `dismiss()`. As `remove` it shadowed
+  `Element.remove()`, so a toast placed inside `when()`/`each()` could fail to
+  unmount.
+- `cl-input-password`: strength-feedback list switched from `.map()` to `each()`
+  (it would otherwise trip the new slot guard when feedback is shown).
+
+### Tooling
+
+- New `vdx-tools.zip` release asset — the bundler, the `opt()` optimizer +
+  template linter, the dependency spider, and the generic PWA service worker.
+
 ## 1.0.0 — 2026-07-12
 
 First stable release. Everything below is the v1 baseline.

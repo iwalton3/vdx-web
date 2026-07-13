@@ -5,7 +5,7 @@
  * It shows local state management and reactive updates.
  */
 
-import { defineComponent, html, each, Component } from '../../../dist/framework.js';
+import { defineComponent, html, each, when, Component } from '../../../dist/framework.js';
 
 export class DemoApp extends Component {
     constructor(props) {
@@ -118,13 +118,13 @@ export class DemoApp extends Component {
                     `)}
                 </div>
 
-                ${this.state.notes.length > 0 ? html`
+                ${when(this.state.notes.length > 0, html`
                     <button class="demo-btn secondary" on-click="clearAll">
                         Clear All (${this.state.notes.length})
                     </button>
-                ` : html`
+                `, html`
                     <p class="demo-empty">No notes yet. Add one above!</p>
-                `}
+                `)}
             </div>
         `;
     }

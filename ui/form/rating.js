@@ -2,7 +2,7 @@
  * Rating - Star rating input/display with hover preview and optional half steps.
  * x-model compatible (emits the numeric value).
  */
-import { defineComponent, html, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, each, when, Component } from '../../lib/framework.js';
 
 /**
  * @fires input - detail: { value }
@@ -88,18 +88,18 @@ export class ClRating extends Component {
                         <span class="star ${fill}">
                             <span class="star-bg">${this.props.icon}</span>
                             <span class="star-fill">${this.props.icon}</span>
-                            ${half ? html`
+                            ${when(half, html`
                                 <span class="hit hit-left"
                                       on-mouseenter="${() => this.setHover(index, true)}"
                                       on-click="${() => this.select(index, true)}"></span>
                                 <span class="hit hit-right"
                                       on-mouseenter="${() => this.setHover(index, false)}"
                                       on-click="${() => this.select(index, false)}"></span>
-                            ` : html`
+                            `, html`
                                 <span class="hit hit-full"
                                       on-mouseenter="${() => this.setHover(index, false)}"
                                       on-click="${() => this.select(index, false)}"></span>
-                            `}
+                            `)}
                         </span>
                     `;
                 }, index => index)}

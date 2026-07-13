@@ -11,6 +11,7 @@
  *   vdx-framework.zip  framework+router+utils    (all of lib/ + dist/, no ui)
  *   vdx-ui.zip         UI component library      (ui/ + styles/ + componentlib.d.ts)
  *   vdx-full.zip       everything vendorable     (lib/ + dist/ + ui/ + styles/)
+ *   vdx-tools.zip      build & PWA tooling       (bundler, optimizer+lint, spider, pwa/)
  *
  * Every zip unpacks into a single `vdx/` folder (matching the landing
  * quickstart's `./vdx/lib/framework.js` import) and carries LICENSE.md,
@@ -86,6 +87,23 @@ const ZIPS = {
         readme: 'Everything vendorable: framework, router, utils, windowing,\n' +
                 'gestures, the full cl-* UI library, and shared styles.\n' +
                 'This matches the landing-page quickstart layout.'
+    },
+    'vdx-tools': {
+        title: 'VDX build & PWA tooling',
+        // Node scripts, no npm dependencies. optimize.js imports template-lint.js,
+        // which imports lib/core/html-parser.js (its only lib dep - self-contained),
+        // so both ship too; sw.js consumes the manifest spider-deps.js generates.
+        contents: ['tools/bundler-esm.js', 'tools/optimize.js', 'tools/template-lint.js',
+                   'tools/spider-deps.js', 'lib/core/html-parser.js', 'pwa'],
+        readme: 'Build-time and PWA tooling (Node scripts, zero npm dependencies):\n' +
+                '  tools/bundler-esm.js   bundle lib/ into single-file ESM + source maps\n' +
+                '  tools/optimize.js      opt() build-time optimizer + template-lint CLI\n' +
+                '  tools/template-lint.js template linter (also required by optimize.js)\n' +
+                '  tools/spider-deps.js   crawl ES module imports -> cache-manifest.json\n' +
+                '  pwa/sw.js              generic versioned offline service worker\n\n' +
+                'Run each with `node vdx/tools/<script>.js`. sw.js caches the files\n' +
+                'listed in the manifest spider-deps.js produces. Unlike the other\n' +
+                'zips this carries no runtime code - drop it beside a vendored vdx/.'
     }
 };
 

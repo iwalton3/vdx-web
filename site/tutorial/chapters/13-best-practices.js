@@ -60,6 +60,14 @@ class BestPracticesChapter extends TutChapter {
 
             <h2>A few more</h2>
             <ul>
+                <li>Don't name methods after DOM methods (<code>remove</code>,
+                    <code>append</code>, <code>closest</code>, <code>getAttribute</code>…) —
+                    they're bound onto the element and would shadow the native one, so
+                    <code>defineComponent</code> throws. (<code>focus</code>/<code>click</code>
+                    are fine to override.)</li>
+                <li>No Lit/Vue attribute sugar: <code>?attr</code>, <code>@event</code>,
+                    <code>.prop</code>, and <code>:attr</code> all throw. Use
+                    <code>disabled="\${cond}"</code>, <code>on-*</code>, and plain attributes.</li>
                 <li>Put props in <code>static props</code> — never as class fields.</li>
                 <li>Getters must read only <code>state</code>, <code>stores</code>, or
                     <code>props</code>, so their caching stays correct.</li>

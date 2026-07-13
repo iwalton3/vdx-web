@@ -1,7 +1,7 @@
-// T7 fixture: Lit-style binding syntax (?attr / .prop / @event) is not
-// supported by VDX. The parser keeps the prefix in the attribute name, so
-// these reach the DOM as literal attribute names (or dead attributes). Applies
-// to any element - native or component.
+// T7 fixture: Lit/Vue-style binding syntax (?attr / .prop / @event / :attr) is
+// not supported by VDX. The runtime parser throws on these sigils; the linter
+// parses in tolerant mode and reports them here. Applies to any element -
+// native or component.
 import { Component, defineComponent, html } from '../../../lib/framework.js';
 
 class LitWidget extends Component {
@@ -12,6 +12,7 @@ class LitWidget extends Component {
             <button ?disabled="${this.props.disabled}">boolean sugar</button> <!-- LINT-EXPECT: t7-binding -->
             <button @click="${() => this.onClick()}">event sugar</button> <!-- LINT-EXPECT: t7-binding -->
             <input .value="${this.props.count}"> <!-- LINT-EXPECT: t7-binding -->
+            <a :href="${this.props.count}">vue bind</a> <!-- LINT-EXPECT: t7-binding -->
 
             <!-- Correct VDX idioms - must stay silent -->
             <button disabled="${this.props.disabled}" on-click="onClick">ok</button>

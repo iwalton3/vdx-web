@@ -1,4 +1,4 @@
-import { defineComponent, Component, html, each, flushSync } from 'vdx/lib/framework.js';
+import { defineComponent, Component, html, each, when, flushSync } from 'vdx/lib/framework.js';
 
 // The thing under test — an ordinary component. (Note: we name the methods
 // addItem/removeItem, not add/remove — a component IS its element, so a method
@@ -69,7 +69,7 @@ class TestRunner extends Component {
                 ${each(this.state.results, (r) => html`
                     <li class="${r.ok ? 'ok' : 'fail'}">
                         <span class="mark">${r.ok ? '✓' : '✗'}</span> ${r.name}
-                        ${r.ok ? '' : html`<code>${r.msg}</code>`}
+                        ${when(!r.ok, html`<code>${r.msg}</code>`)}
                     </li>
                 `)}
             </ul>

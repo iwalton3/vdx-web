@@ -11,6 +11,9 @@
  *   T3  ref="x"         declared refs vs this.refs.x reads           (v1)
  *   T4  modifier sanity (-passive with -prevent)                     (v1)
  *   T5  cross-component props against the child's static props       (v1)
+ *   T6  custom-event usage vs @fires / @prop doc drift               (v1)
+ *   T7  Lit/Vue binding sigils (?attr .prop @evt :attr) not in VDX   (v1)
+ *   T8  raw .map()/ternary returning html`` in a slot (use each/when)(v1)
  *
  * Design spec: docs/proposals/template-lint-spec.md. Guiding rule: silence
  * over false positives - every check bails out rather than guessing.
@@ -944,7 +947,7 @@ export function buildRegistry(fileEntries) {
 const IDENT_RE = /^[A-Za-z_$][\w$]*$/;
 export const ALL_CHECKS = new Set([
     't1-handler', 't2-xmodel', 't3-refs', 't4-modifiers', 't5-props',
-    't6-events', 't6-prop-docs', 't7-binding',
+    't6-events', 't6-prop-docs', 't7-binding', 't8-list-control',
 ]);
 
 // Native DOM events bubble through components without documentation - only
@@ -1082,7 +1085,10 @@ export function lintTemplates(source, filePath, registry, options = {}) {
             source.slice(p.start, p.end).replace(/\\([`$\\])/g, '$1'));
         let tree;
         try {
-            tree = htmlParse(parts);
+            // Tolerant: the runtime parser throws on Lit-style sigil attributes
+            // (?attr/.prop/@evt/:attr); here we want to parse through them so the
+            // T7-binding rule can report them with a helpful message.
+            tree = htmlParse(parts, { tolerant: true });
         } catch {
             continue; // malformed template HTML - never guess
         }
@@ -1201,16 +1207,17 @@ export function lintTemplates(source, filePath, registry, options = {}) {
             }
         };
 
-        // ---- T7: Lit-style binding syntax (?attr / .prop / @event) ----
-        // VDX has no such sugar. The parser keeps the prefix in the attribute
-        // name, so `?disabled="${x}"` reaches setAttribute('?disabled', …) and
-        // the DOM throws InvalidCharacterError at render; `.foo`/`@evt` silently
-        // become dead attributes. Applies to any element (native or component).
+        // ---- T7: Lit-style binding syntax (?attr / .prop / @event / :attr) ----
+        // VDX has no such sugar. The runtime parser throws on these sigils, but
+        // it does so lazily (at first render of that template); this static check
+        // surfaces them at lint time with the VDX equivalent. We parse in
+        // tolerant mode above so the sigil attribute survives to here.
+        // Applies to any element (native or component).
         const checkBindingSyntax = (node) => {
             for (const attrName of Object.keys(node.attrs || {})) {
                 if (attrName === '__ref__') continue;
                 const prefix = attrName[0];
-                if (prefix !== '?' && prefix !== '.' && prefix !== '@') continue;
+                if (prefix !== '?' && prefix !== '.' && prefix !== '@' && prefix !== ':') continue;
                 const bare = attrName.slice(1);
                 if (!/^[A-Za-z][\w-]*$/.test(bare)) continue; // not a plain binding name
                 let hint;
@@ -1219,6 +1226,7 @@ export function lintTemplates(source, filePath, registry, options = {}) {
                 } else if (prefix === '@') {
                     hint = `use \`on-${bare}="handler"\``;
                 } else {
+                    // '.' (Lit property) and ':' (Vue bind) both map to a plain attribute
                     hint = `bind it as an attribute: \`${bare}="\${value}"\``;
                 }
                 const line = locate('t7:' + attrName, escapeRegex(attrName) + '\\s*=');
@@ -1269,6 +1277,40 @@ export function lintTemplates(source, filePath, registry, options = {}) {
             if (node.children) for (const child of node.children) walk(child);
         };
         walk(tree);
+
+        // ---- T8: raw .map()/conditional returning html`` in a content slot ----
+        // each()/when() build the keyed placeholder nodes the renderer needs; a
+        // bare `.map()` or `cond ? html`…` : …` in a ${} slot builds none, so the
+        // DOM desyncs when the list/branch changes (the runtime now throws for a
+        // template array). Only content-position ${} whose expression contains a
+        // nested html`` literal is flagged - `${this.renderRow()}` has no inline
+        // template and is fine. `.map().join('…')` produces a string (no html``)
+        // and is likewise ignored.
+        if (on('t8-list-control')) {
+            const WRAPPERS = /^(when|each|memoEach|contain|raw|awaitThen)\s*\(/;
+            for (const expr of tpl.exprs) {
+                if (expr.inTag) continue;                       // attribute position
+                const text = source.slice(expr.start + 2, expr.end - 1);
+                if (!/html`/.test(text)) continue;              // no inline template
+                if (WRAPPERS.test(text.trim())) continue;       // already an each/when/contain/…
+                const hasMap = /\.map\s*\(/.test(text);
+                // A real ternary `a ? b : c`, excluding `?.` (optional chain) and
+                // `??` (nullish); paired with a following `:`.
+                const hasTernary = /[^?.]\?[^?.]/.test(text) && text.includes(':');
+                const hasLogical = /&&|\|\|/.test(text);
+                if (!hasMap && !hasTernary && !hasLogical) continue;
+                const line = lineOf(expr.start);
+                if (hasMap) {
+                    report(line, 't8-list-control', 'error',
+                        'raw .map() returning html`` in a slot renders no keyed placeholders and '
+                        + 'desyncs the DOM on updates - use each(items, item => html`…`)');
+                } else {
+                    report(line, 't8-list-control', 'warn',
+                        'a ternary/&&/|| returning html`` in a slot bypasses when()\'s stable '
+                        + 'placeholder - VDX convention is when(cond, html`…`[, html`…`])');
+                }
+            }
+        }
     }
 
     // ---- T6: @prop doc drift against declared props ----

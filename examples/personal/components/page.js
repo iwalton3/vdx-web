@@ -1,7 +1,7 @@
 /**
  * Page wrapper component with header
  */
-import { defineComponent, html, Component } from '../../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../../lib/framework.js';
 import conf from '../conf.js';
 
 export class PageWrapper extends Component {
@@ -14,7 +14,7 @@ export class PageWrapper extends Component {
 
     template() {
         return html`
-            ${this.props.showHeader ? html`
+            ${when(this.props.showHeader, html`
                 <nav style="padding: 0 0 0 48px; position: relative; margin-top: 20px;">
                     <h1>
                         <a class="title" href="/" style="color: #2a2a2a; text-decoration: none;">
@@ -24,7 +24,7 @@ export class PageWrapper extends Component {
                     </h1>
                     <h3><router-link to="${this.props.appRoot}">${this.props.appName}</router-link> - ${this.props.title}</h3>
                 </nav>
-            ` : ''}
+            `)}
             <div class="page-content">
                 ${this.props.children}
             </div>
