@@ -22,7 +22,7 @@ class QuickTodo extends Component {
         this.state.draft = '';
     }
 
-    remove(id) {
+    removeItem(id) {
         this.state.todos = this.state.todos.filter((t) => t.id !== id);
     }
 
@@ -41,7 +41,7 @@ class QuickTodo extends Component {
                     ${each(this.state.todos, (todo) => html`
                         <li>
                             <span>${todo.text}</span>
-                            <button type="button" on-click="${() => this.remove(todo.id)}">done</button>
+                            <button type="button" on-click="${() => this.removeItem(todo.id)}">done</button>
                         </li>
                     `)}
                 </ul>

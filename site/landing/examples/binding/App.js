@@ -15,7 +15,7 @@ class TodoList extends Component {
         this.state.draft = '';
     }
 
-    remove(id) {
+    removeItem(id) {
         this.state.items = this.state.items.filter((i) => i.id !== id);
     }
 
@@ -29,7 +29,7 @@ class TodoList extends Component {
                 ${each(this.state.items, (item) => html`
                     <li>
                         <span>${item.text}</span>
-                        <button class="x" on-click="${() => this.remove(item.id)}" aria-label="Remove">×</button>
+                        <button class="x" on-click="${() => this.removeItem(item.id)}" aria-label="Remove">×</button>
                     </li>
                 `)}
             </ul>
