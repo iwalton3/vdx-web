@@ -29,6 +29,7 @@
  * @event select  { item, context } - fired when an items-prop entry is chosen.
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { createAnchoredOverlay } from '../../lib/overlay.js';
 
 // Module-level registry so opening one menu closes every other instance -
 // there is never more than one context menu on screen at a time.
@@ -61,81 +62,47 @@ export class ClContextMenu extends Component {
         // The `open()` context payload is deliberately kept off reactive state
         // (it never drives rendering) - stored on this._openContext instead.
         this.state = {
-            isVisible: false,
-            positioned: false,   // gates visibility so the pre-measure frame never flashes
-            x: 0,
-            y: 0,
-            maxHeight: null      // set when the menu is taller than the viewport (scrollable)
+            isVisible: false
         };
-    }
 
-    mounted() {
-        // Close on any interaction outside the menu. Capture phase so we win the
-        // race against handlers that might otherwise act on the click first.
-        this._handleOutside = (e) => {
-            if (this.state.isVisible && !this.contains(e.target)) {
-                this.close();
-            }
-        };
-        document.addEventListener('mousedown', this._handleOutside, true);
-        document.addEventListener('touchstart', this._handleOutside, true);
-        // A right-click elsewhere must dismiss us before the new menu opens.
-        document.addEventListener('contextmenu', this._handleOutside, true);
-
-        this._handleEscape = (e) => {
-            if (e.key === 'Escape' && this.state.isVisible) {
-                e.stopPropagation();
-                this.close();
-            }
-        };
-        document.addEventListener('keydown', this._handleEscape);
-
-        // Scrolling the page (but not inside the menu) invalidates our anchor.
-        this._handleScroll = (e) => {
-            if (this.state.isVisible && !this.contains(e.target)) {
-                this.close();
-            }
-        };
-        window.addEventListener('scroll', this._handleScroll, true);
-
-        // A resize changes what "inside the viewport" means; simplest correct
-        // response is to dismiss.
-        this._handleResize = () => {
-            if (this.state.isVisible) this.close();
-        };
-        window.addEventListener('resize', this._handleResize);
+        // Top-layer anchored overlay, anchored to the pointer point. Promotes
+        // the menu above transformed ancestors (plain fixed positioning got
+        // re-clipped there) and owns outside-pointerdown / Escape / close-on-
+        // scroll dismissal - replacing the bespoke fixed-position bundle and the
+        // _adjustPosition flip/clamp/size math (now the shared helper's job).
+        this._overlay = createAnchoredOverlay(this, {
+            anchor: () => ({ x: this._anchorX, y: this._anchorY }),
+            panel: () => this.querySelector('.cl-context-menu'),
+            placement: 'bottom-start',
+            offset: 0,
+            viewportPadding: Number(this.props.padding) || 8,
+            closeOnScroll: true,
+            onDismiss: () => this.close()
+        });
     }
 
     unmounted() {
-        document.removeEventListener('mousedown', this._handleOutside, true);
-        document.removeEventListener('touchstart', this._handleOutside, true);
-        document.removeEventListener('contextmenu', this._handleOutside, true);
-        document.removeEventListener('keydown', this._handleEscape);
-        window.removeEventListener('scroll', this._handleScroll, true);
-        window.removeEventListener('resize', this._handleResize);
+        this._overlay.destroy();
         openInstances.delete(this);
     }
 
     /**
-     * Open the menu with its top-left anchored at (x, y) in viewport
-     * coordinates. The final position is adjusted after render to stay
-     * inside the viewport. `context` is stored and echoed back in `select`.
+     * Open the menu anchored at (x, y) in viewport coordinates. The helper
+     * flips/clamps it to stay inside the viewport after render. `context` is
+     * stored and echoed back in `select`.
      */
-    open(x, y, context = null) {
+    async open(x, y, context = null) {
         closeOthers(this);
         openInstances.add(this);
 
         this._anchorX = x;
         this._anchorY = y;
         this._openContext = context;
-        this.state.x = x;
-        this.state.y = y;
-        this.state.maxHeight = null;   // measure natural height first
-        this.state.positioned = false; // keep hidden until placed
         this.state.isVisible = true;
 
-        // Measure after the browser has laid the menu out, then flip/clamp.
-        requestAnimationFrame(() => this._adjustPosition());
+        // Wait for the menu branch to mount, then promote + position it.
+        await this.nextRender();
+        if (this.state.isVisible) this._overlay.open();
     }
 
     /**
@@ -159,62 +126,14 @@ export class ClContextMenu extends Component {
 
     close() {
         if (!this.state.isVisible) return;
+        this._overlay.close();  // hidePopover before the branch unmounts
         this.state.isVisible = false;
-        this.state.positioned = false;
         this._openContext = null;
         openInstances.delete(this);
     }
 
     isOpen() {
         return this.state.isVisible;
-    }
-
-    /**
-     * Viewport-overflow prevention. Measures the natural menu box, then:
-     *   - Horizontal: opens to the right of the anchor; flips to the left
-     *     (right edge at the anchor) when the right side overflows; clamps.
-     *   - Vertical: opens below the anchor; flips above when the bottom
-     *     overflows; clamps.
-     *   - Taller than the viewport: pins to the top padding and caps
-     *     max-height so the menu scrolls internally instead of overflowing.
-     */
-    _adjustPosition() {
-        const menu = this.querySelector('.cl-context-menu');
-        if (!menu) return;
-
-        const pad = Number(this.props.padding) || 0;
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const rect = menu.getBoundingClientRect();
-        const w = rect.width;
-        const h = rect.height;
-        const ax = this._anchorX;
-        const ay = this._anchorY;
-
-        // --- Horizontal: prefer opening right; flip left on overflow -----
-        let left = ax;
-        if (ax + w > vw - pad) left = ax - w;    // flip: right edge toward anchor
-        left = Math.min(left, vw - w - pad);     // keep right edge inside the pad
-        left = Math.max(left, pad);              // keep left edge inside (wins if w > vw)
-
-        // --- Vertical: taller-than-viewport => scroll; else flip up ------
-        const available = vh - pad * 2;
-        let top;
-        let maxHeight = null;
-        if (h >= available) {
-            top = pad;
-            maxHeight = available;               // menu scrolls internally
-        } else {
-            top = ay;
-            if (ay + h > vh - pad) top = ay - h; // flip: bottom edge toward anchor
-            top = Math.min(top, vh - h - pad);   // keep bottom edge inside the pad
-            top = Math.max(top, pad);            // keep top edge inside
-        }
-
-        this.state.maxHeight = maxHeight;
-        this.state.x = left;
-        this.state.y = top;
-        this.state.positioned = true;            // reveal now that it is placed
     }
 
     _handleItemClick(item, e) {
@@ -236,21 +155,16 @@ export class ClContextMenu extends Component {
     }
 
     template() {
-        const { isVisible, x, y, positioned, maxHeight } = this.state;
-
-        if (!isVisible) {
+        if (!this.state.isVisible) {
             return html`<div class="cl-context-menu-root hidden"></div>`;
         }
 
         const items = this.props.items || [];
         const minWidth = Number(this.props.minWidth) || 200;
-        const scroll = maxHeight != null ? `max-height:${maxHeight}px; overflow-y:auto;` : '';
-        const style =
-            `left:${x}px; top:${y}px; min-width:${minWidth}px; ` +
-            `visibility:${positioned ? 'visible' : 'hidden'}; ${scroll}`;
 
         return html`
-            <div class="cl-context-menu" role="menu" style="${style}">
+            <div class="cl-context-menu" role="menu" popover="manual"
+                 style="min-width:${minWidth}px; overflow-y:auto;">
                 ${each(items, (item) =>
                     item.separator
                         ? html`<hr class="cl-context-menu-separator" role="separator">`
@@ -288,7 +202,11 @@ export class ClContextMenu extends Component {
 
         .cl-context-menu {
             pointer-events: auto;
-            position: fixed;
+            /* Positioned by createAnchoredOverlay (top layer). inset/margin reset
+               the UA popover defaults; placement is written inline. */
+            inset: auto;
+            margin: 0;
+            color: inherit;   /* UA [popover] forces color:CanvasText; keep theme (dark mode) */
             background: var(--card-bg, #fff);
             border: 1px solid var(--input-border, #dee2e6);
             border-radius: 8px;

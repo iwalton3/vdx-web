@@ -16,6 +16,7 @@
  * </cl-action-menu>
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { createAnchoredOverlay } from '../../lib/overlay.js';
 
 /**
  * @fires item-click - detail: the activated item
@@ -32,124 +33,41 @@ export class ClActionMenu extends Component {
     constructor(props) {
         super(props);
 
-        this.state = {
-            isOpen: false,
-            dropdownStyle: ''
-        };
-    }
+        this.state = { isOpen: false };
 
-    mounted() {
-        // Close menu when clicking outside
-        this._handleOutsideClick = (e) => {
-            if (this.state.isOpen && !this.contains(e.target)) {
-                this.state.isOpen = false;
-            }
-        };
-        document.addEventListener('click', this._handleOutsideClick);
-
-        // Close menu on escape key
-        this._handleEscape = (e) => {
-            if (e.key === 'Escape' && this.state.isOpen) {
-                this.state.isOpen = false;
-            }
-        };
-        document.addEventListener('keydown', this._handleEscape);
-
-        // Close on scroll
-        this._handleScroll = () => {
-            if (this.state.isOpen) {
-                this.state.isOpen = false;
-            }
-        };
-        window.addEventListener('scroll', this._handleScroll, true);
+        // Top-layer anchored overlay - promotes the menu above transformed
+        // ancestors and owns outside-click / Escape / close-on-scroll dismissal
+        // (the old hand-rolled fixed-position + listener bundle).
+        this._overlay = createAnchoredOverlay(this, {
+            anchor: () => this.querySelector('.trigger-btn'),
+            panel: () => this.querySelector('.menu-dropdown'),
+            placement: () => this.props.position,
+            offset: 4,
+            closeOnScroll: true,
+            onDismiss: () => this.closeMenu()
+        });
     }
 
     unmounted() {
-        document.removeEventListener('click', this._handleOutsideClick);
-        document.removeEventListener('keydown', this._handleEscape);
-        window.removeEventListener('scroll', this._handleScroll, true);
+        this._overlay.destroy();
     }
 
     toggleMenu(e) {
         e.stopPropagation();
-        if (!this.props.disabled) {
-            if (!this.state.isOpen) {
-                this.updateDropdownPosition();
-            }
-            this.state.isOpen = !this.state.isOpen;
-        }
+        if (this.props.disabled) return;
+        if (this.state.isOpen) this.closeMenu();
+        else this.openMenu();
     }
 
-    updateDropdownPosition() {
-        const btn = this.querySelector('.trigger-btn');
-        if (!btn) return;
-
-        const rect = btn.getBoundingClientRect();
-        const position = this.props.position;
-
-        let top, left;
-
-        if (position.startsWith('bottom')) {
-            top = rect.bottom + 4;
-        } else {
-            // Will be adjusted after we know dropdown height
-            top = rect.top - 4;
-        }
-
-        if (position.endsWith('end')) {
-            // Right-aligned - we'll set right instead
-            left = rect.right;
-        } else {
-            left = rect.left;
-        }
-
-        // Store for use in template
-        this._btnRect = rect;
-        this._position = position;
+    async openMenu() {
+        this.state.isOpen = true;
+        await this.nextRender();
+        if (this.state.isOpen) this._overlay.open();
     }
 
-    getDropdownStyle() {
-        if (!this._btnRect) return '';
-
-        const rect = this._btnRect;
-        const position = this._position || 'bottom-end';
-        const menuWidth = 180; // min-width from CSS
-        const padding = 8; // viewport padding
-
-        let styles = [];
-
-        // Vertical positioning
-        if (position.startsWith('bottom')) {
-            styles.push(`top: ${rect.bottom + 4}px`);
-        } else {
-            styles.push(`bottom: ${window.innerHeight - rect.top + 4}px`);
-        }
-
-        // Horizontal positioning with bounds checking
-        if (position.endsWith('end')) {
-            // Right-aligned: check if it would clip left edge
-            const rightPos = window.innerWidth - rect.right;
-            const leftEdge = rect.right - menuWidth;
-
-            if (leftEdge < padding) {
-                // Would clip left, align to left edge instead
-                styles.push(`left: ${padding}px`);
-            } else {
-                styles.push(`right: ${rightPos}px`);
-            }
-        } else {
-            // Left-aligned: check if it would clip right edge
-            const rightEdge = rect.left + menuWidth;
-
-            if (rightEdge > window.innerWidth - padding) {
-                // Would clip right, align to right edge instead
-                styles.push(`right: ${padding}px`);
-            } else {
-                styles.push(`left: ${rect.left}px`);
-            }
-        }
-
-        return styles.join('; ');
+    closeMenu() {
+        this._overlay.close();  // hidePopover before the branch unmounts
+        this.state.isOpen = false;
     }
 
     handleItemClick(item, e) {
@@ -157,7 +75,7 @@ export class ClActionMenu extends Component {
 
         if (item.disabled) return;
 
-        this.state.isOpen = false;
+        this.closeMenu();
 
         if (item.action) {
             item.action();
@@ -184,7 +102,7 @@ export class ClActionMenu extends Component {
                 </button>
 
                 ${when(isOpen, () => html`
-                    <div class="menu-dropdown" style="${this.getDropdownStyle()}">
+                    <div class="menu-dropdown" popover="manual">
                         ${each(items, (item) =>
                             item.separator
                                 ? html`<hr class="menu-separator">`
@@ -248,8 +166,12 @@ export class ClActionMenu extends Component {
         }
 
         .menu-dropdown {
-            position: fixed;
-            z-index: 999999;
+            /* Positioned by createAnchoredOverlay (top layer). inset/margin reset
+               the UA popover defaults; placement is written inline. */
+            inset: auto;
+            margin: 0;
+            color: inherit;   /* UA [popover] forces color:CanvasText; keep theme (dark mode) */
+            box-sizing: border-box;
             min-width: 180px;
             background: var(--card-bg, white);
             border: 1px solid var(--input-border, #dee2e6);

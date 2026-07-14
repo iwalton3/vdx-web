@@ -501,6 +501,69 @@ constructor(props) {
 
 Rows bind thin delegations (`on-dragover="${(e) => this._g.dragOver(index, e)}"` etc.). Passive-safety is a module invariant: `touchStart`/`touchMove` never preventDefault (bind `-passive`); `touchEnd` and the drag-handle `handleTouch*` suite may (bind non-passive). Translate the gap with the pure helpers: `gapToRemoveInsertIndex(from, gap)` for splice APIs, `gapToGapIndex` for gap-semantic APIs, `groupReorderTargets` for batches. `<cl-virtual-list reorderable>` is the packaged version (emits `reorder` with `{ fromIndices, gap, from, to }`; the consumer applies the change).
 
+## Anchored Overlays (createAnchoredOverlay)
+
+Positions a floating panel next to a trigger and promotes it to the browser **top layer** via
+the native Popover API, so it escapes ancestor `overflow` clipping, ancestor `transform`/`contain`
+containing blocks, and z-index stacking **all at once** - with no DOM move. The node stays where
+you rendered it, so diffing, refs, reactivity, and any enclosing focus trap (e.g. `cl-dialog`'s)
+keep working. Used by every popover-style cl-* component - `cl-dropdown`, `cl-multiselect`,
+`cl-autocomplete`, `cl-calendar`, `cl-popover`, `cl-tooltip`, `cl-action-menu`, and `cl-context-menu`
+(the last anchored to a pointer point `{ x, y }` rather than an element).
+
+```javascript
+import { createAnchoredOverlay } from 'vdx/lib/overlay.js';
+
+constructor(props) {
+    super(props);
+    this._overlay = createAnchoredOverlay(this, {
+        anchor: () => this.querySelector('.dropdown-trigger'), // re-resolved each open
+        panel:  () => this.querySelector('.dropdown-panel'),   // the node to promote+position
+        placement: 'bottom-start',   // `${side}-${align}`; side top|bottom|left|right, auto-flips
+        offset: 4,                   // gap between anchor and panel (px)
+        viewportPadding: 8,          // min gap from viewport edges
+        matchAnchorWidth: true,      // panel width := anchor width
+        closeOnScroll: false,        // false = reposition on scroll; true = dismiss
+        onDismiss: (reason) => {     // 'outside' | 'escape' | 'scroll'
+            this.closePanel();
+            if (reason === 'escape') this._focusTrigger();
+        }
+    });
+}
+
+async openPanel() {
+    this.state.showPanel = true;
+    await this.nextRender();     // the conditionally-rendered panel must exist first
+    this._overlay.open();        // showPopover + position + attach dismiss listeners
+}
+closePanel() {
+    this._overlay.close();       // hidePopover BEFORE the branch unmounts (idempotent)
+    this.state.showPanel = false;
+}
+unmounted() { this._overlay.destroy(); }
+```
+
+| Method | Responsibility |
+|---|---|
+| `open()` | Promote the panel to the top layer (`showPopover`), position it, attach scroll/resize/outside-pointerdown/Escape listeners. No-op if already open. |
+| `close()` | `hidePopover`, detach all listeners. Idempotent. |
+| `reposition()` | Recompute from the anchor's `getBoundingClientRect()` and write `position:fixed; top/left/width/max-height` onto the panel. Runs on scroll/resize; also exposed. |
+| `destroy()` | `close()` + mark dead. Call from `unmounted()`. |
+
+Give the panel `popover="manual"` in the template (starts it as a hidden popover, avoiding a
+one-frame flash in normal flow) and drop `position:absolute; top:100%` from its CSS - the helper
+writes placement inline and resets the UA popover defaults (`inset:auto; margin:0`). The panel
+owns dismissal, so a component adopting this can delete its own backdrop div and global Escape
+listener. Feature-degrades to plain `position:fixed` (no top layer) on engines without the Popover
+API. Mirrors the `create*(host, opts)` shape of `createWindowing` / `createRowGestures`.
+
+**Options beyond the basics:** `anchor` may be a DOM element, anything with `getBoundingClientRect()`,
+or a point literal `{ x, y }` (how `cl-context-menu` anchors to the pointer). `placement` accepts all
+four sides - for `left`/`right`, `align` controls the vertical edge instead of the horizontal. Pass
+`onReposition({ side, align })` to react to the resolved (post-flip) placement - `cl-tooltip` uses it
+to point its arrow the right way. Read the resolved placement any time via the `placement` getter.
+`closeOnScroll: true` dismisses on scroll (menus) instead of repositioning (dropdowns).
+
 ## Reactive Boundaries (Critical for Performance)
 
 Templates re-evaluate as a single unit - you can't track individual `${}` slots separately. For frequently updating values mixed with expensive content, use reactive boundaries:

@@ -5,6 +5,39 @@ vendoring — check the banner comment at the top of your `dist/*.js` bundles
 (or `import { VERSION } from './vdx/lib/framework.js'`) to see which version
 you have.
 
+## Unreleased
+
+### Overlays escape clipping (top-layer anchoring)
+
+- **New framework primitive: `createAnchoredOverlay`** (`lib/overlay.js`,
+  imported directly like `createWindowing` / `createRowGestures`). Positions a
+  floating panel against an anchor — a DOM element, anything with
+  `getBoundingClientRect()`, or a `{ x, y }` point — and promotes it to the
+  browser **top layer** via the native Popover API. That escapes ancestor
+  `overflow` clipping, `transform`/`contain` containing blocks, and z-index
+  stacking all at once, with **no DOM move** — so template diffing, refs,
+  reactivity, and any enclosing focus trap (e.g. `cl-dialog`'s) keep working.
+  Handles flip on all four sides, viewport clamp, `matchAnchorWidth`, max-height
+  with internal scroll, and outside-pointerdown / Escape / scroll dismissal.
+  Feature-degrades to plain `position: fixed` where the Popover API is absent.
+- **Every popover-style `cl-*` component now uses it** — `cl-dropdown`,
+  `cl-multiselect`, `cl-autocomplete`, `cl-calendar`, `cl-popover`, `cl-tooltip`,
+  `cl-action-menu`, and `cl-context-menu`. Opening one inside a `cl-dialog` (or
+  any `overflow:auto` / transformed ancestor) no longer clips the panel — the
+  reported `cl-dropdown`-in-`cl-dialog` clipping bug. This retires the
+  per-component backdrop divs, global Escape listeners, and the duplicated
+  fixed-position/flip math in the two menu components.
+- **No API changes.** Props, events, and documented public methods are
+  unchanged. `cl-popover.show()`, `cl-tooltip.show()`, and
+  `cl-context-menu.open()` are now `async` (they return a promise; the open
+  state is still set synchronously, so callers observe no difference).
+
+### Fixes
+
+- **Dark mode**: overlay panels no longer render black text. Promoting a panel to
+  a popover makes the UA `[popover]` rule force `color: CanvasText`, overriding
+  the inherited theme color; panels now set `color: inherit` to restore it.
+
 ## 1.1.0 — 2026-07-13
 
 ### Safeguards (fail fast on common footguns)

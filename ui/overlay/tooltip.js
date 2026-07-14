@@ -9,6 +9,7 @@
  * - Unique IDs for proper ARIA relationships
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { createAnchoredOverlay } from '../../lib/overlay.js';
 
 // Counter for unique IDs
 let tooltipIdCounter = 0;
@@ -24,31 +25,34 @@ export class ClTooltip extends Component {
 
         this.state = {
             visible: false,
+            arrowSide: null,   // resolved (post-flip) side, drives the arrow direction
             tooltipId: `cl-tooltip-${++tooltipIdCounter}`
         };
-    }
 
-    mounted() {
-        // Global keydown for escape
-        this._handleGlobalKeyDown = (e) => {
-            if (e.key === 'Escape' && this.state.visible) {
-                this.hide();
-            }
-        };
-        document.addEventListener('keydown', this._handleGlobalKeyDown);
+        // Top-layer anchored overlay - escapes ancestor overflow/transform
+        // clipping. Centered on the cross axis; arrow follows the flipped side.
+        this._overlay = createAnchoredOverlay(this, {
+            anchor: () => this.querySelector('.tooltip-target'),
+            panel: () => this.querySelector('.tooltip-content'),
+            placement: () => `${this.props.position}-center`,
+            offset: 8,
+            onReposition: (info) => { this.state.arrowSide = info.side; },
+            onDismiss: () => this.hide()
+        });
     }
 
     unmounted() {
-        if (this._handleGlobalKeyDown) {
-            document.removeEventListener('keydown', this._handleGlobalKeyDown);
-        }
+        this._overlay.destroy();
     }
 
-    show() {
+    async show() {
         this.state.visible = true;
+        await this.nextRender();
+        if (this.state.visible) this._overlay.open();
     }
 
     hide() {
+        this._overlay.close();  // hidePopover before the branch unmounts
         this.state.visible = false;
     }
 
@@ -67,7 +71,8 @@ export class ClTooltip extends Component {
                     ${this.props.children}
                 </div>
                 ${when(this.state.visible && this.props.text, html`
-                    <div class="tooltip-content ${this.props.position}"
+                    <div class="tooltip-content ${this.state.arrowSide || this.props.position}"
+                         popover="manual"
                          role="tooltip"
                          id="${tooltipContentId}">
                         ${this.props.text}
@@ -93,14 +98,16 @@ export class ClTooltip extends Component {
         }
 
         .tooltip-content {
-            position: absolute;
+            /* Positioned by createAnchoredOverlay (top layer). inset/margin reset
+               the UA popover defaults; placement is written inline. */
+            inset: auto;
+            margin: 0;
             background: rgba(0, 0, 0, 0.9);
             color: white;
             padding: 8px 12px;
             border-radius: 4px;
             font-size: 12px;
             white-space: nowrap;
-            z-index: 1300;
             pointer-events: none;
             animation: fadeIn 0.2s ease-out;
         }
@@ -108,34 +115,6 @@ export class ClTooltip extends Component {
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
-        }
-
-        .tooltip-content.top {
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            margin-bottom: 8px;
-        }
-
-        .tooltip-content.bottom {
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            margin-top: 8px;
-        }
-
-        .tooltip-content.left {
-            right: 100%;
-            top: 50%;
-            transform: translateY(-50%);
-            margin-right: 8px;
-        }
-
-        .tooltip-content.right {
-            left: 100%;
-            top: 50%;
-            transform: translateY(-50%);
-            margin-left: 8px;
         }
 
         .tooltip-arrow {

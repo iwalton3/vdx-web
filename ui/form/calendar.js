@@ -2,6 +2,7 @@
  * Calendar - Date picker component with typeable input and month/year picker
  */
 import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { createAnchoredOverlay } from '../../lib/overlay.js';
 
 /**
  * @fires change - detail: { value } - ISO date string, or { start, end } in range mode
@@ -36,6 +37,17 @@ export class ClCalendar extends Component {
             rangeEnd: null,
             hoverDate: null        // previews the in-progress range on hover
         };
+
+        // Top-layer anchored overlay for the pop-up picker (non-inline mode).
+        // Escapes ancestor overflow/transform clipping; owns outside-click and
+        // Escape dismissal, replacing the old backdrop div.
+        this._overlay = createAnchoredOverlay(this, {
+            anchor: () => this.querySelector('.calendar-input-wrapper'),
+            panel: () => this.querySelector('.calendar-picker'),
+            placement: 'bottom-start',
+            offset: 4,
+            onDismiss: () => this.closePicker()
+        });
     }
 
     mounted() {
@@ -47,6 +59,10 @@ export class ClCalendar extends Component {
         }
     }
 
+    unmounted() {
+        this._overlay.destroy();
+    }
+
     propsChanged(prop, newValue, oldValue) {
         if (prop === 'value' && newValue !== oldValue) {
             this.syncValueToState();
@@ -54,9 +70,15 @@ export class ClCalendar extends Component {
     }
 
     closePicker() {
-        if (!this.props.inline) {
-            this.state.showPicker = false;
-        }
+        if (this.props.inline) return;
+        this._overlay.close();  // hidePopover before the branch unmounts
+        this.state.showPicker = false;
+    }
+
+    // Promote + position the picker once its branch has mounted.
+    async _openPicker() {
+        await this.nextRender();
+        if (this.state.showPicker && !this.props.inline) this._overlay.open();
     }
 
     isRange() {
@@ -109,13 +131,17 @@ export class ClCalendar extends Component {
 
     togglePicker(e) {
         if (e) e.stopPropagation();
-        if (!this.props.disabled && !this.props.inline) {
-            this.state.showPicker = !this.state.showPicker;
-            this.state.viewMode = 'days';
-            if (this.state.showPicker && this.state.selectedDate) {
-                this.state.viewDate = this.state.selectedDate;
-            }
+        if (this.props.disabled || this.props.inline) return;
+        if (this.state.showPicker) {
+            this.closePicker();
+            return;
         }
+        this.state.showPicker = true;
+        this.state.viewMode = 'days';
+        if (this.state.selectedDate) {
+            this.state.viewDate = this.state.selectedDate;
+        }
+        this._openPicker();
     }
 
     selectDate(date) {
@@ -130,9 +156,7 @@ export class ClCalendar extends Component {
         const dateStr = this.toISODate(date);
         this.emitChange(null, dateStr);
 
-        if (!this.props.inline) {
-            this.state.showPicker = false;
-        }
+        this.closePicker();
     }
 
     selectRangeDate(date) {
@@ -156,9 +180,7 @@ export class ClCalendar extends Component {
         this.state.inputValue = this.formatRange();
         this.emitRangeChange();
 
-        if (!this.props.inline) {
-            this.state.showPicker = false;
-        }
+        this.closePicker();
     }
 
     hoverDay(date) {
@@ -465,9 +487,9 @@ export class ClCalendar extends Component {
         if (e.key === 'Enter') {
             // Trigger validation by blurring the input
             e.target.blur();
-            this.state.showPicker = false;
+            this.closePicker();
         } else if (e.key === 'Escape') {
-            this.state.showPicker = false;
+            this.closePicker();
         } else if (e.key === 'ArrowDown' && !this.state.showPicker) {
             e.preventDefault();
             this.togglePicker();
@@ -591,11 +613,10 @@ export class ClCalendar extends Component {
                         <small class="error-text">${this.state.inputError}</small>
                     `)}
                 `)}
-                ${when(this.state.showPicker && !this.props.inline, html`
-                    <div class="calendar-backdrop" on-click="closePicker"></div>
-                `)}
                 ${when(this.state.showPicker, html`
-                    <div class="calendar-picker ${this.props.inline ? 'inline' : ''}" on-click="handleCalendarClick">
+                    <div class="calendar-picker ${this.props.inline ? 'inline' : ''}"
+                         popover="${this.props.inline ? undefined : 'manual'}"
+                         on-click="handleCalendarClick">
                         ${when(this.state.viewMode === 'days', html`
                             <div class="calendar-header">
                                 <button class="nav-btn" on-click="previousMonth" title="Previous month">‹</button>
@@ -766,34 +787,24 @@ export class ClCalendar extends Component {
             color: var(--error-color, #dc3545);
         }
 
-        .calendar-backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 999;
-        }
-
         .calendar-picker {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            margin-top: 4px;
+            /* Non-inline: positioned by createAnchoredOverlay (top layer).
+               inset/margin reset the UA popover defaults. */
+            inset: auto;
+            margin: 0;
+            color: inherit;   /* UA [popover] forces color:CanvasText; keep theme (dark mode) */
             background: var(--input-bg, white);
             border: 1px solid var(--input-border, #ced4da);
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             padding: 12px;
-            z-index: 1000;
             min-width: 280px;
         }
 
         .calendar-picker.inline {
             position: static;
-            margin-top: 0;
+            margin: 0;
             box-shadow: none;
-            z-index: auto;
         }
 
         .calendar-header {

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>cl-dropdown overflow anchoring fixture</title>
+    <style>
+        body { margin: 0; font-family: sans-serif; }
+
+        /* A short clipping context. A cl-dropdown whose trigger sits near the
+           bottom would, under the old position:absolute panel, be clipped at
+           this container's edge. The top-layer overlay must escape it. */
+        #clip {
+            overflow: auto;
+            height: 140px;
+            width: 320px;
+            border: 2px solid #333;
+            margin: 40px;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+        .spacer-before { height: 66px; }
+
+        /* Pushes the second dropdown near the viewport bottom (viewport is
+           1400x900 in the harness) so it must flip upward. */
+        .flip-zone { margin: 0 0 40px 40px; width: 320px; padding-top: 760px; }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <script type="module">
+        import { defineComponent, html, Component } from '/lib/framework.js';
+        import '/ui/selection/dropdown.js';
+
+        const OPTIONS = [
+            { label: 'Apple', value: 'apple' },
+            { label: 'Banana', value: 'banana' },
+            { label: 'Cherry', value: 'cherry' },
+            { label: 'Date', value: 'date' },
+            { label: 'Elderberry', value: 'elderberry' },
+            { label: 'Fig', value: 'fig' },
+            { label: 'Grape', value: 'grape' }
+        ];
+
+        class TestRoot extends Component {
+            constructor(props) {
+                super(props);
+                this.state = { clipped: null, flipped: null };
+            }
+            template() {
+                return html`
+                    <div id="clip">
+                        <div class="spacer-before"></div>
+                        <cl-dropdown class="clipped-dd"
+                            options="${OPTIONS}"
+                            value="${this.state.clipped}"
+                            placeholder="Pick fruit"
+                            on-change="${(e) => { this.state.clipped = e.detail.value; }}">
+                        </cl-dropdown>
+                    </div>
+                    <div class="flip-zone">
+                        <cl-dropdown class="flip-dd"
+                            options="${OPTIONS}"
+                            value="${this.state.flipped}"
+                            placeholder="Pick fruit (flip)"
+                            on-change="${(e) => { this.state.flipped = e.detail.value; }}">
+                        </cl-dropdown>
+                    </div>
+                `;
+            }
+        }
+        defineComponent('test-root', TestRoot);
+
+        const root = document.createElement('test-root');
+        document.getElementById('app').appendChild(root);
+    </script>
+</body>
+</html>

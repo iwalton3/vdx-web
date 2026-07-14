@@ -2466,6 +2466,15 @@ function bundleAll(verbose) {
     );
     console.log(`  \u2713 gestures.js (${(gesturesSizes.minified / 1024).toFixed(2)} KB) + .map`);
 
+    // === 7. Process overlay.js ===
+    console.log('\n=== overlay.js ===');
+    const overlaySizes = processSimpleFile(
+        path.join(baseDir, 'lib', 'overlay.js'),
+        path.join(distDir, 'overlay.js'),
+        version
+    );
+    console.log(`  \u2713 overlay.js (${(overlaySizes.minified / 1024).toFixed(2)} KB) + .map`);
+
     // Summary
     console.log('\n=== Summary ===');
     console.log(`  Output directory: ${distDir}`);
@@ -2476,6 +2485,7 @@ function bundleAll(verbose) {
     console.log('    opt.js + opt.js.map');
     console.log('    windowing.js + windowing.js.map');
     console.log('    gestures.js + gestures.js.map');
+    console.log('    overlay.js + overlay.js.map');
     console.log('\n  Source maps contain embedded readable source for debugging.');
     console.log('\n✓ Done!\n');
 }

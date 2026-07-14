@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Popover-family overflow anchoring fixture</title>
+    <style>
+        body { margin: 0; font-family: sans-serif; }
+        /* Each overlay lives near the bottom of a short clipping context; under
+           the old position:absolute panels they'd be cut off here. */
+        .clip {
+            overflow: auto;
+            height: 120px;
+            width: 300px;
+            border: 2px solid #333;
+            margin: 24px;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+        .spacer { height: 48px; }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <script type="module">
+        import { defineComponent, html, Component } from '/lib/framework.js';
+        import '/ui/all.js';
+
+        const OPTS = [
+            { label: 'Apple', value: 'apple' },
+            { label: 'Banana', value: 'banana' },
+            { label: 'Cherry', value: 'cherry' },
+            { label: 'Date', value: 'date' }
+        ];
+        const ACTIONS = [
+            { label: 'Edit', action: () => {} },
+            { label: 'Delete', danger: true, action: () => {} }
+        ];
+
+        class TestRoot extends Component {
+            constructor(props) {
+                super(props);
+                this.state = { ms: [], ac: '', cal: '' };
+            }
+            template() {
+                return html`
+                    <div class="clip"><div class="spacer"></div>
+                        <cl-multiselect class="ms" options="${OPTS}" value="${this.state.ms}"
+                            on-change="${(e) => { this.state.ms = e.detail.value; }}"></cl-multiselect>
+                    </div>
+                    <div class="clip"><div class="spacer"></div>
+                        <cl-autocomplete class="ac" suggestions="${OPTS}" minlength="${1}"
+                            delay="${0}" value="${this.state.ac}"></cl-autocomplete>
+                    </div>
+                    <div class="clip"><div class="spacer"></div>
+                        <cl-calendar class="cal" value="${this.state.cal}"
+                            on-change="${(e) => { this.state.cal = e.detail.value; }}"></cl-calendar>
+                    </div>
+                    <div class="clip"><div class="spacer"></div>
+                        <cl-popover class="pop" position="bottom">
+                            <button>Open popover</button>
+                            <div slot="content">Popover body content here</div>
+                        </cl-popover>
+                    </div>
+                    <div class="clip"><div class="spacer"></div>
+                        <cl-tooltip class="tip" text="Tooltip text" position="top">
+                            <button>Hover me</button>
+                        </cl-tooltip>
+                    </div>
+                    <div class="clip"><div class="spacer"></div>
+                        <cl-action-menu class="am" label="Actions" items="${ACTIONS}"></cl-action-menu>
+                    </div>
+                `;
+            }
+        }
+        defineComponent('test-root', TestRoot);
+        document.getElementById('app').appendChild(document.createElement('test-root'));
+    </script>
+</body>
+</html>

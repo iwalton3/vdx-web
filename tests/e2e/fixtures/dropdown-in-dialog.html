@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>cl-dropdown inside cl-dialog fixture</title>
+</head>
+<body>
+    <div id="app"></div>
+    <script type="module">
+        import { defineComponent, html, Component } from '/lib/framework.js';
+        import '/ui/overlay/dialog.js';
+        import '/ui/selection/dropdown.js';
+
+        const OPTIONS = [
+            { label: 'Apple', value: 'apple' },
+            { label: 'Banana', value: 'banana' },
+            { label: 'Cherry', value: 'cherry' },
+            { label: 'Date', value: 'date' },
+            { label: 'Elderberry', value: 'elderberry' }
+        ];
+
+        class TestRoot extends Component {
+            constructor(props) {
+                super(props);
+                this.state = { visible: true, picked: null };
+            }
+            template() {
+                return html`
+                    <cl-dialog
+                        header="Resolve"
+                        visible="${this.state.visible}"
+                        on-change="${(e) => { this.state.visible = e.detail.value; }}">
+                        <p>Choose a fruit near the bottom of the dialog body:</p>
+                        <div style="height: 40px"></div>
+                        <cl-dropdown class="dialog-dd"
+                            filter="${true}"
+                            options="${OPTIONS}"
+                            value="${this.state.picked}"
+                            placeholder="Pick fruit"
+                            on-change="${(e) => { this.state.picked = e.detail.value; }}">
+                        </cl-dropdown>
+                    </cl-dialog>
+                `;
+            }
+        }
+        defineComponent('test-root', TestRoot);
+        document.getElementById('app').appendChild(document.createElement('test-root'));
+    </script>
+</body>
+</html>

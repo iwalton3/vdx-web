@@ -11,6 +11,7 @@
  * Emits 'popover-toggle' with detail { open }.
  */
 import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { createAnchoredOverlay } from '../../lib/overlay.js';
 
 /**
  * @fires popover-toggle - detail: { open }
@@ -28,28 +29,34 @@ export class ClPopover extends Component {
         super(props);
 
         this.state = { open: false };
-    }
 
-    mounted() {
-        this._onKey = (e) => {
-            if (e.key === 'Escape' && this.state.open) this.hide();
-        };
-        document.addEventListener('keydown', this._onKey);
+        // Top-layer anchored overlay - escapes ancestor overflow/transform
+        // clipping and owns outside-click + Escape dismissal.
+        this._overlay = createAnchoredOverlay(this, {
+            anchor: () => this.querySelector('.popover-trigger'),
+            panel: () => this.querySelector('.popover-panel'),
+            placement: () => `${this.props.position}-${this.props.align}`,
+            offset: 8,
+            onDismiss: () => this.hide()
+        });
     }
 
     unmounted() {
-        document.removeEventListener('keydown', this._onKey);
+        this._overlay.destroy();
         if (this._leaveTimer) clearTimeout(this._leaveTimer);
     }
 
-    show() {
+    async show() {
         if (this.props.disabled || this.state.open) return;
         this.state.open = true;
         this._emit();
+        await this.nextRender();
+        if (this.state.open) this._overlay.open();
     }
 
     hide() {
         if (!this.state.open) return;
+        this._overlay.close();  // hidePopover before the branch unmounts
         this.state.open = false;
         this._emit();
     }
@@ -86,19 +93,17 @@ export class ClPopover extends Component {
 
     template() {
         const content = (this.props.slots && this.props.slots.content) || [];
-        const panelClasses = `popover-panel pos-${this.props.position} align-${this.props.align}`;
 
         return html`
             <div
                 class="cl-popover-wrapper"
-                on-click-outside="hide"
                 on-mouseenter="onEnter"
                 on-mouseleave="onLeave">
                 <div class="popover-trigger" on-click="onTriggerClick">
                     ${this.props.children}
                 </div>
                 ${when(this.state.open, html`
-                    <div class="${panelClasses}" role="dialog" on-click="onContentClick">
+                    <div class="popover-panel" popover="manual" role="dialog" on-click="onContentClick">
                         ${content}
                     </div>
                 `)}
@@ -117,8 +122,12 @@ export class ClPopover extends Component {
         .popover-trigger { display: inline-block; }
 
         .popover-panel {
-            position: absolute;
-            z-index: 1250;
+            /* Positioned by createAnchoredOverlay (top layer). inset/margin reset
+               the UA popover defaults; placement is written inline. */
+            inset: auto;
+            margin: 0;
+            color: inherit;   /* UA [popover] forces color:CanvasText; keep theme (dark mode) */
+            box-sizing: border-box;
             min-width: 160px;
             background: var(--card-bg, #fff);
             border: 1px solid var(--input-border, #dee2e6);
@@ -132,29 +141,6 @@ export class ClPopover extends Component {
             from { opacity: 0; transform: translateY(-2px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
-        /* Centered panels position via translateX(-50%); the entry animation must
-           keep that offset or the panel jumps to center only after it finishes. */
-        @keyframes cl-popover-in-center {
-            from { opacity: 0; transform: translate(-50%, -2px); }
-            to { opacity: 1; transform: translate(-50%, 0); }
-        }
-
-        /* Vertical placement */
-        .pos-bottom { top: 100%; margin-top: 8px; }
-        .pos-top { bottom: 100%; margin-bottom: 8px; }
-
-        .pos-bottom.align-start, .pos-top.align-start { left: 0; }
-        .pos-bottom.align-end, .pos-top.align-end { right: 0; }
-        .pos-bottom.align-center, .pos-top.align-center {
-            left: 50%;
-            transform: translateX(-50%);
-            animation-name: cl-popover-in-center;
-        }
-
-        /* Horizontal placement */
-        .pos-right { left: 100%; top: 0; margin-left: 8px; }
-        .pos-left { right: 100%; top: 0; margin-right: 8px; }
     `
 }
 
