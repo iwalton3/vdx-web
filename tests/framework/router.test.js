@@ -585,6 +585,41 @@ describe('Router Wildcard Parameters', function(it) {
         router.destroy();
     });
 
+    it('binds a wildcard that follows a named param to the correct names', async () => {
+        // Regression: param names were collected in two passes (all :name*
+        // wildcards first, then all :name single segments), desyncing the name
+        // order from the capture-group order and swapping the values.
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/u/:universe/tree/:path*/': { component: 'outline-page' }
+        });
+
+        router.navigate('/u/demo/tree/transcript-list.js/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const currentRoute = router.currentRoute.state;
+        assert.equal(currentRoute.component, 'outline-page', 'Should match the wildcard route');
+        assert.equal(currentRoute.params.universe, 'demo', ':universe should bind the first segment');
+        assert.equal(currentRoute.params.path, 'transcript-list.js', ':path* should bind the trailing segments');
+        router.destroy();
+    });
+
+    it('binds multiple named params around a wildcard in positional order', async () => {
+        const router = new Router({
+            '/': { component: 'home-page' },
+            '/a/:one/b/:two/c/:rest*/': { component: 'multi-page' }
+        });
+
+        router.navigate('/a/x/b/y/c/deep/nested/path/');
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const params = router.currentRoute.state.params;
+        assert.equal(params.one, 'x', ':one binds first segment');
+        assert.equal(params.two, 'y', ':two binds second named segment');
+        assert.equal(params.rest, 'deep/nested/path', ':rest* binds trailing wildcard');
+        router.destroy();
+    });
+
     it('substitutes multi-segment capture into redirect $1', async () => {
         const router = new Router({
             '/': { component: 'home-page' },

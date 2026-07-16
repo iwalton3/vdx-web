@@ -6,7 +6,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { html, when, each, memoEach, reactive, flushRenders, defineComponent, contain } from '../../lib/framework.js';
+import { html, raw, when, each, memoEach, reactive, flushRenders, defineComponent, contain } from '../../lib/framework.js';
 import { compileTemplate } from '../../lib/core/template-compiler.js';
 import {
     instantiateTemplate,
@@ -1664,6 +1664,99 @@ describe('Fine-Grained Renderer - SVG Namespace', function(it) {
         assert.ok(path, 'Path element should still exist after toggle');
         assert.equal(path.namespaceURI, SVG_NS, 'Path should still have SVG namespace (down arrow)');
         assert.ok(path.getAttribute('d').includes('8.59'), 'Should show down arrow path');
+
+        cleanup();
+    });
+
+    it('renders raw() SVG children in the SVG namespace', async () => {
+        // raw() parses via <template>.innerHTML, which is HTML-namespace. Inside
+        // an <svg> the parsed children must be re-namespaced or they never paint.
+        const template = () => html`
+            <svg viewBox="0 0 100 100" width="90" height="90">
+                ${raw('<circle cx="50" cy="50" r="40" fill="deepskyblue"></circle>')}
+            </svg>
+        `;
+
+        const { compiled } = compile`${template()}`;
+        const container = document.createElement('div');
+        const { fragment, cleanup } = instantiateTemplate(
+            compiled,
+            [createValueGetter(template)],
+            null
+        );
+        container.appendChild(fragment);
+        await waitForEffects();
+
+        const circle = container.querySelector('svg circle');
+        assert.ok(circle, 'raw() circle should exist in the DOM');
+        assert.equal(circle.namespaceURI, SVG_NS, 'raw() circle should have SVG namespace');
+
+        cleanup();
+    });
+
+    it('renders a multi-root static SVG fragment interpolation in the SVG namespace', async () => {
+        // An interpolated static html`` fragment with several top-level SVG
+        // elements clones to a DocumentFragment (nodeType 11, not ELEMENT_NODE).
+        // The namespace correction must handle the fragment, not just element roots.
+        const template = () => html`
+            <svg viewBox="0 0 100 100" width="90" height="90">
+                ${html`<circle cx="30" cy="50" r="15" fill="gold"></circle><rect x="60" y="35" width="30" height="30" fill="tomato"></rect>`}
+            </svg>
+        `;
+
+        const { compiled } = compile`${template()}`;
+        const container = document.createElement('div');
+        const { fragment, cleanup } = instantiateTemplate(
+            compiled,
+            [createValueGetter(template)],
+            null
+        );
+        container.appendChild(fragment);
+        await waitForEffects();
+
+        const circle = container.querySelector('svg circle');
+        const rect = container.querySelector('svg rect');
+        assert.ok(circle, 'circle from multi-root fragment should exist');
+        assert.ok(rect, 'rect from multi-root fragment should exist');
+        assert.equal(circle.namespaceURI, SVG_NS, 'circle should have SVG namespace');
+        assert.equal(rect.namespaceURI, SVG_NS, 'rect should have SVG namespace');
+
+        cleanup();
+    });
+
+    it('renders each() data-driven SVG children in the SVG namespace', async () => {
+        // each() is the supported way to render data-driven SVG children.
+        // Its keyed-list path must thread SVG context into every item.
+        const state = reactive({ points: [20, 50, 80] });
+
+        const template = () => html`
+            <svg viewBox="0 0 100 100" width="90" height="90">
+                ${each(state.points, (x, i) => html`<circle cx="${x}" cy="50" r="8" fill="gold"></circle>`, (x) => x)}
+            </svg>
+        `;
+
+        const { compiled } = compile`${template()}`;
+        const container = document.createElement('div');
+        const { fragment, cleanup } = instantiateTemplate(
+            compiled,
+            [createValueGetter(template)],
+            null
+        );
+        container.appendChild(fragment);
+        await waitForEffects();
+
+        let circles = container.querySelectorAll('svg circle');
+        assert.equal(circles.length, 3, 'each() should render one circle per data point');
+        for (const c of circles) {
+            assert.equal(c.namespaceURI, SVG_NS, 'each() circle should have SVG namespace');
+        }
+
+        // Reactively add a point - the new item must also be SVG-namespaced
+        state.points = [20, 50, 80, 95];
+        await waitForEffects();
+        circles = container.querySelectorAll('svg circle');
+        assert.equal(circles.length, 4, 'each() should render the added circle');
+        assert.equal(circles[3].namespaceURI, SVG_NS, 'newly-added each() circle should have SVG namespace');
 
         cleanup();
     });

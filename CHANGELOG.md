@@ -37,6 +37,26 @@ you have.
 - **Dark mode**: overlay panels no longer render black text. Promoting a panel to
   a popover makes the UA `[popover]` rule force `color: CanvasText`, overriding
   the inherited theme color; panels now set `color: inherit` to restore it.
+- **Dynamic SVG children now render in the SVG namespace.** Static SVG already
+  worked, but children produced dynamically inside an `<svg>` were built in the
+  HTML namespace and never painted:
+  - `raw('<circle .../>')` inside an `<svg>` parsed via `<template>.innerHTML`
+    (HTML namespace) and inserted non-painting `HTMLUnknownElement`s. `raw()`
+    fragments are now re-namespaced when they land in SVG context.
+  - A multi-root static `html\`\`` fragment interpolated into an `<svg>` (several
+    top-level SVG elements) clones to a `DocumentFragment`, which the
+    namespace-correction guard skipped — only single-element roots were fixed.
+    The guard and `fixSvgNamespace` now handle fragments too.
+  - `each(items, item => html\`<circle .../>\`)` is the supported way to render
+    data-driven SVG children and paints correctly (a bare `.map()` in a slot
+    still throws the `each()` guard added in 1.1.0).
+- **Router: a `:param*` wildcard following a named param no longer swaps values.**
+  Route patterns like `/u/:universe/tree/:path*/` collected param names in two
+  passes (all wildcards, then all single segments), desyncing the name order from
+  the regex capture-group order — `#/u/demo/tree/file.js/` bound
+  `{ universe: 'file.js', path: 'demo' }`. Compilation now scans params
+  left-to-right in a single pass, so names line up with their capture groups
+  (`{ universe: 'demo', path: 'file.js' }`).
 
 ## 1.1.0 — 2026-07-13
 
