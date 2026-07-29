@@ -58,8 +58,10 @@ describe('Template Security', function(it) {
         const result = html`<a href="${maliciousUrl}">Link</a>`;
         const str = renderToString(result);
         assert.ok(!str.includes('javascript:'), 'Should block javascript: URLs');
-        // Both href="" (compiled) or absence of href (string-based) are acceptable
-        assert.ok(str.includes('href=""') || !str.match(/href="[^"]"/), 'Should sanitize href');
+        // Blocked URLs become about:blank, not '': an empty href resolves to the
+        // current document, so a blocked link would reload the page (or re-enter
+        // its own document inside a frame) instead of going nowhere.
+        assert.ok(str.includes('href="about:blank"'), 'Blocked href should be about:blank');
     });
 
     it('sanitizes URLs in src', () => {
@@ -156,11 +158,187 @@ describe('Template Security', function(it) {
         assert.ok(str.includes('true') || str.includes('false') || str.includes('42'), 'Should handle primitive values');
     });
 
-    it('decodes HTML entities in URL detection', () => {
-        const encodedJs = 'javascript&#58;alert(1)';
-        const result = html`<a href="${encodedJs}">Link</a>`;
-        const str = renderToString(result);
-        assert.ok(!str.includes('javascript'), 'Should detect encoded javascript:');
+    it('leaves HTML-entity-encoded schemes inert without decoding them', () => {
+        // Replaces an older test that asserted these were decoded and blocked.
+        // URLs are set as attributes/properties and never re-parsed as HTML, so
+        // '&#58;' stays five literal characters and never becomes a colon --
+        // there is no scheme here, just an odd relative path. Decoding a fixed
+        // entity list was defense against a parser that isn't in the path, and
+        // was incomplete regardless ('&#058;' and '&#x003a;' also mean ':').
+        const BASE = 'https://app.example.com/dir/page';
+        const encoded = [
+            'javascript&#58;alert(1)',
+            'javascript&#x3a;alert(1)',
+            'javascript&colon;alert(1)',
+            'javascript&#058;alert(1)',    // leading zero - never matched the old list
+            'javascript&#x003a;alert(1)',  // padded hex - never matched the old list
+        ];
+        for (const url of encoded) {
+            const container = document.createElement('div');
+            renderTemplate(html`<a href="${url}">Link</a>`, container);
+            const attr = container.querySelector('a').getAttribute('href');
+            const resolved = new URL(attr, BASE);
+            assert.equal(resolved.protocol, 'https:',
+                `${JSON.stringify(url)} should stay an inert relative path`);
+            assert.equal(resolved.host, 'app.example.com',
+                `${JSON.stringify(url)} should stay on the document origin`);
+        }
+    });
+
+    it('returns about:blank for blocked URLs but empty for absent ones', () => {
+        // The distinction matters: about:blank is the inert replacement for a
+        // URL we refused, but an author who bound nothing should get no
+        // attribute at all -- not a navigable about:blank.
+        const blocked = ['javascript:alert(1)', 'vbscript:msgbox(1)', 'data:text/html,x'];
+        for (const url of blocked) {
+            const container = document.createElement('div');
+            renderTemplate(html`<a href="${url}">Link</a>`, container);
+            assert.equal(container.querySelector('a').getAttribute('href'), 'about:blank',
+                `${JSON.stringify(url)} should be replaced with about:blank`);
+        }
+        for (const url of ['', null, undefined]) {
+            const container = document.createElement('div');
+            renderTemplate(html`<a href="${url}">Link</a>`, container);
+            const attr = container.querySelector('a').getAttribute('href');
+            assert.ok(attr === null || attr === '',
+                `${JSON.stringify(url)} should not become about:blank (got ${JSON.stringify(attr)})`);
+        }
+    });
+
+    // --- C0-control scheme obfuscation ---------------------------------
+    // The URL spec strips ALL leading C0-control-or-space (U+0000-U+0020)
+    // before parsing, but JS `\s` only covers \t\n\v\f\r. If sanitizeUrl
+    // relied on `\s` alone to strip whitespace, "\x01javascript:alert(1)"
+    // would fail the scheme regex (doesn't start with [a-zA-Z]), be
+    // classified as a harmless relative URL, and pass through -- then the
+    // browser would strip the \x01 and execute it. normalizeInput() strips
+    // the C0 range up front, which is what closes this. These tests pin
+    // that down per byte so it can't regress invisibly.
+
+    // Render an href and ask the browser what it actually resolves to.
+    // Using the real URL parser (rather than string matching) means the
+    // assertion holds regardless of which characters the parser chooses to
+    // strip or normalize.
+    function resolvedProtocol(url) {
+        const container = document.createElement('div');
+        renderTemplate(html`<a href="${url}">Link</a>`, container);
+        const attr = container.querySelector('a').getAttribute('href');
+        // null/'' = attribute dropped; about:blank = blocked sentinel. All inert.
+        if (attr === null || attr === '' || attr === 'about:blank') return null;
+        try {
+            return new URL(attr, document.baseURI).protocol;
+        } catch {
+            return null;  // unparseable == not navigable
+        }
+    }
+
+    it('blocks "\\x01javascript:alert(1)" (leading C0 control hides the scheme)', () => {
+        assert.equal(resolvedProtocol('\x01javascript:alert(1)'), null,
+            'Leading \\x01 must not smuggle javascript: past the scheme check');
+    });
+
+    it('blocks javascript: behind every leading C0 control byte', () => {
+        // 0x00-0x1F, plus space and DEL. \t\n\v\f\r are covered by `\s`;
+        // 0x00-0x08 and 0x0E-0x1F are the range `\s` misses.
+        for (let code = 0x00; code <= 0x20; code++) {
+            const url = String.fromCharCode(code) + 'javascript:alert(1)';
+            assert.notEqual(resolvedProtocol(url), 'javascript:',
+                `Leading \\x${code.toString(16).padStart(2, '0')} must not yield a javascript: URL`);
+        }
+        // DEL is not stripped by the URL parser, so it stays a relative
+        // path -- but assert it never resolves to javascript: either.
+        assert.notEqual(resolvedProtocol('\x7fjavascript:alert(1)'), 'javascript:',
+            'Leading \\x7f must not yield a javascript: URL');
+    });
+
+    it('blocks C0 controls embedded inside the scheme', () => {
+        const payloads = [
+            'java\x01script:alert(1)',      // mid-scheme
+            'javascript\x01:alert(1)',      // before the colon
+            'javascript:\x01alert(1)',      // after the colon
+            '\x01\x02\x03javascript:alert(1)',  // several leading controls
+            '\x0Bjavascript:alert(1)',      // vertical tab (in `\s`)
+            '\x0Cjavascript:alert(1)',      // form feed (in `\s`)
+        ];
+        for (const url of payloads) {
+            assert.notEqual(resolvedProtocol(url), 'javascript:',
+                `Should block ${JSON.stringify(url)}`);
+        }
+    });
+
+    it('strips leading C0 controls without breaking safe URLs', () => {
+        // Guards against over-correcting: a fix that blocks anything
+        // containing a control char would break legitimate input.
+        const container = document.createElement('div');
+        renderTemplate(html`<a href="${'\x01\x02https://example.com/ok'}">Link</a>`, container);
+        assert.equal(container.querySelector('a').getAttribute('href'), 'https://example.com/ok',
+            'Leading controls should be stripped, leaving the safe URL intact');
+    });
+
+    // --- "no scheme" is not "same origin" ------------------------------
+    // Canary, not a vulnerability report. URL sanitization answers "can this
+    // execute code", not "where does this point" -- it allows http/https to any
+    // host, so 'https://evil.com' is a legitimate pass and origin is out of
+    // scope by construction. These host-swap forms therefore pass by design.
+    // What this pins down is that they are NOT relative: if anything later
+    // wants a same-origin guarantee, it must compare resolved origins rather
+    // than test for a missing scheme, and these are the cases that would slip
+    // through the latter.
+    it('documents that scheme-less URLs can still resolve cross-origin', () => {
+        const BASE = 'https://app.example.com/dir/page';
+        const hostSwaps = [
+            '//evil.com/x',      // protocol-relative
+            '\\\\evil.com/x',    // both slashes folded  (\\evil.com/x)
+            '/\\evil.com/x',     // mixed                (/\evil.com/x)
+            '\\/evil.com/x',     // mixed                (\/evil.com/x)
+        ];
+        for (const url of hostSwaps) {
+            const container = document.createElement('div');
+            renderTemplate(html`<a href="${url}">Link</a>`, container);
+            const attr = container.querySelector('a').getAttribute('href');
+            assert.ok(attr, `${JSON.stringify(url)} is expected to pass sanitizeUrl`);
+            // The scheme is safe...
+            assert.equal(new URL(attr, BASE).protocol, 'https:',
+                `${JSON.stringify(url)} must not yield a script-capable scheme`);
+            // ...but the host is NOT ours. This is the trap.
+            assert.equal(new URL(attr, BASE).host, 'evil.com',
+                `${JSON.stringify(url)} resolves cross-origin - do not treat ` +
+                `"no scheme" as "same origin"`);
+        }
+    });
+
+    it('keeps genuinely relative URLs on the document origin', () => {
+        const BASE = 'https://app.example.com/dir/page';
+        // The contrast case: these really are relative, and stay same-origin.
+        for (const url of ['relative/path', '/abs/path', '../up', '#frag', '?q=1']) {
+            const container = document.createElement('div');
+            renderTemplate(html`<a href="${url}">Link</a>`, container);
+            const attr = container.querySelector('a').getAttribute('href');
+            assert.equal(new URL(attr, BASE).host, 'app.example.com',
+                `${JSON.stringify(url)} should stay on the document origin`);
+        }
+    });
+
+    it('does not let a percent-encoded scheme through as a relative URL', () => {
+        // The URL parser does not percent-decode the scheme, so these stay
+        // inert paths rather than becoming javascript:. Pinning it down because
+        // a well-meaning "decode before checking" change would break it.
+        const payloads = [
+            '%6a%61%76%61%73%63%72%69%70%74:alert(1)',
+            'javascript%3aalert(1)',
+            'java%09script:alert(1)',
+            'java%0ascript:alert(1)',
+            ':alert(1)',
+            '://evil.com',
+        ];
+        for (const url of payloads) {
+            const container = document.createElement('div');
+            renderTemplate(html`<a href="${url}">Link</a>`, container);
+            const attr = container.querySelector('a').getAttribute('href');
+            const proto = attr ? new URL(attr, 'https://app.example.com/dir/page').protocol : null;
+            assert.notEqual(proto, 'javascript:',
+                `${JSON.stringify(url)} must not resolve to javascript:`);
+        }
     });
 
     it('handles boolean true in boolean attributes', () => {

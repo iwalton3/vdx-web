@@ -109,7 +109,7 @@ describe('Template Compiler', function(it) {
         renderToContainer(compiled, ['javascript:alert(1)'], container);
 
         const a = container.querySelector('a');
-        assert.equal(a.getAttribute('href'), '', 'Should sanitize javascript: URL');
+        assert.equal(a.getAttribute('href'), 'about:blank', 'Should sanitize javascript: URL');
     });
 
     it('detects custom element attributes', () => {
@@ -237,7 +237,7 @@ describe('Template Value Application', function(it) {
         renderToContainer(compiled, ['javascript:alert(1)'], container);
 
         const a = container.querySelector('a');
-        assert.equal(a.getAttribute('href'), '', 'Should block javascript: URL');
+        assert.equal(a.getAttribute('href'), 'about:blank', 'Should block javascript: URL');
     });
 
     it('allows safe URL schemes', () => {
