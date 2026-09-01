@@ -31,6 +31,22 @@ class EventsChapter extends TutChapter {
                 uses <code>on-submit-prevent</code> so it never reloads the page.
             </p>
 
+            <div class="callout banned">
+                <strong>Banned:</strong> inline DOM handlers. The two forms fail differently.
+                <code>onclick="\${this.fn}"</code> is refused at render — you get a console
+                warning and a button that does nothing. <code>onclick="doThing()"</code> is
+                worse: fully static markup is built by a compile-time path with no such guard,
+                so it reaches the DOM and <em>runs</em>, outside the framework and outside your
+                CSP, with nothing logged. There is
+                also no Lit/Vue sugar: <code>@click</code>, <code>?disabled</code>,
+                <code>.value</code> and <code>:href</code> all <strong>throw</strong> at parse
+                time — VDX keeps the sigil in the attribute name. Write
+                <code>on-click="handler"</code>, <code>disabled="\${cond}"</code>,
+                <code>value="\${v}"</code>, <code>href="\${u}"</code>.
+                <span class="lint">Caught statically by <code>t10-inline-events</code> and
+                <code>t7-binding</code> — see chapter 13.</span>
+            </div>
+
             <tut-live-example
                 title="A todo input"
                 base="/site/tutorial/examples/events"

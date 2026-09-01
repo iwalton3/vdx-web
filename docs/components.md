@@ -407,6 +407,12 @@ afterRender() {
 }
 ```
 
+Stringifying hands the child a string it has to parse back and defeats
+reference-based change detection; the bound copy is a *different* function from
+`this.handleRender`, so `removeEventListener(..., this.handleRender)` would miss
+it. The `t11-attr-stringify` and `t12-manual-bind` lint checks flag both — see
+[Banned Patterns](tutorial.md#banned-patterns) for the full list.
+
 ## Children Props (React-style Composition)
 
 The framework supports **React-style children props** for component composition. This enables powerful component composition patterns.

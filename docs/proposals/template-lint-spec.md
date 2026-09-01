@@ -318,3 +318,68 @@ All remaining checks landed. Deviations from and refinements to the spec:
 **Follow-ups (not in scope here):** add `@fires` JSDoc to componentlib components so T6 has
 corpus surface; port the lint + the maskStringsAndComments fix to the mrepo copies of
 optimize.js; the serialized registry is the input for a future editor/LSP plugin.
+
+
+## 13. T7-T12 implementation notes (2026-09-01)
+
+The spec above stops at T6. Six further checks landed after it, all covering
+patterns FRAMEWORK.md already listed as banned but nothing enforced:
+
+- **T7 `t7-binding`** (error) — Lit/Vue sigils `?attr` / `@evt` / `.prop` / `:attr`.
+  The runtime parser throws on these, but lazily (first render of that template);
+  the templates are parsed in **tolerant mode** so the sigil attribute survives
+  to the check instead of aborting the whole file.
+- **T8 `t8-list-control`** (error/warn) — a raw `.map()` returning html`` in a
+  content slot (error); a ternary / `&&` / `||` returning html`` (warn). Only
+  `${}` whose expression contains a nested html`` literal is considered, so
+  `${this.renderRow()}` and `.map(...).join(', ')` stay silent.
+- **T9 `t9-list-item`** (error) — `contain()` / `memoEach()` / a bare string as a
+  whole `each()`/`memoEach()` item template. Structural, not regex: the masked
+  source is scanned for `each(`/`memoEach(` callees, `callArgRanges` splits the
+  top-level arguments, and only argument 2's arrow **body prefix** is examined.
+  That is what keeps `contain(() => memoEach(...))` — legal, and common — from
+  being flagged. `when()` as a whole item is deliberately allowed:
+  `toKeyedChild` resolves it to the branch template.
+- **T10 `t10-inline-events`** (error) — `on<event>=` attributes, where `<event>`
+  must be in the existing `NATIVE_EVENTS` set (so `once=`, `online=` and friends
+  stay silent). The dynamic `onclick="${fn}"` form is the sharper half: functions
+  are not attribute values, so the renderer drops it without a word.
+- **T11 `t11-attr-stringify`** (warn) — `JSON.stringify()` bound to a component
+  prop. Driven off the PARSE TREE, not text: the framework's parser already
+  marks a prop binding `context: 'custom-element-attr'` and carries its slot
+  index, which indexes straight into `tpl.exprs`. A first cut recovered the
+  attribute name by scanning backwards from the expression and flagged
+  `title="${JSON.stringify(x)}"` on a native `<pre>` — where an attribute IS a
+  string and stringifying is correct. `data-*` / `json-*` stay skipped.
+- **T12 `t12-manual-bind`** (warn) — `this.X.bind(this)` inside a component body.
+  Source-level, not template-level, so it runs after the template loop over each
+  component's masked body. Requires `harvest.methods.has(X)`: only methods are
+  auto-bound onto the element. A function-valued class FIELD lands unbound, so
+  binding it is necessary — the first cut flagged that, and an unresolvable name
+  now gets the benefit of the doubt (opaque components are skipped entirely).
+  Bound copies of non-members (`helper.bind(this)`) do not match.
+
+**`maskStringsAndComments` fix that came out of this round**: both scanners
+track a single previous significant character to decide whether `/` starts a
+regex, so `n++ / 2` left a bare `+` behind — in `REGEX_PREV_CHARS` — and the
+rest of the line was blanked as a regex body. `followsIncrementDecrement()`
+looks back for the `++`/`--` pair instead of threading a second character
+through every assignment site. This silently suppressed T3/T9/T12 on any
+component containing such an expression. **Port to the mrepo copies of
+optimize.js along with the lint.**
+
+The file-level `maskStringsAndComments` result is memoized on first use
+(`masked()`), shared by T3, T9 and T12; a mask failure makes those checks silent
+rather than guessing.
+
+T9 also has to dedupe by call position: `findTemplates` yields nested html``
+literals as templates of their own, so a rule that scans a template's whole
+source range sees an inner `each(` once per enclosing template. The fixture
+harness now fails a line reported more than once, so this cannot regress.
+
+**Acceptance**: fixtures 84 assertions across 18 files; corpus over
+`lib ui site examples` clean apart from one true positive (a redundant
+`.bind(this)` in `examples/personal/components/virtual-list.js`, fixed).
+External corpora: `/working/mrepo-web/frontend` (two real `t12` hits — bound
+copies rebuilt in `afterRender`, see below) and codemap's `web/` (clean apart
+from pre-existing `t8` warns).

@@ -173,11 +173,36 @@ template() {
     return html`<button onclick="handleClick()">Click</button>`;
 }
 
+// ❌ WRONG - refused at render by the on[a-z] security guard: you get a
+// console warning and a button that does nothing
+template() {
+    return html`<button onclick="${this.handleClick}">Click</button>`;
+}
+
 // ❌ WRONG - Don't use addEventListener in templates
 afterRender() {
     this.querySelector('button').addEventListener('click', this.handleClick);
 }
+
+// ❌ WRONG - methods are already bound onto the element, and the copy is a
+// different function, so removeEventListener(..., this.handleClick) misses it
+mounted() {
+    window.addEventListener('resize', this.handleResize.bind(this));
+}
 ```
+
+The `t10-inline-events` and `t12-manual-bind` lint checks flag the first, second
+and fourth statically — see [Banned Patterns](tutorial.md#banned-patterns).
+
+Note the asymmetry between the two `on*` forms. The dynamic one is refused at
+render. The **static** one is not: fully static markup is built by the
+compile-time static-DOM path, which applies attributes with a bare
+`setAttribute` and has no `on[a-z]` guard, so `onclick="handleClick()"` reaches
+the DOM and fires — outside the framework and outside your CSP, with nothing
+logged. That is deliberate rather than a hole: the runtime guard exists to stop
+*interpolated* values reaching a script sink, and a static attribute is markup
+the author wrote. It is still banned by convention, and lint is the only thing
+standing in front of it.
 
 ## Two-Way Data Binding (x-model)
 
@@ -587,6 +612,42 @@ Without a key function, the framework uses array index for reconciliation, which
 ${each(this.state.items.filter(item => item.active), item => html`
     <li>${item.name}</li>
 `)}
+```
+
+**What an item template may return:**
+
+An item template must return a template built with `html`, or `null`/`undefined`/`false`
+to skip the item. Anything else throws - a raw string, number, array or `raw()`
+value has no keyed placeholder, so it would render nothing at all. The
+`t9-list-item` lint check flags the common shapes statically.
+
+An `each()` violation throws from `template()`, so it reaches the component's
+`renderError()` boundary. `memoEach()` defers its item template into the slot
+effect, so the same guard surfaces through the effect error handler - the
+message is identical and lands on the console, but the error boundary does not
+fire and the list stays empty. That routing is shared by every slot-level guard
+in the framework.
+
+`when()` is fine as the whole item, in either form. `each()` resolves it to the
+branch template, so a branch flip is an ordinary item shape change and keyed
+reconciliation handles it:
+
+```javascript
+${each(rows, row => when(row.urgent,
+    () => html`<a class="pill bad" href="${row.url}">${row.label}</a>`,
+    () => html`<span class="pill">${row.label}</span>`), row => row.key)}
+```
+
+`contain()` and `memoEach()` are not - their state (the isolated effect, the
+memo cache) is owned by the slot they sit in, and an item root is not a slot.
+Give them one by wrapping the item in an element:
+
+```javascript
+// ❌ throws
+${each(sections, s => memoEach(s.rows, r => html`<b>${r}</b>`, r => r.id), s => s.id)}
+
+// ✅
+${each(sections, s => html`<div>${memoEach(s.rows, r => html`<b>${r}</b>`, r => r.id)}</div>`, s => s.id)}
 ```
 
 ### memoEach() - Memoized List Rendering

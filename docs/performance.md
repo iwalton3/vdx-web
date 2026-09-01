@@ -26,6 +26,15 @@ The framework provides a graded sequence of escape hatches. Start at the top; mo
 
 Each rung trades convenience for control. The rungs compose: a windowed list typically uses 2 + 3 + 5 together.
 
+**Give list items an element root.** `item => html\`<li>...</li>\`` is the
+cheapest item shape: the row is one node, and any slot inside it moves with it.
+An item whose root is itself a slot - `html\`${when(...)}\``, or an element
+followed by a nested `each()` - can change node count after instantiation, so
+the renderer gives it a trailing comment anchor and reads its DOM range live
+instead of caching it (`makeItemRecord` in `lib/core/template-renderer.js`).
+Correct either way, but one extra comment node per row and a short DOM walk per
+move is worth avoiding on a 10k-row list.
+
 ## Choosing a memoEach Invalidation Strategy
 
 `memoEach(array, mapFn, keyFn, options)` caches each rendered item by key and skips `mapFn` when the cached entry is still valid. "Valid" means: same key AND same item reference (or same key alone with `trustKey`). When rendering depends on more than the item object itself, you must tell the cache - state read inside `mapFn` is **not tracked** (the callback runs deferred). Pick the cheapest tool that matches your situation:

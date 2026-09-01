@@ -5,10 +5,12 @@
  *      methods (remove, append, ...) and methods colliding with prop names
  *   3. The renderer rejects a raw array of html`` templates in a slot
  *      (i.e. items.map(i => html`...`) instead of each())
+ *   4. each()/memoEach() item templates: when() resolves, contain()/memoEach()
+ *      and non-template values are refused instead of silently rendering nothing
  */
 
 import { describe, assert } from './test-runner.js';
-import { defineComponent, html, each, setEffectErrorHandler } from '../../lib/framework.js';
+import { defineComponent, html, each, memoEach, when, contain, raw, setEffectErrorHandler } from '../../lib/framework.js';
 import { instantiateTemplate } from '../../lib/core/template-renderer.js';
 
 // Slot rendering runs inside a reactive effect, so a throw there is reported
@@ -192,5 +194,111 @@ describe('Guard 3: renderer rejects a raw array of templates in a slot', functio
         const tpl = html`<div>${[1, 2, 3]}</div>`;
         const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
         assert.equal(fragment.textContent, '123', 'primitive arrays render as joined text');
+    });
+});
+
+
+describe('Guard 4: each() item templates reject values it cannot render', function(it) {
+    // Regression: a lazy directive keeps its payload on the marker and only a
+    // stub in _compiled, so each() used to flatten the item down to an empty
+    // slot - the list rendered nothing at all, with no error. when() is now
+    // resolved to its branch; contain()/memoEach() need a slot of their own and
+    // are refused.
+
+    it('renders function-form when() as an each() item', () => {
+        const rows = [{ id: 1, hot: true }, { id: 2, hot: false }];
+        const tpl = html`<ul>${each(rows, r =>
+            when(r.hot, () => html`<li class="hot">${r.id}</li>`, () => html`<li>${r.id}</li>`),
+            r => r.id)}</ul>`;
+        const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        assert.equal(fragment.querySelectorAll('li').length, 2, 'both rows render');
+        assert.equal(fragment.querySelectorAll('li.hot').length, 1, 'the true branch is used for row 1');
+    });
+
+    it('renders nested function-form when() as an each() item', () => {
+        const tpl = html`<ul>${each([1], i =>
+            when(true, () => when(true, () => html`<li>${i}</li>`)), i => i)}</ul>`;
+        const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        assert.equal(fragment.querySelectorAll('li').length, 1, 'nested when() resolves');
+    });
+
+    it('renders nothing (but keeps the key) for a when() with no matching branch', () => {
+        const tpl = html`<ul>${each([{ id: 1, show: false }], r =>
+            when(r.show, () => html`<li>${r.id}</li>`), r => r.id)}</ul>`;
+        const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        assert.equal(fragment.querySelectorAll('li').length, 0, 'no branch means no DOM');
+    });
+
+    it('resolves when() inside memoEach() items too', () => {
+        const rows = [{ id: 1, hot: true }, { id: 2, hot: false }];
+        const tpl = html`<ul>${memoEach(rows, r =>
+            when(r.hot, () => html`<li class="hot">${r.id}</li>`, () => html`<li>${r.id}</li>`),
+            r => r.id)}</ul>`;
+        const err = captureRenderError(() => {
+            const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+            assert.equal(fragment.querySelectorAll('li').length, 2, 'both rows render');
+            assert.equal(fragment.querySelectorAll('li.hot').length, 1, 'true branch used');
+        });
+        assert.ok(!err, `memoEach + when() should not error, got: ${err && err.message}`);
+    });
+
+    it('throws for a bare contain() item and points at a wrapper', () => {
+        throwsWith(
+            () => each([1], i => contain(() => html`<li>${i}</li>`), i => i),
+            'needs a slot to own',
+            'bare contain() as an item template should be rejected'
+        );
+    });
+
+    it('throws for a bare memoEach() item', () => {
+        throwsWith(
+            () => each([[1, 2]], rows => memoEach(rows, r => html`<li>${r}</li>`, r => r), (_, i) => i),
+            'memoEach() cannot be a list item template',
+            'bare memoEach() as an item template should be rejected'
+        );
+    });
+
+    it('accepts contain()/memoEach() wrapped in a template', () => {
+        const tpl = html`<ul>${each([[1, 2]], rows =>
+            html`<li>${memoEach(rows, r => html`<b>${r}</b>`, r => r)}</li>`, (_, i) => i)}</ul>`;
+        const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        assert.equal(fragment.querySelectorAll('li b').length, 2, 'wrapped memoEach renders');
+    });
+
+    it('throws for a non-template item value', () => {
+        throwsWith(
+            () => each(['a', 'b'], s => s, s => s),
+            'must return an html`` template',
+            'a bare string item should be rejected'
+        );
+        throwsWith(
+            () => each([1], i => raw('<li>x</li>'), i => i),
+            'raw() value',
+            'a raw() item should be rejected'
+        );
+    });
+
+    it('reports the same guard through the effect path for memoEach()', () => {
+        // each() runs inside template(), so its throw reaches the component's
+        // renderError() boundary. memoEach() defers mapFn into the slot effect,
+        // so the SAME guard surfaces through the effect error handler instead -
+        // console, not error boundary. Loud either way; the routing differs,
+        // which is the framework's behaviour for every slot-level guard.
+        const tpl = html`<ul>${memoEach([1], x => x, x => x)}</ul>`;
+        const err = captureRenderError(() => {
+            instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        });
+        assert.ok(err, 'the memoEach guard should raise a render error');
+        assert.ok(
+            String(err.message).includes('must return an html`` template'),
+            `effect path should carry the same message, got: ${err && err.message}`
+        );
+    });
+
+    it('still skips null/undefined/false items silently', () => {
+        const tpl = html`<ul>${each([1, 2, 3], i =>
+            i === 2 ? null : html`<li>${i}</li>`, i => i)}</ul>`;
+        const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        assert.equal(fragment.querySelectorAll('li').length, 2, 'null items are skipped, not fatal');
     });
 });

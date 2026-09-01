@@ -54,6 +54,18 @@ class PerformanceChapter extends TutChapter {
                 <a href="https://github.com/iwalton3/vdx-web/blob/main/docs/performance.md">docs/performance.md</a>.
             </p>
 
+            <div class="callout banned">
+                <strong>Banned:</strong> <code>memoEach()</code> or <code>contain()</code> as the
+                <em>whole</em> item template of a surrounding list. Both keep their state — the
+                memo cache, the isolated effect — on the slot they occupy, and a list item root is
+                not a slot, so <code>each()</code> <strong>throws</strong>. Give them one:
+                <code>section =&gt; html\`&lt;div&gt;\${memoEach(section.rows, …)}&lt;/div&gt;\`</code>.
+                An element root is the cheapest item shape anyway — a row that <em>starts</em>
+                with a slot can change node count later, so the renderer has to anchor it and
+                re-read its DOM range on every move.
+                <span class="lint">Caught statically by <code>t9-list-item</code>.</span>
+            </div>
+
             <h2>Reactive boundaries</h2>
             <p>
                 A template re-evaluates as one unit. When a high-frequency value (a timer, a

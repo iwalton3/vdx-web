@@ -67,7 +67,17 @@ export class TutChapter extends Component {
         }
         .callout.tip { border-left-color: var(--success-color, #1a7f37); background: var(--success-bg, #dafbe1); color: var(--success-text, #116329); }
         .callout.warn { border-left-color: var(--warning-color, #bf8700); background: var(--warning-bg, #fff8c5); color: var(--warning-text, #7d4e00); }
+        /* Banned pattern: not a style preference - it throws, or renders
+           silently wrong DOM. Always names what the lint check catches it. */
+        .callout.banned { border-left-color: var(--error-color, #cf222e); background: var(--error-bg, #ffe7e7); color: var(--error-text, #a40e26); }
         .callout code { background: rgba(0,0,0,0.06); }
+
+        .callout .lint {
+            display: block;
+            margin-top: 8px;
+            font-size: 0.86rem;
+            opacity: 0.85;
+        }
 
         .try {
             margin-top: 6px;

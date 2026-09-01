@@ -19,7 +19,8 @@ A hands-on guide to building reactive web applications with zero dependencies.
 13. [Advanced Patterns](#advanced-patterns)
 14. [Performance Optimization](#performance-optimization)
 15. [Best Practices](#best-practices)
-16. [The Legacy Options Format](#the-legacy-options-format)
+16. [Banned Patterns](#banned-patterns)
+17. [The Legacy Options Format](#the-legacy-options-format)
 
 ---
 
@@ -2046,6 +2047,51 @@ export const authStore = new AuthStore();
 
 // Any component can subscribe
 static stores = { auth: authStore };
+```
+
+---
+
+
+## Banned Patterns
+
+These are not style preferences — each one either **throws** or produces DOM
+that is silently wrong. The template lint catches every one of them statically:
+
+```bash
+node tools/template-lint.js ./src
+# or, as part of the optimizer
+node tools/optimize.js -i ./src --lint-only
+```
+
+| Pattern | What actually happens | Write instead | Lint |
+|---|---|---|---|
+| `${items.map(i => html\`…\`)}` | **Throws.** A raw template array builds no keyed placeholders, so the DOM desyncs the moment the list changes. | `each(items, i => html\`…\`, i => i.id)` | `t8-list-control` |
+| `${cond ? html\`a\` : html\`b\`}` | Bypasses `when()`'s stable placeholder; the branch swap has nothing to patch against. | `when(cond, html\`a\`, html\`b\`)` | `t8-list-control` |
+| `each(rows, r => contain(…))` | **Throws.** `contain()` / `memoEach()` keep their state on the slot they occupy, and a list item root is not a slot. | `each(rows, r => html\`<li>${contain(…)}</li>\`, …)` | `t9-list-item` |
+| `each(rows, r => r.name)` | **Throws.** A value with no compiled template has no keyed placeholder, so the item renders nothing at all. | `each(rows, r => html\`<li>${r.name}</li>\`, …)` | `t9-list-item` |
+| `<button onclick="fn()">` | **It works** — and that is the problem. Static markup is built by the compile-time static-DOM path, which has no `on[a-z]` guard, so the handler runs outside the framework and outside your CSP with nothing logged. | `<button on-click="fn">` | `t10-inline-events` |
+| `<button onclick="${this.fn}">` | Refused at render by the `on[a-z]` security guard: console warning, handler never binds, button does nothing. | `<button on-click="fn">` | `t10-inline-events` |
+| `<button ?disabled="${x}">`, `@click`, `.value`, `:href` | **Throws.** VDX has no Lit/Vue binding sugar; the sigil stays in the attribute name. | `disabled="${x}"`, `on-click="fn"`, `value="${v}"`, `href="${u}"` | `t7-binding` |
+| `rows="${JSON.stringify(items)}"` | The child receives a string it has to parse back, and reference-based change detection stops working. | `rows="${items}"` | `t11-attr-stringify` |
+| `this.method.bind(this)` | Redundant — methods are already bound onto the element — and the copy is a *different* function, so `removeEventListener(…, this.method)` misses it. | `this.method` | `t12-manual-bind` |
+| `remove() { … }` as a method name | **Throws at definition.** Methods are bound onto the custom element, so a structural DOM name shadows the native one and breaks teardown. | `dismiss() { … }` | — (runtime guard) |
+| Reading `this.props.x` in `propsChanged` | `this.props` may still hold the old value at that point. | Use the `newValue` parameter | — |
+
+`when()` **is** allowed as a whole `each()` item, in either form — `each()`
+resolves it to the branch template:
+
+```javascript
+${each(rows, row => when(row.urgent,
+    () => html`<a class="pill bad" href="${row.url}">${row.label}</a>`,
+    () => html`<span class="pill">${row.label}</span>`), row => row.key)}
+```
+
+Suppress a finding you have deliberately decided on with a comment on the line
+above it, naming the check:
+
+```html
+<!-- vdx-lint-disable-next-line t11-attr-stringify -->
+<div data-payload="${JSON.stringify(this.state.config)}"></div>
 ```
 
 ---

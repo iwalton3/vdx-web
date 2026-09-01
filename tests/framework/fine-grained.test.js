@@ -2381,5 +2381,180 @@ describe('Fine-Grained Renderer - Keyed Reconciliation Moves', function(it) {
     });
 });
 
+describe('Fine-Grained Renderer - when() as an each() item', function(it) {
+    const wait = () => new Promise(r => setTimeout(r, 100));
+
+    // A when() item whose branches differ in root node COUNT is the case that
+    // desyncs a keyed list if the item is left as a live slot: the list tracks
+    // a snapshot of each item's nodes, so a branch flip behind its back
+    // resurrects detached nodes on the next move. each() resolves when() to the
+    // branch template instead, so a flip is an ordinary item shape change.
+    it('keeps a keyed list consistent when a when() branch changes node count', async () => {
+        defineComponent('test-each-when-count', {
+            data() {
+                return { items: [{ id: 'a', big: false }, { id: 'b', big: false },
+                                 { id: 'c', big: false }, { id: 'd', big: false }] };
+            },
+            template() {
+                return html`<div class="list">${each(this.state.items, item =>
+                    when(item.big,
+                        () => html`<b>${item.id}</b><em>${item.id}</em>`,
+                        () => html`<span>${item.id}</span>`),
+                    item => item.id)}</div>`;
+            }
+        });
+
+        const el = document.createElement('test-each-when-count');
+        document.body.appendChild(el);
+        await wait();
+
+        const list = el.querySelector('.list');
+        const shape = () => [...list.children].map(n => n.tagName.toLowerCase() + ':' + n.textContent).join(' ');
+        assert.equal(shape(), 'span:a span:b span:c span:d', 'all items start on the small branch');
+
+        const [a, b, c, d] = el.state.items;
+        a.big = true;
+        await wait();
+        assert.equal(shape(), 'b:a em:a span:b span:c span:d', 'item a switched to the two-node branch');
+
+        // Move the two-node item to the end - the move that used to strand its
+        // old single node and re-insert a detached one.
+        el.state.items = [b, c, d, a];
+        await wait();
+        assert.equal(shape(), 'span:b span:c span:d b:a em:a', 'two-node item moved intact, nothing stranded');
+
+        a.big = false;
+        await wait();
+        assert.equal(shape(), 'span:b span:c span:d span:a', 'item a switched back with no leftovers');
+
+        el.state.items = [a, b];
+        await wait();
+        assert.equal(shape(), 'span:a span:b', 'removals leave no orphans');
+
+        document.body.removeChild(el);
+    });
+
+    it('keeps a keyless each() consistent across when() flips and length changes', async () => {
+        defineComponent('test-each-when-keyless', {
+            data() { return { items: [{ id: 'a', big: false }, { id: 'b', big: true }] }; },
+            template() {
+                return html`<div class="list">${each(this.state.items, item =>
+                    when(item.big,
+                        () => html`<b>${item.id}</b><em>!</em>`,
+                        () => html`<span>${item.id}</span>`))}</div>`;
+            }
+        });
+
+        const el = document.createElement('test-each-when-keyless');
+        document.body.appendChild(el);
+        await wait();
+
+        const list = el.querySelector('.list');
+        const shape = () => [...list.children].map(n => n.tagName.toLowerCase() + ':' + n.textContent).join(' ');
+        assert.equal(shape(), 'span:a b:b em:!', 'initial keyless render');
+
+        el.state.items[0].big = true;
+        await wait();
+        assert.equal(shape(), 'b:a em:! b:b em:!', 'flip in place with no key');
+
+        el.state.items = [{ id: 'z', big: false }];
+        await wait();
+        assert.equal(shape(), 'span:z', 'shrinking the list re-instantiates cleanly');
+
+        el.state.items = [{ id: 'z', big: false }, { id: 'y', big: true }, { id: 'x', big: false }];
+        await wait();
+        assert.equal(shape(), 'span:z b:y em:! span:x', 'growing the list re-instantiates cleanly');
+
+        document.body.removeChild(el);
+    });
+
+    it('does not treat an all-empty keyed list as a reconciliation failure', async () => {
+        // Every item is a when() with no matching branch, so the list renders
+        // nothing - legitimately. The "expected N items but created 0 nodes"
+        // sanity check used to fire on every update here and return null,
+        // discarding all DOM reuse (and recovering, only to trip again).
+        defineComponent('test-each-all-empty', {
+            data() { return { items: ['a', 'b', 'c'].map(id => ({ id, on: false })) }; },
+            template() {
+                return html`<div class="list">${each(this.state.items, item =>
+                    when(item.on, () => html`<b>${item.id}</b>`), item => item.id)}</div>`;
+            }
+        });
+
+        const warnings = [];
+        const originalWarn = console.warn;
+        console.warn = (...args) => {
+            const text = args.map(String).join(' ');
+            if (text.includes('[Fine-grained]')) warnings.push(text);
+            else originalWarn.apply(console, args);
+        };
+
+        let el;
+        try {
+            el = document.createElement('test-each-all-empty');
+            document.body.appendChild(el);
+            await wait();
+
+            const [a, b, c] = el.state.items;
+            el.state.items = [c, a, b];
+            await wait();
+            el.state.items = [b, c, a];
+            await wait();
+
+            assert.equal(warnings.length, 0,
+                `an all-empty list is not a failure, got: ${warnings.join(' | ')}`);
+
+            a.on = true;
+            c.on = true;
+            await wait();
+            assert.equal(el.querySelector('.list').textContent, 'ca',
+                'items fill in at their reconciled positions');
+
+            a.on = false;
+            c.on = false;
+            await wait();
+            assert.equal(el.querySelector('.list').textContent, '', 'and empty out again');
+            assert.equal(warnings.length, 0, 'still no false alarm after emptying out');
+        } finally {
+            console.warn = originalWarn;
+            if (el) document.body.removeChild(el);
+        }
+    });
+
+    it('renders a when() item that resolves to nothing without losing its neighbours', async () => {
+        defineComponent('test-each-when-empty', {
+            data() {
+                return { items: [{ id: 'a', show: false }, { id: 'b', show: true }, { id: 'c', show: false }] };
+            },
+            template() {
+                return html`<div class="list">${each(this.state.items, item =>
+                    when(item.show, () => html`<b>${item.id}</b>`), item => item.id)}</div>`;
+            }
+        });
+
+        const el = document.createElement('test-each-when-empty');
+        document.body.appendChild(el);
+        await wait();
+
+        const list = el.querySelector('.list');
+        const shape = () => [...list.children].map(n => n.textContent).join(' ');
+        assert.equal(shape(), 'b', 'only the visible item renders');
+
+        el.state.items[0].show = true;
+        await wait();
+        assert.equal(shape(), 'a b', 'an empty item can become visible in the right position');
+
+        el.state.items[2].show = true;
+        await wait();
+        assert.equal(shape(), 'a b c', 'the trailing empty item lands last');
+
+        el.state.items[1].show = false;
+        await wait();
+        assert.equal(shape(), 'a c', 'a middle item can empty out again');
+
+        document.body.removeChild(el);
+    });
+});
+
 // Run test marker
 console.log('=== Fine-Grained Renderer Tests ===');
