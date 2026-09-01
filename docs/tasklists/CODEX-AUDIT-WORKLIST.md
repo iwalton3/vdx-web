@@ -184,6 +184,16 @@ Two options:
 One-line difference between them; try 1 first. Still needs an answer to: does
 any component in the private mrepo memoize on a function prop's identity?
 
+## Held for the repo owner
+
+Five items are deliberately not done. Four are marked **HELD** in the worklist
+below; the fifth is the typed-props proposal. Each is either not backwards
+compatible, or a call the repo owner wanted to make. The standing threshold is:
+change it freely if the old behaviour was *obviously* wrong, otherwise ask.
+
+They are written up in full in the `codex-audit-open-questions` memory. Do not
+implement any of them without an answer.
+
 ## Worklist
 
 - [x] Verify every finding in both reviews against `f828abe`
@@ -200,24 +210,34 @@ any component in the private mrepo memoize on a function prop's identity?
       both sinks
 - [x] Bring `cl-*` componentlib onto `boolProp`, replacing ad-hoc coercions
       (30 files; both read sites and pass-downs into native element attributes)
-- [ ] H6 — `contain()` array insertion order
-- [ ] S5 — `contain()` + `raw()` renders escaped text
-- [ ] H1 — computed heal-after-throw (try/catch in the lazy `get()` recompute)
-- [ ] H2 — function pass-through, pending the decision above
-- [ ] S3 — shared slash classification across all three template-lint walkers,
-      plus the two copies in `tools/scripts/convert-to-class.mjs`; add the
-      same-line `n++ / 2` fixture first, then port to mrepo
-- [ ] H4 — clear `input`/`textarea`/`select` live value on nullish
-- [ ] H5 — remove object-style keys omitted by the next value
-- [ ] Dead code: `currentRenderComponent` + `setRenderContext` calls (S1),
+- [x] H6 — `contain()` array insertion order
+- [ ] **HELD** S5 — `contain()` + `raw()` renders escaped text. Fixing it turns
+      previously-escaped output into live HTML; `FRAMEWORK.md:162` teaches the
+      pattern, so audit the private mrepo for user data flowing through it first.
+- [x] H1 — computed heal-after-throw (try/catch in the lazy `get()` recompute)
+- [x] H2 — function pass-through. Resolved with a **stable wrapper**: identity is
+      fixed for the life of the component, calls dispatch to the latest closure.
+      Fixes frozen handlers and stale function props with no identity churn and
+      no new reactive dependency, so the tracking-vs-not question is moot.
+- [ ] **HELD** S3 — shared slash classification across all three template-lint
+      walkers, plus the two copies in `tools/scripts/convert-to-class.mjs`; add
+      the same-line `n++ / 2` fixture first, then port to mrepo. Held because it
+      makes the linter catch templates it currently skips, so repos that pass
+      today may start failing — mrepo especially.
+- [ ] **HELD** H4 — clear `input`/`textarea`/`select` live value on nullish. A form
+      bound to a nullable field currently keeps stale text; the fix clears it.
+- [x] H5 — remove object-style keys omitted by the next value
+- [x] Dead code: `currentRenderComponent` + 24 `setRenderContext` calls (S1),
       unreachable ordinary-array `isHtml` branch (S2), unused item-record
       `slotInSvg`, redundant `memoEach` cache-miss key copy
-- [ ] H3 — disposal-ownership invariant: no queued DOM write may reach a
-      disposed binding's former node. Needs a design decision (ownership token)
-      and the regression test the review describes
-- [ ] Consider a lint check for `<cl-* boolattr="false">`, near-certainly a
-      mistake under the new contract
-- [ ] **Decide: sweep boolean-ish props whose names do NOT collide with
+- [x] H3 — disposal-ownership invariant. Both commit queues now stamp each
+      deferred write with `getActiveEffect()` and drop it if that effect was
+      disposed before the commit. `isConnected` was rejected: a freshly
+      instantiated subtree queues writes while its fragment is still detached,
+      so it would have dropped legitimate first renders.
+- [x] Lint check `t13-bool-false` for literal `boolattr="false"` on any tag,
+      with fixture and banned-pattern docs. Fires on nothing in the repo today.
+- [ ] **HELD — Decide: sweep boolean-ish props whose names do NOT collide with
       `BOOLEAN_ATTRS`.** `outlined`, `inline`, `closable`, `visible`, `modal`,
       `text`, `filter`, `fluid`, `binary`, `linear`, ... were always plain
       strings, so this change did not affect them and they were left alone —

@@ -972,6 +972,18 @@ export const ALL_CHECKS = new Set([
     't1-handler', 't2-xmodel', 't3-refs', 't4-modifiers', 't5-props',
     't6-events', 't6-prop-docs', 't7-binding', 't8-list-control',
     't9-list-item', 't10-inline-events', 't11-attr-stringify', 't12-manual-bind',
+    't13-bool-false',
+]);
+
+// HTML boolean attributes. A literal ="false" on one of these names is wrong
+// under both halves of the template contract - see the T13 check.
+const BOOL_ATTRS = new Set([
+    'disabled', 'checked', 'selected', 'readonly', 'required',
+    'multiple', 'autofocus', 'autoplay', 'controls', 'loop',
+    'muted', 'open', 'reversed', 'hidden', 'async', 'defer',
+    'ismap', 'declare', 'noresize', 'nowrap', 'noshade', 'compact',
+    'default', 'scoped', 'seamless', 'sortable', 'novalidate',
+    'formnovalidate', 'itemscope',
 ]);
 
 // Native DOM events bubble through components without documentation - only
@@ -1351,6 +1363,26 @@ export function lintTemplates(source, filePath, registry, options = {}) {
             }
         };
 
+        // ---- T13: literal boolattr="false" ----
+        // Wrong under both halves of the contract, in opposite ways. Literal
+        // template text is HTML source, so on a native element the attribute's
+        // presence is what counts and disabled="false" DISABLES. On a component
+        // the name is an ordinary prop, so it arrives as the string "false" -
+        // truthy in any plain check. Neither is what the author meant, and
+        // nothing re-coerces the string back to a boolean.
+        const checkBoolFalse = (node) => {
+            for (const [attrName, def] of Object.entries(node.attrs || {})) {
+                if (!BOOL_ATTRS.has(attrName)) continue;
+                if (!def || def.value !== 'false') continue;   // literal text only
+                const line = locate('t13:' + attrName, escapeRegex(attrName) + '\\s*=\\s*["\']false["\']');
+                report(line, 't13-bool-false', 'error',
+                    `${attrName}="false" does not mean false. Literal text is HTML, so on a `
+                    + `native element the attribute is present and ${attrName} is ON; on a `
+                    + `component it arrives as the truthy string "false". Write `
+                    + `${attrName}="\${false}", or omit the attribute`);
+            }
+        };
+
         const walk = (node) => {
             if (!node) return;
             if (node.type === 'element') {
@@ -1382,6 +1414,7 @@ export function lintTemplates(source, filePath, registry, options = {}) {
                 if (on('t7-binding')) checkBindingSyntax(node);
                 if (on('t10-inline-events')) checkInlineEvents(node);
                 if (on('t11-attr-stringify')) checkStringify(node);
+                if (on('t13-bool-false')) checkBoolFalse(node);
                 const refDef = node.attrs && node.attrs.__ref__;
                 if (refDef && comp && typeof refDef.refName === 'string' && IDENT_RE.test(refDef.refName)) {
                     if (!refsDeclared.has(comp)) refsDeclared.set(comp, new Map());
