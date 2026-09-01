@@ -1,7 +1,7 @@
 /**
  * FileUpload - File upload component
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, boolProp, Component } from '../../lib/framework.js';
 import './dropzone.js';
 import { filterFiles } from './dropzone.js';
 
@@ -34,7 +34,7 @@ export class ClFileupload extends Component {
         const { accepted, rejected } = filterFiles(event.target.files, {
             accept: this.props.accept,
             maxSize: this.props.maxfilesize,
-            multiple: this.props.multiple
+            multiple: boolProp(this.props.multiple)
         });
         this.reportRejected(rejected);
         this.addAccepted(accepted);
@@ -65,7 +65,7 @@ export class ClFileupload extends Component {
             type: file.type
         }));
 
-        if (!this.props.multiple) {
+        if (!boolProp(this.props.multiple)) {
             this.state.files = infos.slice(0, 1);
         } else {
             this.state.files = [...this.state.files, ...infos];
@@ -129,9 +129,9 @@ export class ClFileupload extends Component {
                         <label class="choose-button">
                             <input
                                 type="file"
-                                multiple="${this.props.multiple}"
+                                multiple="${boolProp(this.props.multiple)}"
                                 accept="${this.props.accept}"
-                                disabled="${this.props.disabled}"
+                                disabled="${boolProp(this.props.disabled)}"
                                 on-change="handleFileSelect">
                             ${this.props.label}
                         </label>

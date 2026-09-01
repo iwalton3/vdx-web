@@ -22,7 +22,7 @@
  *     with integer/BigInt math, avoiding float error and the string
  *     concatenation bug (e.g. "100" + step 0.01 -> "1000.01").
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, boolProp, Component } from '../../lib/framework.js';
 
 // Counter for unique IDs
 let inputNumberIdCounter = 0;
@@ -177,7 +177,7 @@ export class ClInputNumber extends Component {
     }
 
     stepBy(dir) {
-        if (this.props.disabled) return;
+        if (boolProp(this.props.disabled)) return;
         const next = decimalStep(this.valueString() || '0', String(this.props.step), dir);
         const clamped = this.clampString(next);
         this.emitChange(null, this.coerceOut(clamped));
@@ -215,7 +215,7 @@ export class ClInputNumber extends Component {
                         <button
                             type="button"
                             class="btn-decrement"
-                            disabled="${this.props.disabled || !canDecrement}"
+                            disabled="${boolProp(this.props.disabled) || !canDecrement}"
                             aria-label="Decrease value"
                             on-click="decrement">−</button>
                     `)}
@@ -227,7 +227,7 @@ export class ClInputNumber extends Component {
                         min="${stringMode ? undefined : this.props.min}"
                         max="${stringMode ? undefined : this.props.max}"
                         step="${stringMode ? undefined : this.props.step}"
-                        disabled="${this.props.disabled}"
+                        disabled="${boolProp(this.props.disabled)}"
                         aria-invalid="${hasError ? 'true' : undefined}"
                         aria-describedby="${hasError ? errorId : undefined}"
                         on-input="handleInput"
@@ -236,7 +236,7 @@ export class ClInputNumber extends Component {
                         <button
                             type="button"
                             class="btn-increment"
-                            disabled="${this.props.disabled || !canIncrement}"
+                            disabled="${boolProp(this.props.disabled) || !canIncrement}"
                             aria-label="Increase value"
                             on-click="increment">+</button>
                     `)}

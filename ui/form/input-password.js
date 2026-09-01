@@ -1,7 +1,7 @@
 /**
  * InputPassword - Password input with visibility toggle and strength meter
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, boolProp, Component } from '../../lib/framework.js';
 
 /**
  * @fires input - detail: { value }
@@ -96,7 +96,7 @@ export class ClInputPassword extends Component {
     }
 
     validateInput(value) {
-        if (this.props.required && !value) {
+        if (boolProp(this.props.required) && !value) {
             this.state.internalError = 'This field is required';
             return false;
         }
@@ -199,7 +199,7 @@ export class ClInputPassword extends Component {
                 ${when(this.props.label, html`
                     <label class="cl-label">
                         ${this.props.label}
-                        ${when(this.props.required, html`<span class="required">*</span>`)}
+                        ${when(boolProp(this.props.required), html`<span class="required">*</span>`)}
                     </label>
                 `)}
                 <div class="password-input-wrapper">
@@ -208,7 +208,7 @@ export class ClInputPassword extends Component {
                         class="${(this.props.error || this.state.internalError) ? 'error' : ''}"
                         value="${this.state.internalValue}"
                         placeholder="${this.props.placeholder}"
-                        disabled="${this.props.disabled}"
+                        disabled="${boolProp(this.props.disabled)}"
                         on-input="handleInput"
                         on-change="handleChange"
                         on-blur="handleBlur">

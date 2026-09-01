@@ -17,7 +17,7 @@
  *
  * @fires change - detail: { value } - fired live on every edit (x-model compatible)
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, boolProp, Component } from '../../lib/framework.js';
 import { highlightVdx } from './vdx-highlight.js';
 
 let codeEditorIdCounter = 0;
@@ -96,7 +96,7 @@ export class ClCodeEditor extends Component {
     }
 
     handleKeydown(e) {
-        if (this.props.readonly || this.props.disabled) return;
+        if (boolProp(this.props.readonly) || boolProp(this.props.disabled)) return;
         if (e.key === 'Tab') {
             e.preventDefault();
             this._handleTab(e.shiftKey);
@@ -170,7 +170,7 @@ export class ClCodeEditor extends Component {
                 ${when(this.props.label, html`
                     <label class="cl-label" for="${editorId}">${this.props.label}</label>
                 `)}
-                <div class="cl-code-editor ${this.props.disabled ? 'disabled' : ''}" style="${boxStyle}">
+                <div class="cl-code-editor ${boolProp(this.props.disabled) ? 'disabled' : ''}" style="${boxStyle}">
                     <pre class="cl-code-hl" ref="highlight" aria-hidden="true"></pre>
                     <textarea
                         ref="textarea"
@@ -182,8 +182,8 @@ export class ClCodeEditor extends Component {
                         autocorrect="off"
                         wrap="soft"
                         placeholder="${this.props.placeholder}"
-                        readonly="${this.props.readonly}"
-                        disabled="${this.props.disabled}"
+                        readonly="${boolProp(this.props.readonly)}"
+                        disabled="${boolProp(this.props.disabled)}"
                         aria-label="${this.props.label || 'Code editor'}"
                         on-input="handleInput"
                         on-change="handleChange"

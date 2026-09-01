@@ -188,10 +188,18 @@ any component in the private mrepo memoize on a function prop's identity?
 
 - [x] Verify every finding in both reviews against `f828abe`
 - [x] Settle boolean-attribute semantics with the repo owner
-- [ ] **Fix A** — literal boolean attrs follow HTML in `buildStaticDOM`
-- [ ] **Fix B** — custom elements: string to attribute, non-string to property
-- [ ] Shared boolean-attr coercion helper, used by both sinks
-- [ ] Bring `cl-*` componentlib onto the helper, replacing ad-hoc coercions
+- [x] **Fix A** — literal boolean attrs follow HTML in `buildStaticDOM`
+- [x] **Fix B** — custom elements: string to attribute, non-string to property.
+      `checked` needed gating too: it is special-cased ahead of the boolean
+      branch, so `<cl-toggle checked="false">` was still being coerced after
+      the boolean branch itself was fixed. Neither review caught this.
+- [x] Shared helpers in `core/constants.js`: `isBooleanAttr()` (the predicate
+      where the custom-element bug lived), `literalAttrValue()` for the literal
+      sinks, `boolProp()` for components (exported from `lib/framework.js`)
+- [x] `tests/framework/boolean-attrs.test.js` pins all 10 contract rows across
+      both sinks
+- [x] Bring `cl-*` componentlib onto `boolProp`, replacing ad-hoc coercions
+      (30 files; both read sites and pass-downs into native element attributes)
 - [ ] H6 — `contain()` array insertion order
 - [ ] S5 — `contain()` + `raw()` renders escaped text
 - [ ] H1 — computed heal-after-throw (try/catch in the lazy `get()` recompute)
@@ -209,6 +217,14 @@ any component in the private mrepo memoize on a function prop's identity?
       and the regression test the review describes
 - [ ] Consider a lint check for `<cl-* boolattr="false">`, near-certainly a
       mistake under the new contract
+- [ ] **Decide: sweep boolean-ish props whose names do NOT collide with
+      `BOOLEAN_ATTRS`.** `outlined`, `inline`, `closable`, `visible`, `modal`,
+      `text`, `filter`, `fluid`, `binary`, `linear`, ... were always plain
+      strings, so this change did not affect them and they were left alone —
+      but it means `outlined="false"` is still truthy. Pre-existing, and a
+      separate class of bug from the audit. It does leave `cl-button`
+      internally inconsistent: `loading="false"` now works, `outlined="false"`
+      does not. Scope call for the repo owner.
 - [ ] Hot-path pass over the merged keyed live-range code, which the stale
       review revision never covered
 - [ ] Deferred past v1: bundler/optimizer minifier core extraction

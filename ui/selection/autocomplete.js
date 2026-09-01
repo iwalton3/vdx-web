@@ -9,7 +9,7 @@
  * - Keyboard navigation: Arrow keys, Enter, Escape
  * - Proper label association
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, boolProp, Component } from '../../lib/framework.js';
 import { createAnchoredOverlay } from '../../lib/overlay.js';
 
 // Counter for unique IDs
@@ -215,7 +215,7 @@ export class ClAutocomplete extends Component {
                         aria-labelledby="${this.props.label ? labelId : undefined}"
                         value="${this.state.inputValue}"
                         placeholder="${this.props.placeholder}"
-                        disabled="${this.props.disabled}"
+                        disabled="${boolProp(this.props.disabled)}"
                         on-input="handleInput"
                         on-keydown="handleKeyDown"
                         on-blur="handleBlur">

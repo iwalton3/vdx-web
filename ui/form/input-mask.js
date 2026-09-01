@@ -7,7 +7,7 @@
  *   a = letter (a-z, A-Z)
  *   * = alphanumeric
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, boolProp, Component } from '../../lib/framework.js';
 
 /**
  * @fires input - detail: { value }
@@ -330,7 +330,7 @@ export class ClInputMask extends Component {
         const filledCount = this.state.buffer.filter(c => c).length;
         const totalCount = this.state.buffer.length;
 
-        if (this.props.required && filledCount === 0) {
+        if (boolProp(this.props.required) && filledCount === 0) {
             this.state.internalError = 'This field is required';
             return false;
         }
@@ -427,7 +427,7 @@ export class ClInputMask extends Component {
                 ${when(this.props.label, html`
                     <label class="cl-label">
                         ${this.props.label}
-                        ${when(this.props.required, html`<span class="required">*</span>`)}
+                        ${when(boolProp(this.props.required), html`<span class="required">*</span>`)}
                     </label>
                 `)}
                 <input
@@ -436,7 +436,7 @@ export class ClInputMask extends Component {
                     class="${hasError ? 'error' : ''}"
                     value="${displayValue}"
                     placeholder="${this.getPlaceholder()}"
-                    disabled="${this.props.disabled}"
+                    disabled="${boolProp(this.props.disabled)}"
                     on-input="handleInput"
                     on-keydown="handleKeyDown"
                     on-focus="handleFocus"

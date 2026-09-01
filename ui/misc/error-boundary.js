@@ -18,7 +18,7 @@
  * }
  * defineComponent('my-component', MyComponent);
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, boolProp, Component } from '../../lib/framework.js';
 
 /**
  * @fires retry - recovery was requested from the error UI
@@ -75,7 +75,7 @@ export class ClErrorBoundary extends Component {
     template() {
         const message = this.errorMessage;
         const stack = this.props.showDetails ? this.errorStack : null;
-        const compactClass = this.props.compact ? 'compact' : '';
+        const compactClass = boolProp(this.props.compact) ? 'compact' : '';
         // Show retry if explicitly set OR if onRetry callback provided
         const showRetryBtn = this.props.showRetry || this.props.onRetry;
 

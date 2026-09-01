@@ -1,7 +1,7 @@
 /**
  * ColorPicker - Color picker component
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, boolProp, Component } from '../../lib/framework.js';
 
 /**
  * @fires change - detail: { value }
@@ -67,7 +67,7 @@ export class ClColorpicker extends Component {
     }
 
     togglePicker() {
-        if (!this.props.disabled && !this.props.inline) {
+        if (!boolProp(this.props.disabled) && !this.props.inline) {
             this.state.showPicker = !this.state.showPicker;
         }
     }
@@ -111,7 +111,7 @@ export class ClColorpicker extends Component {
                         <input
                             type="color"
                             value="${this.state.internalValue}"
-                            disabled="${this.props.disabled}"
+                            disabled="${boolProp(this.props.disabled)}"
                             on-input="handleColorInput"
                             on-change="handleColorChange">
                         <div class="color-display">

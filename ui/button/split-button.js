@@ -1,7 +1,7 @@
 /**
  * SplitButton - Button with dropdown menu
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, boolProp, Component } from '../../lib/framework.js';
 
 /**
  * @fires click - the primary button was activated
@@ -28,13 +28,13 @@ export class ClSplitButton extends Component {
     }
 
     handleClick() {
-        if (!this.props.disabled) {
+        if (!boolProp(this.props.disabled)) {
             this.emitEvent('click');
         }
     }
 
     toggleMenu() {
-        if (!this.props.disabled) {
+        if (!boolProp(this.props.disabled)) {
             this.state.showMenu = !this.state.showMenu;
         }
     }
@@ -59,13 +59,13 @@ export class ClSplitButton extends Component {
                 `)}
                 <button
                     class="main-button ${this.props.severity}"
-                    disabled="${this.props.disabled}"
+                    disabled="${boolProp(this.props.disabled)}"
                     on-click="handleClick">
                     ${this.props.label}
                 </button>
                 <button
                     class="dropdown-button ${this.props.severity}"
-                    disabled="${this.props.disabled}"
+                    disabled="${boolProp(this.props.disabled)}"
                     on-click="toggleMenu">
                     ▼
                 </button>

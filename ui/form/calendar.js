@@ -1,7 +1,7 @@
 /**
  * Calendar - Date picker component with typeable input and month/year picker
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, boolProp, Component } from '../../lib/framework.js';
 import { createAnchoredOverlay } from '../../lib/overlay.js';
 
 /**
@@ -131,7 +131,7 @@ export class ClCalendar extends Component {
 
     togglePicker(e) {
         if (e) e.stopPropagation();
-        if (this.props.disabled || this.props.inline) return;
+        if (boolProp(this.props.disabled) || this.props.inline) return;
         if (this.state.showPicker) {
             this.closePicker();
             return;
@@ -580,7 +580,7 @@ export class ClCalendar extends Component {
                                 readonly
                                 value="${this.state.inputValue}"
                                 placeholder="${this.props.placeholder || 'Select date range'}"
-                                disabled="${this.props.disabled}"
+                                disabled="${boolProp(this.props.disabled)}"
                                 on-click="togglePicker">
                         `, html`
                             <cl-input-mask
@@ -599,7 +599,7 @@ export class ClCalendar extends Component {
                         <button
                             class="calendar-toggle ${this.state.inputError ? 'error' : ''}"
                             type="button"
-                            disabled="${this.props.disabled}"
+                            disabled="${boolProp(this.props.disabled)}"
                             on-click="togglePicker">
                             <svg class="calendar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>

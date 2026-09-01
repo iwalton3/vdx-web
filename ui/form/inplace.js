@@ -3,7 +3,7 @@
  * then swaps to an input; commits on Enter/blur, cancels on Escape.
  * x-model compatible.
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, boolProp, Component } from '../../lib/framework.js';
 
 /**
  * @fires change - detail: { value } - the committed value
@@ -34,7 +34,7 @@ export class ClInplace extends Component {
     }
 
     startEdit() {
-        if (this.props.disabled) return;
+        if (boolProp(this.props.disabled)) return;
         this.state.draft = this.state.internalValue;
         this.state.editing = true;
         // The input mounts on the next render, so focus after the frame
@@ -89,8 +89,8 @@ export class ClInplace extends Component {
         const isEmpty = this.state.internalValue === '' || this.state.internalValue == null;
         return html`
             <span
-                class="cl-inplace display ${isEmpty ? 'empty' : ''} ${this.props.disabled ? 'disabled' : ''}"
-                tabindex="${this.props.disabled ? -1 : 0}"
+                class="cl-inplace display ${isEmpty ? 'empty' : ''} ${boolProp(this.props.disabled) ? 'disabled' : ''}"
+                tabindex="${boolProp(this.props.disabled) ? -1 : 0}"
                 role="button"
                 on-click="startEdit"
                 on-keydown="${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.startEdit(); } }}">

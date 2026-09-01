@@ -7,7 +7,7 @@
  * - aria-label fallback when no visible label provided
  * - Native keyboard support via range input (Arrow keys, Home, End)
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, boolProp, Component } from '../../lib/framework.js';
 
 // Counter for unique IDs
 let sliderIdCounter = 0;
@@ -95,7 +95,7 @@ export class ClSlider extends Component {
                         max="${this.props.max}"
                         step="${this.props.step}"
                         value="${this.state.internalValue}"
-                        disabled="${this.props.disabled}"
+                        disabled="${boolProp(this.props.disabled)}"
                         aria-valuenow="${this.state.internalValue}"
                         aria-valuemin="${this.props.min}"
                         aria-valuemax="${this.props.max}"

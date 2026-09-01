@@ -7,7 +7,7 @@
  * - aria-invalid for error state
  * - aria-required for required fields
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, boolProp, Component } from '../../lib/framework.js';
 
 // Counter for unique IDs
 let textareaIdCounter = 0;
@@ -80,7 +80,7 @@ export class ClTextarea extends Component {
                 ${when(this.props.label, html`
                     <label class="cl-label" for="${textareaId}">
                         ${this.props.label}
-                        ${when(this.props.required, html`<span class="required" aria-hidden="true">*</span>`)}
+                        ${when(boolProp(this.props.required), html`<span class="required" aria-hidden="true">*</span>`)}
                     </label>
                 `)}
                 <textarea
@@ -89,9 +89,9 @@ export class ClTextarea extends Component {
                     class="${this.props.error ? 'error' : ''}"
                     rows="${this.props.rows}"
                     placeholder="${this.props.placeholder}"
-                    disabled="${this.props.disabled}"
+                    disabled="${boolProp(this.props.disabled)}"
                     maxlength="${this.props.maxlength || ''}"
-                    aria-required="${this.props.required ? 'true' : undefined}"
+                    aria-required="${boolProp(this.props.required) ? 'true' : undefined}"
                     aria-invalid="${hasError ? 'true' : undefined}"
                     aria-describedby="${hasError ? errorId : undefined}"
                     on-input="handleInput"

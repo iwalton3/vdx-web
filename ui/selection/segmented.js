@@ -2,7 +2,7 @@
  * Segmented - Segmented control / select-button for choosing one of a few
  * mutually exclusive options (view switches, filters). x-model compatible.
  */
-import { defineComponent, html, each, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, each, when, boolProp, Component } from '../../lib/framework.js';
 
 function normalize(options) {
     return (options || []).map(o =>
@@ -40,7 +40,7 @@ export class ClSegmented extends Component {
     }
 
     select(value) {
-        if (this.props.disabled) return;
+        if (boolProp(this.props.disabled)) return;
         this.state.internalValue = value;
         this.emitChange(null, value);
         this.dispatchEvent(new CustomEvent('input', {
@@ -55,7 +55,7 @@ export class ClSegmented extends Component {
             'cl-segmented',
             `size-${this.props.size}`,
             this.props.fluid ? 'fluid' : '',
-            this.props.disabled ? 'disabled' : ''
+            boolProp(this.props.disabled) ? 'disabled' : ''
         ].filter(Boolean).join(' ');
 
         return html`
@@ -68,7 +68,7 @@ export class ClSegmented extends Component {
                             class="seg-option ${active ? 'active' : ''}"
                             role="radio"
                             aria-checked="${active ? 'true' : 'false'}"
-                            disabled="${this.props.disabled}"
+                            disabled="${boolProp(this.props.disabled)}"
                             on-click="${() => this.select(opt.value)}">
                             ${when(opt.icon, html`<span class="seg-icon">${opt.icon}</span>`)}
                             ${opt.label}
