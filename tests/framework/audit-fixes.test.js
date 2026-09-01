@@ -5,7 +5,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { defineComponent, html, when, contain, Component, flushSync } from '../../lib/framework.js';
+import { defineComponent, html, when, contain, raw, Component, flushSync } from '../../lib/framework.js';
 import { reactive, computed, createEffect, flushEffects } from '../../lib/core/reactivity.js';
 
 function mount(tag) {
@@ -93,6 +93,61 @@ describe('Audit Fixes', function(it) {
 
         assert.deepEqual(el.seen, [1, 2], 'second click runs the re-rendered closure, not the first one');
         assert.equal(el.querySelector('button'), before, 'and the element was not replaced to achieve it');
+
+        document.body.removeChild(el);
+    });
+
+    it('contain() parses raw() instead of escaping it', () => {
+        class ContainRaw extends Component {
+            template() {
+                return html`<div>
+                    <span id="one">${contain(() => raw('<b>R</b>'))}</span>
+                    <span id="many">${contain(() => [raw('<b>A</b>'), raw('<i>B</i>')])}</span>
+                </div>`;
+            }
+        }
+        defineComponent('audit-contain-raw', ContainRaw);
+        const el = mount('audit-contain-raw');
+
+        // raw() is the trusted-HTML escape hatch; containment used to stringify
+        // the marker because it is not an html`` marker, so the tags escaped.
+        assert.ok(el.querySelector('#one b'), 'contained raw() creates a real element');
+        assert.equal(el.querySelector('#one').textContent, 'R', 'and not escaped text');
+        assert.ok(el.querySelector('#many b') && el.querySelector('#many i'),
+            'raw() items inside a contained array too');
+        assert.equal(el.querySelector('#many').textContent, 'AB', 'in order');
+
+        document.body.removeChild(el);
+    });
+
+    it('nullish clears a native input but reaches a component as null', async () => {
+        class NullProbe extends Component {
+            static props = { label: 'DEFAULT' };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('audit-null-probe', NullProbe);
+
+        class NullHost extends Component {
+            constructor(props) { super(props); this.state = { v: 'filled', n: null }; }
+            template() {
+                return html`<div>
+                    <input id="i" value="${this.state.v}">
+                    <audit-null-probe id="p" label="${this.state.n}"></audit-null-probe>
+                </div>`;
+            }
+        }
+        defineComponent('audit-null-host', NullHost);
+        const el = mount('audit-null-host');
+        assert.equal(el.querySelector('#i').value, 'filled', 'initial value applied');
+
+        flushSync(() => { el.state.v = null; });
+        await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+
+        // A form control's live value does not track its attribute, so removing
+        // the attribute alone left the old text on screen.
+        assert.equal(el.querySelector('#i').value, '', 'nullish empties the live value, not just the attribute');
+        assert.equal(el.querySelector('#i').getAttribute('value'), null, 'attribute removed too');
+        assert.equal(el.querySelector('#p').props.label, null, 'a component gets the null itself, not ""');
 
         document.body.removeChild(el);
     });

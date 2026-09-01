@@ -35,6 +35,7 @@ import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { htmlParse } from '../lib/core/html-parser.js';
+import { startsRegexLiteral, skipRegex } from './js-scan.js';
 
 // =============================================================================
 // Source scanning utilities
@@ -103,8 +104,7 @@ export function maskStringsAndComments(source) {
                 continue;
             }
             if (c === '/') {
-                if ((REGEX_PREV_CHARS.has(lastSig) || KEYWORDS_BEFORE_REGEX.has(lastWord))
-                    && !followsIncrementDecrement(source, i)) {
+                if (startsRegexLiteral(source, i, lastSig, lastWord)) {
                     const end = skipRegex(source, i);
                     blank(i + 1, end - 1);
                     i = end;
@@ -194,45 +194,6 @@ function makeLineLookup(source) {
 // that understands strings, comments, regex literals, and nested templates
 // (same approach as scripts/convert-to-class.mjs scan()).
 
-const KEYWORDS_BEFORE_REGEX = new Set([
-    'return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void',
-    'do', 'else', 'case', 'yield', 'await', 'throw'
-]);
-const REGEX_PREV_CHARS = new Set(['(', '[', '{', ',', ';', ':', '=', '!', '&', '|', '?', '+', '-', '*', '/', '%', '^', '~', '<', '>']);
-
-/**
- * `n++ / 2` is division, not a regex. The scanners track only ONE previous
- * significant character, so `++` leaves a bare `+` behind - which is in
- * REGEX_PREV_CHARS, so the rest of the line gets skipped/blanked as a regex
- * body. Look back for the pair instead of threading a second char through
- * every assignment site.
- *
- * @param {string} source
- * @param {number} slashIdx - index of the '/' being classified
- * @returns {boolean} true when the '/' follows a ++ / -- operator
- */
-function followsIncrementDecrement(source, slashIdx) {
-    let k = slashIdx - 1;
-    while (k >= 0 && /\s/.test(source[k])) k--;
-    return k >= 1 && (source[k] === '+' || source[k] === '-') && source[k - 1] === source[k];
-}
-
-/** Skip a regex literal body + flags; returns index after it. */
-function skipRegex(source, i) {
-    i++;
-    let inClass = false;
-    while (i < source.length) {
-        const d = source[i];
-        if (d === '\\') { i += 2; continue; }
-        if (d === '[') inClass = true;
-        else if (d === ']') inClass = false;
-        else if (d === '/' && !inClass) { i++; break; }
-        else if (d === '\n') break;
-        i++;
-    }
-    while (i < source.length && /[a-z]/i.test(source[i])) i++;
-    return i;
-}
 
 /**
  * Scan a template literal starting at its backtick. Returns
@@ -302,8 +263,7 @@ function scanExprBrace(source, openIdx) {
             continue;
         }
         if (c === '/') {
-            if ((REGEX_PREV_CHARS.has(lastSig) || KEYWORDS_BEFORE_REGEX.has(lastWord))
-                && !followsIncrementDecrement(source, i)) {
+            if (startsRegexLiteral(source, i, lastSig, lastWord)) {
                 i = skipRegex(source, i);
             } else {
                 i++;
@@ -385,7 +345,7 @@ function collectTemplates(source, from, to, out) {
             continue;
         }
         if (c === '/') {
-            if (REGEX_PREV_CHARS.has(lastSig) || KEYWORDS_BEFORE_REGEX.has(lastWord)) {
+            if (startsRegexLiteral(source, i, lastSig, lastWord)) {
                 i = skipRegex(source, i);
             } else {
                 i++;

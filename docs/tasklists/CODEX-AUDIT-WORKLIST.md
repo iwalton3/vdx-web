@@ -186,13 +186,15 @@ any component in the private mrepo memoize on a function prop's identity?
 
 ## Held for the repo owner
 
-Five items are deliberately not done. Four are marked **HELD** in the worklist
-below; the fifth is the typed-props proposal. Each is either not backwards
-compatible, or a call the repo owner wanted to make. The standing threshold is:
-change it freely if the old behaviour was *obviously* wrong, otherwise ask.
+One item remains open: the **typed boolean props** proposal and the wider
+`="false"` question it answers (worklist entries marked **HELD**). The repo
+owner wants a pros/cons discussion before it is touched, so do not implement it
+without one. It is written up in the `codex-audit-open-questions` memory.
 
-They are written up in full in the `codex-audit-open-questions` memory. Do not
-implement any of them without an answer.
+Three earlier holds were resolved on 2026-09-01 and are now done: `raw()` is
+trusted by definition so the `contain()` escaping was a plain bug; template-lint
+is a checker rather than live API surface, so tightening it is fair game; and
+nullish now yields `""` to HTML and `null` to a component.
 
 ## Worklist
 
@@ -211,21 +213,24 @@ implement any of them without an answer.
 - [x] Bring `cl-*` componentlib onto `boolProp`, replacing ad-hoc coercions
       (30 files; both read sites and pass-downs into native element attributes)
 - [x] H6 — `contain()` array insertion order
-- [ ] **HELD** S5 — `contain()` + `raw()` renders escaped text. Fixing it turns
-      previously-escaped output into live HTML; `FRAMEWORK.md:162` teaches the
-      pattern, so audit the private mrepo for user data flowing through it first.
+- [x] S5 — `contain()` + `raw()` renders escaped text. Resolved: `raw()` is the
+      trusted-HTML escape hatch by definition (the `dangerouslySetInnerHTML`
+      equivalent), so the escaping was a bug, not a protection. Contained single
+      values and contained array items both parse raw() now.
 - [x] H1 — computed heal-after-throw (try/catch in the lazy `get()` recompute)
 - [x] H2 — function pass-through. Resolved with a **stable wrapper**: identity is
       fixed for the life of the component, calls dispatch to the latest closure.
       Fixes frozen handlers and stale function props with no identity churn and
       no new reactive dependency, so the tracking-vs-not question is moot.
-- [ ] **HELD** S3 — shared slash classification across all three template-lint
-      walkers, plus the two copies in `tools/scripts/convert-to-class.mjs`; add
-      the same-line `n++ / 2` fixture first, then port to mrepo. Held because it
-      makes the linter catch templates it currently skips, so repos that pass
-      today may start failing — mrepo especially.
-- [ ] **HELD** H4 — clear `input`/`textarea`/`select` live value on nullish. A form
-      bound to a nullable field currently keeps stale text; the fix clears it.
+- [x] S3 — one slash classifier in `tools/js-scan.js`, used by all three
+      template-lint walkers and both `convert-to-class.mjs` scanners. Fixture
+      `t14-scanner-regex` pins the same-line `n++ / 2` case. Still to do: port
+      to mrepo, and expect it to surface violations there that were being
+      skipped.
+- [x] H4 — nullish handling, to spec: a native form control's live value goes
+      to `""` (its value does not track the attribute, so removing the attribute
+      alone left stale text reachable through `el.value`); a component receives
+      the `null` itself, which already worked.
 - [x] H5 — remove object-style keys omitted by the next value
 - [x] Dead code: `currentRenderComponent` + 24 `setRenderContext` calls (S1),
       unreachable ordinary-array `isHtml` branch (S2), unused item-record
