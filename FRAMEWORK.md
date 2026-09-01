@@ -627,16 +627,34 @@ ${each(items, item => html`...`)}  // works - parent re-renders when items chang
 
 ## Anti-Patterns
 
+Every pattern below either THROWS or silently renders the wrong thing. The
+template lint catches all of them statically - run it in CI:
+
+```bash
+node tools/template-lint.js ./src     # or: node tools/optimize.js -i ./src --lint-only
+```
+
+The lint id is named on each entry; suppress a deliberate one with
+`<!-- vdx-lint-disable-next-line <id> -->` on the line above.
+
 ```javascript
-// DON'T use onclick - use on-click
-<button onclick="...">  // WRONG
-<button on-click="..."> // CORRECT
+// DON'T use inline DOM handlers - use on-* [t10-inline-events]
+// The two forms fail differently: the dynamic one is REFUSED at render (console
+// warning, handler never binds); the static one is applied by the compile-time
+// static-DOM path, which has no on[a-z] guard - it reaches the DOM and RUNS,
+// outside the framework and outside CSP, with nothing logged. Lint is the only
+// thing that catches the static form.
+<button onclick="doThing()">      // WRONG - and it works, which is the problem
+<button onclick="${this.fn}">     // WRONG - refused at render
+<button on-click="handler">       // CORRECT
 
-// DON'T stringify objects
-options="${JSON.stringify(items)}"  // WRONG
-options="${items}"                   // CORRECT
+// DON'T stringify objects [t11-attr-stringify]
+options="${JSON.stringify(items)}"  // WRONG - receiver has to parse it back,
+options="${items}"                   // CORRECT   and identity checks stop working
 
-// DON'T manually bind methods - they're auto-bound
+// DON'T manually bind methods - they're auto-bound [t12-manual-bind]
+// The copy is a DIFFERENT function from this.method, so removeEventListener
+// and any identity check need the copy kept around.
 this._bound = this.method.bind(this)  // WRONG
 renderItem="${this.method}"           // CORRECT
 
@@ -649,6 +667,7 @@ remove() { ... }        // WRONG - shadows Element.remove(); throws at definitio
 dismiss() { ... }       // CORRECT
 
 // DON'T use Lit/Vue binding syntax - VDX has none of it, and the parser THROWS
+// [t7-binding]
 <button ?disabled="${x}">   // WRONG -> disabled="${x}" (boolean from the value)
 <button @click="${fn}">     // WRONG -> on-click="handler"
 <input .value="${v}">       // WRONG -> value="${v}"
@@ -656,8 +675,17 @@ dismiss() { ... }       // CORRECT
 
 // DON'T put a raw array / .map() of templates or an inline ternary in a slot -
 // they build no keyed placeholder and the renderer THROWS on a template array.
+// [t8-list-control]
 ${items.map(i => html`<li>${i}</li>`)}          // WRONG -> each(items, ...)
 ${cond ? html`<a>` : html`<b>`}                 // WRONG -> when(cond, ..., ...)
+
+// DON'T return contain()/memoEach(), or a non-template value, as a whole
+// each() item - contain/memoEach keep their state on the slot they occupy and
+// an item root is not a slot; a plain value has no keyed placeholder at all.
+// each() THROWS for both. [t9-list-item]
+// (when() as a whole item IS fine - each() resolves it to the branch template.)
+${each(rows, r => memoEach(r.kids, ...))}       // WRONG -> html`<div>${memoEach(...)}</div>`
+${each(rows, r => r.name)}                      // WRONG -> html`<li>${r.name}</li>`
 ```
 
 ---

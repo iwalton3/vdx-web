@@ -34,6 +34,10 @@ cd tests/e2e && node test-runner.js --only-errors
 
 # Full output (slower, sequential)
 node test-runner.js
+
+# Template lint - banned patterns (no server needed)
+node tools/template-lint.js lib ui site examples
+node tools/scripts/test-template-lint.mjs   # its own fixture suite
 ```
 
 ## Regenerating Bundles
@@ -87,6 +91,22 @@ The no-arg mode rebuilds the standard set of `dist/*` bundles (and source maps).
 7. **Windowed lists**: use `createWindowing` (or `<cl-virtual-list>`) - never hand-roll spacer/range math
 8. **Row gestures** (drag-reorder, long-press): use `createRowGestures` and respect its passive-safety table
 9. **Touch/wheel handlers in scrollable UIs**: bind `-passive` unless the handler must preventDefault
+
+## Banned Patterns
+
+Not style preferences - each one throws or renders silently wrong DOM. Full
+table with fixes in [docs/tutorial.md](docs/tutorial.md#banned-patterns);
+`node tools/template-lint.js <dirs>` catches all of them statically.
+
+- `items.map(i => html\`...\`)` / inline ternary in a slot -> `each()` / `when()` (`t8-list-control`)
+- `contain()` / `memoEach()` / a plain value as a whole `each()` item -> wrap in `html\`<li>...</li>\`` (`t9-list-item`).
+  `when()` as a whole item is fine.
+- `onclick="..."` -> `on-click="handler"` (`t10-inline-events`). The static form reaches the DOM
+  and runs, outside the framework and outside CSP, unguarded; the `${fn}` form is refused at render
+- Lit/Vue sigils `?attr @evt .prop :attr` -> plain attributes / `on-*` (`t7-binding`)
+- `JSON.stringify()` into a prop -> pass the object (`t11-attr-stringify`)
+- `this.method.bind(this)` -> `this.method`, already bound (`t12-manual-bind`)
+- Methods named after structural DOM methods (`remove`, `append`, ...) -> throws at `defineComponent`
 
 ## Common Gotchas
 

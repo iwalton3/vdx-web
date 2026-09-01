@@ -161,6 +161,40 @@ Checks (design spec: `docs/proposals/template-lint-spec.md`). Severities:
   `setAttribute('?disabled', …)` and the DOM throws at render. Use
   `attr="${x}"` (booleans set/removed by value), `on-event="handler"`, and
   plain attribute binding instead. Applies to every element.
+- **t8-list-control** (error/warn) — a raw `.map()` returning html`` in a
+  content slot (error), or a ternary / `&&` / `||` returning html`` (warn).
+  Neither builds the keyed placeholders the renderer needs, so the DOM desyncs
+  the moment the list or branch changes — the runtime throws for a raw template
+  array. Use `each(items, item => html\`…\`)` and
+  `when(cond, html\`…\`[, html\`…\`])`.
+- **t9-list-item** (error) — an `each()` / `memoEach()` item template that
+  returns `contain()` or `memoEach()` directly, or a bare string. Those
+  directives keep their state on the slot they occupy and a list item root is
+  not a slot (`toKeyedChild` throws); a string has no compiled template and
+  renders nothing. Wrap the item: `item => html\`<li>${contain(…)}</li>\``.
+  `when()` as a whole item is fine — `each()` resolves it to the branch
+  template.
+- **t10-inline-events** (error) — inline DOM handler attributes (`onclick=`,
+  `oninput=`, …). VDX routes every handler through `on-*`. The dynamic
+  `onclick="${this.fn}"` form is refused at render by the `on[a-z]` security
+  guard (console warning, handler never binds); the static `onclick="fn()"`
+  form is applied by the compile-time static-DOM path, which has no such guard —
+  it reaches the DOM and runs, outside the framework and outside CSP, with
+  nothing said. Lint is the only thing that catches the static form.
+- **t11-attr-stringify** (warn) — `JSON.stringify()` bound to a component
+  **prop**. VDX passes objects and arrays through as real values, so
+  stringifying forces the receiver to parse them back and defeats
+  reference-based change detection. Only props are flagged (the parser marks
+  those `custom-element-attr`): on a native element an attribute *is* a string,
+  so `title="${JSON.stringify(x)}"` is correct. `data-*` / `json-*` stay string
+  payloads by design even on a component.
+- **t12-manual-bind** (warn) — `this.method.bind(this)` inside a component,
+  where `method` is a harvested **method**. Methods (class prototype methods
+  included) are already bound onto the element, and the copy is a *different*
+  function from `this.method`, so anything matching on identity —
+  `removeEventListener`, a handler-equality check — has to hold on to the copy.
+  Pass `this.method` directly. A function-valued class *field* is not
+  auto-bound, so binding one is legitimate and is not flagged.
 
 Template HTML is parsed with the framework's own parser (`htmlParse`), so event
 name and modifier parsing (`on-status-change-prevent` → event `status-change` +

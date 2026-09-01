@@ -28,9 +28,8 @@ export class VirtualList extends Component {
         // Get initial container height
         this.updateDimensions();
 
-        // Setup scroll listener
-        this._scrollListener = this.handleScroll.bind(this);
-        this.addEventListener('scroll', this._scrollListener);
+        // Setup scroll listener (methods are auto-bound - no .bind(this))
+        this.addEventListener('scroll', this.handleScroll);
 
         // Setup resize observer to handle container size changes
         this._resizeObserver = new ResizeObserver(() => {
@@ -43,9 +42,7 @@ export class VirtualList extends Component {
     }
 
     unmounted() {
-        if (this._scrollListener) {
-            this.removeEventListener('scroll', this._scrollListener);
-        }
+        this.removeEventListener('scroll', this.handleScroll);
         if (this._resizeObserver) {
             this._resizeObserver.disconnect();
         }

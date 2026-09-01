@@ -58,6 +58,21 @@ class CommunicationChapter extends TutChapter {
                 (<code>this.props.slots.footer</code>) work too, for multi-region layouts.
             </p>
 
+            <div class="callout banned">
+                <strong>Banned:</strong> <code>JSON.stringify()</code> into a prop. VDX passes
+                objects, arrays and functions through as real values, so stringifying hands the
+                child a string it has to parse back <em>and</em> breaks reference-based change
+                detection. Write <code>options="\${items}"</code>, not
+                <code>options="\${JSON.stringify(items)}"</code>. Equally banned when you pass a
+                method down: <code>\${this.handleSelect.bind(this)}</code> is redundant —
+                methods are already bound onto the element — and the copy is a
+                <em>different</em> function from <code>this.handleSelect</code>, so anything
+                matching on identity (<code>removeEventListener</code>, a handler-equality check)
+                misses it. Pass <code>\${this.handleSelect}</code>.
+                <span class="lint">Caught statically by <code>t11-attr-stringify</code> and
+                <code>t12-manual-bind</code>.</span>
+            </div>
+
             <div class="callout tip">
                 Passing a callback down as a prop
                 (<code>onSelect="\${this.handleSelect}"</code>) is also fine — but reaching

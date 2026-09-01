@@ -40,6 +40,16 @@ class LifecycleChapter extends TutChapter {
                 not have been applied yet when your callback fires for this one.
             </p>
 
+            <div class="callout banned">
+                <strong>Banned:</strong> <code>this.method.bind(this)</code> when registering a
+                global listener here. Methods are already bound onto the element, and the bound
+                copy is a <em>different</em> function, so
+                <code>removeEventListener('resize', this.onResize)</code> in
+                <code>unmounted()</code> would silently fail to remove it. Register and remove the
+                same <code>this.onResize</code>.
+                <span class="lint">Caught statically by <code>t12-manual-bind</code>.</span>
+            </div>
+
             <h2>afterRender()</h2>
             <p>
                 <code>afterRender()</code> runs after each render, with the DOM up to date — the

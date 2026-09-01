@@ -7,9 +7,12 @@
  *
  *     <button on-click="typo">x</button> <!-- LINT-EXPECT: t1-handler -->
  *
- * Every annotated line must be reported with that check id, and no
- * unannotated line may be reported at all (near-miss negatives are the
- * point of the suite). Exit 0 = all fixtures pass.
+ * Every annotated line must be reported with that check id, EXACTLY ONCE, and
+ * no unannotated line may be reported at all (near-miss negatives are the
+ * point of the suite). The once-only part matters: findTemplates yields nested
+ * html`` literals as templates of their own, so a rule that scans a template's
+ * whole source range sees an inner call once per enclosing template.
+ * Exit 0 = all fixtures pass.
  */
 
 import fs from 'fs';
@@ -41,6 +44,9 @@ for (const entry of entries) {
     const actual = lintTemplates(entry.content, entry.path, registry);
     const actualByLine = new Map(actual.map(i => [i.line, i]));
 
+    const countByLine = new Map();
+    for (const issue of actual) countByLine.set(issue.line, (countByLine.get(issue.line) || 0) + 1);
+
     for (const [line, checkId] of expected) {
         checked++;
         const hit = actualByLine.get(line);
@@ -49,6 +55,9 @@ for (const entry of entries) {
             failures++;
         } else if (hit.checkId !== checkId) {
             console.log(`\x1b[31m✗ ${rel}:${line} expected ${checkId}, got ${hit.checkId}\x1b[0m`);
+            failures++;
+        } else if (countByLine.get(line) > 1) {
+            console.log(`\x1b[31m✗ ${rel}:${line} ${checkId} reported ${countByLine.get(line)} times (duplicate)\x1b[0m`);
             failures++;
         }
     }

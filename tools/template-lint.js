@@ -14,6 +14,10 @@
  *   T6  custom-event usage vs @fires / @prop doc drift               (v1)
  *   T7  Lit/Vue binding sigils (?attr .prop @evt :attr) not in VDX   (v1)
  *   T8  raw .map()/ternary returning html`` in a slot (use each/when)(v1)
+ *   T9  contain()/memoEach() as a whole each() item template        (v1)
+ *   T10 inline DOM handlers (onclick=...) instead of on-*           (v1)
+ *   T11 JSON.stringify() into a prop - pass the object              (v1)
+ *   T12 manual .bind(this) - methods are auto-bound                 (v1)
  *
  * Design spec: docs/proposals/template-lint-spec.md. Guiding rule: silence
  * over false positives - every check bails out rather than guessing.
@@ -99,7 +103,8 @@ export function maskStringsAndComments(source) {
                 continue;
             }
             if (c === '/') {
-                if (REGEX_PREV_CHARS.has(lastSig) || KEYWORDS_BEFORE_REGEX.has(lastWord)) {
+                if ((REGEX_PREV_CHARS.has(lastSig) || KEYWORDS_BEFORE_REGEX.has(lastWord))
+                    && !followsIncrementDecrement(source, i)) {
                     const end = skipRegex(source, i);
                     blank(i + 1, end - 1);
                     i = end;
@@ -195,6 +200,23 @@ const KEYWORDS_BEFORE_REGEX = new Set([
 ]);
 const REGEX_PREV_CHARS = new Set(['(', '[', '{', ',', ';', ':', '=', '!', '&', '|', '?', '+', '-', '*', '/', '%', '^', '~', '<', '>']);
 
+/**
+ * `n++ / 2` is division, not a regex. The scanners track only ONE previous
+ * significant character, so `++` leaves a bare `+` behind - which is in
+ * REGEX_PREV_CHARS, so the rest of the line gets skipped/blanked as a regex
+ * body. Look back for the pair instead of threading a second char through
+ * every assignment site.
+ *
+ * @param {string} source
+ * @param {number} slashIdx - index of the '/' being classified
+ * @returns {boolean} true when the '/' follows a ++ / -- operator
+ */
+function followsIncrementDecrement(source, slashIdx) {
+    let k = slashIdx - 1;
+    while (k >= 0 && /\s/.test(source[k])) k--;
+    return k >= 1 && (source[k] === '+' || source[k] === '-') && source[k - 1] === source[k];
+}
+
 /** Skip a regex literal body + flags; returns index after it. */
 function skipRegex(source, i) {
     i++;
@@ -280,7 +302,8 @@ function scanExprBrace(source, openIdx) {
             continue;
         }
         if (c === '/') {
-            if (REGEX_PREV_CHARS.has(lastSig) || KEYWORDS_BEFORE_REGEX.has(lastWord)) {
+            if ((REGEX_PREV_CHARS.has(lastSig) || KEYWORDS_BEFORE_REGEX.has(lastWord))
+                && !followsIncrementDecrement(source, i)) {
                 i = skipRegex(source, i);
             } else {
                 i++;
@@ -948,6 +971,7 @@ const IDENT_RE = /^[A-Za-z_$][\w$]*$/;
 export const ALL_CHECKS = new Set([
     't1-handler', 't2-xmodel', 't3-refs', 't4-modifiers', 't5-props',
     't6-events', 't6-prop-docs', 't7-binding', 't8-list-control',
+    't9-list-item', 't10-inline-events', 't11-attr-stringify', 't12-manual-bind',
 ]);
 
 // Native DOM events bubble through components without documentation - only
@@ -989,6 +1013,36 @@ const CUSTOM_TAG_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)+$/;
 
 function escapeRegex(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Top-level argument ranges of the call whose '(' is at `open`.
+ * Expects text with strings/comments already masked (maskStringsAndComments),
+ * so only structural brackets remain. Returns null if the call is unbalanced.
+ *
+ * @param {string} text - masked source
+ * @param {number} open - index of the call's '('
+ * @returns {Array<[number, number]>|null}
+ */
+function callArgRanges(text, open) {
+    const args = [];
+    let depth = 0;
+    let start = open + 1;
+    for (let i = open; i < text.length; i++) {
+        const c = text[i];
+        if (c === '(' || c === '[' || c === '{') depth++;
+        else if (c === ')' || c === ']' || c === '}') {
+            depth--;
+            if (depth === 0) {
+                args.push([start, i]);
+                return args;
+            }
+        } else if (c === ',' && depth === 1) {
+            args.push([start, i]);
+            start = i + 1;
+        }
+    }
+    return null;
 }
 
 function kebabToCamel(s) {
@@ -1038,6 +1092,17 @@ export function lintTemplates(source, filePath, registry, options = {}) {
     const sourceLines = source.split('\n');
     const issues = [];
 
+    // Strings/comments blanked, ${} expression code kept - safe for structural
+    // scanning (bracket matching, identifier lookups). Computed once per file;
+    // null means the file could not be masked and those checks stay silent.
+    let maskedSource;
+    const masked = () => {
+        if (maskedSource === undefined) {
+            try { maskedSource = maskStringsAndComments(source); } catch { maskedSource = null; }
+        }
+        return maskedSource;
+    };
+
     const report = (line, checkId, severity, message) => {
         if (isSuppressed(sourceLines, line, checkId)) return;
         issues.push({ line, checkId, severity, message, fixable: false, path: '' });
@@ -1072,6 +1137,12 @@ export function lintTemplates(source, filePath, registry, options = {}) {
     // T3 state: ref="name" declarations unioned across each component's
     // templates (including detached factories - refs land somewhere)
     const refsDeclared = new Map(); // comp -> Map(refName -> line)
+
+    // T9 scans a template's whole source range, and findTemplates yields nested
+    // html`` literals as templates of their own - so an each() inside a nested
+    // template is seen once by it and once by every template enclosing it.
+    // Report each call site once, by absolute position.
+    const listItemSeen = new Set();
 
     for (const tpl of templates) {
         const comp = enclosing(tpl.start);
@@ -1235,6 +1306,51 @@ export function lintTemplates(source, filePath, registry, options = {}) {
             }
         };
 
+        // ---- T11: JSON.stringify() into a component PROP ----
+        // VDX passes objects and arrays through as real values; stringifying
+        // gives the child a string it then has to parse back, and breaks
+        // identity-based change detection. Only props are flagged: the parser
+        // marks those 'custom-element-attr', and on a native element an
+        // attribute IS a string, so JSON.stringify there is correct.
+        // data-*/json-* stay string payloads even on a component.
+        const checkStringify = (node) => {
+            for (const [attrName, def] of Object.entries(node.attrs || {})) {
+                if (!def || def.context !== 'custom-element-attr') continue;
+                if (typeof def.slot !== 'number') continue;
+                if (/^(data-|json-)/.test(attrName)) continue;
+                const expr = tpl.exprs[def.slot];
+                if (!expr) continue;
+                const text = source.slice(expr.start + 2, expr.end - 1);
+                if (!/\bJSON\.stringify\s*\(/.test(text)) continue;
+                report(lineOf(expr.start), 't11-attr-stringify', 'warn',
+                    `${attrName}="\${JSON.stringify(…)}" on <${node.tag}> - VDX passes objects `
+                    + 'through as values, so stringifying forces the receiver to parse it back '
+                    + 'and defeats reference-based updates');
+            }
+        };
+
+        // ---- T10: inline DOM event attributes (onclick=, oninput=, ...) ----
+        // VDX routes every handler through on-*. The two forms fail differently:
+        // a DYNAMIC `onclick="${fn}"` is refused by the renderer's on[a-z] guard
+        // (console warning, handler never binds), but a STATIC `onclick="fn()"`
+        // is applied by the compile-time static-DOM path, which has no such
+        // guard - it reaches the DOM and runs, outside the framework and outside
+        // CSP, with nothing said. The static form is the one only lint catches.
+        const checkInlineEvents = (node) => {
+            for (const attrName of Object.keys(node.attrs || {})) {
+                if (attrName === '__ref__' || attrName.includes('-')) continue;
+                if (!attrName.startsWith('on')) continue;
+                const event = attrName.slice(2);
+                if (!NATIVE_EVENTS.has(event)) continue;   // not a DOM handler name
+                const line = locate('t10:' + attrName, escapeRegex(attrName) + '\\s*=');
+                report(line, 't10-inline-events', 'error',
+                    `${attrName}="…" is an inline DOM handler - VDX binds events with `
+                    + `on-${event}="handler". A static ${attrName}="fn()" runs outside the `
+                    + `framework and outside CSP with no warning; the dynamic `
+                    + `${attrName}="\${fn}" form is refused at render instead`);
+            }
+        };
+
         const walk = (node) => {
             if (!node) return;
             if (node.type === 'element') {
@@ -1264,6 +1380,8 @@ export function lintTemplates(source, filePath, registry, options = {}) {
                 if (on('t5-props')) checkProps(node);
                 if (on('t6-events')) checkEvents(node);
                 if (on('t7-binding')) checkBindingSyntax(node);
+                if (on('t10-inline-events')) checkInlineEvents(node);
+                if (on('t11-attr-stringify')) checkStringify(node);
                 const refDef = node.attrs && node.attrs.__ref__;
                 if (refDef && comp && typeof refDef.refName === 'string' && IDENT_RE.test(refDef.refName)) {
                     if (!refsDeclared.has(comp)) refsDeclared.set(comp, new Map());
@@ -1311,6 +1429,40 @@ export function lintTemplates(source, filePath, registry, options = {}) {
                 }
             }
         }
+
+        // ---- T9: contain()/memoEach() returned as a whole list item ----
+        // Their state (the isolated effect, the memo cache) belongs to the slot
+        // they sit in, and a list item root is not a slot - toKeyedChild throws.
+        // A string/untagged-template item is the same class of mistake: it has
+        // no compiled template, so it would render nothing.
+        if (on('t9-list-item') && masked()) {
+            const maskedTpl = masked().slice(tpl.start, tpl.end);
+            for (const call of maskedTpl.matchAll(/(?:^|[^.\w$])(each|memoEach)\s*\(/g)) {
+                const open = call.index + call[0].length - 1;
+                const args = callArgRanges(maskedTpl, open);
+                if (!args || args.length < 2) continue;
+                const mapFn = maskedTpl.slice(args[1][0], args[1][1]);
+                const arrow = /=>\s*/.exec(mapFn);
+                if (!arrow) continue;                       // not an inline arrow - can't tell
+                const body = mapFn.slice(arrow.index + arrow[0].length);
+                const badDirective = /^(contain|memoEach)\s*\(/.exec(body);
+                const at = tpl.start + call.index;
+                if (listItemSeen.has(at)) continue;
+                listItemSeen.add(at);
+                const line = lineOf(at);
+                if (badDirective) {
+                    report(line, 't9-list-item', 'error',
+                        `${call[1]}() item template returns ${badDirective[1]}() directly - it needs a `
+                        + 'slot to own its state, which a list item root is not. Wrap it: '
+                        + 'item => html`<li>${' + badDirective[1] + '(...)}</li>`');
+                } else if (/^['"`]/.test(body.trim())) {
+                    report(line, 't9-list-item', 'error',
+                        `${call[1]}() item template returns a string, not an html\`\` template - `
+                        + 'it has no keyed placeholder and renders nothing. Wrap it: item => html`${value}`');
+                }
+            }
+        }
+
     }
 
     // ---- T6: @prop doc drift against declared props ----
@@ -1327,18 +1479,36 @@ export function lintTemplates(source, filePath, registry, options = {}) {
         }
     }
 
+    // ---- T12: manual .bind(this) on a component member ----
+    // defineComponent binds every method onto the element (class prototype
+    // methods included), so `this.x.bind(this)` is redundant - and the copy is
+    // a DIFFERENT function from `this.x`, so anything matching on identity
+    // (removeEventListener, a handler-equality check) needs the copy kept.
+    if (on('t12-manual-bind') && components.length > 0 && masked()) {
+        const maskedSrc = masked();
+        for (const comp of components) {
+            if (comp.bodyStart < 0 || !comp.harvest || comp.harvest.opaque) continue;
+            const body = maskedSrc.slice(comp.bodyStart, comp.bodyEnd);
+            for (const m of body.matchAll(/\bthis\.([A-Za-z_$][\w$]*)\s*\.bind\s*\(\s*this\s*\)/g)) {
+                // Only METHODS are auto-bound. A function-valued class field
+                // lands on the element unbound, so binding it is necessary -
+                // and a name we cannot resolve gets the benefit of the doubt.
+                if (!comp.harvest.methods.has(m[1])) continue;
+                report(lineOf(comp.bodyStart + m.index), 't12-manual-bind', 'warn',
+                    `this.${m[1]}.bind(this) is redundant - component methods are already bound to `
+                    + `the element, and the copy is a different function from this.${m[1]}, so anything `
+                    + `matching on identity has to hold on to it. Pass this.${m[1]} directly`);
+            }
+        }
+    }
+
     // ---- T3: this.refs reads vs ref="..." declarations (per component) ----
     if (on('t3-refs') && components.length > 0) {
-        let masked;
-        try {
-            masked = maskStringsAndComments(source);
-        } catch {
-            masked = null;
-        }
-        if (masked) {
+        const maskedSrc = masked();
+        if (maskedSrc) {
             for (const comp of components) {
                 if (!comp.harvest || comp.bodyStart < 0) continue;
-                let body = masked.slice(comp.bodyStart, comp.bodyEnd);
+                let body = maskedSrc.slice(comp.bodyStart, comp.bodyEnd);
 
                 // Destructuring reads: const { a, b: c } = this.refs
                 const reads = new Map(); // name -> absolute source index
