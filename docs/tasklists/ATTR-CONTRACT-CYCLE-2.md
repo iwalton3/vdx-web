@@ -108,14 +108,21 @@ Ratified by the repo owner during this cycle:
 
 ## What is left
 
-1. **The merge decision.** Nothing here is known-broken and the downstream
+1. **Review rounds, not yet run.** Cycle 1's stop rule — *"do not run another
+   review round before the duplication is gone"* — is satisfied: the comparison
+   logic that reviewers kept re-finding, one cell per round, is factored into
+   `judge()` and written once. So `/code-review high` and a codex round on the
+   branch are both unblocked and are the sensible pre-merge step. Neither has
+   been run; both are the owner's to trigger, being billed and (for codex)
+   outward-facing.
+2. **The merge decision.** Nothing here is known-broken and the downstream
    canary is green, but this branch produced a regression in every previous
    round, so the bar is the owner's, not mine.
-2. **`noOpinion` is 305 cells** (~11%), up from 82 because the new axes ask
+3. **`noOpinion` is 305 cells** (~11%), up from 82 because the new axes ask
    questions the rule has no answer for — mostly `${object}`/`${function}` on
    native attributes. It is printed with every run now. Ruling on them would
    shrink it; leaving them is honest as long as the number stays visible.
-3. **codemap's own memory is stale** and I did not edit another project's
+4. **codemap's own memory is stale** and I did not edit another project's
    memory: it still lists "resolve conditionals BEFORE an `each`" as a standing
    workaround (fixed in `37da760`, re-verified here and the report closed out),
    says the lint lives at `tools/optimize.js`, and calls the bug reports
