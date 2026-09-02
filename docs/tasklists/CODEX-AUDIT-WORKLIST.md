@@ -218,18 +218,40 @@ vendored beforehand.
 | | linter | e2e baseline | e2e with new build |
 |---|---|---|---|
 | codemap (`~/Desktop/codemap`) | 1 t8, unchanged pre/post | 132/132 | **132/132** |
-| mrepo-web | 14 t8 + 2 t12 unchanged, **+19 t14** | see below | see below |
+| mrepo-web | 14 t8 + 2 t12 unchanged, **+19 t14** | 426 pass / 1 fail | **427 pass / 0 fail** |
+
+mrepo's one baseline failure is a `remote-queue` flake under full-suite load -
+it passes 12/12 run on its own, and passed in the new-build run.
+
+**The downstream check earned its keep: it caught a real bug in this branch that
+no vdx suite can see.** `dist/utils.js` shipped
+`export { boolProp } from './core/constants.js'`, a dangling import - `utils.js`
+and `router.js` go through `processSimpleFile`, minified in place rather than
+bundled, so their imports survive verbatim and must resolve inside `dist/`.
+Only the sibling bundles do. Every vdx suite passes because they import `lib/`
+sources where that path resolves; any app vendoring `dist/` fails to load.
+Fixed by importing `boolProp` from `./framework.js`, which already re-exports
+it. `bundler-esm.js` now verifies every relative import left in `dist/` resolves
+inside `dist/` and exits 1 otherwise - proven by reintroducing the bug.
+
+**Re-vendoring mrepo needs `dist/overlay.js` added**, which it has never had:
+its `componentlib/overlay/` holds only `dialog.js` and `toast.js` against vdx's
+seven, so it predates `e1ed8b3` (the top-layer overlay migration). Its own
+vendored `FRAMEWORK.md:515` already documents `vdx/lib/overlay.js` - the doc
+came across in an earlier re-vendor, the file did not. Eight componentlib files
+import it, so without it the app will not boot.
 
 codemap's suite is the more useful of the two: it has a real browser "web UI"
 suite, and `src/e2e/vdx-lint.e2e.ts` shells out to `/working/vdx-web/tools` -
 this checkout, live - so its baseline had already run the new linter over
 codemap's app before anything was vendored.
 
-mrepo's main suite needs the owner's docker stack on port 9900 and this session
-has no docker access, so it could not run. The two suites its own docs describe
-as backend-free were served statically instead and are the ones most exposed to
-the renderer changes: **windowing 13/13 and queue-reorder 21/21, identical
-before and after**.
+mrepo's suite is hermetic and self-provisioning - the entry point is
+`tests/run-e2e.js`, which stands up its own backend on a free high port with a
+scratch DB and a curated fixture library. `tests/test-runner.js` is the raw
+per-suite runner underneath it and assumes a server is already up on :9900,
+which is the owner's live docker; running that directly is what made the suite
+look like it needed docker.
 
 mrepo's 19 new findings are all `t14-bool-string` (18 `visible="true"`, one
 `outlined="true"`) - idiom warnings that behave identically before and after.
