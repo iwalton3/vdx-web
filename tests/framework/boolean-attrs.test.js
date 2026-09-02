@@ -13,6 +13,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
+import { isBooleanAttr } from '../../lib/core/constants.js';
 import { defineComponent, html, Component, boolProp } from '../../lib/framework.js';
 
 class BAttrProbe extends Component {
@@ -28,6 +29,38 @@ function mount(tag) {
 }
 
 describe('Boolean Attributes', function(it) {
+    it('allowfullscreen, nomodule and playsinline are boolean attributes', () => {
+        // Presence is what counts for these, so a falsy ${} must REMOVE them.
+        // Missing from the table, they took the plain-attribute path and were
+        // written as text - an iframe that permits fullscreen where the author
+        // wrote ${0}, and a video that plays inline where they wrote ${''}.
+        for (const n of ['allowfullscreen', 'nomodule', 'playsinline']) {
+            assert.equal(isBooleanAttr(n, false), true, `${n} is in the table`);
+        }
+
+        // End to end on the two that have a real element to sit on; the table
+        // is keyed on the NAME, so <script nomodule> needs no separate case
+        // (and an inline <script> in a template is refused for other reasons).
+        class BaMissHost extends Component {
+            constructor(p) { super(p); this.state = { off: 0, empty: '' }; }
+            template() {
+                return html`<div>
+                    <iframe id="f" allowfullscreen="${this.state.off}"></iframe>
+                    <video id="v" playsinline="${this.state.empty}"></video>
+                </div>`;
+            }
+        }
+        defineComponent('ba-miss-host', BaMissHost);
+        const el = mount('ba-miss-host');
+
+        assert.equal(el.querySelector('#f').hasAttribute('allowfullscreen'), false,
+            '${0} does not permit fullscreen');
+        assert.equal(el.querySelector('#v').hasAttribute('playsinline'), false,
+            "${''} does not force inline playback");
+
+        document.body.removeChild(el);
+    });
+
     it('native: literal text follows HTML in both sinks', () => {
         class BAttrNativeLiteral extends Component {
             template() {

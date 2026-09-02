@@ -1655,6 +1655,11 @@ export function isDefaultExcluded(relativePath) {
 /**
  * Run the template lint over directories. Registry is built over ALL files
  * (so cross-file tags resolve); template checks skip excluded paths.
+ *
+ * The returned array carries `filesScanned` and `filesChecked` as properties.
+ * An array keeps every existing consumer working - length, iteration and
+ * JSON.stringify all ignore them - and the counts are what let a caller tell
+ * "nothing is wrong" from "nothing was looked at".
  */
 export function runTemplateLint(dirs, options = {}) {
     const files = [];
@@ -1668,12 +1673,16 @@ export function runTemplateLint(dirs, options = {}) {
         fs.writeFileSync(options.emitRegistry, JSON.stringify(serializeRegistry(registry), null, 2) + '\n');
     }
     const results = [];
+    let checked = 0;
     for (const f of files) {
         const rel = path.relative(f.root, f.path);
         if (!options.includeTests && isDefaultExcluded(rel)) continue;
+        checked++;
         const issues = lintTemplates(f.content, f.path, registry, options);
         if (issues.length > 0) results.push({ file: f.path, relative: rel, issues });
     }
+    results.filesScanned = files.length;
+    results.filesChecked = checked;
     return results;
 }
 
@@ -1726,8 +1735,29 @@ function cliMain() {
             console.log('');
         }
         const total = results.reduce((n, r) => n + r.issues.length, 0);
-        if (total === 0) console.log('\x1b[32m✓ No template binding issues found\x1b[0m\n');
-        else console.log(`\x1b[31m✗ Found ${total} template issue(s) in ${results.length} file(s)\x1b[0m\n`);
+        // Always say how many files were looked at. A clean report over zero
+        // files reads exactly like a clean report over a thousand, and a
+        // downstream consumer lost time to precisely that - see the empty-scan
+        // guard below.
+        if (total === 0) {
+            console.log(`\x1b[32m✓ No template binding issues found\x1b[0m ` +
+                        `(${results.filesChecked} file(s) checked)\n`);
+        } else {
+            console.log(`\x1b[31m✗ Found ${total} template issue(s) in ${results.length} ` +
+                        `of ${results.filesChecked} file(s)\x1b[0m\n`);
+        }
+    }
+
+    // A run that checked nothing is not a pass. The directories exist (checked
+    // above), so this means they hold no .js/.mjs outside the test tree - a
+    // wrong path, or a vendor layout that moved. Reporting it clean is how a
+    // checker silently stops checking.
+    if (results.filesChecked === 0) {
+        console.error(
+            `Error: no lintable files found in ${dirs.join(', ')} - ` +
+            'nothing was checked, so "clean" would mean nothing. ' +
+            '(Test trees are excluded by default; pass --include-tests to lint them.)');
+        process.exit(1);
     }
 
     const hasErrors = results.some(r => r.issues.some(i => i.severity === 'error'));

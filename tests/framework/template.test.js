@@ -3,7 +3,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { html, raw, when, awaitThen } from '../../lib/framework.js';
+import { html, raw, when, awaitThen, Component, defineComponent, flushSync } from '../../lib/framework.js';
 import { instantiateTemplate } from '../../lib/core/template-renderer.js';
 
 // Helper to render template and get HTML string
@@ -612,5 +612,28 @@ describe('memoEach Helper', function(it) {
 
         // Should store explicit cache reference
         assert.equal(result._explicitCache, explicitCache, 'Should store explicit cache');
+    });
+});
+
+describe('Template - style binding', function(it) {
+    it('a style withdrawn on update leaves no attribute behind', () => {
+        // Blink re-serialises a CSSOM-written inline style into the attribute
+        // lazily; removeAttribute on an unsynchronised one left style="" (and
+        // [style] selectors matching). A fresh render of null never had the
+        // attribute, so the update must not either.
+        class TplStyleProbe extends Component {
+            state = { s: 'color: red' };
+            template() { return html`<div style="${this.state.s}"></div>`; }
+        }
+        defineComponent('tpl-style-probe', TplStyleProbe);
+        const host = document.createElement('tpl-style-probe');
+        document.body.appendChild(host);
+        const div = host.querySelector('div');
+        assert.equal(div.getAttribute('style'), 'color: red;', 'string style applied');
+
+        flushSync(() => { host.state.s = null; });
+        assert.equal(div.hasAttribute('style'), false,
+            'withdrawing the style must remove the attribute, not empty it');
+        host.remove();
     });
 });

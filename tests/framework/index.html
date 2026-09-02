@@ -185,8 +185,11 @@
         import './audit-fixes.test.js';
         import './review-round2.test.js';
         import './registration-timing.test.js';
+        import './enumerated-attrs.test.js';
+        import './component-attr-contract.test.js';
         import './guards.test.js';
         import './keyed-list-ranges.test.js';
+        import './slot-relations.test.js';
 
         // Capture console output
         const consoleDiv = document.getElementById('console');
@@ -243,7 +246,20 @@
                 originalError(...args);
             };
 
-            await runner.run();
+            try {
+                await runner.run();
+            } finally {
+                // The completion signal for tests/e2e/run-framework-tests.js.
+                // Set from the runner's own state, not from console text, so a
+                // driver never has to race the console stream for the names of
+                // failing tests.
+                window.__VDX_TEST_RESULTS__ = {
+                    total: runner.results.total,
+                    passed: runner.results.passed,
+                    failed: runner.results.failed,
+                    failures: runner.results.failures
+                };
+            }
             runner.renderResults(resultsDiv);
 
             // Show copy button if there were failures
