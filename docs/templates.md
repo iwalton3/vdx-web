@@ -1160,7 +1160,7 @@ Three kinds, and the difference that matters is what *absence* means.
 |------|----------|-----------------|
 | **pure boolean** | `disabled`, `hidden`, `checked` | Plain JS `Boolean()`. Absence means off. |
 | **enumerated** | `spellcheck`, `draggable`, `translate`, `contenteditable` | A string is that attribute's own vocabulary and passes through verbatim. Anything else coerces onto its on/off words. Nullish removes. |
-| **plain** | `id`, `title`, `placeholder` | Stringified. Nullish removes; `null`/`undefined` are never written as text. |
+| **plain** | `id`, `title`, `placeholder` | Stringified. Nullish **and `false`** remove the attribute; `null`/`undefined` are never written as text. |
 
 Pure booleans follow JS truthiness, so a non-empty string is on:
 
@@ -1204,6 +1204,16 @@ Some names are handled by the host element before they reach your props and so d
 *not* preserve their JS type - `class`, `style`, `aria-*`, `data-*`, the global
 booleans and the enumerated attributes. See **Reserved host attributes** in
 [FRAMEWORK.md](../FRAMEWORK.md).
+
+Those names take the value as text, but "never write an object or a function
+into the DOM" holds for them too: `data-config="${obj}"` sets no attribute
+rather than the string `"[object Object]"`, which a component would otherwise
+have received as its prop in place of the declared default.
+
+A template may spell a camelCase prop in either form - `maxRows="${n}"` or
+`max-rows="${n}"` - and both reach `props.maxRows` with the value intact, on
+updates as well as the first render. When the mirror shows anything at all (a
+string value, per the rule above) it uses the kebab form.
 
 ### `undefined` means "not provided"
 

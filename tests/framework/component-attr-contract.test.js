@@ -291,6 +291,174 @@ describe('Component Attribute Contract', function(it) {
         document.body.removeChild(el);
     });
 
+    it('an on*-named prop reaches a component that registers after the render', () => {
+        // The inline-handler guard keys on REGISTRY membership at render time,
+        // not on the tag shape, so a component whose class has not been
+        // imported yet is treated as a native element and its onPick prop is
+        // refused as a script sink. docs/templates.md promises the opposite.
+        function pick() { return 'PICKED'; }
+        class CacOnHost extends Component {
+            constructor(p) { super(p); this.state = { f: pick }; }
+            template() { return html`<cac-on onPick="${this.state.f}"></cac-on>`; }
+        }
+        defineComponent('cac-on-host', CacOnHost);
+        const el = mount('cac-on-host');
+        const recv = el.querySelector('cac-on');
+
+        class CacOn extends Component {
+            static props = { onPick: null };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-on', CacOn);   // upgrade
+
+        assert.equal(typeof recv.props.onPick, 'function',
+            'the handler survived the lazy registration');
+        assert.equal(recv.props.onPick(), 'PICKED', 'and it is the real one');
+
+        document.body.removeChild(el);
+    });
+
+    it('a script sink on a hyphenated tag is still not executable', () => {
+        // The adversarial half of the test above: relaxing the guard to the tag
+        // shape must not let a template install an inline handler. An event
+        // handler IDL attribute is [LegacyTreatNonObjectAsNull], so a STRING
+        // assigned to el.onclick becomes null rather than a compiled handler -
+        // and innerHTML stays refused for every element.
+        class CacSinkHost extends Component {
+            constructor(p) { super(p); this.state = { s: 'window.__CAC_XSS__ = 1' }; }
+            template() {
+                return html`<cac-sink onclick="${this.state.s}"
+                                      innerHTML="${'<b>x</b>'}"></cac-sink>`;
+            }
+        }
+        defineComponent('cac-sink-host', CacSinkHost);
+        const el = mount('cac-sink-host');
+        const sink = el.querySelector('cac-sink');
+
+        assert.equal(sink.onclick, null, 'no compiled onclick handler');
+        assert.equal(sink.getAttribute('onclick'), null,
+            'and nothing the browser would compile on parse');
+        sink.click();
+        assert.equal(window.__CAC_XSS__, undefined, 'clicking runs nothing');
+        assert.equal(sink.innerHTML, '', 'innerHTML is still refused');
+
+        document.body.removeChild(el);
+    });
+
+    it('a kebab attribute for a camelCase prop keeps delivering on update', () => {
+        // The side channel is drained by _parseAttributes, which runs once per
+        // connect - so a kebab-spelled name that ownership does not recognise
+        // delivers on the first render and never again. The stale value looks
+        // like it works, which is worse than never working.
+        class CacUpd extends Component {
+            static props = { fromUnit: 'DEF', maxRows: 'DEF' };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-upd', CacUpd);
+
+        class CacUpdHost extends Component {
+            constructor(p) { super(p); this.state = { u: { n: 'A' }, n: 42 }; }
+            template() {
+                return html`<cac-upd from-unit="${this.state.u}"
+                                     max-rows="${this.state.n}"></cac-upd>`;
+            }
+        }
+        defineComponent('cac-upd-host', CacUpdHost);
+        const el = mount('cac-upd-host');
+        const recv = el.querySelector('cac-upd');
+        assert.equal(recv.props.maxRows, 42, 'the number arrived on the first render');
+
+        const before = recv.props.fromUnit;
+        flushSync(() => { el.state.u = { n: 'B' }; el.state.n = 43; });
+
+        // Compare proxied read to proxied read: state hands back a PROXY, so
+        // the raw object is a different reference by design (CLAUDE.md,
+        // "Reactive Proxies").
+        assert.equal(recv.props.fromUnit, el.state.u, 'the update reached the object prop');
+        assert.notEqual(recv.props.fromUnit, before, 'and it is not the first render\'s value');
+        assert.equal(recv.props.fromUnit.n, 'B', 'with the new contents');
+        // A number never mirrors - the attribute can only hold a string - so the
+        // kebab spelling shows nothing here rather than "43".
+        assert.equal(recv.getAttribute('max-rows'), null, 'a number shows no mirror');
+        assert.equal(recv.props.maxRows, 43, 'and the number is still a number');
+
+        document.body.removeChild(el);
+    });
+
+    it('a camelCase attribute spelling reaches the same prop', () => {
+        // The parser preserves attribute-name case deliberately, so a template
+        // may spell a prop either way. Both must land on the same prop with the
+        // value intact - documented in docs/templates.md, so pinned here.
+        class CacCamel extends Component {
+            static props = { maxRows: 'DEF' };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-camel', CacCamel);
+
+        class CacCamelHost extends Component {
+            constructor(p) { super(p); this.state = { n: 7 }; }
+            template() { return html`<cac-camel maxRows="${this.state.n}"></cac-camel>`; }
+        }
+        defineComponent('cac-camel-host', CacCamelHost);
+        const el = mount('cac-camel-host');
+        const recv = el.querySelector('cac-camel');
+        assert.equal(recv.props.maxRows, 7, 'the camelCase spelling reached the prop');
+
+        flushSync(() => { el.state.n = 8; });
+        assert.equal(recv.props.maxRows, 8, 'and keeps reaching it on update');
+
+        document.body.removeChild(el);
+    });
+
+    it('setProps resolves undefined to the declared default, like the setter', () => {
+        // Two copies of the same rule: the generated property setter resolves
+        // "not provided" to the default, and setProps - which the router uses -
+        // wrote the raw value.
+        class CacSp extends Component {
+            static props = { tone: 'neutral' };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-sp', CacSp);
+
+        const a = mount('cac-sp');
+        a.tone = undefined;
+        const b = mount('cac-sp');
+        b.setProps({ tone: undefined });
+
+        assert.equal(a.props.tone, 'neutral', 'the setter resolves to the default');
+        assert.equal(b.props.tone, 'neutral', 'and setProps must agree');
+
+        document.body.removeChild(a);
+        document.body.removeChild(b);
+    });
+
+    it('a data-* object is not stringified onto a component', () => {
+        // data-* is host-applied, but "never String() an object into the DOM"
+        // is a whole-contract rule, not a component-branch one. Writing
+        // "[object Object]" to the attribute also hands the component that
+        // text as its prop, replacing the declared default.
+        class CacData extends Component {
+            static props = { dataConfig: 'DEF' };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-data', CacData);
+
+        class CacDataHost extends Component {
+            constructor(p) { super(p); this.state = { c: { a: 1 } }; }
+            template() { return html`<cac-data data-config="${this.state.c}"></cac-data>`; }
+        }
+        defineComponent('cac-data-host', CacDataHost);
+        const el = mount('cac-data-host');
+        const recv = el.querySelector('cac-data');
+
+        assert.equal(recv.getAttribute('data-config'), null,
+            'an object does not reach the attribute as text');
+        assert.notEqual(recv.props.dataConfig, '[object Object]',
+            'and the prop is not handed that text');
+
+        document.body.removeChild(el);
+    });
+
     it('registration timing does not change what a prop is', () => {
         // The control for the test above, and the contract stated in
         // registration-timing.test.js: byte-identical markup either side of
