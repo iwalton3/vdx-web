@@ -38,15 +38,14 @@ expected to reach zero. A **new** row is a regression; a **resolved** row is a
 fix worth recording. Either fails the run, which is what stops this from being a
 one-shot audit that rots the next time someone edits a sink.
 
-The 39 recorded entries are, in full:
+The 37 recorded entries are, in full:
 
 | count | what | why it stays |
 |-------|------|--------------|
-| 14 | SVG / `svg-hyphen` `hidden`, and bare attributes in SVG | `isBooleanAttr` special-cases `GLOBAL_BOOLEAN_ATTRS` past the `notHtmlElement` guard (`constants.js`), so these keep presence semantics inside SVG. Computed `display` is identical either way. |
+| 14 | SVG / `svg-hyphen` `hidden`, and bare attributes in SVG | `isBooleanAttr` special-cases `GLOBAL_BOOLEAN_ATTRS` past the `notHtmlElement` guard (`constants.js`), so these keep presence semantics inside SVG. Harmless: the UA `[hidden]` rule is HTML-namespace-scoped, so nothing renders differently either way. |
 | 11 | `itemscope` normalised to `""` | Deliberate: it is a global boolean, so VDX gives it presence semantics. Diverges from the parser on literal text; observable behaviour is the same. |
-| 10 | `style` gaining a trailing `;` | The browser's own cssText normalisation, not VDX. |
-| 2 | `style="${null}"` leaving `style=""` | Minor: clearing cssText leaves an empty attribute instead of removing it. |
-| 2 | `component` `hidden` with nullish | Probe artifact: the probe component declares `hidden` as a prop, so its own accessor shadows the DOM one and the reported channel is the prop, not the host. |
+| 10 | `style` gaining a trailing `;` | The browser's own cssText normalisation, not VDX. Belongs in the comparator, not here. |
+| 2 | `component` `hidden` with nullish | Probe artifact: the probe declares `hidden` as a prop, so its own accessor shadows the DOM one. Note that declaring a host attribute (`hidden`/`class`/`style`) as a prop is itself a bad idea and nothing currently warns against it. |
 
 If that table and the JSON ever disagree in count, the JSON is authoritative -
 re-derive the table rather than trusting it.

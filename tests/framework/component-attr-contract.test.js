@@ -124,6 +124,86 @@ describe('Component Attribute Contract', function(it) {
         document.body.removeChild(el);
     });
 
+    it('an attribute the component does not declare keeps native semantics', () => {
+        // A registered component does not own every name that appears on it.
+        // Treating "is a component" as "has a property channel for this name"
+        // removed the mirror for undeclared names, and nothing carried them:
+        // tabindex="${0}" left the element unfocusable.
+        class CacUndeclared extends Component {
+            static props = { declared: null };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-undeclared', CacUndeclared);
+
+        class CacUndeclaredHost extends Component {
+            constructor(p) { super(p); this.state = { z: 0 }; }
+            template() {
+                return html`<cac-undeclared tabindex="${this.state.z}"></cac-undeclared>`;
+            }
+        }
+        defineComponent('cac-undeclared-host', CacUndeclaredHost);
+        const el = mount('cac-undeclared-host');
+        const recv = el.querySelector('cac-undeclared');
+
+        assert.equal(recv.getAttribute('tabindex'), '0', 'the attribute survives');
+        assert.equal(recv.tabIndex, 0, 'and the element is still focusable');
+
+        document.body.removeChild(el);
+    });
+
+    it('a declared prop changes once, with no null in between', () => {
+        const calls = [];
+        class CacOnce extends Component {
+            static props = { count: null };
+            propsChanged(name, nv, ov) { calls.push([name, nv, ov]); }
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-once', CacOnce);
+
+        class CacOnceHost extends Component {
+            constructor(p) { super(p); this.state = { c: '5' }; }
+            template() { return html`<cac-once count="${this.state.c}"></cac-once>`; }
+        }
+        defineComponent('cac-once-host', CacOnceHost);
+        const el = mount('cac-once-host');
+        calls.length = 0;
+
+        el.state.c = 6;
+        return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))).then(() => {
+            // The prop setter already mirrors the value to the attribute under
+            // _suppressAttributeChange. Doing it again in the renderer fired
+            // attributeChangedCallback, so propsChanged saw ('count', null, '5')
+            // before ('count', 6, null) - and a component following the
+            // documented `propsChanged(prop, newValue)` pattern processes null.
+            assert.equal(calls.length, 1, 'exactly one propsChanged call');
+            assert.equal(calls[0][1], 6, 'with the new value');
+            assert.equal(calls[0][2], '5', 'and the old one');
+            document.body.removeChild(el);
+        });
+    });
+
+    it('nullish on an undeclared name is not stringified onto the host', () => {
+        class CacNullish extends Component {
+            static props = { declared: null };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-nullish', CacNullish);
+
+        class CacNullishHost extends Component {
+            constructor(p) { super(p); this.state = { n: null }; }
+            template() { return html`<cac-nullish id="${this.state.n}"></cac-nullish>`; }
+        }
+        defineComponent('cac-nullish-host', CacNullishHost);
+        const el = mount('cac-nullish-host');
+
+        // `el.id = null` reflects the string "null". The rule says null and
+        // undefined are never stringified into the DOM.
+        assert.equal(el.querySelector('cac-nullish').hasAttribute('id'), false,
+            'null does not become id="null"');
+
+        document.body.removeChild(el);
+    });
+
     it('a lazily-registered component still receives non-string props', () => {
         // The attribute is a mirror only when a property channel exists to
         // carry the real value. Before the tag registers there is none, so the

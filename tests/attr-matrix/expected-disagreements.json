@@ -3,8 +3,6 @@
  "component|hidden|${undefined}|rule|idl=\"<undefined>\"|idl=false",
  "component|style|${'color: red'}|rule|attr=\"color: red;\"|attr=\"color: red\"",
  "component|style|${'margin: 0px'}|rule|attr=\"margin: 0px;\"|attr=\"margin: 0px\"",
- "component|style|${null}|rule|attr=\"\"|attr=null",
- "component|style|${undefined}|rule|attr=\"\"|attr=null",
  "native|itemscope|${''}|rule|attr=null|attr=\"\"",
  "native|itemscope|${'false'}|rule|attr=\"\"|attr=\"false\"",
  "native|itemscope|${'no'}|rule|attr=\"\"|attr=\"no\"",
