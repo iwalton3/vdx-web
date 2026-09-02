@@ -297,7 +297,7 @@ export class ShopProductsPage extends Component {
                         <cl-button
                             label="Clear Filters"
                             severity="secondary"
-                            text="true"
+                            text="${true}"
                             on-click="clearFilters">
                         </cl-button>
                     </aside>

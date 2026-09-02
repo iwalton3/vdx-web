@@ -106,6 +106,13 @@ table with fixes in [docs/tutorial.md](docs/tutorial.md#banned-patterns);
 - Lit/Vue sigils `?attr @evt .prop :attr` -> plain attributes / `on-*` (`t7-binding`)
 - `JSON.stringify()` into a prop -> pass the object (`t11-attr-stringify`)
 - `this.method.bind(this)` -> `this.method`, already bound (`t12-manual-bind`)
+- `disabled="false"` on a boolean attribute or a flag prop -> `disabled="${false}"` or omit
+  (`t13-bool-false`). Literal text is HTML, so the flag is ON; on a component it arrives as the
+  truthy string "false". Read flags with `boolProp()`; declaring the prop's default as
+  `true`/`false` is what makes the lint treat it as a flag
+- `disabled="true"` -> `disabled="${true}"` (`t14-bool-string`, warn). It works - `boolProp()`
+  reads it as true - but the value is a string. Static HTML pages have no `${}` and are
+  exempt; that is what `boolProp()` is for
 - Methods named after structural DOM methods (`remove`, `append`, ...) -> throws at `defineComponent`
 
 ## Common Gotchas

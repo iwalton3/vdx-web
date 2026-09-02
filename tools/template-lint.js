@@ -35,6 +35,7 @@ import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { htmlParse } from '../lib/core/html-parser.js';
+import { startsRegexLiteral, skipRegex } from './js-scan.js';
 
 // =============================================================================
 // Source scanning utilities
@@ -103,8 +104,7 @@ export function maskStringsAndComments(source) {
                 continue;
             }
             if (c === '/') {
-                if ((REGEX_PREV_CHARS.has(lastSig) || KEYWORDS_BEFORE_REGEX.has(lastWord))
-                    && !followsIncrementDecrement(source, i)) {
+                if (startsRegexLiteral(source, i, lastSig, lastWord)) {
                     const end = skipRegex(source, i);
                     blank(i + 1, end - 1);
                     i = end;
@@ -194,45 +194,6 @@ function makeLineLookup(source) {
 // that understands strings, comments, regex literals, and nested templates
 // (same approach as scripts/convert-to-class.mjs scan()).
 
-const KEYWORDS_BEFORE_REGEX = new Set([
-    'return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void',
-    'do', 'else', 'case', 'yield', 'await', 'throw'
-]);
-const REGEX_PREV_CHARS = new Set(['(', '[', '{', ',', ';', ':', '=', '!', '&', '|', '?', '+', '-', '*', '/', '%', '^', '~', '<', '>']);
-
-/**
- * `n++ / 2` is division, not a regex. The scanners track only ONE previous
- * significant character, so `++` leaves a bare `+` behind - which is in
- * REGEX_PREV_CHARS, so the rest of the line gets skipped/blanked as a regex
- * body. Look back for the pair instead of threading a second char through
- * every assignment site.
- *
- * @param {string} source
- * @param {number} slashIdx - index of the '/' being classified
- * @returns {boolean} true when the '/' follows a ++ / -- operator
- */
-function followsIncrementDecrement(source, slashIdx) {
-    let k = slashIdx - 1;
-    while (k >= 0 && /\s/.test(source[k])) k--;
-    return k >= 1 && (source[k] === '+' || source[k] === '-') && source[k - 1] === source[k];
-}
-
-/** Skip a regex literal body + flags; returns index after it. */
-function skipRegex(source, i) {
-    i++;
-    let inClass = false;
-    while (i < source.length) {
-        const d = source[i];
-        if (d === '\\') { i += 2; continue; }
-        if (d === '[') inClass = true;
-        else if (d === ']') inClass = false;
-        else if (d === '/' && !inClass) { i++; break; }
-        else if (d === '\n') break;
-        i++;
-    }
-    while (i < source.length && /[a-z]/i.test(source[i])) i++;
-    return i;
-}
 
 /**
  * Scan a template literal starting at its backtick. Returns
@@ -302,8 +263,7 @@ function scanExprBrace(source, openIdx) {
             continue;
         }
         if (c === '/') {
-            if ((REGEX_PREV_CHARS.has(lastSig) || KEYWORDS_BEFORE_REGEX.has(lastWord))
-                && !followsIncrementDecrement(source, i)) {
+            if (startsRegexLiteral(source, i, lastSig, lastWord)) {
                 i = skipRegex(source, i);
             } else {
                 i++;
@@ -385,7 +345,7 @@ function collectTemplates(source, from, to, out) {
             continue;
         }
         if (c === '/') {
-            if (REGEX_PREV_CHARS.has(lastSig) || KEYWORDS_BEFORE_REGEX.has(lastWord)) {
+            if (startsRegexLiteral(source, i, lastSig, lastWord)) {
                 i = skipRegex(source, i);
             } else {
                 i++;
@@ -446,6 +406,8 @@ export const BUILTIN_TAGS = new Set(['router-outlet', 'router-link', 'x-await-th
 function newHarvest() {
     return {
         props: new Set(),        // static props / options.props keys
+        boolProps: new Set(),    // subset of props declared with a literal true/false default
+        valueProps: new Set(),   // props declared with a non-boolean LITERAL default (e.g. text: '')
         methods: new Set(),      // callable string-handler targets
         getters: new Set(),      // computed properties (NOT callable)
         fields: new Set(),       // class fields + this.X= assignments (may hold functions)
@@ -504,7 +466,7 @@ function harvestCustomEvents(source, bodyStart, bodyEnd, into) {
 }
 
 /** Harvest keys of an object literal (masked structure, identifier keys). */
-function harvestObjectKeys(masked, openIdx, closeIdx, into) {
+function harvestObjectKeys(masked, openIdx, closeIdx, into, intoBool, intoValue) {
     for (const span of splitTopLevel(masked, openIdx, closeIdx)) {
         const text = masked.slice(span.start, span.end);
         if (/^\s*\.\.\./.test(text)) return false; // spread - not statically known
@@ -513,6 +475,17 @@ function harvestObjectKeys(masked, openIdx, closeIdx, into) {
         if (shorthand) { into.add(shorthand[1]); continue; }
         if (!m) return false; // quoted/computed key (blanked in mask) - bail
         into.add(m[1]);
+        // A literal true/false default is the only declaration of a prop's type
+        // this codebase has. T13 uses it to tell a flag from a string prop -
+        // `text: false` on cl-button and `text: ''` on cl-tooltip are the same
+        // name with different types, so nothing but the default can decide.
+        if (intoBool && /^\s*[A-Za-z_$][\w$]*\s*:\s*(?:true|false)\s*$/.test(text)) {
+            intoBool.add(m[1]);
+        } else if (intoValue && /^\s*[A-Za-z_$][\w$]*\s*:\s*(?:'[^']*'|"[^"]*"|`[^`]*`|-?\d)/.test(text)) {
+            // A declared string/number default is a real type statement; a `null`
+            // default states nothing, so those fall through to the HTML names.
+            intoValue.add(m[1]);
+        }
     }
     return true;
 }
@@ -614,7 +587,7 @@ function harvestClassBody(source, masked, bodyStart, bodyEnd) {
                     if (name === 'props') {
                         const open = masked.indexOf('{', valStart);
                         if (open !== -1 && open < valEnd) {
-                            if (!harvestObjectKeys(masked, open, matchBracket(masked, open), h.props)) h.opaque = true;
+                            if (!harvestObjectKeys(masked, open, matchBracket(masked, open), h.props, h.boolProps, h.valueProps)) h.opaque = true;
                         }
                     }
                 } else {
@@ -704,7 +677,9 @@ function harvestOptionsObject(source, masked, openIdx) {
             while (vi < span.end && /\s/.test(masked[vi])) vi++;
             if (masked[vi] !== '{') { h.opaque = true; continue; }
             const target = key === 'methods' ? h.methods : key === 'computed' ? h.getters : h.props;
-            if (!harvestObjectKeys(masked, vi, matchBracket(masked, vi), target)) h.opaque = true;
+            if (!harvestObjectKeys(masked, vi, matchBracket(masked, vi), target,
+                key === 'props' ? h.boolProps : null,
+                key === 'props' ? h.valueProps : null)) h.opaque = true;
         }
         // stores/styles/other keys: irrelevant to current checks
     }
@@ -842,7 +817,7 @@ export function buildRegistry(fileEntries) {
         } // dotted superclass (ns.Base): unresolvable
 
         if (parent) {
-            for (const s of ['props', 'methods', 'getters', 'fields', 'lifecycle', 'customEvents']) {
+            for (const s of ['props', 'boolProps', 'valueProps', 'methods', 'getters', 'fields', 'lifecycle', 'customEvents']) {
                 for (const v of parent[s]) h[s].add(v);
             }
             h.stateKeys = parent.stateKeys === null ? null : new Set(parent.stateKeys);
@@ -851,6 +826,8 @@ export function buildRegistry(fileEntries) {
         }
         const own = decl.harvest;
         for (const v of own.props) h.props.add(v);
+        for (const v of own.boolProps) h.boolProps.add(v);
+        for (const v of own.valueProps) h.valueProps.add(v);
         for (const v of own.methods) { h.methods.add(v); h.getters.delete(v); }
         for (const v of own.getters) { h.getters.add(v); h.methods.delete(v); }
         for (const v of own.fields) h.fields.add(v);
@@ -972,7 +949,23 @@ export const ALL_CHECKS = new Set([
     't1-handler', 't2-xmodel', 't3-refs', 't4-modifiers', 't5-props',
     't6-events', 't6-prop-docs', 't7-binding', 't8-list-control',
     't9-list-item', 't10-inline-events', 't11-attr-stringify', 't12-manual-bind',
+    't13-bool-false', 't14-bool-string',
 ]);
+
+// HTML boolean attributes. A literal ="false" on one of these names is wrong
+// under both halves of the template contract - see the T13 check.
+const BOOL_ATTRS = new Set([
+    'disabled', 'checked', 'selected', 'readonly', 'required',
+    'multiple', 'autofocus', 'autoplay', 'controls', 'loop',
+    'muted', 'open', 'reversed', 'hidden', 'async', 'defer',
+    'ismap', 'declare', 'noresize', 'nowrap', 'noshade', 'compact',
+    'default', 'scoped', 'seamless', 'sortable', 'novalidate',
+    'formnovalidate', 'itemscope', 'inert',
+]);
+
+// The UA acts on these for any element, so a component declaring one as a
+// string prop does not make ="false" safe - the host still reacts to presence.
+const GLOBAL_BOOL_ATTRS = new Set(['hidden', 'itemscope', 'autofocus', 'inert']);
 
 // Native DOM events bubble through components without documentation - only
 // custom event names participate in the T6 @fires check.
@@ -1351,6 +1344,70 @@ export function lintTemplates(source, filePath, registry, options = {}) {
             }
         };
 
+        // ---- T13: literal boolattr="false" ----
+        // Wrong under both halves of the contract, in opposite ways. Literal
+        // template text is HTML source, so on a native element the attribute's
+        // presence is what counts and disabled="false" DISABLES. On a component
+        // the name is an ordinary prop, so it arrives as the string "false" -
+        // truthy in any plain check. Neither is what the author meant, and
+        // nothing re-coerces the string back to a boolean.
+        const checkBoolFalse = (node) => {
+            // A component's own declaration is the only type information there
+            // is: cl-button declares `text: false` (a flag) and cl-tooltip
+            // declares `text: ''` (a string), so text="false" is a mistake on
+            // one and legitimate content on the other. Fall back to the HTML
+            // boolean-attribute names for native elements and for components
+            // whose props could not be harvested.
+            const tag = node.tag;
+            const target = tag && CUSTOM_TAG_RE.test(tag) && registry.byTag.has(tag)
+                ? registry.byTag.get(tag).harvest
+                : null;
+            const isFlag = (attrName) => {
+                if (GLOBAL_BOOL_ATTRS.has(attrName)) return true;   // host wins
+                if (target && !target.opaque && target.props.size > 0) {
+                    if (attrMatchesProp(attrName, target.boolProps)) return true;
+                    // Declared with a string/number literal - a real type statement,
+                    // so leave it alone (cl-tooltip's `text: ''`).
+                    if (attrMatchesProp(attrName, target.valueProps)) return false;
+                    // Declared `null`, or not declared at all: the declaration says
+                    // nothing, so fall back to the HTML names. This is what catches
+                    // `hidden="false"`, which the UA acts on whatever the tag - the
+                    // element disappears and nothing else would tell you.
+                }
+                return BOOL_ATTRS.has(attrName);
+            };
+
+            // ="true" is correct but not the idiom: boolProp() reads it as true,
+            // yet the value is a string and the reader has to know that. ${true}
+            // says what it means. Warn, don't error - nothing is broken.
+            // A literal ="" is left alone entirely: it is the standard HTML way
+            // to write a bare boolean attribute, means ON, and boolProp agrees.
+            if (on('t14-bool-string')) {
+                for (const [attrName, def] of Object.entries(node.attrs || {})) {
+                    if (!def || def.value !== 'true') continue;
+                    if (attrName.startsWith('aria-')) continue;   // ARIA wants the string
+                    if (!isFlag(attrName)) continue;
+                    const line = locate('t14:' + attrName, escapeRegex(attrName) + '\\s*=\\s*["\']true["\']');
+                    report(line, 't14-bool-string', 'warn',
+                        `${attrName}="true" works but passes the STRING "true" - write `
+                        + `${attrName}="\${true}" (or a bare ${attrName}) so the value is `
+                        + `an actual boolean`);
+                }
+            }
+
+            for (const [attrName, def] of Object.entries(node.attrs || {})) {
+                if (!def || def.value !== 'false') continue;   // literal text only
+                if (!isFlag(attrName)) continue;
+                const line = locate('t13:' + attrName, escapeRegex(attrName) + '\\s*=\\s*["\']false["\']');
+                report(line, 't13-bool-false', 'error',
+                    `${attrName}="false" does not mean false. Literal text is HTML, so on a `
+                    + `native element the attribute is present and ${attrName} is ON; on a `
+                    + `component it arrives as the string "false", which nothing re-coerces. `
+                    + `Write ${attrName}="\${false}", omit the attribute, or read it through `
+                    + `boolProp()`);
+            }
+        };
+
         const walk = (node) => {
             if (!node) return;
             if (node.type === 'element') {
@@ -1382,6 +1439,7 @@ export function lintTemplates(source, filePath, registry, options = {}) {
                 if (on('t7-binding')) checkBindingSyntax(node);
                 if (on('t10-inline-events')) checkInlineEvents(node);
                 if (on('t11-attr-stringify')) checkStringify(node);
+                if (on('t13-bool-false') || on('t14-bool-string')) checkBoolFalse(node);
                 const refDef = node.attrs && node.attrs.__ref__;
                 if (refDef && comp && typeof refDef.refName === 'string' && IDENT_RE.test(refDef.refName)) {
                     if (!refsDeclared.has(comp)) refsDeclared.set(comp, new Map());

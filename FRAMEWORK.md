@@ -178,6 +178,70 @@ In static HTML (outside templates), camelCase props are set via kebab-case attri
 <!-- from-unit="..." sets this.props.fromUnit (always a string) -->
 ```
 
+### Boolean props: use `${}`, and read with `boolProp()`
+
+One rule decides what a prop's value is: **literal template text is a string,
+`${}` passes the JS value**. It holds for native elements too, where literal
+text follows HTML - `<button disabled="false">` is *disabled*, because in HTML
+the attribute's presence is what counts.
+
+```javascript
+<cl-button disabled="${this.state.busy}">Save</cl-button>   // ✅ boolean
+<cl-button disabled="false">Save</cl-button>                // ❌ the STRING "false"
+```
+
+Nothing re-coerces that string, so both naive checks are wrong - in opposite
+directions. `props.x === true` is false for *every* literal form, and a bare
+`if (props.x)` treats `"false"` as true. Read flags through `boolProp()`:
+
+```javascript
+import { defineComponent, html, when, Component, boolProp } from './lib/framework.js';
+
+class ClToggle extends Component {
+    static props = { checked: false, disabled: false };
+
+    toggle() {
+        if (boolProp(this.props.disabled)) return;   // ✅ "false", "", false, null all handled
+        // ...
+    }
+
+    template() {
+        // Forwarding to a native element is an interpolation, so it takes JS
+        // truthiness - pass the coerced value, not the raw prop.
+        return html`<input type="checkbox" disabled="${boolProp(this.props.disabled)}">`;
+    }
+}
+```
+
+**Reserved host attributes.** Some names are handled by the host element before
+they ever reach your props, so `${}` does *not* preserve their JS type:
+`class` and `style` are element state, `aria-*` requires the literal strings
+`"true"`/`"false"` to mean anything to a screen reader, and `data-*` is a string
+map by definition. `aria-expanded="${true}"` arrives as `"true"`, not `true`.
+
+The *global* boolean attributes — `hidden`, `itemscope`, `autofocus` — keep HTML
+semantics on components too, because the user agent acts on them whatever the
+tag. `hidden` is the one to watch: **`<my-thing hidden="false">` hides the
+element**, because in HTML the attribute's presence is what counts. That is the
+literal-text rule working as specified, but it looks like your component
+vanished, so `t13-bool-false` flags it.
+
+One wrinkle in the other direction: `flag="${''}"` reaches `boolProp()` as an
+empty string, which is `true` — the same "a bare attribute means on" rule that
+makes `flag=""` true. Pass `${false}` if you mean false.
+
+Everything else follows the rule above.
+
+`boolProp` is true for anything except the string `"false"` and JS-falsy values,
+so bare `disabled`, `disabled=""` and `disabled="true"` all come out true, as
+HTML says they should. It is exported from both `lib/framework.js` and
+`lib/utils.js`.
+
+Declaring the prop's default as `true`/`false` is what marks it a flag, and the
+`t13-bool-false` lint check reads that declaration: it flags `flag="false"` on
+your component while leaving a string prop that happens to hold `"false"` alone.
+Run `node tools/template-lint.js` to catch these before they ship.
+
 ## Children & Slots
 
 ```javascript

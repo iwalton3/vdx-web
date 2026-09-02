@@ -59,7 +59,7 @@ tsc --noEmit</code></pre>
                 <code>Component&lt;Props, State&gt;</code>. Declare interfaces for each and everything
                 downstream is checked:
             </p>
-            <cl-code-block code="${this.state.typedEx}" language="js" copyable="false"></cl-code-block>
+            <cl-code-block code="${this.state.typedEx}" language="js" copyable="${false}"></cl-code-block>
             <p>
                 Router definitions are typed too — <code>import type { RouteDefinitions } from
                 'vdx/lib/router.js'</code> gives you a checked route map.

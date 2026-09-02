@@ -15,7 +15,7 @@
  *     ]}">
  * </cl-action-menu>
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, boolProp, Component } from '../../lib/framework.js';
 import { createAnchoredOverlay } from '../../lib/overlay.js';
 
 /**
@@ -54,7 +54,7 @@ export class ClActionMenu extends Component {
 
     toggleMenu(e) {
         e.stopPropagation();
-        if (this.props.disabled) return;
+        if (boolProp(this.props.disabled)) return;
         if (this.state.isOpen) this.closeMenu();
         else this.openMenu();
     }
@@ -88,7 +88,8 @@ export class ClActionMenu extends Component {
     }
 
     template() {
-        const { label, icon, items, disabled } = this.props;
+        const { label, icon, items } = this.props;
+        const disabled = boolProp(this.props.disabled);
         const { isOpen } = this.state;
 
         return html`

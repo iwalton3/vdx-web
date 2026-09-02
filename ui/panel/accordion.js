@@ -1,7 +1,7 @@
 /**
  * Accordion - Collapsible accordion panels
  */
-import { defineComponent, html, when, each, raw, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, raw, boolProp, Component } from '../../lib/framework.js';
 
 /**
  * @fires change - detail: { value } - the active index, or an array when multiple
@@ -22,7 +22,7 @@ export class ClAccordion extends Component {
     }
 
     mounted() {
-        if (this.props.multiple) {
+        if (boolProp(this.props.multiple)) {
             this.state.activeTabs = new Set();
         } else {
             this.state.activeTabs = new Set([this.props.activeindex]);
@@ -30,7 +30,7 @@ export class ClAccordion extends Component {
     }
 
     toggleTab(index) {
-        if (this.props.multiple) {
+        if (boolProp(this.props.multiple)) {
             if (this.state.activeTabs.has(index)) {
                 this.state.activeTabs.delete(index);
             } else {
@@ -45,7 +45,7 @@ export class ClAccordion extends Component {
             }
         }
 
-        this.emitChange(null, this.props.multiple
+        this.emitChange(null, boolProp(this.props.multiple)
             ? Array.from(this.state.activeTabs)
             : Array.from(this.state.activeTabs)[0]);
     }

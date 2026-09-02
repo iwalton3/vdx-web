@@ -572,7 +572,7 @@ describe('awaitThen Helper (Component-Based)', function(it) {
     });
 });
 
-import { memoEach, each, setRenderContext } from '../../lib/core/template.js';
+import { memoEach, each } from '../../lib/core/template.js';
 
 describe('memoEach Helper', function(it) {
     it('returns empty result for null/undefined array', () => {

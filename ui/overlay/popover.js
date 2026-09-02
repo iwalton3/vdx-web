@@ -10,7 +10,7 @@
  * Public methods: show(), hide(), toggle().
  * Emits 'popover-toggle' with detail { open }.
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, boolProp, Component } from '../../lib/framework.js';
 import { createAnchoredOverlay } from '../../lib/overlay.js';
 
 /**
@@ -47,7 +47,7 @@ export class ClPopover extends Component {
     }
 
     async show() {
-        if (this.props.disabled || this.state.open) return;
+        if (boolProp(this.props.disabled) || this.state.open) return;
         this.state.open = true;
         this._emit();
         await this.nextRender();
@@ -82,7 +82,7 @@ export class ClPopover extends Component {
     }
 
     onContentClick() {
-        if (this.props.closeOnContentClick) this.hide();
+        if (boolProp(this.props.closeOnContentClick)) this.hide();
     }
 
     _emit() {

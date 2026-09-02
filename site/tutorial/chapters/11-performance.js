@@ -44,7 +44,7 @@ class PerformanceChapter extends TutChapter {
                 <code>each()</code> plus a cache: a row is only re-rendered when its key or item
                 reference changes.
             </p>
-            <cl-code-block code="${this.state.memoEx}" language="js" copyable="false"></cl-code-block>
+            <cl-code-block code="${this.state.memoEx}" language="js" copyable="${false}"></cl-code-block>
             <p>
                 The cache trades one thing away: state read <em>inside</em> the row template is no
                 longer tracked. If something outside the item affects how a row renders — the

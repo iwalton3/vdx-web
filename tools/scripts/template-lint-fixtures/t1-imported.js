@@ -26,7 +26,7 @@ defineComponent('shared-default-el', SharedDefault);
 class ImportedHost extends Component {
     template() {
         return html`
-            <shared-base-el compact="true"></shared-base-el>
+            <shared-base-el compact="${true}"></shared-base-el>
             <shared-default-el level="2"></shared-default-el>
             <shared-base-el compat="true"></shared-base-el> <!-- LINT-EXPECT: t5-props -->
         `;

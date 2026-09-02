@@ -14,6 +14,34 @@ Professional UI components built with the framework. All components follow frame
 - [Button Components](#button-components)
 - [Miscellaneous Components](#miscellaneous-components)
 
+## Boolean props
+
+Declare every flag with a `true`/`false` default and read it through
+`boolProp()`. A component cannot tell how it was invoked: literal template text
+arrives as a string (`disabled` -> `"disabled"`, `disabled="true"` -> `"true"`),
+while `disabled="${flag}"` keeps its JS type, and nothing coerces between them.
+
+```javascript
+import { defineComponent, html, Component, boolProp } from '../../lib/framework.js';
+
+static props = { disabled: false };          // the default declares the type
+
+if (boolProp(this.props.disabled)) return;   // reads
+disabled="${boolProp(this.props.disabled)}"  // and pass-downs to native elements
+```
+
+Both halves matter. The pass-down is the one that gets missed: forwarding a raw
+prop into a native element's attribute is an interpolation, so it takes JS
+truthiness and the string `"false"` disables the control.
+
+Do not hand-roll the coercion. Three different ad-hoc versions had accumulated
+here (`=== true || === 'true'`, `!== false && !== 'false'`, `x && x !== 'false'`)
+and each got a different subset of the cases right.
+
+The `t13-bool-false` lint check reads the declared default, so `flag: false`
+makes `flag="false"` an error on that component while a prop declared `flag: ''`
+is left alone as a legitimate string.
+
 ## Getting Started
 
 ### Viewing the Showcase

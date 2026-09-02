@@ -36,7 +36,7 @@ class TestingChapter extends TutChapter {
                 use it from the outside — the way the <a href="/site/tutorial.html#static">static-integration</a>
                 chapter drove components from vanilla JS:
             </p>
-            <cl-code-block code="${this.state.pokeEx}" language="js" copyable="false"></cl-code-block>
+            <cl-code-block code="${this.state.pokeEx}" language="js" copyable="${false}"></cl-code-block>
             <p>
                 Renders are batched, which is why the change is wrapped in <code>flushSync()</code>
                 (chapter 15): it guarantees the DOM is updated before the <code>textContent</code>

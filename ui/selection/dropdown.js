@@ -9,7 +9,7 @@
  * - Keyboard navigation: Arrow keys, Enter, Escape, Home, End
  * - Type-ahead search when focused
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, boolProp, Component } from '../../lib/framework.js';
 import { createAnchoredOverlay } from '../../lib/overlay.js';
 
 // Counter for unique IDs
@@ -75,7 +75,7 @@ export class ClDropdown extends Component {
     }
 
     togglePanel() {
-        if (!this.props.disabled) {
+        if (!boolProp(this.props.disabled)) {
             if (this.state.showPanel) {
                 this.closePanel();
             } else {
@@ -99,7 +99,7 @@ export class ClDropdown extends Component {
         this._overlay.open();
 
         // Focus filter input if present
-        if (this.props.filter) {
+        if (boolProp(this.props.filter)) {
             const filterInput = this.querySelector('.filter-input');
             if (filterInput) filterInput.focus();
         }
@@ -200,7 +200,7 @@ export class ClDropdown extends Component {
 
             default:
                 // Type-ahead search (when not using filter input)
-                if (!this.props.filter && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                if (!boolProp(this.props.filter) && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
                     this._handleTypeahead(e.key);
                 }
         }
@@ -253,7 +253,7 @@ export class ClDropdown extends Component {
     }
 
     get filteredOptions() {
-        if (!this.props.filter || !this.state.filterValue) {
+        if (!boolProp(this.props.filter) || !this.state.filterValue) {
             return this.props.options || [];
         }
 
@@ -292,15 +292,15 @@ export class ClDropdown extends Component {
                     <label class="cl-label" id="${labelId}">${this.props.label}</label>
                 `)}
                 <div class="dropdown-container">
-                    <div class="dropdown-trigger ${this.props.disabled ? 'disabled' : ''}"
+                    <div class="dropdown-trigger ${boolProp(this.props.disabled) ? 'disabled' : ''}"
                          role="combobox"
                          aria-haspopup="listbox"
                          aria-expanded="${this.state.showPanel ? 'true' : 'false'}"
                          aria-controls="${listboxId}"
                          aria-activedescendant="${activeDescendant}"
                          aria-labelledby="${this.props.label ? labelId : undefined}"
-                         aria-disabled="${this.props.disabled ? 'true' : undefined}"
-                         tabindex="${this.props.disabled ? -1 : 0}"
+                         aria-disabled="${boolProp(this.props.disabled) ? 'true' : undefined}"
+                         tabindex="${boolProp(this.props.disabled) ? -1 : 0}"
                          on-click="togglePanel"
                          on-keydown="handleKeyDown">
                         <span class="dropdown-value ${hasValue ? '' : 'placeholder'}">${selectedLabel}</span>
@@ -308,7 +308,7 @@ export class ClDropdown extends Component {
                     </div>
                     ${when(this.state.showPanel, html`
                         <div class="dropdown-panel" popover="manual">
-                            ${when(this.props.filter, html`
+                            ${when(boolProp(this.props.filter), html`
                                 <div class="filter-container">
                                     <input
                                         type="text"

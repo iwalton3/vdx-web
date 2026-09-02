@@ -109,14 +109,14 @@ export class ShopCartPage extends Component {
                                 <cl-button
                                     label="Continue Shopping"
                                     severity="secondary"
-                                    text="true"
+                                    text="${true}"
                                     icon="←"
                                     on-click="continueShopping">
                                 </cl-button>
                                 <cl-button
                                     label="Clear Cart"
                                     severity="danger"
-                                    text="true"
+                                    text="${true}"
                                     on-click="clearCart">
                                 </cl-button>
                             </div>

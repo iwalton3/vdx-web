@@ -2,7 +2,7 @@
  * Copy - Copy-to-clipboard control. Renders as a button, an icon, or an inline
  * value + icon. Shows a transient "copied" state and emits a 'copy' event.
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, boolProp, Component } from '../../lib/framework.js';
 
 /**
  * @fires copy - detail: { value } - the copied text
@@ -27,7 +27,7 @@ export class ClCopy extends Component {
     }
 
     async copy() {
-        if (this.props.disabled) return;
+        if (boolProp(this.props.disabled)) return;
         const text = this.props.value != null ? String(this.props.value) : '';
         const ok = await this._write(text);
         if (ok) {
@@ -86,7 +86,7 @@ export class ClCopy extends Component {
                     type="button"
                     title="${this.state.copied ? this.props.copiedLabel : this.props.label}"
                     aria-label="${this.props.label}"
-                    disabled="${this.props.disabled}"
+                    disabled="${boolProp(this.props.disabled)}"
                     on-click="copy">
                     ${icon()}
                 </button>
@@ -100,7 +100,7 @@ export class ClCopy extends Component {
                     <button class="copy-inline-btn" type="button"
                             title="${this.state.copied ? this.props.copiedLabel : this.props.label}"
                             aria-label="${this.props.label}"
-                            disabled="${this.props.disabled}"
+                            disabled="${boolProp(this.props.disabled)}"
                             on-click="copy">
                         ${icon()}
                     </button>
@@ -113,7 +113,7 @@ export class ClCopy extends Component {
             <button
                 class="cl-copy button ${this.state.copied ? 'copied' : ''}"
                 type="button"
-                disabled="${this.props.disabled}"
+                disabled="${boolProp(this.props.disabled)}"
                 on-click="copy">
                 ${icon()}
                 <span class="copy-label">${this.state.copied ? this.props.copiedLabel : this.props.label}</span>

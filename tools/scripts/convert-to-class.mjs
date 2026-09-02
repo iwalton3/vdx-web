@@ -37,12 +37,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { spawnSync } from 'child_process';
+import { startsRegexLiteral } from '../js-scan.js';
 
-const KEYWORDS_BEFORE_REGEX = new Set([
-    'return','typeof','instanceof','in','of','new','delete','void','do','else',
-    'case','yield','await','throw'
-]);
-const REGEX_PREV_CHARS = new Set(['(','[','{',',',';',':','=','!','&','|','?','+','-','*','/','%','^','~','<','>']);
 
 // Scan starting at index of an open bracket char; return index of its matching close.
 // Also can collect top-level comma positions when collectCommas is provided (array).
@@ -82,7 +78,7 @@ function scan(src, openIdx, collectCommas) {
         if (c === ' ' || c === '\t' || c === '\n' || c === '\r') { i++; continue; }
         // regex vs division
         if (c === '/') {
-            const isRegex = (REGEX_PREV_CHARS.has(lastSig)) || KEYWORDS_BEFORE_REGEX.has(lastWord);
+            const isRegex = startsRegexLiteral(src, i, lastSig, lastWord);
             if (isRegex) {
                 i++; let inClass = false;
                 while (i < src.length) {
@@ -374,7 +370,8 @@ function buildCodeMask(src) {
         if (c === '"' || c === "'") { i++; while (i<src.length){ if(src[i]==='\\'){i+=2;continue;} if(src[i]===c){i++;break;} i++; } lastSig=c; lastWord=''; continue; }
         if (c === '`') { stack.push('t'); i++; continue; }
         if (c === '/') {
-            const isRegex = REGEX_PREV_CHARS.has(lastSig) || KEYWORDS_BEFORE_REGEX.has(lastWord) || lastSig === '';
+            // lastSig === '' is start-of-input, where a '/' can only open a regex.
+            const isRegex = startsRegexLiteral(src, i, lastSig, lastWord) || lastSig === '';
             if (isRegex) {
                 i++; let inClass=false;
                 while (i<src.length){ const d=src[i]; if(d==='\\'){i+=2;continue;} if(d==='[')inClass=true; else if(d===']')inClass=false; else if(d==='/'&&!inClass){i++;break;} else if(d==='\n')break; i++; }

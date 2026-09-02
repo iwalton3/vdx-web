@@ -86,7 +86,7 @@ class CommunicationChapter extends TutChapter {
                 <code>this.emitChange(e, newValue)</code> when the user picks something — that's
                 all <code>x-model</code> needs:
             </p>
-            <cl-code-block code="${this.state.emitEx}" language="js" copyable="false"></cl-code-block>
+            <cl-code-block code="${this.state.emitEx}" language="js" copyable="${false}"></cl-code-block>
             <div class="callout warn">
                 If your component <em>wraps</em> a native <code>&lt;input&gt;</code>, you must still
                 call <code>emitChange</code> yourself: native <code>input</code>/<code>change</code>

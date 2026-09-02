@@ -50,10 +50,10 @@ class BestPracticesChapter extends TutChapter {
             <p>Never use inline <code>onclick</code> or <code>addEventListener</code>.</p>
             <div class="dd">
                 <div class="dont"><span class="tag">Avoid</span>
-                    <cl-code-block code="${this.state.eventsBad}" copyable="false"></cl-code-block>
+                    <cl-code-block code="${this.state.eventsBad}" copyable="${false}"></cl-code-block>
                 </div>
                 <div class="do"><span class="tag">Prefer</span>
-                    <cl-code-block code="${this.state.eventsGood}" copyable="false"></cl-code-block>
+                    <cl-code-block code="${this.state.eventsGood}" copyable="${false}"></cl-code-block>
                 </div>
             </div>
 
@@ -62,10 +62,10 @@ class BestPracticesChapter extends TutChapter {
                <code>.map().join()</code> — and give <code>each()</code> a key.</p>
             <div class="dd">
                 <div class="dont"><span class="tag">Avoid</span>
-                    <cl-code-block code="${this.state.listBad}" language="js" copyable="false"></cl-code-block>
+                    <cl-code-block code="${this.state.listBad}" language="js" copyable="${false}"></cl-code-block>
                 </div>
                 <div class="do"><span class="tag">Prefer</span>
-                    <cl-code-block code="${this.state.listGood}" language="js" copyable="false"></cl-code-block>
+                    <cl-code-block code="${this.state.listGood}" language="js" copyable="${false}"></cl-code-block>
                 </div>
             </div>
 
@@ -76,17 +76,17 @@ class BestPracticesChapter extends TutChapter {
                they keep their state on the slot they occupy, and an item root is not a slot.</p>
             <div class="dd">
                 <div class="dont"><span class="tag">Throws</span>
-                    <cl-code-block code="${this.state.itemBad}" language="js" copyable="false"></cl-code-block>
+                    <cl-code-block code="${this.state.itemBad}" language="js" copyable="${false}"></cl-code-block>
                 </div>
                 <div class="do"><span class="tag">Prefer</span>
-                    <cl-code-block code="${this.state.itemGood}" language="js" copyable="false"></cl-code-block>
+                    <cl-code-block code="${this.state.itemGood}" language="js" copyable="${false}"></cl-code-block>
                 </div>
             </div>
 
             <h2>Clean up in unmounted()</h2>
             <p>Every timer, listener, or subscription started in <code>mounted()</code> should be
                torn down in <code>unmounted()</code>.</p>
-            <cl-code-block code="${this.state.cleanup}" language="js" copyable="false"></cl-code-block>
+            <cl-code-block code="${this.state.cleanup}" language="js" copyable="${false}"></cl-code-block>
 
             <h2>A few more</h2>
             <ul>
@@ -127,7 +127,7 @@ class BestPracticesChapter extends TutChapter {
                 Every banned pattern above either <strong>throws</strong> or renders silently
                 wrong DOM, and the template lint catches all of them statically — run it in CI:
             </p>
-            <cl-code-block code="${this.state.lintCmd}" copyable="true"></cl-code-block>
+            <cl-code-block code="${this.state.lintCmd}" copyable="${true}"></cl-code-block>
             <p>
                 Findings name their check id
                 (<code>t7-binding</code>, <code>t8-list-control</code>,

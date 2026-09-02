@@ -9,7 +9,7 @@
  * - Keyboard navigation: Arrow keys, Enter, Space, Escape, Home, End
  * - aria-label on chip remove buttons
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, boolProp, Component } from '../../lib/framework.js';
 import { createAnchoredOverlay } from '../../lib/overlay.js';
 
 // Counter for unique IDs
@@ -69,7 +69,7 @@ export class ClMultiselect extends Component {
     }
 
     togglePanel() {
-        if (!this.props.disabled) {
+        if (!boolProp(this.props.disabled)) {
             if (this.state.showPanel) {
                 this.closePanel();
             } else {
@@ -89,7 +89,7 @@ export class ClMultiselect extends Component {
         if (!this.state.showPanel) return;
         this._overlay.open();
 
-        if (this.props.filter) {
+        if (boolProp(this.props.filter)) {
             const filterInput = this.querySelector('.filter-input');
             if (filterInput) filterInput.focus();
         }
@@ -218,7 +218,7 @@ export class ClMultiselect extends Component {
     }
 
     get filteredOptions() {
-        if (!this.props.filter || !this.state.filterValue) {
+        if (!boolProp(this.props.filter) || !this.state.filterValue) {
             return this.props.options || [];
         }
 
@@ -253,15 +253,15 @@ export class ClMultiselect extends Component {
                     <label class="cl-label" id="${labelId}">${this.props.label}</label>
                 `)}
                 <div class="multiselect-container">
-                    <div class="multiselect-trigger ${this.props.disabled ? 'disabled' : ''}"
+                    <div class="multiselect-trigger ${boolProp(this.props.disabled) ? 'disabled' : ''}"
                          role="combobox"
                          aria-haspopup="listbox"
                          aria-expanded="${this.state.showPanel ? 'true' : 'false'}"
                          aria-controls="${listboxId}"
                          aria-activedescendant="${activeDescendant}"
                          aria-labelledby="${this.props.label ? labelId : undefined}"
-                         aria-disabled="${this.props.disabled ? 'true' : undefined}"
-                         tabindex="${this.props.disabled ? -1 : 0}"
+                         aria-disabled="${boolProp(this.props.disabled) ? 'true' : undefined}"
+                         tabindex="${boolProp(this.props.disabled) ? -1 : 0}"
                          on-click="togglePanel"
                          on-keydown="handleKeyDown">
                         <div class="selected-items">
@@ -285,7 +285,7 @@ export class ClMultiselect extends Component {
                     </div>
                     ${when(this.state.showPanel, html`
                         <div class="multiselect-panel" popover="manual">
-                            ${when(this.props.filter, html`
+                            ${when(boolProp(this.props.filter), html`
                                 <div class="filter-container">
                                     <input
                                         type="text"

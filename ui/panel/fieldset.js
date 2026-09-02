@@ -1,7 +1,7 @@
 /**
  * Fieldset - Fieldset with legend and toggle
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, Component, boolProp } from '../../lib/framework.js';
 
 /**
  * @fires change - detail: { value } - the collapsed state
@@ -22,11 +22,11 @@ export class ClFieldset extends Component {
     }
 
     mounted() {
-        this.state.isCollapsed = this.props.collapsed;
+        this.state.isCollapsed = boolProp(this.props.collapsed);
     }
 
     toggle() {
-        if (this.props.toggleable) {
+        if (boolProp(this.props.toggleable)) {
             this.state.isCollapsed = !this.state.isCollapsed;
             this.emitChange(null, this.state.isCollapsed);
         }
@@ -36,9 +36,9 @@ export class ClFieldset extends Component {
         return html`
             <fieldset class="cl-fieldset">
                 <legend
-                    class="${this.props.toggleable ? 'toggleable' : ''}"
+                    class="${boolProp(this.props.toggleable) ? 'toggleable' : ''}"
                     on-click="toggle">
-                    ${when(this.props.toggleable, html`
+                    ${when(boolProp(this.props.toggleable), html`
                         <span class="toggle-icon">${this.state.isCollapsed ? '▶' : '▼'}</span>
                     `)}
                     <span class="legend-text">${this.props.legend}</span>

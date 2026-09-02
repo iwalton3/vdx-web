@@ -25,7 +25,7 @@ class FeedbackForm extends Component {
                 <cl-button label="Send feedback" severity="primary" on-click="submit"></cl-button>
             </div>
 
-            <cl-dialog visible="${this.state.sent}" header="Thanks!" modal="true"
+            <cl-dialog visible="${this.state.sent}" header="Thanks!" modal="${true}"
                 on-change="${(e, v) => this.state.sent = v}">
                 <p>Thanks${this.state.name ? ', ' + this.state.name : ''} —
                     ${this.state.score}★ on <strong>${this.state.topic}</strong>.</p>

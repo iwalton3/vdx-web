@@ -2311,6 +2311,37 @@ function addBanner(content, map, bundleName, version) {
 }
 
 /**
+ * Every relative import left in dist/ must resolve inside dist/.
+ *
+ * router.js and utils.js are minified in place rather than bundled, so their
+ * imports survive verbatim - only the sibling bundles are reachable at runtime,
+ * never `./core/...`. Nothing else catches this: the test suites import lib/
+ * sources, so a dist-only break stays invisible until an app that vendors dist/
+ * fails to boot. `export { x } from './core/...'` in utils.js shipped exactly
+ * that once.
+ */
+function verifyDistImports(distDir) {
+    const bad = [];
+    for (const file of fs.readdirSync(distDir)) {
+        if (!file.endsWith('.js')) continue;
+        const src = fs.readFileSync(path.join(distDir, file), 'utf-8');
+        for (const m of src.matchAll(/(?:import|export)[^;'"]*from\s*['"](\.[^'"]+)['"]/g)) {
+            if (!fs.existsSync(path.resolve(distDir, m[1]))) {
+                bad.push(`${file} -> ${m[1]}`);
+            }
+        }
+    }
+    if (bad.length) {
+        console.error('\n✗ dist/ has imports that do not resolve inside dist/:');
+        for (const b of bad) console.error(`    ${b}`);
+        console.error('  A vendored copy of dist/ would fail to load. Import from a sibling');
+        console.error('  bundle instead of reaching into lib/core/.\n');
+        process.exit(1);
+    }
+    console.log('\n  ✓ every relative import in dist/ resolves inside dist/');
+}
+
+/**
  * Process a simple file (router, utils) - minify with source map
  * @param {string} srcPath - Source file path
  * @param {string} destPath - Destination path (minified output)
@@ -2487,6 +2518,9 @@ function bundleAll(verbose) {
     console.log('    gestures.js + gestures.js.map');
     console.log('    overlay.js + overlay.js.map');
     console.log('\n  Source maps contain embedded readable source for debugging.');
+
+    verifyDistImports(distDir);
+
     console.log('\n✓ Done!\n');
 }
 

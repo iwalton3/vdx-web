@@ -70,7 +70,7 @@ class HelpersChapter extends TutChapter {
                 <code>each()</code> resolves it to the branch template, so a branch flip is just
                 an ordinary item shape change:
             </p>
-            <cl-code-block code="${this.state.whenItemEx}" language="js" copyable="false"></cl-code-block>
+            <cl-code-block code="${this.state.whenItemEx}" language="js" copyable="${false}"></cl-code-block>
 
             <div class="callout banned">
                 <strong>Banned:</strong> returning <code>contain()</code> or

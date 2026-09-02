@@ -1,7 +1,7 @@
 /**
  * Error Boundary Demo - Shows cl-error-boundary in action
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, Component, boolProp } from '../../lib/framework.js';
 import './error-boundary.js';
 
 /**
@@ -13,7 +13,7 @@ class ClErrorDemoContent extends Component {
     }
 
     template() {
-        if (this.props.shouldError) {
+        if (boolProp(this.props.shouldError)) {
             throw new Error('Component failed to render: data is undefined');
         }
 
@@ -26,15 +26,15 @@ class ClErrorDemoContent extends Component {
     }
 
     // Use cl-error-boundary for pre-styled error display
-    // Note: We use showRetry="true" and let the parent listen for the 'retry' event
+    // Note: We use showRetry="${true}" and let the parent listen for the 'retry' event
     // (props may not be fully available when renderError is called during a throw)
     renderError(error) {
         return html`
             <cl-error-boundary
                 error="${error}"
                 title="Render Failed"
-                showDetails="true"
-                showRetry="true">
+                showDetails="${true}"
+                showRetry="${true}">
             </cl-error-boundary>
         `;
     }

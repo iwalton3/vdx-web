@@ -2,7 +2,7 @@
  * Rating - Star rating input/display with hover preview and optional half steps.
  * x-model compatible (emits the numeric value).
  */
-import { defineComponent, html, each, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, each, when, boolProp, Component } from '../../lib/framework.js';
 
 /**
  * @fires input - detail: { value }
@@ -33,7 +33,7 @@ export class ClRating extends Component {
     }
 
     interactive() {
-        return !this.props.readonly && !this.props.disabled;
+        return !boolProp(this.props.readonly) && !boolProp(this.props.disabled);
     }
 
     // value contributed by star `index` (1-based) given a half flag
@@ -75,7 +75,7 @@ export class ClRating extends Component {
         const classes = [
             'cl-rating',
             this.interactive() ? 'interactive' : 'static',
-            this.props.disabled ? 'disabled' : ''
+            boolProp(this.props.disabled) ? 'disabled' : ''
         ].filter(Boolean).join(' ');
 
         return html`

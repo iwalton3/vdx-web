@@ -17,7 +17,7 @@
  *
  * @fires change - detail: { files } - fired (debounced) after an edit
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component, boolProp } from '../../lib/framework.js';
 import { buildSandbox, normalizeFiles } from './vdx-sandbox.js';
 import '../form/code-editor.js';
 import '../form/input-text.js';
@@ -217,8 +217,8 @@ export class ClCodeRunner extends Component {
     }
 
     template() {
-        const fill = this.props.fill && this.props.fill !== 'false';
-        const allowAdd = this.props.allowAddFiles && this.props.allowAddFiles !== 'false';
+        const fill = boolProp(this.props.fill);
+        const allowAdd = boolProp(this.props.allowAddFiles);
         const removable = allowAdd && this.state.fileNames.length > 1;
         // In fill mode the editor grows via flex (no fixed height); the CSS below
         // stretches its internals. Otherwise it's a fixed-height box.
@@ -245,8 +245,8 @@ export class ClCodeRunner extends Component {
                             `)}
                         </div>
                         <div class="cl-actions">
-                            <cl-button label="Run" icon="▶" severity="primary" text="true" on-click="runNow"></cl-button>
-                            <cl-button label="Reset" severity="secondary" text="true" on-click="reset"></cl-button>
+                            <cl-button label="Run" icon="▶" severity="primary" text="${true}" on-click="runNow"></cl-button>
+                            <cl-button label="Reset" severity="secondary" text="${true}" on-click="reset"></cl-button>
                         </div>
                     </div>
                     <cl-code-editor ref="editor" height="${editorHeight}"
@@ -259,7 +259,7 @@ export class ClCodeRunner extends Component {
                 </div>
                 ${when(allowAdd, html`
                     <cl-dialog class="cl-add-dialog" visible="${this.state.addOpen}" header="New file"
-                        modal="true" closable="true" style="width: 360px;"
+                        modal="${true}" closable="${true}" style="width: 360px;"
                         on-change="${(e, val) => this.state.addOpen = val}">
                         <cl-input-text
                             label="File name"
@@ -271,7 +271,7 @@ export class ClCodeRunner extends Component {
                             on-keydown="${(e) => e.key === 'Enter' && this.confirmAddFile()}">
                         </cl-input-text>
                         <div slot="footer">
-                            <cl-button label="Cancel" severity="secondary" text="true" on-click="cancelAddFile"></cl-button>
+                            <cl-button label="Cancel" severity="secondary" text="${true}" on-click="cancelAddFile"></cl-button>
                             <cl-button label="Add file" severity="primary" on-click="confirmAddFile"></cl-button>
                         </div>
                     </cl-dialog>

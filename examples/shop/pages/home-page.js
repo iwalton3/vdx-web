@@ -81,7 +81,7 @@ export class ShopHomePage extends Component {
                         <cl-button
                             label="View All"
                             severity="secondary"
-                            text="true"
+                            text="${true}"
                             on-click="navigateToProducts">
                         </cl-button>
                     </div>

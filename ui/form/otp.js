@@ -7,7 +7,7 @@
  * reads them on demand. That keeps native typing/IME behaviour intact and avoids
  * a reactive value binding re-rendering (and clobbering) the input mid-keystroke.
  */
-import { defineComponent, html, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, each, boolProp, Component } from '../../lib/framework.js';
 
 /**
  * @fires input - detail: { value }
@@ -26,7 +26,7 @@ export class ClOtp extends Component {
 
     mounted() {
         this._applyValue(this.props.value);
-        if (this.props.autofocus && !this.props.disabled) {
+        if (boolProp(this.props.autofocus) && !boolProp(this.props.disabled)) {
             const first = this._boxes()[0];
             if (first) first.focus();
         }
@@ -126,11 +126,11 @@ export class ClOtp extends Component {
     template() {
         const len = this._len();
         const boxes = Array.from({ length: len }, (_, i) => i);
-        const inputType = this.props.mask ? 'password' : 'text';
+        const inputType = boolProp(this.props.mask) ? 'password' : 'text';
         const inputMode = this.props.type === 'number' ? 'numeric' : 'text';
 
         return html`
-            <div class="cl-otp ${this.props.disabled ? 'disabled' : ''}" role="group">
+            <div class="cl-otp ${boolProp(this.props.disabled) ? 'disabled' : ''}" role="group">
                 ${each(boxes, i => html`
                     <input
                         class="otp-box"
@@ -138,7 +138,7 @@ export class ClOtp extends Component {
                         inputmode="${inputMode}"
                         maxlength="1"
                         autocomplete="one-time-code"
-                        disabled="${this.props.disabled}"
+                        disabled="${boolProp(this.props.disabled)}"
                         on-input="${(e) => this.onInput(e, i)}"
                         on-change="${(e) => e.stopPropagation()}"
                         on-keydown="${(e) => this.onKeydown(e, i)}"

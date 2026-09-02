@@ -12,7 +12,7 @@
  *   reject  detail: { files: [{ file, reason }] }      - reason: 'size' | 'type'
  *   change  detail: { value: File[] }                  - accepted files (on-change)
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, boolProp, Component } from '../../lib/framework.js';
 
 // Parse an `accept` string ("image/*,.pdf,text/plain") into matcher tokens.
 function parseAccept(accept) {
@@ -90,7 +90,7 @@ export class ClDropzone extends Component {
 
     // --- click / keyboard to open the native picker ---
     openBrowse(e) {
-        if (this.props.disabled) return;
+        if (boolProp(this.props.disabled)) return;
         // Ignore the click that the programmatic input.click() bubbles back
         // up to the zone, otherwise we'd re-open the dialog in a loop.
         if (e && e.target && e.target.tagName === 'INPUT') return;
@@ -98,7 +98,7 @@ export class ClDropzone extends Component {
     }
 
     onKeydown(e) {
-        if (this.props.disabled) return;
+        if (boolProp(this.props.disabled)) return;
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             this.refs.input.click();
@@ -113,14 +113,14 @@ export class ClDropzone extends Component {
     // --- drag & drop ---
     // A depth counter tolerates dragenter/dragleave firing for child nodes.
     onDragEnter() {
-        if (this.props.disabled) return;
+        if (boolProp(this.props.disabled)) return;
         this._dragDepth = (this._dragDepth || 0) + 1;
         this.state.dragging = true;
     }
 
     onDragOver() {
         // Handler exists so on-dragover-prevent keeps the drop target valid.
-        if (this.props.disabled) return;
+        if (boolProp(this.props.disabled)) return;
         this.state.dragging = true;
     }
 
@@ -135,7 +135,7 @@ export class ClDropzone extends Component {
     onDrop(e) {
         this._dragDepth = 0;
         this.state.dragging = false;
-        if (this.props.disabled) return;
+        if (boolProp(this.props.disabled)) return;
         const dt = e.dataTransfer;
         if (dt && dt.files && dt.files.length) {
             this.process(dt.files);
@@ -144,7 +144,7 @@ export class ClDropzone extends Component {
 
     // --- paste ---
     onPaste(e) {
-        if (this.props.disabled || !this.props.paste) return;
+        if (boolProp(this.props.disabled) || !boolProp(this.props.paste)) return;
         const files = e.clipboardData && e.clipboardData.files;
         if (files && files.length) {
             e.preventDefault();
@@ -156,7 +156,7 @@ export class ClDropzone extends Component {
         const { accepted, rejected } = filterFiles(fileList, {
             accept: this.props.accept,
             maxSize: this.props.maxfilesize,
-            multiple: this.props.multiple
+            multiple: boolProp(this.props.multiple)
         });
 
         if (rejected.length) {
@@ -176,15 +176,15 @@ export class ClDropzone extends Component {
         const classes = [
             'cl-dropzone',
             this.state.dragging ? 'dragging' : '',
-            this.props.disabled ? 'disabled' : ''
+            boolProp(this.props.disabled) ? 'disabled' : ''
         ].filter(Boolean).join(' ');
 
         return html`
             <div
                 class="${classes}"
                 role="button"
-                tabindex="${this.props.disabled ? -1 : 0}"
-                aria-disabled="${this.props.disabled ? 'true' : 'false'}"
+                tabindex="${boolProp(this.props.disabled) ? -1 : 0}"
+                aria-disabled="${boolProp(this.props.disabled) ? 'true' : 'false'}"
                 on-click="openBrowse"
                 on-keydown="onKeydown"
                 on-paste="onPaste"
@@ -196,9 +196,9 @@ export class ClDropzone extends Component {
                     ref="input"
                     class="dz-input"
                     type="file"
-                    multiple="${this.props.multiple}"
+                    multiple="${boolProp(this.props.multiple)}"
                     accept="${this.props.accept}"
-                    disabled="${this.props.disabled}"
+                    disabled="${boolProp(this.props.disabled)}"
                     on-change="onInputChange">
                 <div class="dz-icon">
                     ${when(this.props.icon, html`${this.props.icon}`, html`
