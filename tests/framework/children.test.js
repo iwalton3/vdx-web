@@ -512,4 +512,47 @@ describe('Light DOM Adoption', function(it) {
 
         outer.remove();
     });
+
+    it('an already-upgraded nested child is connected once, and its grandchildren built once', async () => {
+        // Adoption detaches the nested child and the template re-inserts it.
+        // The child's queued connect reaction must not run while it is
+        // detached: that rendered it once in limbo - constructing a ghost
+        // grandchild that never gets mounted()/unmounted() - and once more on
+        // the real connect.
+        const log = [];
+        class LdbGrand extends Component {
+            constructor(p) { super(p); log.push('grand:construct'); }
+            mounted() { log.push('grand:mounted'); }
+            unmounted() { log.push('grand:unmounted'); }
+            template() { return html`<u>g</u>`; }
+        }
+        class LdbInner extends Component {
+            mounted() { log.push('inner:mounted'); }
+            unmounted() { log.push('inner:unmounted'); }
+            template() { return html`<em><ldb-grand></ldb-grand></em>`; }
+        }
+        class LdbOuter extends Component {
+            template() { return html`<section>${this.props.children}</section>`; }
+        }
+        defineComponent('ldb-grand', LdbGrand);
+        defineComponent('ldb-inner', LdbInner);
+        defineComponent('ldb-outer', LdbOuter);
+
+        const outer = document.createElement('ldb-outer');
+        outer.append(document.createElement('ldb-inner'));
+        document.body.appendChild(outer);
+        await new Promise(r => setTimeout(r, 0));
+
+        assert.equal(log.filter(x => x === 'grand:construct').length, 1,
+            `one grandchild, not a ghost and a real one: ${log.join(',')}`);
+        assert.equal(log.filter(x => x === 'inner:mounted').length, 1, 'inner mounted once');
+        assert.ok(!log.includes('inner:unmounted') && !log.includes('grand:unmounted'),
+            `nothing unmounted on the way in: ${log.join(',')}`);
+        assert.equal(outer.querySelectorAll('ldb-grand').length, 1, 'one grandchild in the DOM');
+
+        outer.remove();
+        await new Promise(r => setTimeout(r, 0));
+        assert.equal(log.filter(x => x === 'grand:unmounted').length, 1,
+            `the one grandchild unmounts once: ${log.join(',')}`);
+    });
 });
