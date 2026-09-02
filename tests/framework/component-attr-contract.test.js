@@ -605,4 +605,46 @@ describe('Component Attribute Contract', function(it) {
 
         document.body.removeChild(host);
     });
+
+    it('a host-applied value equal to the declared default keeps its type at connect', () => {
+        // The host rule writes spellcheck="false" for a boolean false. The
+        // first-connect parse must not read that text back over the value
+        // the template delivered just because it equals the default.
+        class CacDefaultHost extends Component {
+            static props = { spellcheck: false, translate: false };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-default-host', CacDefaultHost);
+        class CacDefaultHostHost extends Component {
+            template() {
+                return html`<cac-default-host spellcheck="${false}" translate="${false}"></cac-default-host>`;
+            }
+        }
+        defineComponent('cac-default-host-host', CacDefaultHostHost);
+        const host = mount('cac-default-host-host');
+        const el = host.querySelector('cac-default-host');
+        assert.equal(el.getAttribute('spellcheck'), 'false', 'host: off-word');
+        assert.equal(el.props.spellcheck, false, 'prop: boolean false, not "false"');
+        assert.equal(el.getAttribute('translate'), 'no', 'host: off-word');
+        assert.equal(el.props.translate, false, 'prop: boolean false, not "no"');
+        document.body.removeChild(host);
+    });
+
+    it('a host-applied name still lands on a third-party element whose setter throws', () => {
+        // Ownership delivery and the host write are independent: an owner
+        // that refuses the value must not cost the host its attribute.
+        customElements.define('cac-throwing-hidden', class extends HTMLElement {
+            get hidden() { return false; }
+            set hidden(v) { throw new Error(`rejected ${v}`); }
+        });
+        class CacThrowHost extends Component {
+            template() { return html`<cac-throwing-hidden hidden="${true}"></cac-throwing-hidden>`; }
+        }
+        defineComponent('cac-throw-host', CacThrowHost);
+        const host = mount('cac-throw-host');
+        const el = host.querySelector('cac-throwing-hidden');
+        assert.ok(el && el.isConnected, 'element rendered');
+        assert.equal(el.hasAttribute('hidden'), true, 'hidden landed despite the throwing setter');
+        document.body.removeChild(host);
+    });
 });

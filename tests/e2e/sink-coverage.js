@@ -16,11 +16,15 @@
 // renderer's other 2000 lines.
 const SINKS = {
     '/lib/core/template-renderer.js': [
-        // the three phases and every rule the host-applied table can return
-        'applyAttributeDirect', 'sanitizeUrlAttr', 'hostAppliedRule',
-        'applyAriaAttr', 'applyEnumeratedAttr', 'applyClassAttr', 'applyStyleAttr',
-        'applyDataAttr', 'applyGlobalBooleanAttr',
-        'applyComponentAttr', 'applyNativeAttr', 'isOwnElementProp'
+        // the three phases
+        'applyAttributeDirect', 'sanitizeUrlAttr', 'deliverToOwner',
+        'applyComponentAttr', 'applyNativeAttr'
+    ],
+    '/lib/core/host-attrs.js': [
+        // the table and every rule it can return
+        'hostAppliedRule', 'applyAriaAttr', 'applyEnumeratedAttr', 'applyClassAttr',
+        'applyStyleAttr', 'applyDataAttr', 'applyGlobalBooleanAttr', 'writeBooleanAttr',
+        'isOwnElementProp'
     ],
     '/lib/core/constants.js': ['isBooleanAttr', 'literalAttrValue', 'isRefusedAttr']
 };
@@ -51,11 +55,6 @@ const EXPLAINED = {
     "if (Object.prototype.hasOwnProperty.call(el, name)) return true;":
         'no element carries an own property for a prop name, by design - setting one ' +
         'shadows the prototype accessor forever (ATTR-CONTRACT-HANDOFF.md, "Do not")',
-    "if (isCustomTag && isOwnElementProp(el, propNameFor(name))) {":
-        'a class declaring a host-applied name - the matrix declares none on purpose (a prop ' +
-        'accessor shadows the DOM one); component-attr-contract.test.js "reaches the host AND the prop"',
-    "if (name in el && !isOwnElementProp(el, name)) el[name] = on;":
-        'same case - component-attr-contract.test.js "reaches the host AND the prop"',
     "} catch {":
         'a native DOM setter that throws; no attribute in the matrix has one',
     "return isBooleanAttr(name, notHtmlElement) ? true : value;":

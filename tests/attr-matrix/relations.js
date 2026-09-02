@@ -169,7 +169,13 @@ function freshTags() {
     return { eager: `rl-e-${serial}`, lazy: `rl-l-${serial}` };
 }
 
-const DECLARED = ['disabled', 'id', 'value', 'title', 'tabindex', 'onpick', 'fromUnit'];
+// hidden / spellcheck / dataX: host-applied names a class may DECLARE
+// (cl-code-editor's spellcheck). Not in the matrix's own probe - an accessor
+// shadows the DOM one and the cells would read the probe - but for a relation
+// both sides carry the same accessor, and this is where eager and lazy
+// delivery of such a name diverged.
+const DECLARED = ['disabled', 'id', 'value', 'title', 'tabindex', 'onpick', 'fromUnit',
+                  'hidden', 'spellcheck', 'dataX'];
 const DEFAULT = '(rel-default)';
 
 function makeClass(declared, tpl) {
