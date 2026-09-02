@@ -5,7 +5,8 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { defineComponent, html, when, contain, raw, Component, flushSync } from '../../lib/framework.js';
+import { defineComponent, html, when, each, memoEach, contain, raw, Component, flushSync } from '../../lib/framework.js';
+import { EMPTY_WHEN_RESULT } from '../../lib/core/template.js';
 import { reactive, computed, createEffect, flushEffects } from '../../lib/core/reactivity.js';
 
 function mount(tag) {
@@ -150,6 +151,49 @@ describe('Audit Fixes', function(it) {
         assert.equal(el.querySelector('#p').props.label, null, 'a component gets the null itself, not ""');
 
         document.body.removeChild(el);
+    });
+
+    it('invalid list input returns the shared empty result, an empty list does not', () => {
+        // Both used to allocate an equivalent fresh object. The distinction that
+        // matters: each([]) must stay a fromEach fragment so an already-rendered
+        // list can reconcile down to empty.
+        assert.equal(each(null, x => x), EMPTY_WHEN_RESULT, 'each(null) is the shared empty');
+        assert.equal(each('nope', x => x), EMPTY_WHEN_RESULT, 'each(non-array) is the shared empty');
+        assert.equal(memoEach(null, x => x, x => x), EMPTY_WHEN_RESULT, 'memoEach(null) too');
+        assert.equal(each([], x => x) === EMPTY_WHEN_RESULT, false, 'each([]) is NOT the shared empty');
+        assert.ok(each([], x => x)._compiled.fromEach, 'each([]) stays a fromEach fragment');
+    });
+
+    it('an array of html`` templates: rejected in a slot, rendered inside contain()', () => {
+        // Deliberately different, not an oversight. A bare array in a slot has no
+        // keyed placeholders, so it desyncs the moment the list changes - hence the
+        // guard. contain() replaces its whole boundary on every run, so the desync
+        // it guards against cannot happen there.
+        class ArrayContract extends Component {
+            template() {
+                return html`<div id="c">${contain(() => [html`<b>A</b>`, html`<i>B</i>`])}</div>`;
+            }
+        }
+        defineComponent('audit-array-contract', ArrayContract);
+        const el = mount('audit-array-contract');
+        assert.ok(el.querySelector('#c b') && el.querySelector('#c i'),
+            'contain() instantiates html`` array items');
+        assert.equal(el.querySelector('#c').textContent, 'AB', 'in order');
+        document.body.removeChild(el);
+
+        class ArraySlot extends Component {
+            template() { return html`<div>${[html`<b>A</b>`]}</div>`; }
+        }
+        defineComponent('audit-array-slot', ArraySlot);
+        let threw = false;
+        const prev = window.onerror;
+        try {
+            const bad = document.createElement('audit-array-slot');
+            document.body.appendChild(bad);
+            threw = !bad.querySelector('b');
+            document.body.removeChild(bad);
+        } catch { threw = true; } finally { window.onerror = prev; }
+        assert.equal(threw, true, 'a bare html`` array in an ordinary slot is refused');
     });
 
     it('no queued DOM write reaches a binding disposed before the commit', async () => {

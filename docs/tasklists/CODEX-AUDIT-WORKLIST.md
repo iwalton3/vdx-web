@@ -265,6 +265,37 @@ Neither repo was modified. codemap ran in a detached worktree (another session
 is active in that checkout); mrepo was tested by serving a scratchpad copy of
 its `frontend/`, leaving its tree at exactly the 8 pre-existing dirty files.
 
+## Loose ends from the structural audit
+
+Closed on the final sweep: invalid `each()`/`memoEach()` input now returns the
+shared `EMPTY_WHEN_RESULT` (candidate 4); containment's deferred-child check now
+uses the `isDeferredChild` marker rather than a truthy `.compiled`, matching the
+ordinary array path - `createDeferredChild` is the only producer and always sets
+the marker, so a descriptor-shaped object reaching there is forged; and the
+ordinary-vs-containment array contract for `html``` items is now pinned by a
+test rather than being an accidental consequence of separate dispatchers.
+
+**Deliberately still open**, all pure refactors the audit itself ranked low and
+none of them bugs:
+
+- **Candidate 3 - one `resolveWhen()` normalizer.** Three copies of the
+  when-unwrapping contract remain (`template.js:365`,
+  `template-renderer.js:984`, `:1220`). Medium risk: the thunk must execute
+  inside the caller's existing reactive effect, not a new tracking boundary.
+- **Candidates 4/8 - a shared trusted-list-result factory.** `each()` emits a
+  complete compiled fragment while the renderer synthesizes only the fields its
+  consumer reads (`template-renderer.js:1438`). Hot list path.
+- **Candidates 1/2 - cleanup and fragment-insertion helpers.** The audit's own
+  advice is to extract narrow helpers only and never a universal mount-record
+  abstraction, because effect ownership, live ranges and remove/dispose ordering
+  genuinely differ. Lowest payback of anything in the audit.
+- **Bundler/optimizer minifier fork.** Deferred past v1: release tooling,
+  medium-to-high risk by the audit's own assessment, and the duplication
+  produces no wrong runtime behaviour.
+
+The hot-path audit has no loose ends - all six findings and its "most fragile
+invariant" test are done.
+
 ## Worklist
 
 - [x] Verify every finding in both reviews against `f828abe`
