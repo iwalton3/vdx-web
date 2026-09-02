@@ -210,6 +210,39 @@ escaping was a plain bug; template-lint is a checker rather than live API
 surface, so tightening it is fair game; nullish yields `""` to HTML and `null`
 to a component.
 
+## Downstream verification (2026-09-01)
+
+Both consumers checked against this branch. Neither had any of the new code
+vendored beforehand.
+
+| | linter | e2e baseline | e2e with new build |
+|---|---|---|---|
+| codemap (`~/Desktop/codemap`) | 1 t8, unchanged pre/post | 132/132 | **132/132** |
+| mrepo-web | 14 t8 + 2 t12 unchanged, **+19 t14** | see below | see below |
+
+codemap's suite is the more useful of the two: it has a real browser "web UI"
+suite, and `src/e2e/vdx-lint.e2e.ts` shells out to `/working/vdx-web/tools` -
+this checkout, live - so its baseline had already run the new linter over
+codemap's app before anything was vendored.
+
+mrepo's main suite needs the owner's docker stack on port 9900 and this session
+has no docker access, so it could not run. The two suites its own docs describe
+as backend-free were served statically instead and are the ones most exposed to
+the renderer changes: **windowing 13/13 and queue-reorder 21/21, identical
+before and after**.
+
+mrepo's 19 new findings are all `t14-bool-string` (18 `visible="true"`, one
+`outlined="true"`) - idiom warnings that behave identically before and after.
+Zero `t13` hits, so nothing there passes `="false"` to a flag.
+
+Static exposure to the behavioural changes in both apps: none. No
+`contain(() => raw(...))`, no `contain(() => [...])`, no `="false"`, no
+function-prop identity comparisons.
+
+Neither repo was modified. codemap ran in a detached worktree (another session
+is active in that checkout); mrepo was tested by serving a scratchpad copy of
+its `frontend/`, leaving its tree at exactly the 8 pre-existing dirty files.
+
 ## Worklist
 
 - [x] Verify every finding in both reviews against `f828abe`
@@ -238,9 +271,11 @@ to a component.
       no new reactive dependency, so the tracking-vs-not question is moot.
 - [x] S3 — one slash classifier in `tools/js-scan.js`, used by all three
       template-lint walkers and both `convert-to-class.mjs` scanners. Fixture
-      `t14-scanner-regex` pins the same-line `n++ / 2` case. Still to do: port
-      to mrepo, and expect it to surface violations there that were being
-      skipped.
+      `t14-scanner-regex` pins the same-line `n++ / 2` case. **Measured against
+      both downstream apps and it surfaces nothing** - running the pre-fix
+      linter (worktree at `0e8626b`) and the post-fix one over mrepo-web and
+      codemap gives identical t8/t12 counts. The prediction that mrepo would
+      have skipped violations was wrong.
 - [x] H4 — nullish handling, to spec: a native form control's live value goes
       to `""` (its value does not track the attribute, so removing the attribute
       alone left stale text reachable through `el.value`); a component receives
