@@ -96,3 +96,29 @@ describe('Slot Relations', function(it) {
         });
     }
 });
+
+describe('Slot Relations - ownership', function(it) {
+    it('a contain() boundary does not edit a node the app handed it', async () => {
+        // The boundary's lone-text-node fast path updates textContent in
+        // place. With a bare Node a first-class boundary value, that node may
+        // be the app's own; only a text node the boundary created is its to
+        // edit.
+        const label = document.createTextNode('Real');
+        let host;
+        class SrOwn extends Component {
+            state = { busy: false };
+            template() { return html`<div class="p">${contain(() => this.state.busy ? 'Loading' : label)}</div>`; }
+        }
+        defineComponent('sr-own', SrOwn);
+        host = document.createElement('sr-own');
+        document.body.appendChild(host);
+        const read = () => host.querySelector('.p').textContent;
+        assert.equal(read(), 'Real');
+        flushSync(() => { host.state.busy = true; });
+        assert.equal(read(), 'Loading');
+        assert.equal(label.textContent, 'Real', "the app's node is not the boundary's to edit");
+        flushSync(() => { host.state.busy = false; });
+        assert.equal(read(), 'Real', 'the original node comes back unchanged');
+        host.remove();
+    });
+});
