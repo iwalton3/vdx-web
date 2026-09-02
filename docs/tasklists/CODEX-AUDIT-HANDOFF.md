@@ -1,8 +1,10 @@
 # Handoff: stop patching, restate the invariants
 
-Branch `codex-audit`, 12 commits, unpushed. All suites green. **Not ready to
-merge**, and the reason is not a known open bug — it is the shape of the last
-three review rounds.
+Branch `codex-audit`. All suites green. The sections below record why three
+review rounds did not converge; the **Fable consult** section near the end
+records what was done about it and what is left. Everything above that section
+is the diagnosis as it stood before that consult - read it as the reasoning, not
+as the current plan.
 
 ## Why this handoff exists
 
@@ -142,6 +144,64 @@ here. It is holding a five-axis contract in view at once and noticing which
 combinations nobody has reasoned about. That is a different task from the one
 this session kept performing, and plausibly wants a different reader.
 
+## Fable consult, and what it changed
+
+Consulted on the plan above rather than for another defect hunt. It refuted the
+central move: **two of the five axes are not dimensions of HTML**, they are
+artifacts of the implementation, and generating them would have encoded the bug
+into the expected values.
+
+- **Compile timing was deleted, not tested** - this commit. `isCustomElement` was
+  registry-based and frozen at compile, and nothing invalidates the cache on
+  `defineComponent()`. It is now derived at instantiation (the element is already
+  upgraded by then) and re-read at dispatch for events, which is the only
+  decision that must survive a registration made *after* render.
+- **The `name in el && !name.includes('-')` heuristic is the real cell generator**
+  and should be replaced by the exception list Vue and Preact independently
+  converged on - not enumerated.
+
+It also found three further defects, all verified here before acting, and all on
+the axes it argued should be removed rather than sampled:
+
+| cell | produced | HTML parser says |
+|------|----------|------------------|
+| `spellcheck="${'false'}"` | attr `"true"`, IDL `true` | `false` |
+| `draggable="${'false'}"` | attr `"true"`, IDL `true` | `false` |
+| `translate="${'no'}"` | attr `"yes"`, IDL `true` | `false` |
+| `spellcheck="${false}"` | attribute removed, so spellcheck turns **on** | - |
+
+And the oracle question is answered: for literal cells there is an independent
+one - build the same markup with `ref.innerHTML` and compare. The browser is the
+spec table, so nothing is transcribed. For `${}` cells the rule is ~15 lines,
+applied to a reference element through plain DOM calls; that is a paragraph a
+reader can hold, not the implementation checking itself.
+
+One finding from round 3 was **not a defect**: the `computed()` heal-after-throw
+test heals via an untracked variable, and under the reactive contract a tracked
+write always reaches the sync-invalidation effect first. Writing the invariant
+down would have rejected it. Separately, and pre-existing on `main`: a failed
+computed switches from lazy to eager, re-running the getter on every tracked
+write with no reader. Acceptable, but it belongs in the invariant statement.
+
+### Follow-up branch, in order
+
+1. Rule + generator against the current sink, parser oracle for literals.
+2. Adopt the exception list and the `false`-removal rule (`false` should remove
+   an attribute *except* for `aria-`/`data-` and non-boolean names - the existing
+   `aria-` special case then disappears into the general rule).
+3. Collapse `computed()` to a three-state enum (`CLEAN`/`STALE`/`RETRY`) with a
+   six-cell test; it runs in node, no browser needed.
+
+### Residual left open by this commit
+
+`isCustomElement` is derived once per element at instantiation and captured in
+the attribute effect closure. An element **rendered before** its tag registers
+and upgraded afterwards therefore keeps a stale "native" answer for later
+attribute updates. The event path is immune (it re-reads at dispatch). The real
+fix is to derive both flags from `el` inside `applyAttributeDirect`, which
+removes the parameters entirely - that is step 2's representation collapse, and
+it is deliberately not done here.
+
 ## Deliberately open, not forgotten
 
 Pure refactors the structural audit itself ranked low: a `resolveWhen()`
@@ -151,8 +211,13 @@ release tooling, medium-to-high risk, no wrong runtime behaviour).
 
 ## Verified state
 
-Framework 719/719 - componentlib e2e 18/18 - template lint clean - 106 lint
+Framework 718/718 - componentlib e2e 18/18 - template lint clean - 106 lint
 fixtures - `dist/` regenerated and import-checked.
+
+The framework count was recorded as 719 above before it was ever measured here;
+the actual pre-commit baseline is **715**, plus the three registration-timing
+tests this commit adds. The two 404s in the run are `favicon.ico` and a
+deliberate `test.png` fixture - no suite is being silently skipped.
 
 Downstream, both re-vendored from this build with a clean unresolved-import
 check first: **mrepo-web 427/0** (35 suites, real backend, auth, playback,
