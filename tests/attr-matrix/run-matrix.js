@@ -13,6 +13,9 @@ import { classify, ruleFor, renderCell, cellTemplate, updateCell, parserOracle, 
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+// Kinds whose tag is component-backed rather than a native element.
+const COMPONENT_KIND_IDS = new Set(['component', 'component-bare', 'unregistered']);
+
 // attr -> the native elements it is meaningful on.
 const ATTR_SPEC = [
     { attr: 'disabled',        class: 'html-boolean',   tags: ['button', 'input', 'select'] },
@@ -31,6 +34,7 @@ const ATTR_SPEC = [
     { attr: 'autocapitalize',  class: 'enumerated',     tags: ['div'] },
     { attr: 'id',              class: 'ordinary',       tags: ['div'] },
     { attr: 'title',           class: 'ordinary',       tags: ['div'] },
+    { attr: 'tabindex',        class: 'ordinary',       tags: ['div'] },
     { attr: 'placeholder',     class: 'ordinary',       tags: ['input'] },
     { attr: 'aria-hidden',     class: 'aria',           tags: ['div'] },
     { attr: 'aria-label',      class: 'aria',           tags: ['div'] },
@@ -44,14 +48,24 @@ const ATTR_SPEC = [
 // component a name is just a prop name and on SVG the question is namespace
 // handling rather than per-element validity.
 const OTHER_KINDS = [
-    { id: 'component',    tag: 'am-probe',  wrap: null,  ns: null },
-    { id: 'unregistered', tag: 'am-nope',   wrap: null,  ns: null },
-    { id: 'svg',          tag: 'rect',      wrap: 'svg', ns: SVG_NS },
-    { id: 'svg-hyphen',   tag: 'my-thing',  wrap: 'svg', ns: SVG_NS }
+    // Three component-backed kinds, differing only in who owns the NAME -
+    // which is the predicate applyAttributeDirect actually branches on.
+    // am-probe declares every non-host-applied attribute below as a prop;
+    // am-bare declares none; am-nope has not registered at all.
+    { id: 'component',      tag: 'am-probe', wrap: null,  ns: null },
+    { id: 'component-bare', tag: 'am-bare',  wrap: null,  ns: null },
+    { id: 'unregistered',   tag: 'am-nope',  wrap: null,  ns: null },
+    { id: 'svg',            tag: 'rect',     wrap: 'svg', ns: SVG_NS },
+    { id: 'svg-hyphen',     tag: 'my-thing', wrap: 'svg', ns: SVG_NS }
 ];
 
+// tabindex earns its place: an undeclared name that the DOM does not carry
+// under that spelling either (the property is tabIndex), so it has nowhere to
+// go but the attribute. Getting that wrong left elements unfocusable, and no
+// cell in the old matrix could see it.
 const OTHER_ATTRS = ['disabled', 'hidden', 'spellcheck', 'draggable', 'translate',
-                     'id', 'class', 'style', 'aria-hidden', 'data-x', 'value'];
+                     'id', 'title', 'tabindex', 'class', 'style', 'aria-hidden',
+                     'data-x', 'value'];
 
 const INTERP = [
     { label: '${true}',      value: true },
@@ -163,8 +177,7 @@ function judge(ctx, label, threw, rows) {
     // Proxies" in CLAUDE.md) and comparing against it would report the
     // framework's documented behaviour as a defect.
     const applied = { label, value: host ? host.state.v : undefined };
-    const checks = ruleFor(kind.id === 'component' ? 'component' : 'native',
-                           job.attr, c, applied, kind.ns);
+    const checks = ruleFor(kind.id, job.attr, c, applied, kind.ns);
     if (!checks) return false;
 
     for (const chk of checks) {
@@ -226,8 +239,7 @@ export function runMatrix() {
         // component declaring `hidden` or `spellcheck` as a prop installs its
         // own accessor, which shadows the DOM one and makes the probe read the
         // attribute back as a free string.
-        const classifyTag = (job.kindId === 'component' || job.kindId === 'unregistered')
-            ? 'div' : job.tag;
+        const classifyTag = COMPONENT_KIND_IDS.has(job.kindId) ? 'div' : job.tag;
         const classifyNs = (classifyTag === 'div') ? null : job.ns;
         const c = classify(classifyTag, job.attr, classifyNs);
         classifications.push({
@@ -293,7 +305,7 @@ export function runMatrix() {
         if (thost) thost.remove();
 
         /* ---- literal: the HTML parser is the oracle --------------------- */
-        if (kind.id === 'component' || kind.id === 'unregistered') continue;
+        if (COMPONENT_KIND_IDS.has(kind.id)) continue;
         for (const lit of (job.attr === 'style' ? STYLE_LITERAL : LITERAL)) {
             cells++;
             const attrText = lit === null ? job.attr : `${job.attr}="${esc(lit)}"`;

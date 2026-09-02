@@ -12,7 +12,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { defineComponent, html, Component } from '../../lib/framework.js';
+import { defineComponent, html, Component, flushSync } from '../../lib/framework.js';
 
 function mount(tag) {
     const el = document.createElement(tag);
@@ -204,17 +204,28 @@ describe('Component Attribute Contract', function(it) {
         document.body.removeChild(el);
     });
 
-    it('a lazily-registered component still receives non-string props', () => {
-        // The attribute is a mirror only when a property channel exists to
-        // carry the real value. Before the tag registers there is none, so the
-        // attribute is the ONLY transport - _parseAttributes reads it on
-        // upgrade. Removing it because the value "is not a string" silently
-        // dropped every numeric and boolean prop passed to a lazy() component.
+    it('a lazily-registered component receives its props with the type intact', () => {
+        // Registration timing must not change what a prop IS. Routing the value
+        // through the attribute cannot do that - an attribute holds a string -
+        // so the real value goes through a side channel that _parseAttributes
+        // drains on upgrade (lib/core/pending-props.js).
+        //
+        // The attribute stays as a devtools mirror for primitives, and is NOT
+        // written for an object or a function: String()-ing those put
+        // "[object Object]" and a whole function body into the DOM, and handed
+        // the component that text as its prop.
+        const cfg = { retries: 3 };
+        const onPick = function onPick() { return 'PICKED'; };
+
         class CacLazyHost extends Component {
-            constructor(p) { super(p); this.state = { n: 5, f: true, s: 'hi' }; }
+            constructor(p) {
+                super(p);
+                this.state = { n: 5, f: false, s: 'hi', c: cfg, h: onPick };
+            }
             template() {
                 return html`<cac-lazy count="${this.state.n}" flag="${this.state.f}"
-                                      label="${this.state.s}"></cac-lazy>`;
+                                      label="${this.state.s}" config="${this.state.c}"
+                                      handler="${this.state.h}"></cac-lazy>`;
             }
         }
         defineComponent('cac-lazy-host', CacLazyHost);
@@ -222,18 +233,107 @@ describe('Component Attribute Contract', function(it) {
         const recv = el.querySelector('cac-lazy');
 
         assert.equal(recv.getAttribute('count'), '5',
-            'a number survives as an attribute while the tag is unregistered');
-        assert.equal(recv.getAttribute('flag'), 'true', 'so does a boolean');
+            'a primitive still mirrors to the attribute while the tag is unregistered');
+        assert.equal(recv.getAttribute('config'), null,
+            'an object does NOT reach the DOM as "[object Object]"');
+        assert.equal(recv.getAttribute('handler'), null,
+            'nor a function as its source text');
 
         class CacLazy extends Component {
-            static props = { count: null, flag: null, label: null };
+            static props = { count: null, flag: null, label: null, config: null, handler: null };
             template() { return html`<i></i>`; }
         }
         defineComponent('cac-lazy', CacLazy);   // upgrade
 
-        assert.equal(recv.props.count, '5', 'and reaches props on upgrade');
-        assert.equal(recv.props.flag, 'true', 'boolean too');
+        assert.equal(recv.props.count, 5, 'a number arrives as a number, not "5"');
+        assert.equal(recv.props.flag, false,
+            'false arrives as false - it removes the attribute, so the attribute ' +
+            'alone could not tell it from an omitted prop');
         assert.equal(recv.props.label, 'hi', 'alongside the string');
+        // Against the host's own read, not the raw literal: state hands back a
+        // reactive proxy, so `cfg !== el.state.c` by design. The claim that
+        // matters is that the child got exactly what the parent passed.
+        assert.equal(recv.props.config, el.state.c,
+            'the object itself, not a stringification');
+        assert.equal(recv.props.config.retries, 3, 'with its contents intact');
+        assert.equal(typeof recv.props.handler, 'function', 'the function is callable');
+        assert.equal(recv.props.handler(), 'PICKED', 'and reaches the real one');
+
+        document.body.removeChild(el);
+    });
+
+    it('registration timing does not change what a prop is', () => {
+        // The control for the test above, and the contract stated in
+        // registration-timing.test.js: byte-identical markup either side of
+        // registration must behave identically. Every non-string value
+        // disagreed before the side channel existed - a number arrived as
+        // "7", false and null arrived as the declared default.
+        const cases = [['number', 7], ['false', false], ['true', true],
+                       ['null', null], ['string', 'x'], ['object', { k: 1 }]];
+
+        cases.forEach(([label, value], i) => {
+            const earlyTag = `cac-rt-early-${i}`;
+            const lateTag = `cac-rt-late-${i}`;
+            const probe = () => class extends Component {
+                static props = { v: 'THE-DEFAULT' };
+                template() { return html`<i></i>`; }
+            };
+            // Compiled next to the render that uses it. A template compiled at
+            // module scope is evicted by the 500-entry LRU and silently
+            // recompiled later - after registration, which is the state this
+            // test exists to exclude.
+            const hostFor = (tag) => {
+                const strings = [`<${tag} v="`, `"></${tag}>`];
+                return class extends Component {
+                    constructor(p) { super(p); this.state = { v: value }; }
+                    template() { return html(strings, this.state.v); }
+                };
+            };
+
+            // early: the host renders while the tag is still unknown, and the
+            // class arrives afterwards - what a lazy import() does.
+            defineComponent(`cac-rt-eh-${i}`, hostFor(earlyTag));
+            const eh = mount(`cac-rt-eh-${i}`);
+            defineComponent(earlyTag, probe());
+
+            // late: registered first. The control.
+            defineComponent(lateTag, probe());
+            defineComponent(`cac-rt-lh-${i}`, hostFor(lateTag));
+            const lh = mount(`cac-rt-lh-${i}`);
+
+            assert.equal(eh.querySelector(earlyTag).props.v,
+                         lh.querySelector(lateTag).props.v,
+                         `${label}: same markup, same prop either side of registration`);
+
+            document.body.removeChild(eh);
+            document.body.removeChild(lh);
+        });
+    });
+
+    it('an object on an inherited name clears it rather than stringifying it', () => {
+        // `title` is not a declared prop and the class does not own it, so it
+        // keeps native DOM semantics - and a DOM property can only stringify an
+        // object. Writing it put "[object Object]" in the tooltip; skipping the
+        // write left the PREVIOUS title showing, which is worse than either.
+        class CacStale extends Component {
+            static props = {};
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-stale', CacStale);
+
+        class CacStaleHost extends Component {
+            constructor(p) { super(p); this.state = { t: 'first' }; }
+            template() { return html`<cac-stale title="${this.state.t}"></cac-stale>`; }
+        }
+        defineComponent('cac-stale-host', CacStaleHost);
+
+        const el = mount('cac-stale-host');
+        const child = el.querySelector('cac-stale');
+        assert.equal(child.title, 'first', 'a string reaches the inherited property');
+
+        flushSync(() => { el.state.t = { any: 'object' }; });
+        assert.equal(child.title, '', 'the stale title is gone');
+        assert.equal(child.getAttribute('title'), null, 'and nothing was stringified into the DOM');
 
         document.body.removeChild(el);
     });

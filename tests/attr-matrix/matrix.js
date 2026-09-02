@@ -139,6 +139,12 @@ function classify(tag, attr, ns) {
     return { kind: 'plain', hasIdl: true, offValue: null, onValue: null, defaultIdl };
 }
 
+// A DISTINCTIVE default, not null. With null defaults, "the prop kept its
+// default" and "the prop is undefined" both read as nullish and same() cannot
+// tell them apart - which is what hid the initial-vs-update difference for
+// ${undefined} (ATTR-CONTRACT-HANDOFF.md, open question 1).
+const PROP_DEFAULT = '(prop-default)';
+
 // Shared by ruleFor (object-form style) and the comparator below.
 const CSS_SCRATCH = document.createElement('div');
 
@@ -214,6 +220,23 @@ function presenceCheck(cls, val) {
  */
 const GLOBAL_BOOLEANS_IN_SVG = new Set(['hidden', 'itemscope', 'autofocus', 'inert']);
 
+/**
+ * Does a bare HTMLElement carry this name?
+ *
+ * Probed, not listed. An unregistered hyphenated tag IS an HTMLElement and
+ * nothing more, so it shows exactly the surface a component inherits - where a
+ * <div> would also answer for HTMLDivElement's own additions.
+ */
+let INHERITED_PROBE = null;
+function inheritedOnHtmlElement(attr) {
+    if (!INHERITED_PROBE) INHERITED_PROBE = document.createElement('am-inherited-probe');
+    return attr in INHERITED_PROBE;
+}
+
+// Component-backed tags. Ownership of the NAME, not the tag, is what
+// applyAttributeDirect branches on, so the three differ only in that.
+const COMPONENT_KINDS = new Set(['component', 'component-bare', 'unregistered']);
+
 function ruleFor(kind, attr, cls, v, ns) {
     const val = v.value;
 
@@ -221,26 +244,69 @@ function ruleFor(kind, attr, cls, v, ns) {
         return [presenceCheck(cls, val)];
     }
 
-    if (kind === 'component' || kind === 'unregistered') {
+    if (COMPONENT_KINDS.has(kind)) {
         if (isHostApplied(attr)) {
             // Falls through to the native rules below: these act on the host
             // element, so they mean the same thing on a component as anywhere.
-        } else {
-            const checks = [{ channel: 'attr', value: typeof val === 'string' ? val : null }];
-            // An unregistered tag has no component behind it yet, so there is
-            // no prop to check - only the attribute it will read on upgrade.
-            if (kind === 'component') {
-                // A function prop is WRAPPED, deliberately: the child gets one
-                // stable handler identity across renders while the wrapper
-                // dispatches to whatever the slot currently holds
-                // (component.js:1077-1110). Identity is therefore the wrong
-                // question; whether a call reaches the real function is the
-                // right one.
-                checks.unshift(typeof val === 'function'
-                    ? { channel: 'prop-call', value: FN_SENTINEL }
-                    : { channel: 'prop', value: val });
+        } else if (kind !== 'component') {
+            // The class does not declare this name, so it owns nothing here -
+            // being a component does not make every name on it a prop. What is
+            // left is what the name means on any element.
+            //
+            // Same rule for a registered component with no such prop and for a
+            // tag that has not registered at all: the code path is one and the
+            // same, and the difference between them is only that one has a
+            // props object to read.
+            if (inheritedOnHtmlElement(attr)) {
+                // An inherited DOM property keeps native semantics. Nullish and
+                // false remove the attribute and skip the property write, so
+                // the node falls back to that property's default - and so does
+                // an object or a function, which the property could only
+                // stringify.
+                const skips = val === null || val === undefined || val === false ||
+                    typeof val === 'object' || typeof val === 'function';
+                return [{ channel: 'idl', value: skips ? cls.defaultIdl : String(val) }];
             }
-            return checks;
+            // Owned by nothing. The attribute is a MIRROR, not the transport:
+            // the real value goes through pending-props.js and reaches the prop
+            // on upgrade with its type intact. So a primitive mirrors as text -
+            // tabindex="${0}" must still make the element focusable - and an
+            // object or a function does not mirror at all, because String()-ing
+            // those wrote "[object Object]" and a whole function body into the
+            // DOM and then handed the component that text.
+            if (val === null || val === undefined || val === false) {
+                return [{ channel: 'attr', value: null }];
+            }
+            if (typeof val === 'object' || typeof val === 'function') {
+                return [{ channel: 'attr', value: null }];
+            }
+            return [{ channel: 'attr', value: String(val) }];
+        } else {
+            // A declared prop. The value reaches it losslessly; the attribute
+            // is a devtools mirror and can only hold a string.
+            //
+            // A function prop is WRAPPED, deliberately: the child gets one
+            // stable handler identity across renders while the wrapper
+            // dispatches to whatever the slot currently holds
+            // (component.js:1077-1110). Identity is therefore the wrong
+            // question; whether a call reaches the real function is the right
+            // one.
+            // undefined means "not provided", so the prop keeps its declared
+            // default - on an update as well as on the first render. The
+            // mirror then follows the RESOLVED value, so a string default
+            // shows in the DOM where the template said ${undefined}.
+            if (val === undefined) {
+                return [
+                    { channel: 'prop', value: PROP_DEFAULT },
+                    { channel: 'attr', value: typeof PROP_DEFAULT === 'string' ? PROP_DEFAULT : null }
+                ];
+            }
+            return [
+                typeof val === 'function'
+                    ? { channel: 'prop-call', value: FN_SENTINEL }
+                    : { channel: 'prop', value: val },
+                { channel: 'attr', value: typeof val === 'string' ? val : null }
+            ];
         }
     }
 
@@ -365,13 +431,28 @@ defineComponent('am-cell', AmCell);
 // back as a free string and reported two disagreements about its own probe.
 // Declaring `hidden`/`class`/`style` as props is a bad idea in real components
 // too, and nothing currently warns about it.
-const PROBE_PROPS = ['disabled', 'id', 'value'];
+const PROBE_PROPS = ['disabled', 'id', 'value', 'title', 'tabindex'];
 
 class AmProbe extends Component {
-    static props = PROBE_PROPS.reduce((acc, n) => { acc[n] = null; return acc; }, {});
+    static props = PROBE_PROPS.reduce((acc, n) => { acc[n] = PROP_DEFAULT; return acc; }, {});
     template() { return html`<i></i>`; }
 }
 defineComponent('am-probe', AmProbe);
+
+/**
+ * A registered component that declares NOTHING.
+ *
+ * Declaring every probed name is what hid the tabindex regression: ownership
+ * is the predicate applyAttributeDirect actually branches on, and a probe that
+ * owns every name can only ever exercise one side of it. Registered-but-
+ * undeclared is also the common case in real code - most attributes on a
+ * component are not props.
+ */
+class AmBare extends Component {
+    static props = {};
+    template() { return html`<i></i>`; }
+}
+defineComponent('am-bare', AmBare);
 
 function renderCell(factory, value) {
     CURRENT = factory;
