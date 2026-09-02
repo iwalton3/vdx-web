@@ -3,6 +3,7 @@
  * Measurement only - it changes nothing and asserts nothing.
  */
 const puppeteer = require('puppeteer');
+const coverage = require('./sink-coverage');
 
 const URL = process.env.MATRIX_URL || 'http://localhost:9000/tests/attr-matrix/';
 
@@ -16,9 +17,17 @@ const URL = process.env.MATRIX_URL || 'http://localhost:9000/tests/attr-matrix/'
     page.on('console', m => logs.push(m.text()));
     page.on('pageerror', e => logs.push('PAGEERROR: ' + e.message));
 
+    // Raw coverage keeps the per-block counts; the cooked form only reports
+    // which bytes were touched, which cannot tell a taken branch from a
+    // skipped one. Must start before the navigation that runs the matrix.
+    await page.coverage.startJSCoverage({
+        includeRawScriptCoverage: true,
+        resetOnNavigation: false
+    });
     await page.goto(URL, { waitUntil: 'networkidle2' });
     await page.waitForFunction('window.__MATRIX__ !== undefined', { timeout: 120000 });
     const r = await page.evaluate(() => window.__MATRIX__);
+    const covEntries = await page.coverage.stopJSCoverage();
     await browser.close();
 
     if (r.error) {
@@ -28,7 +37,10 @@ const URL = process.env.MATRIX_URL || 'http://localhost:9000/tests/attr-matrix/'
         process.exit(1);
     }
 
-    console.log(`\n${r.cells} cells walked, ${r.rows.length} disagreements\n`);
+    console.log(`\n${r.cells} cells walked, ${r.rows.length} disagreements, ` +
+                `${r.noOpinion} with no oracle\n`);
+
+    coverage.print(coverage.report(covEntries), console.log);
 
     if (process.env.SHOW_CLASS) {
         console.log('--- DOM classification (derived, not a hand-kept list) ---');
