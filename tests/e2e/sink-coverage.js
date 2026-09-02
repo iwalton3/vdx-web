@@ -32,7 +32,7 @@ const SINKS = {
 const EXPLAINED = {
     "const lname = typeof name === 'string' ? name.toLowerCase() : name;":
         'defensive - attribute names come from the compiler and are always strings',
-    "(DANGEROUS_ATTR_PROPS.has(lname) || (!isCustomElement && /^on[a-z]/.test(lname)))) {":
+    "if (isRefusedAttr(lname, isCustomTag)) {":
         'security refusal - tests/framework/security.test.js "refuses innerHTML/srcdoc"',
     "const isSvgLink = lname === 'xlink:href' && el.namespaceURI === RENDERER_SVG_NS;":
         'xlink:href sanitisation - tests/framework/security.test.js "sanitizes javascript:"',

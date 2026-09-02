@@ -338,13 +338,16 @@ export function runMatrix() {
                 return d.querySelector(sel);
             })();
             if (!refEl) continue;
-            const ref = observable(refEl, job.attr, c);
 
-            // The parser stays the oracle for the whole literal half, `on*`
-            // included: the render-time guard only sees INTERPOLATED values.
-            // Literal inline-handler text reaches the DOM by design and is
-            // caught statically instead, by the t10-inline-events lint - see
-            // "Banned Patterns" in CLAUDE.md.
+            // The one place VDX deliberately departs from HTML in the literal
+            // half: an inline `on*` handler is a script sink whichever way it
+            // is written, so both sinks refuse it (isRefusedAttr) and the
+            // parser is not the oracle - absence is. Every kind that reaches
+            // this loop is native or SVG, where `on*` is never a prop name.
+            const ref = /^on[a-z]/i.test(job.attr)
+                ? { via: 'attr', value: null }
+                : observable(refEl, job.attr, c);
+
             if (!sameFor(job.attr, got.value, ref.value)) {
                 rows.push({
                     kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,

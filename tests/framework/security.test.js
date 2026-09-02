@@ -394,3 +394,40 @@ describe('XSS Prevention - style and script sinks (pre-v1 hardening)', function(
         delete window.__vdxScriptPwned;
     });
 });
+
+describe('Security - literal script sinks', function(it) {
+    const mount = (tag) => { const el = document.createElement(tag); document.body.appendChild(el); return el; };
+    const settle = () => new Promise(r => requestAnimationFrame(r));
+    it('refuses literal on* and srcdoc in a static subtree as well as a dynamic one', async () => {
+        // The compiler's static-DOM path and the renderer's literal path are
+        // two sinks for the same source text. An inline handler written as
+        // literal text is still an inline handler: it runs outside the
+        // framework and outside CSP, and only one of the two sinks refused it.
+        window.__secLit = 0;
+        defineComponent('sec-literal', class extends Component {
+            constructor(p) { super(p); this.state = { x: 'dyn' }; }
+            template() {
+                return html`
+                    <div id="static"><button onclick="window.__secLit = 1">s</button>
+                        <iframe srcdoc="<b>x</b>"></iframe></div>
+                    <div id="dynamic"><button onclick="window.__secLit = 2">${this.state.x}</button>
+                        <iframe srcdoc="<b>x</b>"></iframe></div>
+                    <svg><rect onclick="window.__secLit = 3"></rect></svg>`;
+            }
+        });
+        const el = mount('sec-literal'); await settle();
+
+        for (const scope of ['#static', '#dynamic']) {
+            const btn = el.querySelector(`${scope} button`);
+            assert.equal(btn.getAttribute('onclick'), null, `${scope}: literal onclick refused`);
+            assert.equal(btn.onclick, null, `${scope}: no handler compiled`);
+            btn.click();
+            assert.equal(el.querySelector(`${scope} iframe`).getAttribute('srcdoc'), null,
+                `${scope}: literal srcdoc refused`);
+        }
+        assert.equal(el.querySelector('rect').getAttribute('onclick'), null, 'svg: literal onclick refused');
+        el.querySelector('rect').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        assert.equal(window.__secLit, 0, 'no literal handler ran');
+        el.remove();
+    });
+});
