@@ -4,6 +4,9 @@ Filed from **codemap**, which vendors `dist/framework.js`. Reproduced against
 `lib/core/template.js` at **v1.1.0** (`91b95e1`), so it is not a stale-bundle
 artefact.
 
+**Fixed** in `37da760` — see "Resolution (landed)" below. The workaround
+recorded at the bottom is no longer needed for `when()`.
+
 ## Symptom
 
 A `when()` in **function form** returned as an `each()` item template renders
@@ -129,7 +132,33 @@ type-checks fine, and produces nothing.
 If the decision is instead that this is out of contract, then a thrown guard is
 the whole ask, and we will use the workaround below permanently.
 
-## Workaround (what codemap does now)
+## Resolution (landed)
+
+`37da760` ("core+lint: fix each() dropping lazy directives, live keyed-item
+ranges, T9-T12"). Verified against `lib/` again on 2026-09-02, because a report
+that stays open long enough becomes a workaround nobody revisits:
+
+| item template | now |
+|---|---|
+| `when(c, () => html\`…\`)` | **Renders.** Both branches produce the right element and interpolate - the reported case is fixed, and it is legal to write. |
+| `contain(() => html\`…\`)` | **Throws a render error.** Loud instead of silent, and caught statically by the `t9-list-item` lint rule. Wrap it: `` html`<li>${contain(...)}</li>` ``. |
+| a plain value | **Throws a render error**, same rule. |
+| `memoEach(...)` | Same `t9-list-item` rule; wrap it. |
+
+So the "candidate rule" in the notes below exists now - as `t9-list-item`,
+scoped to the three that are still wrong rather than to `when()`, which is not.
+
+The distinction the fix draws is the one the diagnosis identified: a lazy
+directive whose payload lives beside `_compiled` is either supported properly
+(`when()`) or refused loudly (the rest). Neither is silent.
+
+## Workaround (what codemap does now, and no longer needs to)
+
+> Superseded for `when()` by the fix above. Kept because it records why the
+> incidents were expensive, and because resolving sections before the loop is
+> still reasonable where both branches are costly to build.
+
+
 
 Resolve conditionals **before** the loop and hand `each` a plain template per
 item:
