@@ -38,6 +38,12 @@ node test-runner.js
 # Template lint - banned patterns (no server needed)
 node tools/template-lint.js lib ui site examples
 node tools/scripts/test-template-lint.mjs   # its own fixture suite
+
+# computed() flag machine - every cell, in node, no server (~0.1s)
+node tests/node/computed-cells.mjs
+
+# Attribute contract matrix - the cross product, in a browser
+cd tests/e2e && node run-attr-matrix.js
 ```
 
 ## Regenerating Bundles

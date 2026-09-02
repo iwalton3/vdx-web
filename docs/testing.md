@@ -14,11 +14,13 @@ Complete guide to running and writing tests for the framework.
 
 ## Running Tests
 
-The framework has two test suites:
-1. **Framework Unit Tests** (~560 tests across `tests/framework/`) - Core framework functionality
+The framework has four test suites:
+1. **Framework Unit Tests** (~730 tests across `tests/framework/`) - Core framework functionality
 2. **Component Library E2E Tests** (~260 tests in `tests/e2e/`) - UI component testing with Puppeteer
+3. **Attribute-contract matrix** (`tests/attr-matrix/`) - the cross product of element kind x attribute x value x transition, checked against the ruled contract
+4. **computed() cells** (`tests/node/computed-cells.mjs`) - the flag machine, in node, no browser
 
-Both require the test server running first:
+The first three require the test server running first:
 
 ```bash
 python3 tools/test-server.py
@@ -46,6 +48,39 @@ node test-runner.js
 # Only show output from failing tests (quieter for CI)
 node test-runner.js --only-errors
 ```
+
+### Attribute-Contract Matrix
+
+Walks the cross product and fails on any divergence from the ruled contract.
+Prints V8 branch coverage of the attribute sinks with the run: an uncovered
+block is either an axis the matrix is missing or dead code, which is the one
+stopping condition an HTML taxonomy cannot supply.
+
+```bash
+cd tests/e2e
+node run-attr-matrix.js                  # diff against the baseline
+SHOW_CLASS=1 node run-attr-matrix.js     # + the DOM-derived classification
+UPDATE_BASELINE=1 node run-attr-matrix.js
+```
+
+The baseline is **empty and meant to stay empty** - see
+`tests/attr-matrix/README.md` for why a list of accepted disagreements is the
+wrong instrument, and for the mutations that prove the run can still fail.
+
+### computed() Cells
+
+Enumerates the `computed()` flag machine (`dirty`/`firstRun`/`failed`, reached
+from its own effect or from a lazy read, with a getter that may throw). No
+browser, no server, ~0.1s.
+
+```bash
+node tests/node/computed-cells.mjs
+```
+
+Cells assert observables - the value, how many times the getter ran, how many
+times a dependent re-ran - not the flags, which would only restate the code.
+
+### E2E test coverage
 
 E2E tests include:
 - Form components (input, textarea, checkbox, toggle, slider, etc.)
