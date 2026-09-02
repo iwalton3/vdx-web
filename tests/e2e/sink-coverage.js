@@ -15,8 +15,14 @@
 // than whole-file so the numbers stay about the sinks and do not drown in the
 // renderer's other 2000 lines.
 const SINKS = {
-    '/lib/core/template-renderer.js': ['applyAttributeDirect', 'isOwnElementProp'],
-    '/lib/core/constants.js': ['isBooleanAttr', 'literalAttrValue']
+    '/lib/core/template-renderer.js': [
+        // the three phases and every rule the host-applied table can return
+        'applyAttributeDirect', 'sanitizeUrlAttr', 'hostAppliedRule',
+        'applyAriaAttr', 'applyEnumeratedAttr', 'applyClassAttr', 'applyStyleAttr',
+        'applyDataAttr', 'applyGlobalBooleanAttr',
+        'applyComponentAttr', 'applyNativeAttr', 'isOwnElementProp'
+    ],
+    '/lib/core/constants.js': ['isBooleanAttr', 'literalAttrValue', 'isRefusedAttr']
 };
 
 /**
@@ -31,6 +37,8 @@ const SINKS = {
  */
 const EXPLAINED = {
     "const lname = typeof name === 'string' ? name.toLowerCase() : name;":
+        'defensive - attribute names come from the compiler and are always strings',
+    "if (typeof name !== 'string') return false;":
         'defensive - attribute names come from the compiler and are always strings',
     "if (isRefusedAttr(lname, isCustomTag)) {":
         'security refusal - tests/framework/security.test.js "refuses innerHTML/srcdoc"',
