@@ -1,5 +1,10 @@
 # Handoff: the worklist is done, and the instrument now fails on purpose
 
+> **SUPERSEDED by [ATTR-CONTRACT-CYCLE-3.md](ATTR-CONTRACT-CYCLE-3.md).** The
+> review rounds this document calls for have run; their seven findings are
+> fixed, and cycle 3 replaces the diagnosis both this document and
+> ATTR-CONTRACT-HANDOFF.md operate under. Read cycle 3 first.
+
 Branch `attr-contract-matrix`, 17 commits off `main` at `469065c` — 8 from the
 previous cycle, 9 from this one. **Still not merged**; that is a decision, not a
 blocker. Read `ATTR-CONTRACT-HANDOFF.md` first for why the previous cycle

@@ -2,7 +2,8 @@
 
 > **Superseded in part.** This branch was merged to `main` on 2026-09-02
 > (`fd2d4c3`). The attribute-contract work it prescribes continued on branch
-> `attr-contract-matrix` — see **[ATTR-CONTRACT-HANDOFF.md](ATTR-CONTRACT-HANDOFF.md)**
+> `attr-contract-matrix` — see **[ATTR-CONTRACT-CYCLE-3.md](ATTR-CONTRACT-CYCLE-3.md)**
+> (current), then ATTR-CONTRACT-CYCLE-2.md and ATTR-CONTRACT-HANDOFF.md for history
 > for the current state, the ratified contract, and the next cycle. Read this
 > document for the diagnosis and the history; read that one for what to do.
 
