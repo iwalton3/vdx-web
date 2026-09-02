@@ -259,22 +259,46 @@ wolf is how the real duplicate gets scrolled past. It scans masked code now,
 and the test holds both directions: prose is not a duplicate, and a genuine
 one across two modules is still reported AND still refused at the write.
 
-## Still open, found during the re-read
+## Decided, not fixed: a bare array in markup goes stale
 
-**A mutated array in a slot does not update the DOM.** The slot's identity
-fast path (`value === previousValue`) skips a re-render when an array is
-mutated in place, because the reference is unchanged. Measured with the
-component's own render counter: `push`, `items[0] = 'A'`, `splice` and
-`delete` all re-render the component and update `each()` correctly, while
-the plain-array slot beside them stays frozen until the reference changes.
+A mutated array in a slot does not update the DOM. The slot's identity fast
+path (`value === previousValue`) skips the re-render because the reference
+did not change. `versionedList` does not rescue it: the version bumps, the
+effects fire, the component re-renders - and then the slot compares two
+references and returns. `touch()` and `replace()` fail for the same reason,
+which is worth knowing, because they are the documented answers for exactly
+this and they do not reach here.
 
-Pre-existing, and untouched by either fix above (`materializeArray` only
-runs once that check has passed). It is the same family as the two closed
-here - a silently stale render rather than an error - and the repair is
-plausibly one clause, exempting arrays from the identity skip, which costs
-nothing in the common case because a template-literal array is a fresh
-reference on every render anyway. Not taken: it is a third finding, and this
-record's own lesson is that findings closed in a burst come back.
+Measured, rather than reasoned about - the scope is one shape:
+
+| surface | after an in-place `push` |
+|---|---|
+| `each()` / `memoEach()` | correct - a fresh marker every render |
+| an array in ATTRIBUTE position (`items="${...}"`) | correct - child re-renders and sees the new contents |
+| `props.children` / named slots | correct - a stable array of per-child reactive descriptors, whose contents update through their own slots |
+| `${[a, b]}` written inline | correct - a fresh array every render, so the check never fires |
+| `${this.state.items}` mutated in place | **stale** |
+
+**Not fixed, by decision**: a bare array in non-attribute markup is an
+anti-pattern in this library. It is not a list - it is `String(array)`,
+comma-joined, with no keyed placeholders - and `each()` is the answer for a
+list, `join()` for joined text. Nothing in `docs/` teaches it; every array
+example in the docs is attribute position.
+
+Two things make this the right call rather than a deferral. The identity skip
+is load-bearing where arrays in markup are legitimate: `props.children` is a
+stable reference by design, and exempting arrays from the skip would
+re-instantiate every component's children on every parent render. And the
+repair that would preserve that - a shallow compare instead of reference
+identity - buys correctness for a shape the library tells you not to write.
+
+It is also not lint-enforceable, which is why the rule went to
+`docs/templates.md` rather than the banned-patterns table: the statically
+visible form, `${[a, b]}`, is a fresh array each render and therefore the
+SAFE one. The form that goes stale is `${someExpression}`, which no
+source-level check can distinguish from a string. `guards.test.js` carries a
+note so its "does NOT throw for an array of primitives" case is not read as
+an endorsement - that path must stay open for children and slots.
 
 ## Verified, after the re-read
 

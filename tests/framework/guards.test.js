@@ -255,7 +255,11 @@ describe('Guard 3: renderer rejects a raw array of templates in a slot', functio
     });
 
     it('does NOT throw for an array of primitives', () => {
-        // Only template arrays are the footgun; primitive arrays just join as text.
+        // Not an endorsement - a bare array in markup is an anti-pattern (see
+        // docs/templates.md, "Never interpolate a bare array into markup"): it
+        // renders as joined text and then goes stale, because the slot compares
+        // arrays by reference. This path must stay open regardless, because
+        // props.children and named slots are arrays in markup position too.
         const tpl = html`<div>${[1, 2, 3]}</div>`;
         const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
         assert.equal(fragment.textContent, '123', 'primitive arrays render as joined text');
