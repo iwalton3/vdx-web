@@ -21,8 +21,31 @@
  */
 
 import fs from 'fs';
+import { execFileSync } from 'child_process';
+
+/**
+ * A bundle that does not parse must never reach dist/. Concatenating modules
+ * turns two top-level `const X` in different files into a SyntaxError that no
+ * suite in this repo sees - they run lib/ - and that every downstream page
+ * hits at load. Refuse loudly, with a non-zero exit. `node --check` on an
+ * .mjs path is the parser that reads a bundle as the module it is.
+ */
+function assertParses(content, file) {
+    const probe = file + '.check.mjs';
+    fs.writeFileSync(probe, content);
+    try {
+        execFileSync(process.execPath, ['--check', probe], { stdio: 'pipe' });
+    } catch (e) {
+        const why = String(e.stderr || e.message).trim().split('\n').filter(l => /Error/.test(l)).join(' ');
+        console.error(`\n✗ refusing to write ${file}: it does not parse\n  ${why}`);
+        process.exit(1);
+    } finally {
+        fs.unlinkSync(probe);
+    }
+}
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { maskStringsAndComments } from './template-lint.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -329,8 +352,16 @@ function discoverDependencies(entryFile, baseDir, verbose) {
 
         const module = new ModuleInfo(filePath);
         module.content = fs.readFileSync(absolutePath, 'utf-8');
-        module.imports = parseImports(module.content);
-        module.exports = parseExports(module.content);
+        // Scan code, not prose. A JSDoc `@example` line reading `import { x }
+        // from './y.js'` is not a dependency, but both scanners are regexes
+        // over the whole file, so it used to become one - and a phantom edge
+        // to a REAL sibling silently reorders the bundle, which is the only
+        // thing a concatenator guarantees. Comments are blanked in place
+        // (length and newlines preserved), string CONTENTS are not: the module
+        // specifier being read is itself a string.
+        const scanned = maskStringsAndComments(module.content, { keepStringContents: true });
+        module.imports = parseImports(scanned);
+        module.exports = parseExports(scanned);
 
         if (verbose) {
             console.log(`  ${filePath}`);
@@ -2048,10 +2079,15 @@ function generateBundle(modules, sortedFiles, entryFile, baseDir, keepComments, 
             }
         }
 
-        // Detect duplicate function declarations
+        // Detect duplicate function declarations. Over the masked code: a
+        // commented-out `function helper()` at column 0 matches this
+        // ^-anchored regex too, and reported the file as a duplicate of
+        // itself. A guard that cries wolf is how the real duplicate - the
+        // one that made dist/ a SyntaxError - gets scrolled past.
+        const declScan = maskStringsAndComments(code, { keepStringContents: true });
         const funcRegex = /^function\s+([A-Za-z_$][A-Za-z0-9_$]*)/gm;
         let match;
-        while ((match = funcRegex.exec(code)) !== null) {
+        while ((match = funcRegex.exec(declScan)) !== null) {
             const funcName = match[1];
             if (definedNames.has(funcName)) {
                 console.log(`  ⚠ Duplicate '${funcName}' in ${path.basename(filePath)} (first in ${path.basename(definedNames.get(funcName))})`);
@@ -2267,6 +2303,7 @@ function bundleSingleFile(options) {
     }
 
     // Write output
+    assertParses(bundleContent, outputFile);
     fs.writeFileSync(outputFile, bundleContent);
 
     // Write source map if generated
@@ -2373,6 +2410,7 @@ function processSimpleFile(srcPath, destPath, version) {
     }
 
     // Write minified file
+    assertParses(minContent, destPath);
     fs.writeFileSync(destPath, minContent);
 
     // Write source map
@@ -2445,6 +2483,7 @@ function bundleAll(verbose) {
 
     // Write minified bundle and source map
     const frameworkPath = path.join(distDir, 'framework.js');
+    assertParses(frameworkContent, frameworkPath);
     fs.writeFileSync(frameworkPath, frameworkContent);
     fs.writeFileSync(frameworkPath + '.map', JSON.stringify(frameworkMap));
     console.log(`  ✓ framework.js (${(frameworkContent.length / 1024).toFixed(2)} KB) + .map`);

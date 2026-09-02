@@ -183,6 +183,71 @@ describe('Guard 3: renderer rejects a raw array of templates in a slot', functio
         );
     });
 
+    it('reports a contain() or memoEach() inside a slot array as a render error', () => {
+        // Neither has a slot of its own inside an array to own its state (the
+        // boundary effect, the memo cache), and stringifying the marker rendered
+        // "[object Object]" as text - an element rendered as text is never right.
+        for (const [label, item] of [
+            ['contain', contain(() => html`<b>c</b>`)],
+            ['memoEach', memoEach([1], i => html`<li>${i}</li>`, i => i)]
+        ]) {
+            const err = captureRenderError(() => {
+                const tpl = html`<div>${['text', item]}</div>`;
+                instantiateTemplate(tpl._compiled, tpl._values || [], null);
+            });
+            assert.ok(err, `${label}() inside an array should raise a render error`);
+            assert.ok(
+                String(err.message).includes(label + '('),
+                `error should name ${label}(), got: ${err && err.message}`
+            );
+        }
+    });
+
+    it('resolves a when() item of a slot array to its branch, and flattens a nested array', () => {
+        // A function-form when() is an html-marked marker: it used to trip the
+        // array-of-templates refusal with a message about each(), or be handed
+        // to the renderer as a marker inside a contain() boundary. A nested
+        // array is its items, as the outer one is.
+        const tpl = html`<div>${['a', when(true, () => 'b'), when(false, () => 'c'), ['d', 'e']]}</div>`;
+        const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        assert.equal(fragment.querySelector('div').textContent, 'abde',
+            'true branch renders, false branch is no item, nested items render');
+    });
+
+    it('resolves a when() item whose branch is an array, and refuses what is inside it', () => {
+        // The branch is only an array AFTER the when() resolves, so a walk that
+        // flattens before it resolves never sees these items: they reached
+        // materialize() as a whole array and were stringified - "a,b" for
+        // primitives, "" for templates, "[contain]" for a marker - past the two
+        // refusals below, which exist to make exactly that impossible.
+        const tpl = html`<div>${['x', when(true, () => ['a', 'b']), 'y']}</div>`;
+        const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        assert.equal(fragment.querySelector('div').textContent, 'xaby',
+            'the branch is its items, not String(array)');
+
+        const errHtml = captureRenderError(() => {
+            const t = html`<div>${['x', when(true, () => [html`<b>1</b>`, html`<b>2</b>`])]}</div>`;
+            instantiateTemplate(t._compiled, t._values || [], null);
+        });
+        assert.ok(errHtml && String(errHtml.message).includes('each('),
+            `templates inside the branch should still hit the array refusal, got: ${errHtml && errHtml.message}`);
+
+        const errMarker = captureRenderError(() => {
+            const t = html`<div>${['x', when(true, () => [contain(() => 'c')])]}</div>`;
+            instantiateTemplate(t._compiled, t._values || [], null);
+        });
+        assert.ok(errMarker && String(errMarker.message).includes('contain('),
+            `contain() inside the branch should still be refused, got: ${errMarker && errMarker.message}`);
+    });
+
+    it('resolves a when() in attribute position to its branch', () => {
+        const tpl = html`<div class="${when(true, () => 'on', () => 'off')}" title="${when(false, () => 'x')}"></div>`;
+        const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        const div = fragment.querySelector('div');
+        assert.equal(div.getAttribute('class'), 'on', 'the selected branch, not "[when]"');
+        assert.equal(div.hasAttribute('title'), false, 'an empty branch is nothing, not "[when]"');
+    });
+
     it('does NOT throw for each()', () => {
         const tpl = html`<ul>${each([1, 2, 3], i => html`<li>${i}</li>`, i => i)}</ul>`;
         const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
@@ -190,7 +255,11 @@ describe('Guard 3: renderer rejects a raw array of templates in a slot', functio
     });
 
     it('does NOT throw for an array of primitives', () => {
-        // Only template arrays are the footgun; primitive arrays just join as text.
+        // Not an endorsement - a bare array in markup is an anti-pattern (see
+        // docs/templates.md, "Never interpolate a bare array into markup"): it
+        // renders as joined text and then goes stale, because the slot compares
+        // arrays by reference. This path must stay open regardless, because
+        // props.children and named slots are arrays in markup position too.
         const tpl = html`<div>${[1, 2, 3]}</div>`;
         const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
         assert.equal(fragment.textContent, '123', 'primitive arrays render as joined text');

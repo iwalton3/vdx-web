@@ -65,15 +65,11 @@ finding to rule on, not a table entry to add. A ratified divergence belongs in
 `ruleFor` (or the relation) as a clause with a reason; only a finding that is
 scheduled, not shrugged at, may wait here - and it must say where it is going.
 
-**15 rows, `relation:children`, waiting on the registry-answerer collapse
-(ATTR-CONTRACT-CYCLE-4.md, "what to do next").** A component registered after
-its call site rendered captures its light DOM through an `innerHTML` round
-trip (`connectedCallback`), which drops every `on-*` listener and every
-binding the parent put on those children. Registered first, the same children
-arrive as deferred descriptors and keep both. The prop half of the timing
-promise in `docs/templates.md` holds; the children half does not yet. When the
-capture adopts the live nodes, these rows show as RESOLVED and the file goes
-back to empty.
+It held 15 `relation:children` rows for one cycle: a component registered
+after its call site rendered captured its light DOM through an `innerHTML`
+round trip, dropping the listeners and bindings the parent had put on those
+nodes. The capture adopts the live nodes now (`REGISTRY-ANSWERER-2026-09.md`),
+the rows resolved, and the file is empty again.
 
 It held 37 rows until the restructure. They were four different things wearing
 one label, and a genuine regression - a lazily-registered component losing every

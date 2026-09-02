@@ -147,3 +147,29 @@ describe('Boolean Attributes', function(it) {
         assert.equal(boolProp(undefined), false, 'absent prop');
     });
 });
+
+describe('Global booleans in SVG', function(it) {
+    it('hidden on an SVG element is presence only, not an expando property', () => {
+        // The UA stylesheet acts on the attribute; SVGElement has no `hidden`
+        // IDL, so writing the property made a fake one that read back as IDL
+        // and disagreed with the compiler's attribute-only static path.
+        class BAttrSvgHidden extends Component {
+            state = { on: true, tail: '' };
+            template() {
+                return html`<svg>
+                    <rect id="dyn" hidden="${this.state.on}"></rect>
+                    <circle id="lit" hidden>${this.state.tail}</circle>
+                </svg>`;
+            }
+        }
+        defineComponent('battr-svg-hidden', BAttrSvgHidden);
+        const el = mount('battr-svg-hidden');
+        for (const id of ['dyn', 'lit']) {
+            const node = el.querySelector('#' + id);
+            assert.equal(node.hasAttribute('hidden'), true, `${id}: attribute present`);
+            assert.equal(Object.prototype.hasOwnProperty.call(node, 'hidden'), false,
+                `${id}: no own 'hidden' property on an SVG element`);
+        }
+        el.remove();
+    });
+});

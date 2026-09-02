@@ -39,8 +39,16 @@ node test-runner.js
 node tools/template-lint.js lib ui site examples
 node tools/scripts/test-template-lint.mjs   # its own fixture suite
 
+# Bundler scans code, not prose - a JSDoc @example import must not become a
+# dependency edge (it reorders the bundle), and a real one still must
+node tools/scripts/test-bundler-scan.mjs
+
 # computed() flag machine - every cell, in node, no server (~0.1s)
 node tests/node/computed-cells.mjs
+
+# dist/ parses and is fresh - in node, no server. run-framework-tests.js runs
+# this first; the suite itself also renders through the real bundle
+node tests/node/dist-check.mjs
 
 # Attribute contract matrix - the cross product, in a browser
 cd tests/e2e && node run-attr-matrix.js
@@ -57,6 +65,10 @@ node tools/bundler-esm.js
 ```
 
 The no-arg mode rebuilds the standard set of `dist/*` bundles (and source maps).
+The bundler concatenates modules, so a top-level name must be unique across
+`lib/core/` - two `const X` in different files is a SyntaxError in `dist/` that
+the suites (which run `lib/`) never see. The bundler refuses to write a bundle
+that does not parse, and `node tests/node/dist-check.mjs` fails on a stale one.
 
 ## Required Reading (VERY IMPORTANT)
 
@@ -107,8 +119,9 @@ table with fixes in [docs/tutorial.md](docs/tutorial.md#banned-patterns);
 - `items.map(i => html\`...\`)` / inline ternary in a slot -> `each()` / `when()` (`t8-list-control`)
 - `contain()` / `memoEach()` / a plain value as a whole `each()` item -> wrap in `html\`<li>...</li>\`` (`t9-list-item`).
   `when()` as a whole item is fine.
-- `onclick="..."` -> `on-click="handler"` (`t10-inline-events`). The static form reaches the DOM
-  and runs, outside the framework and outside CSP, unguarded; the `${fn}` form is refused at render
+- `onclick="..."` -> `on-click="handler"` (`t10-inline-events`). Both the static and the `${fn}`
+  form are refused at render with a console warning (one rule, `isRefusedAttr`, in both sinks);
+  the lint is what tells you at the source line
 - Lit/Vue sigils `?attr @evt .prop :attr` -> plain attributes / `on-*` (`t7-binding`)
 - `JSON.stringify()` into a prop -> pass the object (`t11-attr-stringify`)
 - `this.method.bind(this)` -> `this.method`, already bound (`t12-manual-bind`)

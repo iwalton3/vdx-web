@@ -598,6 +598,28 @@ ${each(this.state.items, item => html`
 
 (Note: `x-model` only supports static dot-separated paths like `x-model="user.name"` - it cannot address individual list items, so use a `value` + `on-input` pair inside loops.)
 
+**Never interpolate a bare array into markup.** `${this.state.items}` in a
+slot is not a list - it is `String(array)`, comma-joined, with no keyed
+placeholders. An array of `html`` templates is refused outright
+(`t8-list-control`); an array of primitives renders, and then goes stale: the
+slot compares the array by reference, so a `push`, `splice` or index write
+updates nothing, and neither `versionedList().touch()` nor `.replace()`
+rescues it, because the reference never changed. Use `each()` for a list and
+`${items.join(', ')}` if you genuinely want joined text - both are explicit
+about which one you meant.
+
+This is not lint-enforceable, which is why it is written down here: the
+statically visible form, `${[a, b]}`, is a fresh array on every render and
+therefore the *safe* one. The form that goes stale is `${someExpression}`,
+which no source-level check can tell from a string.
+
+(Arrays in **attribute** position are a different thing and entirely
+supported - `items="${this.state.items}"` passes the array itself to a
+component prop. The rule above is about markup position only. `props.children`
+and named slots are also arrays in markup position, but they are the
+framework's own: a stable array of per-child reactive descriptors, not a value
+you mutate.)
+
 The third parameter is a `keyFn` that returns a unique identifier for each item. This is **essential** when:
 - Items can be reordered, inserted, or deleted
 - List items contain form inputs (text boxes, checkboxes)

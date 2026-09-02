@@ -559,4 +559,92 @@ describe('Component Attribute Contract', function(it) {
 
         document.body.removeChild(el);
     });
+
+    it('a host-applied name the class declares reaches the host AND the prop', () => {
+        // cl-code-editor declares `spellcheck` to forward it to its textarea.
+        // The host-applied rule used to pre-empt ownership entirely, so the
+        // host got spellcheck="false" and the prop never heard about it - the
+        // component had to force the textarea imperatively. Both now: the
+        // host keeps its DOM semantics (it is still hideable, still
+        // spellchecked), and a class that OWNS the name gets the value with
+        // its type intact. The host write lands last, so the prop's mirror
+        // (which clears the attribute for a non-string) cannot undo it.
+        class CacOwnsHost extends Component {
+            static props = { spellcheck: null, hidden: null };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-owns-host', CacOwnsHost);
+
+        class CacOwnsHostHost extends Component {
+            constructor(p) { super(p); this.state = { sc: false, hid: true }; }
+            template() {
+                return html`<cac-owns-host spellcheck="${this.state.sc}" hidden="${this.state.hid}"></cac-owns-host>`;
+            }
+        }
+        defineComponent('cac-owns-host-host', CacOwnsHostHost);
+        const host = mount('cac-owns-host-host');
+        const el = host.querySelector('cac-owns-host');
+
+        assert.equal(el.getAttribute('spellcheck'), 'false', 'host: off-word written');
+        assert.equal(el.props.spellcheck, false, 'prop: the boolean, not the word');
+        assert.equal(el.hasAttribute('hidden'), true, 'host: hidden');
+        assert.equal(el.props.hidden, true, 'prop: true');
+
+        flushSync(() => { host.state.sc = 'true'; host.state.hid = null; });
+        assert.equal(el.getAttribute('spellcheck'), 'true', 'host: vocabulary string passes through');
+        assert.equal(el.props.spellcheck, 'true', 'prop: the string as given');
+        assert.equal(el.hasAttribute('hidden'), false, 'host: nullish removes');
+        assert.equal(el.props.hidden, null, 'prop: explicit null');
+
+        // The host write fires attributeChangedCallback on a connected element,
+        // which would re-derive the prop as the attribute's "" - the write is
+        // made with that callback suppressed, so the boolean stays.
+        flushSync(() => { host.state.hid = true; });
+        assert.equal(el.hasAttribute('hidden'), true, 'host: hidden again');
+        assert.equal(el.props.hidden, true, 'prop: still the boolean, not ""');
+
+        document.body.removeChild(host);
+    });
+
+    it('a host-applied value equal to the declared default keeps its type at connect', () => {
+        // The host rule writes spellcheck="false" for a boolean false. The
+        // first-connect parse must not read that text back over the value
+        // the template delivered just because it equals the default.
+        class CacDefaultHost extends Component {
+            static props = { spellcheck: false, translate: false };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-default-host', CacDefaultHost);
+        class CacDefaultHostHost extends Component {
+            template() {
+                return html`<cac-default-host spellcheck="${false}" translate="${false}"></cac-default-host>`;
+            }
+        }
+        defineComponent('cac-default-host-host', CacDefaultHostHost);
+        const host = mount('cac-default-host-host');
+        const el = host.querySelector('cac-default-host');
+        assert.equal(el.getAttribute('spellcheck'), 'false', 'host: off-word');
+        assert.equal(el.props.spellcheck, false, 'prop: boolean false, not "false"');
+        assert.equal(el.getAttribute('translate'), 'no', 'host: off-word');
+        assert.equal(el.props.translate, false, 'prop: boolean false, not "no"');
+        document.body.removeChild(host);
+    });
+
+    it('a host-applied name still lands on a third-party element whose setter throws', () => {
+        // Ownership delivery and the host write are independent: an owner
+        // that refuses the value must not cost the host its attribute.
+        customElements.define('cac-throwing-hidden', class extends HTMLElement {
+            get hidden() { return false; }
+            set hidden(v) { throw new Error(`rejected ${v}`); }
+        });
+        class CacThrowHost extends Component {
+            template() { return html`<cac-throwing-hidden hidden="${true}"></cac-throwing-hidden>`; }
+        }
+        defineComponent('cac-throw-host', CacThrowHost);
+        const host = mount('cac-throw-host');
+        const el = host.querySelector('cac-throwing-hidden');
+        assert.ok(el && el.isConnected, 'element rendered');
+        assert.equal(el.hasAttribute('hidden'), true, 'hidden landed despite the throwing setter');
+        document.body.removeChild(host);
+    });
 });

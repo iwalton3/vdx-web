@@ -718,12 +718,10 @@ The lint id is named on each entry; suppress a deliberate one with
 
 ```javascript
 // DON'T use inline DOM handlers - use on-* [t10-inline-events]
-// The two forms fail differently: the dynamic one is REFUSED at render (console
-// warning, handler never binds); the static one is applied by the compile-time
-// static-DOM path, which has no on[a-z] guard - it reaches the DOM and RUNS,
-// outside the framework and outside CSP, with nothing logged. Lint is the only
-// thing that catches the static form.
-<button onclick="doThing()">      // WRONG - and it works, which is the problem
+// Both forms are REFUSED at render (console warning, handler never binds) - the
+// compiler's static path and the renderer share one refusal rule. The lint is
+// what points at the source line.
+<button onclick="doThing()">      // WRONG - refused at render
 <button onclick="${this.fn}">     // WRONG - refused at render
 <button on-click="handler">       // CORRECT
 

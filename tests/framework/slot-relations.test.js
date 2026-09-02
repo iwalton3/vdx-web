@@ -13,7 +13,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { defineComponent, html, raw, when, each, contain, Component, flushSync } from '../../lib/framework.js';
+import { defineComponent, html, raw, when, each, memoEach, contain, Component, flushSync } from '../../lib/framework.js';
 
 // Value factories, not values: a Node can be inserted once, and an html``
 // result is consumed by the render that receives it.
@@ -38,9 +38,12 @@ const KINDS = {
     },
     'array of strings':  () => ['a', 'b'],
     'array of raw':      () => [raw('<b>r1</b>'), raw('<b>r2</b>')],
+    'array with when':   () => ['a', when(true, () => 'b'), when(false, () => 'c'), 'd'],
+    'nested array':      () => ['Tags: ', ['a', 'b']],
     'when true':         () => when(true, () => html`<em>W</em>`),
     'when false':        () => when(false, () => html`<em>W</em>`),
     'each':              () => each([1, 2], i => html`<li>${i}</li>`),
+    'memoEach':          () => memoEach([1, 2], i => html`<li>${i}</li>`, i => i),
     'nested contain':    () => contain(() => 'inner'),
     'object':            () => ({ a: 1 })
     // Not listed: an array holding html`` results is banned in an ordinary
@@ -49,18 +52,11 @@ const KINDS = {
     // meaningless value has no behaviour to relate.
 };
 
-// kind -> why the two sides differ today. The containment dispatcher handles
-// a Node inside an ARRAY (template-renderer.js, "Handle arrays") but
-// stringifies a bare one, and does not unwrap a contain() marker its own
-// render function returned. Scheduled for the value-classifier unification
-// (STRUCTURAL-REFACTORING-REVIEW.md item 6). A passing kind here means that
-// work landed - remove the entry.
-const KNOWN_DIVERGENT = {
-    'text node':      'containment stringifies a bare Node to "[object Text]"',
-    'element':        'containment stringifies a bare Node to "[object HTMLElement]"',
-    'fragment':       'containment stringifies a bare Node to "[object DocumentFragment]"',
-    'nested contain': 'containment renders a nested contain() marker as nothing'
-};
+// kind -> why the two sides differ today. Empty since the slot value
+// classifier (slotKind / materialize in template-renderer.js) became the one
+// answer for both dispatchers. An entry here is a scheduled fix with its
+// reason, asserted to diverge so the fix is told to delete it.
+const KNOWN_DIVERGENT = {};
 
 let CURRENT = null;
 class SrPlain extends Component {
@@ -101,4 +97,30 @@ describe('Slot Relations', function(it) {
             }
         });
     }
+});
+
+describe('Slot Relations - ownership', function(it) {
+    it('a contain() boundary does not edit a node the app handed it', async () => {
+        // The boundary's lone-text-node fast path updates textContent in
+        // place. With a bare Node a first-class boundary value, that node may
+        // be the app's own; only a text node the boundary created is its to
+        // edit.
+        const label = document.createTextNode('Real');
+        let host;
+        class SrOwn extends Component {
+            state = { busy: false };
+            template() { return html`<div class="p">${contain(() => this.state.busy ? 'Loading' : label)}</div>`; }
+        }
+        defineComponent('sr-own', SrOwn);
+        host = document.createElement('sr-own');
+        document.body.appendChild(host);
+        const read = () => host.querySelector('.p').textContent;
+        assert.equal(read(), 'Real');
+        flushSync(() => { host.state.busy = true; });
+        assert.equal(read(), 'Loading');
+        assert.equal(label.textContent, 'Real', "the app's node is not the boundary's to edit");
+        flushSync(() => { host.state.busy = false; });
+        assert.equal(read(), 'Real', 'the original node comes back unchanged');
+        host.remove();
+    });
 });

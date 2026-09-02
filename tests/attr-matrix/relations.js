@@ -169,7 +169,13 @@ function freshTags() {
     return { eager: `rl-e-${serial}`, lazy: `rl-l-${serial}` };
 }
 
-const DECLARED = ['disabled', 'id', 'value', 'title', 'tabindex', 'onpick', 'fromUnit'];
+// hidden / spellcheck / dataX: host-applied names a class may DECLARE
+// (cl-code-editor's spellcheck). Not in the matrix's own probe - an accessor
+// shadows the DOM one and the cells would read the probe - but for a relation
+// both sides carry the same accessor, and this is where eager and lazy
+// delivery of such a name diverged.
+const DECLARED = ['disabled', 'id', 'value', 'title', 'tabindex', 'onpick', 'fromUnit',
+                  'hidden', 'spellcheck', 'dataX'];
 const DEFAULT = '(rel-default)';
 
 function makeClass(declared, tpl) {
@@ -256,46 +262,58 @@ const CHILD_VALUES = [
  * must survive either way.
  */
 function relChildren(rows, counts) {
+    // Two shapes: the value wrapped in an element that carries a handler, and
+    // the value BARE between the tags - a slot whose only anchor is the
+    // placeholder comment the parent's effect owns.
     for (const v of CHILD_VALUES) {
-        counts.children++;
-        const tags = freshTags();
-        const clicks = { eager: 0, lazy: 0 };
-        const factory = (tag, side) => {
-            const strings = [`<${tag}><span class="k" on-click="`, `">`, `</span></${tag}>`];
-            const fn = () => { clicks[side]++; };
-            return (val) => html(strings, fn, val);
-        };
-        const job = { kindId: 'component', tag: 'component', attr: 'children', class: 'timing' };
+        for (const shape of ['wrapped', 'bare']) {
+            counts.children++;
+            const tags = freshTags();
+            const clicks = { eager: 0, lazy: 0 };
+            const factory = (tag, side) => {
+                const fn = () => { clicks[side]++; };
+                if (shape === 'bare') {
+                    const strings = [`<${tag}>`, `</${tag}>`];
+                    return (val) => html(strings, val);
+                }
+                const strings = [`<${tag}><span class="k" on-click="`, `">`, `</span></${tag}>`];
+                return (val) => html(strings, fn, val);
+            };
+            const job = { kindId: 'component', tag: 'component', attr: `children:${shape}`, class: 'timing' };
 
-        defineComponent(tags.eager, makeClass(false, OUTLET));
-        const eHost = renderCell(factory(tags.eager, 'eager'), v.value);
-        const lHost = renderCell(factory(tags.lazy, 'lazy'), v.value);
-        defineComponent(tags.lazy, makeClass(false, OUTLET));
+            defineComponent(tags.eager, makeClass(false, OUTLET));
+            const eHost = renderCell(factory(tags.eager, 'eager'), v.value);
+            const lHost = renderCell(factory(tags.lazy, 'lazy'), v.value);
+            defineComponent(tags.lazy, makeClass(false, OUTLET));
 
-        const read = (host, tag, side) => {
-            const el = host.querySelector(tag);
-            const span = el && el.querySelector('span.k');
-            const s = { 'child-in-outlet': Boolean(el && el.querySelector('.out span.k')),
-                        'child-text': span ? span.textContent : '<no span>' };
-            clicks[side] = 0;
-            if (span) span.click();
-            s['click-reached-handler'] = clicks[side];
-            return s;
-        };
-        record(rows, job, v.label, 'relation:children',
-               read(lHost, tags.lazy, 'lazy'), read(eHost, tags.eager, 'eager'));
+            const read = (host, tag, side) => {
+                const el = host.querySelector(tag);
+                const out = el && el.querySelector('.out');
+                const s = { 'outlet-text': out ? out.textContent : '<no outlet>' };
+                if (shape === 'wrapped') {
+                    const span = el && el.querySelector('span.k');
+                    s['child-in-outlet'] = Boolean(out && out.querySelector('span.k'));
+                    clicks[side] = 0;
+                    if (span) span.click();
+                    s['click-reached-handler'] = clicks[side];
+                }
+                return s;
+            };
+            record(rows, job, v.label, 'relation:children',
+                   read(lHost, tags.lazy, 'lazy'), read(eHost, tags.eager, 'eager'));
 
-        counts.children++;
-        let threw = null;
-        try {
-            updateCell(eHost, 'UPDATED');
-            updateCell(lHost, 'UPDATED');
-        } catch (e) { threw = e.message; }
-        record(rows, job, `${v.label} -> 'UPDATED'`, 'relation:children',
-               read(lHost, tags.lazy, 'lazy'), read(eHost, tags.eager, 'eager'), threw);
+            counts.children++;
+            let threw = null;
+            try {
+                updateCell(eHost, 'UPDATED');
+                updateCell(lHost, 'UPDATED');
+            } catch (e) { threw = e.message; }
+            record(rows, job, `${v.label} -> 'UPDATED'`, 'relation:children',
+                   read(lHost, tags.lazy, 'lazy'), read(eHost, tags.eager, 'eager'), threw);
 
-        eHost.remove();
-        lHost.remove();
+            eHost.remove();
+            lHost.remove();
+        }
     }
 }
 

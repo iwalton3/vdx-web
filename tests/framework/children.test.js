@@ -3,7 +3,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { defineComponent, html, when } from '../../lib/framework.js';
+import { defineComponent, html, when, Component } from '../../lib/framework.js';
 
 // Test helper to wait for rendering
 async function waitForRender() {
@@ -460,5 +460,99 @@ describe('Children Prop System', function(it) {
         assert.ok(hasMoreText, 'Should render multiple text nodes');
 
         document.body.removeChild(el);
+    });
+});
+
+describe('Light DOM Adoption', function(it) {
+    it('light-DOM children are adopted as the same nodes, listeners and nested state intact', async () => {
+        // The capture used to serialise the light DOM through innerHTML and
+        // parse it back, which produced fresh nodes: every listener the page
+        // (or a parent template) had put on a child was gone, and a nested
+        // component came back as a new instance with new state.
+        let innerConstructed = 0;
+        class LdaInner extends Component {
+            constructor(props) {
+                super(props);
+                innerConstructed++;
+                this.state = { serial: innerConstructed };
+            }
+            template() { return html`<i>${this.state.serial}</i>`; }
+        }
+        class LdaOuter extends Component {
+            template() { return html`<section>${this.props.children}</section>`; }
+        }
+        defineComponent('lda-inner', LdaInner);
+        defineComponent('lda-outer', LdaOuter);
+
+        // Light DOM assembled before connect: a nested component and a
+        // plain element carrying a listener. Nothing is upgraded until the
+        // tree connects.
+        const outer = document.createElement('lda-outer');
+        const inner = document.createElement('lda-inner');
+        const b = document.createElement('b');
+        b.textContent = 'click me';
+        let clicks = 0;
+        b.addEventListener('click', () => { clicks++; });
+        outer.append(inner, b);
+
+        document.body.appendChild(outer);
+        await new Promise(r => requestAnimationFrame(r));
+
+        const section = outer.querySelector('section');
+        assert.ok(section, 'outer rendered its template');
+        assert.equal(section.querySelector('b'), b,
+            'the same <b> node the page created, not a re-parsed copy');
+        section.querySelector('b').click();
+        assert.equal(clicks, 1, 'a listener put on a light-DOM child survives capture');
+        assert.equal(section.querySelector('lda-inner'), inner,
+            'the nested component is the same element');
+        assert.equal(innerConstructed, 1,
+            'the nested component was constructed once, not rebuilt from markup');
+        assert.equal(section.querySelector('lda-inner i').textContent, '1');
+
+        outer.remove();
+    });
+
+    it('an already-upgraded nested child is connected once, and its grandchildren built once', async () => {
+        // Adoption detaches the nested child and the template re-inserts it.
+        // The child's queued connect reaction must not run while it is
+        // detached: that rendered it once in limbo - constructing a ghost
+        // grandchild that never gets mounted()/unmounted() - and once more on
+        // the real connect.
+        const log = [];
+        class LdbGrand extends Component {
+            constructor(p) { super(p); log.push('grand:construct'); }
+            mounted() { log.push('grand:mounted'); }
+            unmounted() { log.push('grand:unmounted'); }
+            template() { return html`<u>g</u>`; }
+        }
+        class LdbInner extends Component {
+            mounted() { log.push('inner:mounted'); }
+            unmounted() { log.push('inner:unmounted'); }
+            template() { return html`<em><ldb-grand></ldb-grand></em>`; }
+        }
+        class LdbOuter extends Component {
+            template() { return html`<section>${this.props.children}</section>`; }
+        }
+        defineComponent('ldb-grand', LdbGrand);
+        defineComponent('ldb-inner', LdbInner);
+        defineComponent('ldb-outer', LdbOuter);
+
+        const outer = document.createElement('ldb-outer');
+        outer.append(document.createElement('ldb-inner'));
+        document.body.appendChild(outer);
+        await new Promise(r => setTimeout(r, 0));
+
+        assert.equal(log.filter(x => x === 'grand:construct').length, 1,
+            `one grandchild, not a ghost and a real one: ${log.join(',')}`);
+        assert.equal(log.filter(x => x === 'inner:mounted').length, 1, 'inner mounted once');
+        assert.ok(!log.includes('inner:unmounted') && !log.includes('grand:unmounted'),
+            `nothing unmounted on the way in: ${log.join(',')}`);
+        assert.equal(outer.querySelectorAll('ldb-grand').length, 1, 'one grandchild in the DOM');
+
+        outer.remove();
+        await new Promise(r => setTimeout(r, 0));
+        assert.equal(log.filter(x => x === 'grand:unmounted').length, 1,
+            `the one grandchild unmounts once: ${log.join(',')}`);
     });
 });

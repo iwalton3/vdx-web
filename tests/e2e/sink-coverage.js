@@ -15,8 +15,18 @@
 // than whole-file so the numbers stay about the sinks and do not drown in the
 // renderer's other 2000 lines.
 const SINKS = {
-    '/lib/core/template-renderer.js': ['applyAttributeDirect', 'isOwnElementProp'],
-    '/lib/core/constants.js': ['isBooleanAttr', 'literalAttrValue']
+    '/lib/core/template-renderer.js': [
+        // the three phases
+        'applyAttributeDirect', 'deliverToOwner', 'applyComponentAttr', 'applyNativeAttr'
+    ],
+    '/lib/core/literal-attr.js': ['writeLiteralAttr', 'sanitizeUrlAttr'],
+    '/lib/core/host-attrs.js': [
+        // the table and every rule it can return
+        'hostAppliedRule', 'applyAriaAttr', 'applyEnumeratedAttr', 'applyClassAttr',
+        'applyStyleAttr', 'applyDataAttr', 'applyGlobalBooleanAttr', 'writeBooleanAttr',
+        'isOwnElementProp'
+    ],
+    '/lib/core/constants.js': ['isBooleanAttr', 'literalAttrValue', 'isRefusedAttr']
 };
 
 /**
@@ -32,9 +42,11 @@ const SINKS = {
 const EXPLAINED = {
     "const lname = typeof name === 'string' ? name.toLowerCase() : name;":
         'defensive - attribute names come from the compiler and are always strings',
-    "(DANGEROUS_ATTR_PROPS.has(lname) || (!isCustomElement && /^on[a-z]/.test(lname)))) {":
+    "if (typeof name !== 'string') return false;":
+        'defensive - attribute names come from the compiler and are always strings',
+    "if (isRefusedAttr(lname, isCustomTag)) {":
         'security refusal - tests/framework/security.test.js "refuses innerHTML/srcdoc"',
-    "const isSvgLink = lname === 'xlink:href' && el.namespaceURI === RENDERER_SVG_NS;":
+    "const isSvgLink = lname === 'xlink:href' && el.namespaceURI === SVG_NS;":
         'xlink:href sanitisation - tests/framework/security.test.js "sanitizes javascript:"',
     "if ((urlTags && urlTags.has(el.tagName)) || isSvgLink) {":
         'URL sanitisation - tests/framework/security.test.js "sanitizes javascript:"',

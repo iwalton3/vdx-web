@@ -39,6 +39,13 @@ cd tests/e2e
 node run-framework-tests.js
 ```
 
+Before the browser opens, the runner checks `dist/`: every bundle parses and
+rebuilding reproduces it byte for byte (`tests/node/dist-check.mjs`). The
+suite runs `lib/`, and `dist/` is what an app ships, so without this a bundle
+could fail to parse while everything here is green - which happened once,
+and the first thing to notice was a downstream app that no longer booted.
+`tests/framework/dist-bundle.test.js` then renders through the real bundle.
+
 The page's console is streamed as it runs; the verdict and the list of
 failing tests (suite, name, message, expected/received) are read back from
 the page's own results object after the run and printed under the summary, so

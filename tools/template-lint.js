@@ -52,8 +52,13 @@ import { startsRegexLiteral, skipRegex } from './js-scan.js';
  * it spliced in a recursive mask of the remainder computed from the wrong
  * starting state, silently blanking real code downstream (e.g. the class
  * declarations after the first such template in a file).
+ *
+ * `keepStringContents` blanks comments and regex bodies only. The bundler
+ * needs it: it scans for imports, and the module specifier it is looking for
+ * IS a string, so blanking string text would erase the thing being read.
+ * Default off - every other caller wants the full mask.
  */
-export function maskStringsAndComments(source) {
+export function maskStringsAndComments(source, { keepStringContents = false } = {}) {
     const chars = source.split('');
 
     const blank = (from, to) => {
@@ -90,14 +95,14 @@ export function maskStringsAndComments(source) {
                     if (source[i] === c) { i++; break; }
                     i++;
                 }
-                blank(start + 1, i - 1);
+                if (!keepStringContents) blank(start + 1, i - 1);
                 lastSig = c; lastWord = '';
                 continue;
             }
             if (c === '`') {
                 const t = scanTemplateLiteral(source, i);
                 if (!t) { blank(i + 1, to); return; } // unterminated
-                for (const p of t.parts) blank(p.start, p.end);
+                if (!keepStringContents) for (const p of t.parts) blank(p.start, p.end);
                 for (const ex of t.exprs) walkCode(ex.start + 2, ex.end - 1);
                 i = t.end + 1;
                 lastSig = '`'; lastWord = '';
@@ -1323,12 +1328,10 @@ export function lintTemplates(source, filePath, registry, options = {}) {
         };
 
         // ---- T10: inline DOM event attributes (onclick=, oninput=, ...) ----
-        // VDX routes every handler through on-*. The two forms fail differently:
-        // a DYNAMIC `onclick="${fn}"` is refused by the renderer's on[a-z] guard
-        // (console warning, handler never binds), but a STATIC `onclick="fn()"`
-        // is applied by the compile-time static-DOM path, which has no such
-        // guard - it reaches the DOM and runs, outside the framework and outside
-        // CSP, with nothing said. The static form is the one only lint catches.
+        // VDX routes every handler through on-*. Both forms are refused at
+        // render by isRefusedAttr (shared by the compiler's static path and the
+        // renderer); the lint is what reports it at the source line, before
+        // anything renders.
         const checkInlineEvents = (node) => {
             for (const attrName of Object.keys(node.attrs || {})) {
                 if (attrName === '__ref__' || attrName.includes('-')) continue;
@@ -1338,9 +1341,9 @@ export function lintTemplates(source, filePath, registry, options = {}) {
                 const line = locate('t10:' + attrName, escapeRegex(attrName) + '\\s*=');
                 report(line, 't10-inline-events', 'error',
                     `${attrName}="…" is an inline DOM handler - VDX binds events with `
-                    + `on-${event}="handler". A static ${attrName}="fn()" runs outside the `
-                    + `framework and outside CSP with no warning; the dynamic `
-                    + `${attrName}="\${fn}" form is refused at render instead`);
+                    + `on-${event}="handler". Both the static ${attrName}="fn()" and the `
+                    + `dynamic ${attrName}="\${fn}" form are refused at render with a `
+                    + `console warning; this is the report at the source line`);
             }
         };
 

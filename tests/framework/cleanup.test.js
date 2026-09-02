@@ -4,7 +4,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { defineComponent, html, createStore } from '../../lib/framework.js';
+import { defineComponent, html, createStore, Component, when, contain, each, flushSync } from '../../lib/framework.js';
 
 describe('Component Cleanup', function(it) {
     it('calls unmounted lifecycle hook', (done) => {
@@ -293,5 +293,52 @@ describe('Effect Cleanup', function(it) {
                 }, 100);
             }, 50);
         }, 100);
+    });
+});
+
+describe('Slot cleanup: contain() boundaries', function(it) {
+    it('takes the boundary\'s DOM with the slot that owns it', () => {
+        // A boundary's nodes live on the slot (containNodes), not in the list
+        // the slot's dispose walks, so only the boundary's FIRST nodes were
+        // ever reachable - the ones the parent recorded when it instantiated
+        // the branch. Two things in this template are load-bearing, and both
+        // hide the leak if "tidied": each contain() is a TOP-LEVEL node of the
+        // branch (wrap one in a <p> and the parent removes that <p>, taking the
+        // orphans with it), and each boundary re-renders before the teardown
+        // (a boundary that reuses its DOM still holds the recorded nodes).
+        class CuBoundary extends Component {
+            constructor(props) {
+                super(props);
+                this.state = { show: true, flip: false, items: [1, 2] };
+            }
+            template() {
+                return html`<div id="cu-host">${when(this.state.show, () => html`${contain(() => when(this.state.flip,
+                        () => html`<b>B</b>`,
+                        () => html`<span>S</span>`))}${contain(() => each(this.state.items, i => html`<li>${i}</li>`, i => i))}`)}</div>`;
+            }
+        }
+        defineComponent('cu-boundary', CuBoundary);
+
+        const el = document.createElement('cu-boundary');
+        document.body.appendChild(el);
+        const count = sel => el.querySelector('#cu-host').querySelectorAll(sel).length;
+
+        assert.equal(count('span'), 1, 'first branch renders');
+        assert.equal(count('li'), 2, 'list renders');
+
+        // Replace what each boundary shows: a structure change and a keyed update
+        flushSync(() => { el.state.flip = true; el.state.items = [1, 2, 3]; });
+        assert.equal(count('b'), 1, 'boundary re-rendered to the other branch');
+        assert.equal(count('li'), 3, 'list grew');
+
+        flushSync(() => { el.state.show = false; });
+        assert.equal(count('b'), 0, 'the boundary leaves no element behind when its slot goes');
+        assert.equal(count('li'), 0, 'nor the rows a keyed list rendered inside it');
+
+        flushSync(() => { el.state.show = true; });
+        assert.equal(count('b'), 1, 're-showing renders one boundary, not one beside an orphan');
+        assert.equal(count('li'), 3, 'and one list');
+
+        document.body.removeChild(el);
     });
 });

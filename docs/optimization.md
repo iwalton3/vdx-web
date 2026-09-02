@@ -175,12 +175,11 @@ Checks (design spec: `docs/proposals/template-lint-spec.md`). Severities:
   `when()` as a whole item is fine — `each()` resolves it to the branch
   template.
 - **t10-inline-events** (error) — inline DOM handler attributes (`onclick=`,
-  `oninput=`, …). VDX routes every handler through `on-*`. The dynamic
-  `onclick="${this.fn}"` form is refused at render by the `on[a-z]` security
-  guard (console warning, handler never binds); the static `onclick="fn()"`
-  form is applied by the compile-time static-DOM path, which has no such guard —
-  it reaches the DOM and runs, outside the framework and outside CSP, with
-  nothing said. Lint is the only thing that catches the static form.
+  `oninput=`, …). VDX routes every handler through `on-*`. Both the dynamic
+  `onclick="${this.fn}"` form and the static `onclick="fn()"` form are refused
+  at render by the shared `isRefusedAttr` security rule (console warning,
+  handler never binds). Lint is what reports it at the source line, before
+  anything renders.
 - **t11-attr-stringify** (warn) — `JSON.stringify()` bound to a component
   **prop**. VDX passes objects and arrays through as real values, so
   stringifying forces the receiver to parse them back and defeats
