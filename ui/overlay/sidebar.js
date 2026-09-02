@@ -11,7 +11,7 @@
  * - Returns focus to trigger element on close
  * - aria-label on close button
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, Component, boolProp } from '../../lib/framework.js';
 
 // Counter for unique IDs
 let sidebarIdCounter = 0;
@@ -42,7 +42,7 @@ export class ClSidebar extends Component {
     mounted() {
         // Global keydown for escape
         this._handleKeyDown = (e) => {
-            if (e.key === 'Escape' && this.props.visible && this.props.dismissable) {
+            if (e.key === 'Escape' && boolProp(this.props.visible) && boolProp(this.props.dismissable)) {
                 this.close();
             }
         };
@@ -64,7 +64,7 @@ export class ClSidebar extends Component {
                 this._previousFocus = document.activeElement;
 
                 // Prevent body scroll when modal
-                if (this.props.modal) {
+                if (boolProp(this.props.modal)) {
                     document.body.style.overflow = 'hidden';
                 }
 
@@ -87,7 +87,7 @@ export class ClSidebar extends Component {
     }
 
     handleMaskClick() {
-        if (this.props.dismissable) {
+        if (boolProp(this.props.dismissable)) {
             this.close();
         }
     }
@@ -113,7 +113,7 @@ export class ClSidebar extends Component {
      * Handle Tab key for focus trapping
      */
     handleFocusTrap(e) {
-        if (e.key !== 'Tab' || !this.props.modal) return;
+        if (e.key !== 'Tab' || !boolProp(this.props.modal)) return;
 
         const sidebar = this.querySelector('.cl-sidebar');
         if (!sidebar) return;
@@ -143,16 +143,16 @@ export class ClSidebar extends Component {
         const titleId = `${this.state.sidebarId}-title`;
         const ariaLabelledby = this.props.header ? titleId : undefined;
         // Use "dialog" role when modal, "complementary" otherwise
-        const role = this.props.modal ? 'dialog' : 'complementary';
+        const role = boolProp(this.props.modal) ? 'dialog' : 'complementary';
 
         return html`
-            ${when(this.props.visible, html`
-                <div class="cl-sidebar-mask ${this.props.modal ? 'modal' : ''}"
+            ${when(boolProp(this.props.visible), html`
+                <div class="cl-sidebar-mask ${boolProp(this.props.modal) ? 'modal' : ''}"
                      on-click="handleMaskClick"
                      aria-hidden="true">
                     <div class="cl-sidebar ${this.props.position}"
                          role="${role}"
-                         aria-modal="${this.props.modal ? 'true' : undefined}"
+                         aria-modal="${boolProp(this.props.modal) ? 'true' : undefined}"
                          aria-labelledby="${ariaLabelledby}"
                          on-click="handleSidebarClick"
                          on-keydown="handleFocusTrap">

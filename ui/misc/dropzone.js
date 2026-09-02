@@ -144,7 +144,7 @@ export class ClDropzone extends Component {
 
     // --- paste ---
     onPaste(e) {
-        if (boolProp(this.props.disabled) || !this.props.paste) return;
+        if (boolProp(this.props.disabled) || !boolProp(this.props.paste)) return;
         const files = e.clipboardData && e.clipboardData.files;
         if (files && files.length) {
             e.preventDefault();

@@ -1,7 +1,7 @@
 /**
  * Badge - Badge/pill component for labels, counts, and status indicators
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, Component, boolProp } from '../../lib/framework.js';
 
 /**
  * @fires remove - detail: { value }
@@ -31,11 +31,11 @@ export class ClBadge extends Component {
             'cl-badge',
             `severity-${this.props.severity}`,
             `size-${this.props.size}`,
-            this.props.rounded ? 'rounded' : '',
-            this.props.dot ? 'dot' : ''
+            boolProp(this.props.rounded) ? 'rounded' : '',
+            boolProp(this.props.dot) ? 'dot' : ''
         ].filter(Boolean).join(' ');
 
-        if (this.props.dot) {
+        if (boolProp(this.props.dot)) {
             return html`<span class="${classes}"></span>`;
         }
 
@@ -45,7 +45,7 @@ export class ClBadge extends Component {
                     <span class="badge-icon">${this.props.icon}</span>
                 `)}
                 <span class="badge-value">${this.props.value}</span>
-                ${when(this.props.removable, html`
+                ${when(boolProp(this.props.removable), html`
                     <button class="badge-remove" on-click="handleRemove" title="Remove">×</button>
                 `)}
             </span>

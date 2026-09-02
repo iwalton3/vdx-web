@@ -1719,7 +1719,7 @@ class ExampleInputPassword extends Component {
                 <cl-input-password
                     label="Simple Password (no toggle)"
                     placeholder="Enter password..."
-                    showToggle="false">
+                    showToggle="${false}">
                 </cl-input-password>
             </div>
         `;

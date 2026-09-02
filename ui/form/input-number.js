@@ -203,7 +203,7 @@ export class ClInputNumber extends Component {
             : orientation === 'horizontal' ? 'layout-horizontal'
             : 'layout-auto';
         const containerClass = `input-number-container ${layoutClass}`
-            + (this.props.showbuttons ? ' has-buttons' : '');
+            + (boolProp(this.props.showbuttons) ? ' has-buttons' : '');
 
         return html`
             <div class="cl-input-wrapper">
@@ -211,7 +211,7 @@ export class ClInputNumber extends Component {
                     <label class="cl-label" for="${inputId}">${this.props.label}</label>
                 `)}
                 <div class="${containerClass}">
-                    ${when(this.props.showbuttons, html`
+                    ${when(boolProp(this.props.showbuttons), html`
                         <button
                             type="button"
                             class="btn-decrement"
@@ -232,7 +232,7 @@ export class ClInputNumber extends Component {
                         aria-describedby="${hasError ? errorId : undefined}"
                         on-input="handleInput"
                         on-change="handleChange">
-                    ${when(this.props.showbuttons, html`
+                    ${when(boolProp(this.props.showbuttons), html`
                         <button
                             type="button"
                             class="btn-increment"

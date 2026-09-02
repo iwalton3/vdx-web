@@ -6,7 +6,7 @@
  *       thresholds="${[{ value: 70, color: '#f5b301' }, { value: 90, color: '#dc3545' }]}">
  *   </cl-meter>
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component, boolProp } from '../../lib/framework.js';
 
 const RADIUS = 42;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -63,7 +63,7 @@ export class ClMeter extends Component {
                                 transform="rotate(-90 50 50)"></circle>
                     </svg>
                     <div class="meter-center">
-                        ${when(this.props.showValue, html`<div class="meter-value">${valueText}</div>`)}
+                        ${when(boolProp(this.props.showValue), html`<div class="meter-value">${valueText}</div>`)}
                         ${when(this.props.label, html`<div class="meter-label">${this.props.label}</div>`)}
                     </div>
                 </div>
@@ -75,10 +75,10 @@ export class ClMeter extends Component {
         const span = max - min || 1;
         return html`
             <div class="cl-meter linear">
-                ${when(this.props.label || this.props.showValue, html`
+                ${when(this.props.label || boolProp(this.props.showValue), html`
                     <div class="meter-head">
                         <span class="meter-label">${this.props.label}</span>
-                        ${when(this.props.showValue, html`<span class="meter-value">${valueText}</span>`)}
+                        ${when(boolProp(this.props.showValue), html`<span class="meter-value">${valueText}</span>`)}
                     </div>
                 `)}
                 <div class="meter-track" role="meter"

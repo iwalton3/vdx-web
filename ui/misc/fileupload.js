@@ -73,7 +73,7 @@ export class ClFileupload extends Component {
 
         this.emitChange(null, this.state.files);
 
-        if (this.props.auto) {
+        if (boolProp(this.props.auto)) {
             this.upload();
         }
     }
@@ -109,16 +109,16 @@ export class ClFileupload extends Component {
     template() {
         return html`
             <div class="cl-fileupload">
-                ${when(this.props.dropzone, html`
+                ${when(boolProp(this.props.dropzone), html`
                     <cl-dropzone
-                        multiple="${this.props.multiple}"
+                        multiple="${boolProp(this.props.multiple)}"
                         accept="${this.props.accept}"
                         maxfilesize="${this.props.maxfilesize}"
-                        disabled="${this.props.disabled}"
+                        disabled="${boolProp(this.props.disabled)}"
                         on-select="onDropzoneSelect"
                         on-reject="onDropzoneReject">
                     </cl-dropzone>
-                    ${when(this.state.files.length > 0 && !this.props.auto, html`
+                    ${when(this.state.files.length > 0 && !boolProp(this.props.auto), html`
                         <div class="upload-actions">
                             <button class="upload-button" on-click="upload">Upload</button>
                             <button class="cancel-button" on-click="clear">Cancel</button>
@@ -135,7 +135,7 @@ export class ClFileupload extends Component {
                                 on-change="handleFileSelect">
                             ${this.props.label}
                         </label>
-                        ${when(this.state.files.length > 0 && !this.props.auto, html`
+                        ${when(this.state.files.length > 0 && !boolProp(this.props.auto), html`
                             <button class="upload-button" on-click="upload">Upload</button>
                             <button class="cancel-button" on-click="clear">Cancel</button>
                         `)}

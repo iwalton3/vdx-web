@@ -54,7 +54,7 @@ export class ClSegmented extends Component {
         const classes = [
             'cl-segmented',
             `size-${this.props.size}`,
-            this.props.fluid ? 'fluid' : '',
+            boolProp(this.props.fluid) ? 'fluid' : '',
             boolProp(this.props.disabled) ? 'disabled' : ''
         ].filter(Boolean).join(' ');
 

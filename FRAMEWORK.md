@@ -178,6 +178,51 @@ In static HTML (outside templates), camelCase props are set via kebab-case attri
 <!-- from-unit="..." sets this.props.fromUnit (always a string) -->
 ```
 
+### Boolean props: use `${}`, and read with `boolProp()`
+
+One rule decides what a prop's value is: **literal template text is a string,
+`${}` passes the JS value**. It holds for native elements too, where literal
+text follows HTML - `<button disabled="false">` is *disabled*, because in HTML
+the attribute's presence is what counts.
+
+```javascript
+<cl-button disabled="${this.state.busy}">Save</cl-button>   // ✅ boolean
+<cl-button disabled="false">Save</cl-button>                // ❌ the STRING "false"
+```
+
+Nothing re-coerces that string, so both naive checks are wrong - in opposite
+directions. `props.x === true` is false for *every* literal form, and a bare
+`if (props.x)` treats `"false"` as true. Read flags through `boolProp()`:
+
+```javascript
+import { defineComponent, html, when, Component, boolProp } from './lib/framework.js';
+
+class ClToggle extends Component {
+    static props = { checked: false, disabled: false };
+
+    toggle() {
+        if (boolProp(this.props.disabled)) return;   // ✅ "false", "", false, null all handled
+        // ...
+    }
+
+    template() {
+        // Forwarding to a native element is an interpolation, so it takes JS
+        // truthiness - pass the coerced value, not the raw prop.
+        return html`<input type="checkbox" disabled="${boolProp(this.props.disabled)}">`;
+    }
+}
+```
+
+`boolProp` is true for anything except the string `"false"` and JS-falsy values,
+so bare `disabled`, `disabled=""` and `disabled="true"` all come out true, as
+HTML says they should. It is exported from both `lib/framework.js` and
+`lib/utils.js`.
+
+Declaring the prop's default as `true`/`false` is what marks it a flag, and the
+`t13-bool-false` lint check reads that declaration: it flags `flag="false"` on
+your component while leaving a string prop that happens to hold `"false"` alone.
+Run `node tools/template-lint.js` to catch these before they ship.
+
 ## Children & Slots
 
 ```javascript

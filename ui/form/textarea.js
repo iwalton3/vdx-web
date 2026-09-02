@@ -40,7 +40,7 @@ export class ClTextarea extends Component {
     handleInput(e) {
         const value = e.target.value;
 
-        if (this.props.autoresize) {
+        if (boolProp(this.props.autoresize)) {
             this.resizeTextarea(e.target);
         }
 
@@ -63,14 +63,14 @@ export class ClTextarea extends Component {
     }
 
     afterRender() {
-        if (this.props.autoresize && this.refs.textarea) {
+        if (boolProp(this.props.autoresize) && this.refs.textarea) {
             this.resizeTextarea(this.refs.textarea);
         }
     }
 
     template() {
         const charCount = this.props.value.length;
-        const showCounter = this.props.showcount || this.props.maxlength > 0;
+        const showCounter = boolProp(this.props.showcount) || this.props.maxlength > 0;
         const textareaId = this.state.textareaId;
         const errorId = `${textareaId}-error`;
         const hasError = !!this.props.error;

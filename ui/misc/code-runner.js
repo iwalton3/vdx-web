@@ -17,7 +17,7 @@
  *
  * @fires change - detail: { files } - fired (debounced) after an edit
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component, boolProp } from '../../lib/framework.js';
 import { buildSandbox, normalizeFiles } from './vdx-sandbox.js';
 import '../form/code-editor.js';
 import '../form/input-text.js';
@@ -217,8 +217,8 @@ export class ClCodeRunner extends Component {
     }
 
     template() {
-        const fill = this.props.fill && this.props.fill !== 'false';
-        const allowAdd = this.props.allowAddFiles && this.props.allowAddFiles !== 'false';
+        const fill = boolProp(this.props.fill);
+        const allowAdd = boolProp(this.props.allowAddFiles);
         const removable = allowAdd && this.state.fileNames.length > 1;
         // In fill mode the editor grows via flex (no fixed height); the CSS below
         // stretches its internals. Otherwise it's a fixed-height box.

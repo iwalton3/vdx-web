@@ -406,6 +406,7 @@ export const BUILTIN_TAGS = new Set(['router-outlet', 'router-link', 'x-await-th
 function newHarvest() {
     return {
         props: new Set(),        // static props / options.props keys
+        boolProps: new Set(),    // subset of props declared with a literal true/false default
         methods: new Set(),      // callable string-handler targets
         getters: new Set(),      // computed properties (NOT callable)
         fields: new Set(),       // class fields + this.X= assignments (may hold functions)
@@ -464,7 +465,7 @@ function harvestCustomEvents(source, bodyStart, bodyEnd, into) {
 }
 
 /** Harvest keys of an object literal (masked structure, identifier keys). */
-function harvestObjectKeys(masked, openIdx, closeIdx, into) {
+function harvestObjectKeys(masked, openIdx, closeIdx, into, intoBool) {
     for (const span of splitTopLevel(masked, openIdx, closeIdx)) {
         const text = masked.slice(span.start, span.end);
         if (/^\s*\.\.\./.test(text)) return false; // spread - not statically known
@@ -473,6 +474,13 @@ function harvestObjectKeys(masked, openIdx, closeIdx, into) {
         if (shorthand) { into.add(shorthand[1]); continue; }
         if (!m) return false; // quoted/computed key (blanked in mask) - bail
         into.add(m[1]);
+        // A literal true/false default is the only declaration of a prop's type
+        // this codebase has. T13 uses it to tell a flag from a string prop -
+        // `text: false` on cl-button and `text: ''` on cl-tooltip are the same
+        // name with different types, so nothing but the default can decide.
+        if (intoBool && /^\s*[A-Za-z_$][\w$]*\s*:\s*(?:true|false)\s*$/.test(text)) {
+            intoBool.add(m[1]);
+        }
     }
     return true;
 }
@@ -574,7 +582,7 @@ function harvestClassBody(source, masked, bodyStart, bodyEnd) {
                     if (name === 'props') {
                         const open = masked.indexOf('{', valStart);
                         if (open !== -1 && open < valEnd) {
-                            if (!harvestObjectKeys(masked, open, matchBracket(masked, open), h.props)) h.opaque = true;
+                            if (!harvestObjectKeys(masked, open, matchBracket(masked, open), h.props, h.boolProps)) h.opaque = true;
                         }
                     }
                 } else {
@@ -664,7 +672,8 @@ function harvestOptionsObject(source, masked, openIdx) {
             while (vi < span.end && /\s/.test(masked[vi])) vi++;
             if (masked[vi] !== '{') { h.opaque = true; continue; }
             const target = key === 'methods' ? h.methods : key === 'computed' ? h.getters : h.props;
-            if (!harvestObjectKeys(masked, vi, matchBracket(masked, vi), target)) h.opaque = true;
+            if (!harvestObjectKeys(masked, vi, matchBracket(masked, vi), target,
+                key === 'props' ? h.boolProps : null)) h.opaque = true;
         }
         // stores/styles/other keys: irrelevant to current checks
     }
@@ -802,7 +811,7 @@ export function buildRegistry(fileEntries) {
         } // dotted superclass (ns.Base): unresolvable
 
         if (parent) {
-            for (const s of ['props', 'methods', 'getters', 'fields', 'lifecycle', 'customEvents']) {
+            for (const s of ['props', 'boolProps', 'methods', 'getters', 'fields', 'lifecycle', 'customEvents']) {
                 for (const v of parent[s]) h[s].add(v);
             }
             h.stateKeys = parent.stateKeys === null ? null : new Set(parent.stateKeys);
@@ -811,6 +820,7 @@ export function buildRegistry(fileEntries) {
         }
         const own = decl.harvest;
         for (const v of own.props) h.props.add(v);
+        for (const v of own.boolProps) h.boolProps.add(v);
         for (const v of own.methods) { h.methods.add(v); h.getters.delete(v); }
         for (const v of own.getters) { h.getters.add(v); h.methods.delete(v); }
         for (const v of own.fields) h.fields.add(v);
@@ -1331,15 +1341,36 @@ export function lintTemplates(source, filePath, registry, options = {}) {
         // truthy in any plain check. Neither is what the author meant, and
         // nothing re-coerces the string back to a boolean.
         const checkBoolFalse = (node) => {
+            // A component's own declaration is the only type information there
+            // is: cl-button declares `text: false` (a flag) and cl-tooltip
+            // declares `text: ''` (a string), so text="false" is a mistake on
+            // one and legitimate content on the other. Fall back to the HTML
+            // boolean-attribute names for native elements and for components
+            // whose props could not be harvested.
+            const tag = node.tag;
+            const target = tag && CUSTOM_TAG_RE.test(tag) && registry.byTag.has(tag)
+                ? registry.byTag.get(tag).harvest
+                : null;
+            const isFlag = (attrName) => {
+                if (target && !target.opaque && target.props.size > 0) {
+                    return attrMatchesProp(attrName, target.boolProps);
+                }
+                return BOOL_ATTRS.has(attrName);
+            };
+
+            // Only ="false" is flagged. A literal ="" is the standard HTML way to
+            // write a bare boolean attribute and means ON, which is both correct
+            // and what boolProp() returns for it - flagging it would be noise.
             for (const [attrName, def] of Object.entries(node.attrs || {})) {
-                if (!BOOL_ATTRS.has(attrName)) continue;
                 if (!def || def.value !== 'false') continue;   // literal text only
+                if (!isFlag(attrName)) continue;
                 const line = locate('t13:' + attrName, escapeRegex(attrName) + '\\s*=\\s*["\']false["\']');
                 report(line, 't13-bool-false', 'error',
                     `${attrName}="false" does not mean false. Literal text is HTML, so on a `
                     + `native element the attribute is present and ${attrName} is ON; on a `
-                    + `component it arrives as the truthy string "false". Write `
-                    + `${attrName}="\${false}", or omit the attribute`);
+                    + `component it arrives as the string "false", which nothing re-coerces. `
+                    + `Write ${attrName}="\${false}", omit the attribute, or read it through `
+                    + `boolProp()`);
             }
         };
 

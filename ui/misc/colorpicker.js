@@ -28,7 +28,7 @@ export class ClColorpicker extends Component {
         // Initialize internal value from props
         this.state.internalValue = this.props.value || '#000000';
 
-        if (this.props.inline) {
+        if (boolProp(this.props.inline)) {
             this.state.showPicker = true;
         }
     }
@@ -41,7 +41,7 @@ export class ClColorpicker extends Component {
     }
 
     closePanel() {
-        if (!this.props.inline) {
+        if (!boolProp(this.props.inline)) {
             this.state.showPicker = false;
         }
     }
@@ -67,7 +67,7 @@ export class ClColorpicker extends Component {
     }
 
     togglePicker() {
-        if (!boolProp(this.props.disabled) && !this.props.inline) {
+        if (!boolProp(this.props.disabled) && !boolProp(this.props.inline)) {
             this.state.showPicker = !this.state.showPicker;
         }
     }
@@ -97,17 +97,17 @@ export class ClColorpicker extends Component {
                 ${when(this.props.label, html`
                     <label class="cl-label">${this.props.label}</label>
                 `)}
-                ${when(!this.props.inline, html`
+                ${when(!boolProp(this.props.inline), html`
                     <div class="color-trigger" on-click="togglePicker">
                         <div class="color-preview" style="background: ${this.state.internalValue}"></div>
                         <span class="color-value">${displayValue}</span>
                     </div>
                 `)}
-                ${when(this.state.showPicker && !this.props.inline, html`
+                ${when(this.state.showPicker && !boolProp(this.props.inline), html`
                     <div class="colorpicker-backdrop" on-click="closePanel"></div>
                 `)}
                 ${when(this.state.showPicker, html`
-                    <div class="color-picker ${this.props.inline ? 'inline' : ''}">
+                    <div class="color-picker ${boolProp(this.props.inline) ? 'inline' : ''}">
                         <input
                             type="color"
                             value="${this.state.internalValue}"

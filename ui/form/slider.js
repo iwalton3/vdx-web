@@ -82,7 +82,7 @@ export class ClSlider extends Component {
                 ${when(this.props.label, html`
                     <div class="slider-header">
                         <label class="cl-label" id="${labelId}" for="${inputId}">${this.props.label}</label>
-                        ${when(this.props.showvalue, html`
+                        ${when(boolProp(this.props.showvalue), html`
                             <span class="value-display" aria-hidden="true">${this.state.internalValue}</span>
                         `)}
                     </div>

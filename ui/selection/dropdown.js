@@ -99,7 +99,7 @@ export class ClDropdown extends Component {
         this._overlay.open();
 
         // Focus filter input if present
-        if (this.props.filter) {
+        if (boolProp(this.props.filter)) {
             const filterInput = this.querySelector('.filter-input');
             if (filterInput) filterInput.focus();
         }
@@ -200,7 +200,7 @@ export class ClDropdown extends Component {
 
             default:
                 // Type-ahead search (when not using filter input)
-                if (!this.props.filter && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                if (!boolProp(this.props.filter) && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
                     this._handleTypeahead(e.key);
                 }
         }
@@ -253,7 +253,7 @@ export class ClDropdown extends Component {
     }
 
     get filteredOptions() {
-        if (!this.props.filter || !this.state.filterValue) {
+        if (!boolProp(this.props.filter) || !this.state.filterValue) {
             return this.props.options || [];
         }
 
@@ -308,7 +308,7 @@ export class ClDropdown extends Component {
                     </div>
                     ${when(this.state.showPanel, html`
                         <div class="dropdown-panel" popover="manual">
-                            ${when(this.props.filter, html`
+                            ${when(boolProp(this.props.filter), html`
                                 <div class="filter-container">
                                     <input
                                         type="text"

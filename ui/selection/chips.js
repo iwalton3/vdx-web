@@ -97,7 +97,7 @@ export class ClChips extends Component {
         const currentValue = this.state.internalValue;
 
         // Check duplicates
-        if (!this.props.allowduplicates && currentValue.includes(value)) {
+        if (!boolProp(this.props.allowduplicates) && currentValue.includes(value)) {
             return;
         }
 

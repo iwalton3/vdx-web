@@ -1,7 +1,7 @@
 /**
  * Error Boundary Demo - Shows cl-error-boundary in action
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, Component, boolProp } from '../../lib/framework.js';
 import './error-boundary.js';
 
 /**
@@ -13,7 +13,7 @@ class ClErrorDemoContent extends Component {
     }
 
     template() {
-        if (this.props.shouldError) {
+        if (boolProp(this.props.shouldError)) {
             throw new Error('Component failed to render: data is undefined');
         }
 

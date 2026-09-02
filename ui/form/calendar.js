@@ -54,7 +54,7 @@ export class ClCalendar extends Component {
         this.syncValueToState();
         this.state.yearRangeStart = Math.floor(new Date().getFullYear() / 12) * 12;
 
-        if (this.props.inline) {
+        if (boolProp(this.props.inline)) {
             this.state.showPicker = true;
         }
     }
@@ -70,7 +70,7 @@ export class ClCalendar extends Component {
     }
 
     closePicker() {
-        if (this.props.inline) return;
+        if (boolProp(this.props.inline)) return;
         this._overlay.close();  // hidePopover before the branch unmounts
         this.state.showPicker = false;
     }
@@ -78,7 +78,7 @@ export class ClCalendar extends Component {
     // Promote + position the picker once its branch has mounted.
     async _openPicker() {
         await this.nextRender();
-        if (this.state.showPicker && !this.props.inline) this._overlay.open();
+        if (this.state.showPicker && !boolProp(this.props.inline)) this._overlay.open();
     }
 
     isRange() {
@@ -131,7 +131,7 @@ export class ClCalendar extends Component {
 
     togglePicker(e) {
         if (e) e.stopPropagation();
-        if (boolProp(this.props.disabled) || this.props.inline) return;
+        if (boolProp(this.props.disabled) || boolProp(this.props.inline)) return;
         if (this.state.showPicker) {
             this.closePicker();
             return;
@@ -571,7 +571,7 @@ export class ClCalendar extends Component {
                 ${when(this.props.label, html`
                     <label class="cl-label">${this.props.label}</label>
                 `)}
-                ${when(!this.props.inline, html`
+                ${when(!boolProp(this.props.inline), html`
                     <div class="calendar-input-wrapper">
                         ${when(this.isRange(), html`
                             <input
@@ -588,7 +588,7 @@ export class ClCalendar extends Component {
                                 value="${this.state.inputValue}"
                                 mask="${this.dateMask}"
                                 placeholder="${this.props.placeholder || this.props.dateFormat}"
-                                disabled="${this.props.disabled}"
+                                disabled="${boolProp(this.props.disabled)}"
                                 hideError="${true}"
                                 error="${this.state.inputError}"
                                 on-input="handleMaskInput"
@@ -614,8 +614,8 @@ export class ClCalendar extends Component {
                     `)}
                 `)}
                 ${when(this.state.showPicker, html`
-                    <div class="calendar-picker ${this.props.inline ? 'inline' : ''}"
-                         popover="${this.props.inline ? undefined : 'manual'}"
+                    <div class="calendar-picker ${boolProp(this.props.inline) ? 'inline' : ''}"
+                         popover="${boolProp(this.props.inline) ? undefined : 'manual'}"
                          on-click="handleCalendarClick">
                         ${when(this.state.viewMode === 'days', html`
                             <div class="calendar-header">

@@ -1,7 +1,7 @@
 /**
  * ProgressBar - Progress indicator
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, Component, boolProp } from '../../lib/framework.js';
 
 export class ClProgressbar extends Component {
     static props = {
@@ -26,7 +26,7 @@ export class ClProgressbar extends Component {
                         <div class="progress-bar indeterminate"></div>
                     `)}
                 </div>
-                ${when(this.props.showvalue && this.props.mode === 'determinate', html`
+                ${when(boolProp(this.props.showvalue) && this.props.mode === 'determinate', html`
                     <div class="progress-value">${percentage}%</div>
                 `)}
             </div>

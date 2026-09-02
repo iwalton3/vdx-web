@@ -18,7 +18,7 @@ export class ClCheckbox extends Component {
 
     handleChange(e) {
         const checked = e.target.checked;
-        if (this.props.binary) {
+        if (boolProp(this.props.binary)) {
             this.emitChange(e, checked);
         } else {
             this.emitChange(e, checked ? this.props.checkboxValue : null);

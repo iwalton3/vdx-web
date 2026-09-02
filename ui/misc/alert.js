@@ -1,7 +1,7 @@
 /**
  * Alert - Alert/banner component for messages and notifications
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, Component, boolProp } from '../../lib/framework.js';
 
 /**
  * @fires close - the alert was dismissed
@@ -51,7 +51,7 @@ export class ClAlert extends Component {
         const classes = [
             'cl-alert',
             `severity-${this.props.severity}`,
-            this.props.outline ? 'outline' : ''
+            boolProp(this.props.outline) ? 'outline' : ''
         ].filter(Boolean).join(' ');
 
         return html`
@@ -65,7 +65,7 @@ export class ClAlert extends Component {
                         <slot>${this.props.children}</slot>
                     </div>
                 </div>
-                ${when(this.props.closable, html`
+                ${when(boolProp(this.props.closable), html`
                     <button class="alert-close" on-click="close" title="Close">×</button>
                 `)}
             </div>

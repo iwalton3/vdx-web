@@ -54,7 +54,7 @@ class ProductionChapter extends TutChapter {
                 the same mechanism this tutorial's live sandbox uses. Declare it once, and every
                 module in your app can use the tidy path:
             </p>
-            <cl-code-block code="${this.state.importMapEx}" language="html" copyable="false"></cl-code-block>
+            <cl-code-block code="${this.state.importMapEx}" language="html" copyable="${false}"></cl-code-block>
             <div class="callout tip">
                 Import maps are native to browsers — no tooling required. Point <code>"vdx/"</code> at
                 wherever you vendored the folder and every <code>vdx/…</code> import resolves there.
@@ -66,7 +66,7 @@ class ProductionChapter extends TutChapter {
                 <code>dist/</code> bundles are tree-shaken and minified. <code>dist/framework.js</code>
                 (~27&nbsp;KB gzipped) has no imports of its own, so one file is all you vendor:
             </p>
-            <cl-code-block code="${this.state.bundleImportEx}" language="js" copyable="false"></cl-code-block>
+            <cl-code-block code="${this.state.bundleImportEx}" language="js" copyable="${false}"></cl-code-block>
             <p>
                 Regenerate them after changing framework source with
                 <code>node tools/bundler-esm.js</code>. This is the approach the

@@ -184,17 +184,31 @@ Two options:
 One-line difference between them; try 1 first. Still needs an answer to: does
 any component in the private mrepo memoize on a function prop's identity?
 
-## Held for the repo owner
+## The `="false"` question — settled
 
-One item remains open: the **typed boolean props** proposal and the wider
-`="false"` question it answers (worklist entries marked **HELD**). The repo
-owner wants a pros/cons discussion before it is touched, so do not implement it
-without one. It is written up in the `codex-audit-open-questions` memory.
+Runtime coercion was **rejected**. The rule stays: literal template text is a
+string, `${}` passes the JS value, on every kind of element. Typed props were
+weighed and turned down - they reintroduce hidden coercion, collapse enumerated
+attributes like `spellcheck` (true/false/inherit) to two states, and create a
+silent two-tier system where a prop declared `null` behaves differently from one
+declared `false`. The measured argument for them also failed: the real
+downstream app declares 19 props, exactly 1 boolean.
 
-Three earlier holds were resolved on 2026-09-01 and are now done: `raw()` is
-trusted by definition so the `contain()` escaping was a plain bug; template-lint
-is a checker rather than live API surface, so tightening it is fair game; and
-nullish now yields `""` to HTML and `null` to a component.
+Instead the declared type is used for **diagnosis, not transformation**:
+
+- `boolProp()` is the one coercion helper, exported from `lib/framework.js` and
+  `lib/utils.js`. True for everything except the string `"false"` and JS-falsy
+  values, so bare `disabled`, `disabled=""` and `disabled="true"` are all true.
+- `t13-bool-false` reads the component's declared default, so `flag: false`
+  makes `flag="false"` an error while a prop declared `flag: ''` is left alone.
+  A name-based rule could not do this: `cl-button` declares `text: false` and
+  `cl-tooltip` declares `text: ''`.
+- Every `cl-*` flag is read and forwarded through `boolProp()`.
+
+Earlier holds, all resolved: `raw()` is trusted by definition so the `contain()`
+escaping was a plain bug; template-lint is a checker rather than live API
+surface, so tightening it is fair game; nullish yields `""` to HTML and `null`
+to a component.
 
 ## Worklist
 
@@ -242,8 +256,15 @@ nullish now yields `""` to HTML and `null` to a component.
       so it would have dropped legitimate first renders.
 - [x] Lint check `t13-bool-false` for literal `boolattr="false"` on any tag,
       with fixture and banned-pattern docs. Fires on nothing in the repo today.
-- [ ] **HELD — Decide: sweep boolean-ish props whose names do NOT collide with
-      `BOOLEAN_ATTRS`.** `outlined`, `inline`, `closable`, `visible`, `modal`,
+- [x] Swept boolean-ish props whose names do NOT collide with `BOOLEAN_ATTRS`.
+      The type-aware lint found 18 live call sites the earlier name-based grep
+      could not see - `copyable="false"` on `cl-code-block` (declared
+      `copyable: true`, read with plain truthiness) was showing a copy button on
+      15 tutorial pages. 109 read sites across 31 components now go through
+      `boolProp()`, and three more hand-rolled coercions are gone.
+      Superseded note follows:
+- [x] ~~Decide: sweep boolean-ish props whose names do NOT collide with
+      `BOOLEAN_ATTRS`.~~ `outlined`, `inline`, `closable`, `visible`, `modal`,
       `text`, `filter`, `fluid`, `binary`, `linear`, ... were always plain
       strings, so this change did not affect them and they were left alone —
       but it means `outlined="false"` is still truthy. Pre-existing, and a

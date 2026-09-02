@@ -82,7 +82,7 @@ export class ClPopover extends Component {
     }
 
     onContentClick() {
-        if (this.props.closeOnContentClick) this.hide();
+        if (boolProp(this.props.closeOnContentClick)) this.hide();
     }
 
     _emit() {

@@ -126,7 +126,7 @@ export class ClOtp extends Component {
     template() {
         const len = this._len();
         const boxes = Array.from({ length: len }, (_, i) => i);
-        const inputType = this.props.mask ? 'password' : 'text';
+        const inputType = boolProp(this.props.mask) ? 'password' : 'text';
         const inputMode = this.props.type === 'number' ? 'numeric' : 'text';
 
         return html`

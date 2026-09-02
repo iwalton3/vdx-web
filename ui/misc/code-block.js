@@ -7,7 +7,7 @@
  *
  * @fires copy - detail: { value } - fired after the code is copied to clipboard
  */
-import { defineComponent, html, when, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, Component, boolProp } from '../../lib/framework.js';
 import { highlightVdx } from '../form/vdx-highlight.js';
 
 export class ClCodeBlock extends Component {
@@ -91,8 +91,8 @@ export class ClCodeBlock extends Component {
     template() {
         const style = this.props.maxHeight ? `max-height: ${this.props.maxHeight};` : '';
         return html`
-            <div class="cl-code-block ${this.props.wrap ? 'wrap' : ''}">
-                ${when(this.props.copyable, html`
+            <div class="cl-code-block ${boolProp(this.props.wrap) ? 'wrap' : ''}">
+                ${when(boolProp(this.props.copyable), html`
                     <button type="button" class="cl-code-copy" on-click="copy"
                         aria-label="Copy code" title="Copy code">
                         ${this.state.copied ? '✓ Copied' : 'Copy'}

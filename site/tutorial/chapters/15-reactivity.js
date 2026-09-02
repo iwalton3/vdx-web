@@ -103,7 +103,7 @@ class ReactivityChapter extends TutChapter {
                 lower-level <code>untracked()</code> marks data fully inert — nothing notifies,
                 you reassign the whole value to update:
             </p>
-            <cl-code-block code="${this.state.untrackedEx}" language="js" copyable="false"></cl-code-block>
+            <cl-code-block code="${this.state.untrackedEx}" language="js" copyable="${false}"></cl-code-block>
 
             <h2>Waiting for the DOM: <code>nextRender()</code> and <code>flushSync()</code></h2>
             <p>
@@ -112,7 +112,7 @@ class ReactivityChapter extends TutChapter {
                 <code>await this.nextRender()</code> resolves once effects have flushed and the
                 DOM is committed, <em>including newly mounted conditional branches</em>:
             </p>
-            <cl-code-block code="${this.state.flushEx}" language="js" copyable="false"></cl-code-block>
+            <cl-code-block code="${this.state.flushEx}" language="js" copyable="${false}"></cl-code-block>
             <div class="callout">
                 <code>flushSync(() =&gt; { … })</code> is the synchronous variant for the rare
                 case that can't await (tests, same-frame scroll handoff) — but it does

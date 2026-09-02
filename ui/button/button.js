@@ -39,8 +39,8 @@ export class ClButton extends Component {
         const classes = [
             'cl-button',
             this.props.severity,
-            this.props.outlined ? 'outlined' : '',
-            this.props.text ? 'text' : '',
+            boolProp(this.props.outlined) ? 'outlined' : '',
+            boolProp(this.props.text) ? 'text' : '',
             boolProp(this.props.loading) ? 'loading' : ''
         ].filter(Boolean).join(' ');
 

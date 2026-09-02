@@ -1239,6 +1239,50 @@ Remove the router's window event listeners and clear hooks (for tests or multi-r
 
 ## Utilities API
 
+### boolProp(value)
+
+Coerce a boolean-ish prop, whichever form it arrived in. Exported from both
+`lib/framework.js` and `lib/utils.js`.
+
+A component receives one of two things for the same prop, and the difference is
+invisible from inside: literal template text is a **string** (`disabled` gives
+`"disabled"`, `disabled="true"` gives `"true"`), while `disabled="${flag}"`
+keeps its JS type. Nothing coerces between them - the template layer hands over
+exactly what the author wrote.
+
+That makes both naive checks wrong, in opposite directions: `props.x === true`
+is false for every literal form, and `if (props.x)` treats the string `"false"`
+as true.
+
+**Parameters:**
+- `value` (*) - the prop value, string or otherwise
+
+**Returns:** `boolean` - true unless the value is the string `"false"` or JS-falsy
+
+| input | result | |
+|---|---|---|
+| `"disabled"` (bare attribute) | `true` | HTML: presence means on |
+| `""` | `true` | same |
+| `"true"` | `true` | |
+| `"false"` | `false` | the one string that is false |
+| `true` / `false` | as-is | from `${}` |
+| `null` / `undefined` / `0` | `false` | |
+
+```javascript
+import { boolProp } from './lib/framework.js';
+
+if (boolProp(this.props.disabled)) return;
+
+// Forwarding to a native element is an interpolation, so it takes JS
+// truthiness - pass the coerced value, not the raw prop.
+return html`<input disabled="${boolProp(this.props.disabled)}">`;
+```
+
+**See also:** the `t13-bool-false` lint check, which flags the `flag="false"`
+form this exists to survive. It reads your `static props` declaration, so a prop
+declared `flag: false` is treated as a flag while one declared `flag: ''` is
+left alone.
+
 ### notify(message, severity, ttl)
 
 Show toast notification.

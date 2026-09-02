@@ -18,7 +18,7 @@
  *     <div slot="step-2">Review content...</div>
  * </cl-stepper>
  */
-import { defineComponent, html, when, each, Component } from '../../lib/framework.js';
+import { defineComponent, html, when, each, Component, boolProp } from '../../lib/framework.js';
 
 /**
  * @fires validate - detail: { step, nextStep } or { step, isComplete }; cancelable
@@ -67,12 +67,12 @@ export class ClStepper extends Component {
         if (index < 0 || index >= steps.length) return false;
 
         // If linear, can only go forward one step at a time or back freely
-        if (this.props.linear && index > this.state.currentStep + 1) {
+        if (boolProp(this.props.linear) && index > this.state.currentStep + 1) {
             return false;
         }
 
         // If linear and going forward, validate current step
-        if (this.props.linear && index > this.state.currentStep) {
+        if (boolProp(this.props.linear) && index > this.state.currentStep) {
             // Emit validation event, parent can call preventDefault
             const event = new CustomEvent('validate', {
                 detail: {
@@ -171,7 +171,7 @@ export class ClStepper extends Component {
      * Check if a step can be clicked (for non-linear or completed steps)
      */
     canClickStep(index) {
-        if (!this.props.linear) return true;
+        if (!boolProp(this.props.linear)) return true;
         // Can always go back
         if (index <= this.state.currentStep) return true;
         // Can go to next step only
@@ -253,7 +253,7 @@ export class ClStepper extends Component {
                 `)}
 
                 <!-- Navigation Buttons -->
-                ${when(this.props.showButtons, html`
+                ${when(boolProp(this.props.showButtons), html`
                     <div class="stepper-actions">
                         <div class="left-actions">
                             ${when(this.state.currentStep > 0, html`

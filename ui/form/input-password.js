@@ -37,7 +37,7 @@ export class ClInputPassword extends Component {
 
     mounted() {
         this.state.internalValue = this.props.value || '';
-        if (this.props.showStrength) {
+        if (boolProp(this.props.showStrength)) {
             this.calculateStrength(this.state.internalValue);
         }
     }
@@ -45,7 +45,7 @@ export class ClInputPassword extends Component {
     propsChanged(prop, newValue, oldValue) {
         if (prop === 'value' && newValue !== this.state.internalValue) {
             this.state.internalValue = newValue || '';
-            if (this.props.showStrength) {
+            if (boolProp(this.props.showStrength)) {
                 this.calculateStrength(this.state.internalValue);
             }
         }
@@ -57,7 +57,7 @@ export class ClInputPassword extends Component {
         this.state.internalValue = value;
         this.validateInput(value);
 
-        if (this.props.showStrength) {
+        if (boolProp(this.props.showStrength)) {
             this.calculateStrength(value);
         }
 
@@ -159,7 +159,7 @@ export class ClInputPassword extends Component {
     }
 
     getFeedback() {
-        if (!this.state.internalValue || !this.props.showStrength || !this.props.feedback) {
+        if (!this.state.internalValue || !boolProp(this.props.showStrength) || !boolProp(this.props.feedback)) {
             return [];
         }
 
@@ -212,7 +212,7 @@ export class ClInputPassword extends Component {
                         on-input="handleInput"
                         on-change="handleChange"
                         on-blur="handleBlur">
-                    ${when(this.props.showToggle !== false && this.props.showToggle !== 'false', html`
+                    ${when(boolProp(this.props.showToggle), html`
                         <button
                             type="button"
                             class="toggle-btn"
@@ -226,7 +226,7 @@ export class ClInputPassword extends Component {
                         </button>
                     `)}
                 </div>
-                ${when(this.props.showStrength && this.state.internalValue, html`
+                ${when(boolProp(this.props.showStrength) && this.state.internalValue, html`
                     <div class="strength-meter">
                         <div class="strength-bar">
                             <div
