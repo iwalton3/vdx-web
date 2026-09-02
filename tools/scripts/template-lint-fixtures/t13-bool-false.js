@@ -76,3 +76,27 @@ class BoolTrue extends Component {
 }
 
 defineComponent('t14-bool-true', BoolTrue);
+
+// The declaration is a type statement only when it is a literal. `null` states
+// nothing, and an undeclared name states nothing either - both fall back to the
+// HTML boolean names. `hidden` is the one that matters: the UA hides the element
+// whatever the tag, so without this the component just vanishes silently.
+class T13Untyped extends Component {
+    static props = { disabled: null, label: '' };
+    template() { return html`<i></i>`; }
+}
+defineComponent('t13-untyped', T13Untyped);
+
+class UntypedUse extends Component {
+    template() {
+        return html`
+            <t13-untyped disabled="false"></t13-untyped> <!-- LINT-EXPECT: t13-bool-false -->
+            <t13-untyped hidden="false"></t13-untyped> <!-- LINT-EXPECT: t13-bool-false -->
+
+            <!-- declared with a string literal: a real type statement, stays silent -->
+            <t13-untyped label="false"></t13-untyped>
+        `;
+    }
+}
+
+defineComponent('t13-untyped-use', UntypedUse);

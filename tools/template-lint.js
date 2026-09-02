@@ -407,6 +407,7 @@ function newHarvest() {
     return {
         props: new Set(),        // static props / options.props keys
         boolProps: new Set(),    // subset of props declared with a literal true/false default
+        valueProps: new Set(),   // props declared with a non-boolean LITERAL default (e.g. text: '')
         methods: new Set(),      // callable string-handler targets
         getters: new Set(),      // computed properties (NOT callable)
         fields: new Set(),       // class fields + this.X= assignments (may hold functions)
@@ -465,7 +466,7 @@ function harvestCustomEvents(source, bodyStart, bodyEnd, into) {
 }
 
 /** Harvest keys of an object literal (masked structure, identifier keys). */
-function harvestObjectKeys(masked, openIdx, closeIdx, into, intoBool) {
+function harvestObjectKeys(masked, openIdx, closeIdx, into, intoBool, intoValue) {
     for (const span of splitTopLevel(masked, openIdx, closeIdx)) {
         const text = masked.slice(span.start, span.end);
         if (/^\s*\.\.\./.test(text)) return false; // spread - not statically known
@@ -480,6 +481,10 @@ function harvestObjectKeys(masked, openIdx, closeIdx, into, intoBool) {
         // name with different types, so nothing but the default can decide.
         if (intoBool && /^\s*[A-Za-z_$][\w$]*\s*:\s*(?:true|false)\s*$/.test(text)) {
             intoBool.add(m[1]);
+        } else if (intoValue && /^\s*[A-Za-z_$][\w$]*\s*:\s*(?:'[^']*'|"[^"]*"|`[^`]*`|-?\d)/.test(text)) {
+            // A declared string/number default is a real type statement; a `null`
+            // default states nothing, so those fall through to the HTML names.
+            intoValue.add(m[1]);
         }
     }
     return true;
@@ -582,7 +587,7 @@ function harvestClassBody(source, masked, bodyStart, bodyEnd) {
                     if (name === 'props') {
                         const open = masked.indexOf('{', valStart);
                         if (open !== -1 && open < valEnd) {
-                            if (!harvestObjectKeys(masked, open, matchBracket(masked, open), h.props, h.boolProps)) h.opaque = true;
+                            if (!harvestObjectKeys(masked, open, matchBracket(masked, open), h.props, h.boolProps, h.valueProps)) h.opaque = true;
                         }
                     }
                 } else {
@@ -673,7 +678,8 @@ function harvestOptionsObject(source, masked, openIdx) {
             if (masked[vi] !== '{') { h.opaque = true; continue; }
             const target = key === 'methods' ? h.methods : key === 'computed' ? h.getters : h.props;
             if (!harvestObjectKeys(masked, vi, matchBracket(masked, vi), target,
-                key === 'props' ? h.boolProps : null)) h.opaque = true;
+                key === 'props' ? h.boolProps : null,
+                key === 'props' ? h.valueProps : null)) h.opaque = true;
         }
         // stores/styles/other keys: irrelevant to current checks
     }
@@ -811,7 +817,7 @@ export function buildRegistry(fileEntries) {
         } // dotted superclass (ns.Base): unresolvable
 
         if (parent) {
-            for (const s of ['props', 'boolProps', 'methods', 'getters', 'fields', 'lifecycle', 'customEvents']) {
+            for (const s of ['props', 'boolProps', 'valueProps', 'methods', 'getters', 'fields', 'lifecycle', 'customEvents']) {
                 for (const v of parent[s]) h[s].add(v);
             }
             h.stateKeys = parent.stateKeys === null ? null : new Set(parent.stateKeys);
@@ -821,6 +827,7 @@ export function buildRegistry(fileEntries) {
         const own = decl.harvest;
         for (const v of own.props) h.props.add(v);
         for (const v of own.boolProps) h.boolProps.add(v);
+        for (const v of own.valueProps) h.valueProps.add(v);
         for (const v of own.methods) { h.methods.add(v); h.getters.delete(v); }
         for (const v of own.getters) { h.getters.add(v); h.methods.delete(v); }
         for (const v of own.fields) h.fields.add(v);
@@ -1353,7 +1360,14 @@ export function lintTemplates(source, filePath, registry, options = {}) {
                 : null;
             const isFlag = (attrName) => {
                 if (target && !target.opaque && target.props.size > 0) {
-                    return attrMatchesProp(attrName, target.boolProps);
+                    if (attrMatchesProp(attrName, target.boolProps)) return true;
+                    // Declared with a string/number literal - a real type statement,
+                    // so leave it alone (cl-tooltip's `text: ''`).
+                    if (attrMatchesProp(attrName, target.valueProps)) return false;
+                    // Declared `null`, or not declared at all: the declaration says
+                    // nothing, so fall back to the HTML names. This is what catches
+                    // `hidden="false"`, which the UA acts on whatever the tag - the
+                    // element disappears and nothing else would tell you.
                 }
                 return BOOL_ATTRS.has(attrName);
             };
@@ -1420,7 +1434,7 @@ export function lintTemplates(source, filePath, registry, options = {}) {
                 if (on('t7-binding')) checkBindingSyntax(node);
                 if (on('t10-inline-events')) checkInlineEvents(node);
                 if (on('t11-attr-stringify')) checkStringify(node);
-                if (on('t13-bool-false')) checkBoolFalse(node);
+                if (on('t13-bool-false') || on('t14-bool-string')) checkBoolFalse(node);
                 const refDef = node.attrs && node.attrs.__ref__;
                 if (refDef && comp && typeof refDef.refName === 'string' && IDENT_RE.test(refDef.refName)) {
                     if (!refsDeclared.has(comp)) refsDeclared.set(comp, new Map());

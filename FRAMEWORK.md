@@ -213,11 +213,23 @@ class ClToggle extends Component {
 }
 ```
 
-**Reserved host attributes.** Four names are handled by the host element before
+**Reserved host attributes.** Some names are handled by the host element before
 they ever reach your props, so `${}` does *not* preserve their JS type:
 `class` and `style` are element state, `aria-*` requires the literal strings
 `"true"`/`"false"` to mean anything to a screen reader, and `data-*` is a string
 map by definition. `aria-expanded="${true}"` arrives as `"true"`, not `true`.
+
+The *global* boolean attributes — `hidden`, `itemscope`, `autofocus` — keep HTML
+semantics on components too, because the user agent acts on them whatever the
+tag. `hidden` is the one to watch: **`<my-thing hidden="false">` hides the
+element**, because in HTML the attribute's presence is what counts. That is the
+literal-text rule working as specified, but it looks like your component
+vanished, so `t13-bool-false` flags it.
+
+One wrinkle in the other direction: `flag="${''}"` reaches `boolProp()` as an
+empty string, which is `true` — the same "a bare attribute means on" rule that
+makes `flag=""` true. Pass `${false}` if you mean false.
+
 Everything else follows the rule above.
 
 `boolProp` is true for anything except the string `"false"` and JS-falsy values,

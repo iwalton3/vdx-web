@@ -145,6 +145,72 @@ describe('Review Round 2', function(it) {
         document.body.removeChild(el);
     });
 
+    it('a nullish binding clears only a value this renderer set', () => {
+        // Every dynamic prop effect re-runs on every render, so clearing
+        // unconditionally wiped whatever the user had typed into an
+        // uncontrolled input the next time any unrelated state changed.
+        class R2Value extends Component {
+            static props = { val: undefined };
+            constructor(props) { super(props); this.state = { tick: 0, real: 'seed' }; }
+            template() {
+                return html`<div>
+                    <input id="free" value="${this.props.val}">
+                    <input id="bound" value="${this.state.real}">
+                    <span>${this.state.tick}</span>
+                </div>`;
+            }
+        }
+        defineComponent('r2-value-host', R2Value);
+        const el = mount('r2-value-host');
+
+        el.querySelector('#free').value = 'user typed this';
+        flushSync(() => { el.state.tick = 1; });
+        assert.equal(el.querySelector('#free').value, 'user typed this',
+            'an uncontrolled input keeps what the user typed across unrelated renders');
+
+        flushSync(() => { el.state.real = null; });
+        assert.equal(el.querySelector('#bound').value, '',
+            'but a value this binding did set is still cleared on nullish');
+
+        document.body.removeChild(el);
+    });
+
+    it('a class passed as a prop is handed over unwrapped', () => {
+        class Thing { constructor() { this.ok = true; } }
+        class R2ClsProbe extends Component {
+            static props = { cls: null };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('r2-cls-probe', R2ClsProbe);
+        class R2ClsHost extends Component {
+            constructor(props) { super(props); this.state = { c: Thing }; }
+            template() { return html`<r2-cls-probe cls="${this.state.c}"></r2-cls-probe>`; }
+        }
+        defineComponent('r2-cls-host', R2ClsHost);
+
+        const el = mount('r2-cls-host');
+        const cls = el.querySelector('r2-cls-probe').props.cls;
+        // The dispatch wrapper calls through .apply(), which a constructor refuses.
+        assert.equal(new cls().ok, true, 'the child can still construct it');
+        assert.equal(cls, Thing, 'and it is the class itself, so name/statics/instanceof hold');
+        document.body.removeChild(el);
+    });
+
+    it('an object style binding clears a preceding cssText string', () => {
+        class R2Style extends Component {
+            constructor(props) { super(props); this.state = { s: { color: 'red', fontWeight: 'bold' } }; }
+            template() { return html`<div id="s" style="${this.state.s}"></div>`; }
+        }
+        defineComponent('r2-style-host', R2Style);
+        const el = mount('r2-style-host');
+        flushSync(() => { el.state.s = 'text-decoration: underline'; });
+        flushSync(() => { el.state.s = { color: 'green' }; });
+        const style = el.querySelector('#s').style;
+        assert.equal(style.textDecoration, '', 'the string form\'s declarations do not leak');
+        assert.equal(style.color, 'green', 'and the new object still applies');
+        document.body.removeChild(el);
+    });
+
     it('a DocumentFragment in an array contributes its children, not itself', () => {
         // A fragment empties on insert, so it can be neither the next insertion
         // point nor a cleanup record: .after() and .remove() do not exist on it.

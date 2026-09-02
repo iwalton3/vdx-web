@@ -1278,7 +1278,11 @@ if (boolProp(this.props.disabled)) return;
 return html`<input disabled="${boolProp(this.props.disabled)}">`;
 ```
 
-**Reserved host attributes:** `class`, `style`, `aria-*` and `data-*` are
+**Note:** `""` is true, so an interpolated `flag="${''}"` is also true — same
+rule as a bare attribute. Pass `${false}` for false.
+
+**Reserved host attributes:** `class`, `style`, `aria-*`, `data-*` and the
+global boolean attributes (`hidden`, `itemscope`, `autofocus`) are
 consumed by the host element before reaching props, so `${}` does not preserve
 their type — `aria-expanded="${true}"` arrives as the string `"true"`. This is
 deliberate: ARIA is defined in terms of the literal strings, and `data-*` is a
