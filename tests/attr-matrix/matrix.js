@@ -240,6 +240,15 @@ const COMPONENT_KINDS = new Set(['component', 'component-bare', 'unregistered'])
 function ruleFor(kind, attr, cls, v, ns) {
     const val = v.value;
 
+    // An `on*` name is an inline event handler unless the tag is a custom
+    // element, where it is ordinary app API (`online`, `onColor`, `onPick`).
+    // Refused means refused: nothing is written, so the attribute stays absent
+    // through every value in the transition walk. In SVG a hyphenated tag is
+    // not a custom element, so the refusal applies there too.
+    if (/^on[a-z]/i.test(attr) && (ns || !COMPONENT_KINDS.has(kind))) {
+        return [{ channel: 'attr', value: null }];
+    }
+
     if (ns && GLOBAL_BOOLEANS_IN_SVG.has(attr)) {
         return [presenceCheck(cls, val)];
     }
@@ -383,21 +392,40 @@ function canonicalCss(v) {
     return CSS_SCRATCH.style.cssText;
 }
 
-function same(a, b) {
-    if (a === null || a === undefined) return b === null || b === undefined;
+function same(a, b, loose = true) {
+    // null and undefined are interchangeable only where the DOM cannot tell
+    // them apart. On the prop channel they are two different answers - "not
+    // provided, use the default" versus "an explicit null" - and that is a
+    // distinction this branch exists to enforce.
+    if (a === null || a === undefined || b === null || b === undefined) {
+        return loose
+            ? (a === null || a === undefined) && (b === null || b === undefined)
+            : Object.is(a, b);
+    }
     // Identity, not text, once either side is an object or a function. The
     // component contract is that the ${} value arrives INTACT, and String()
     // reports every object as '[object Object]' - which would pass whatever
     // actually landed on the prop.
     if (typeof a === 'object' || typeof a === 'function' ||
         typeof b === 'object' || typeof b === 'function') return Object.is(a, b);
-    return Object.is(a, b) || String(a) === String(b);
+    // String-equality is the DOM's own coercion, not ours: an attribute read
+    // back is always text, so 0 and "0" are the same answer THERE. On the prop
+    // channel it would accept exactly the type loss the contract forbids - a
+    // number delivered as "1", false delivered as "false".
+    return Object.is(a, b) || (loose && String(a) === String(b));
 }
 
-/** same(), plus the per-attribute normalisation the DOM applies on its own. */
-function sameFor(attr, a, b) {
-    if (attr === 'style') return same(canonicalCss(a), canonicalCss(b));
-    return same(a, b);
+/**
+ * same(), plus the per-attribute normalisation the DOM applies on its own.
+ *
+ * `channel` decides whether the DOM's coercions apply: they do for anything
+ * read back out of the DOM, and they do not for a prop, which holds the JS
+ * value the template passed.
+ */
+function sameFor(attr, a, b, channel) {
+    const loose = channel !== 'prop';
+    if (attr === 'style') return same(canonicalCss(a), canonicalCss(b), loose);
+    return same(a, b, loose);
 }
 
 /* ---------------------------------------------------------------- rendering */
@@ -431,7 +459,14 @@ defineComponent('am-cell', AmCell);
 // back as a free string and reported two disagreements about its own probe.
 // Declaring `hidden`/`class`/`style` as props is a bad idea in real components
 // too, and nothing currently warns about it.
-const PROBE_PROPS = ['disabled', 'id', 'value', 'title', 'tabindex'];
+// onpick and fromUnit are NAME-SHAPE axes, not more HTML: the implementation
+// branches on /^on[a-z]/ (the inline-handler guard) and on name.includes('-')
+// (the kebab form of a camelCase prop), and neither shape existed here. Both
+// hid a defect - on* props were refused on a component that had not registered
+// yet, and a kebab name delivered on the first render only. Lowercase
+// deliberately: the guard lowercases before testing, and a camelCase name in
+// SVG measures the HTML parser's foreign-content case folding instead.
+const PROBE_PROPS = ['disabled', 'id', 'value', 'title', 'tabindex', 'onpick', 'fromUnit'];
 
 class AmProbe extends Component {
     static props = PROBE_PROPS.reduce((acc, n) => { acc[n] = PROP_DEFAULT; return acc; }, {});
@@ -507,4 +542,4 @@ function parserOracle(markup, sel, attr) {
     };
 }
 
-export { classify, ruleFor, renderCell, cellTemplate, updateCell, parserOracle, readIdl, idlName, same, sameFor, probeFn, FN_SENTINEL };
+export { classify, ruleFor, renderCell, cellTemplate, updateCell, parserOracle, readIdl, idlName, same, sameFor, probeFn, FN_SENTINEL , COMPONENT_KINDS };

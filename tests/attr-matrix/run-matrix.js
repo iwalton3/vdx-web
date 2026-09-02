@@ -8,6 +8,9 @@
  */
 
 import { classify, ruleFor, renderCell, cellTemplate, updateCell, parserOracle, readIdl, same, sameFor, probeFn } from './matrix.js';
+// The SAME resolution the renderer uses - reimplementing it here would let the
+// instrument agree with a bug in lib/ by making the identical mistake.
+import { kebabToCamel } from '/lib/core/constants.js';
 
 /* -------------------------------------------------------------------- axes */
 
@@ -65,7 +68,10 @@ const OTHER_KINDS = [
 // cell in the old matrix could see it.
 const OTHER_ATTRS = ['disabled', 'hidden', 'spellcheck', 'draggable', 'translate',
                      'id', 'title', 'tabindex', 'class', 'style', 'aria-hidden',
-                     'data-x', 'value'];
+                     'data-x', 'value',
+                     // Name SHAPES the sink branches on, which the HTML
+                     // taxonomy has no way to reach.
+                     'onpick', 'from-unit'];
 
 const INTERP = [
     { label: '${true}',      value: true },
@@ -135,14 +141,16 @@ function observable(el, attr, cls) {
 /** Read exactly the channel the rule expressed an opinion about. */
 function channelRead(el, attr, channel) {
     if (!el) return { via: 'missing', value: undefined };
+    // A template writes the kebab attribute form; the prop keeps its own name.
+    const propKey = attr.includes('-') ? kebabToCamel(attr) : attr;
     if (channel === 'prop') {
         // Raw, not tokenised: the contract is that the ${} value arrives
         // intact, and same() compares objects by identity to check exactly
         // that. Tokenising here made every object equal to every other one.
-        return { via: 'prop', value: el.props ? el.props[attr] : undefined };
+        return { via: 'prop', value: el.props ? el.props[propKey] : undefined };
     }
     if (channel === 'prop-call') {
-        const f = el.props ? el.props[attr] : undefined;
+        const f = el.props ? el.props[propKey] : undefined;
         return { via: 'prop-call', value: typeof f === 'function' ? f() : '<not-callable>' };
     }
     if (channel === 'presence') {
@@ -187,7 +195,7 @@ function judge(ctx, label, threw, rows) {
         const measured = (threw || !el)
             ? { via: 'threw', value: threw }
             : channelRead(el, job.attr, chk.channel);
-        if (threw || !sameFor(job.attr, measured.value, chk.value)) {
+        if (threw || !sameFor(job.attr, measured.value, chk.value, chk.channel)) {
             rows.push({
                 kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,
                 domKind: c.kind, source: label, oracle,
@@ -330,6 +338,11 @@ export function runMatrix() {
             if (!refEl) continue;
             const ref = observable(refEl, job.attr, c);
 
+            // The parser stays the oracle for the whole literal half, `on*`
+            // included: the render-time guard only sees INTERPOLATED values.
+            // Literal inline-handler text reaches the DOM by design and is
+            // caught statically instead, by the t10-inline-events lint - see
+            // "Banned Patterns" in CLAUDE.md.
             if (!sameFor(job.attr, got.value, ref.value)) {
                 rows.push({
                     kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,
