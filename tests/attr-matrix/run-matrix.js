@@ -158,7 +158,14 @@ export function runMatrix() {
 
     for (const job of jobs) {
         const kind = { id: job.kindId, tag: job.tag, wrap: job.wrap, ns: job.ns };
-        const c = classify(job.tag, job.attr, job.ns);
+        // Host-applied names must be classified against a NATIVE element. A
+        // component declaring `hidden` or `spellcheck` as a prop installs its
+        // own accessor, which shadows the DOM one and makes the probe read the
+        // attribute back as a free string.
+        const classifyTag = (job.kindId === 'component' || job.kindId === 'unregistered')
+            ? 'div' : job.tag;
+        const classifyNs = (classifyTag === 'div') ? null : job.ns;
+        const c = classify(classifyTag, job.attr, classifyNs);
         classifications.push({
             kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,
             domKind: c.kind, offValue: c.offValue, defaultIdl: c.defaultIdl

@@ -146,17 +146,35 @@ function classify(tag, attr, ns) {
  *
  * Returns a list of {channel, value} checks, or null for "no opinion".
  */
-const HOST_APPLIED = new Set(['class', 'style']);
+// Names that act on the HOST element rather than informing the component, so
+// they keep DOM semantics instead of the lossless-prop contract: class/style
+// (styling), aria-*/data-* (accessibility tree and CSS/test hooks, both
+// string-typed by nature), and the global booleans, which must still hide or
+// disable a component that has not registered yet.
+const HOST_GLOBAL_BOOLEANS = new Set(['hidden', 'itemscope', 'autofocus', 'inert']);
+function isHostApplied(attr) {
+    return attr === 'class' || attr === 'style' ||
+        attr.startsWith('aria-') || attr.startsWith('data-') ||
+        HOST_GLOBAL_BOOLEANS.has(attr) || attr in ENUMERATED_NAMES;
+}
+// Enumerated attributes act on the host as well: a contenteditable custom
+// element really is editable, so they follow DOM semantics everywhere.
+const ENUMERATED_NAMES = { spellcheck: 1, draggable: 1, translate: 1, contenteditable: 1 };
 
 function ruleFor(kind, attr, cls, v) {
     const val = v.value;
 
-    if (kind === 'component') {
-        if (HOST_APPLIED.has(attr)) return null;   // host-applied, separate contract
-        return [
-            { channel: 'prop', value: val },
-            { channel: 'attr', value: typeof val === 'string' ? val : null }
-        ];
+    if (kind === 'component' || kind === 'unregistered') {
+        if (isHostApplied(attr)) {
+            // Falls through to the native rules below: these act on the host
+            // element, so they mean the same thing on a component as anywhere.
+        } else {
+            const checks = [{ channel: 'attr', value: typeof val === 'string' ? val : null }];
+            // An unregistered tag has no component behind it yet, so there is
+            // no prop to check - only the attribute it will read on upgrade.
+            if (kind === 'component') checks.unshift({ channel: 'prop', value: val });
+            return checks;
+        }
     }
 
     if (cls.kind === 'presence') {
