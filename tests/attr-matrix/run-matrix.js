@@ -177,24 +177,24 @@ export function runMatrix() {
                 got = lastEl ? observable(lastEl, job.attr) : { via: 'missing', value: undefined };
             } catch (e) { threw = e.message; got = { via: 'threw', value: e.message }; }
 
-            const want = ruleFor(kind.id === 'component' ? 'component' : 'native', job.attr, c, v);
-            if (!want) { noOpinion++; if (host) host.remove(); continue; }
+            const checks = ruleFor(kind.id === 'component' ? 'component' : 'native', job.attr, c, v);
+            if (!checks) { noOpinion++; if (host) host.remove(); continue; }
 
-            // Read the SAME channel the rule speaks about. Comparing a rule's
-            // expected attribute against a measured IDL property (or the
-            // reverse) manufactures disagreements that are not there.
-            const wantValue = 'prop' in want ? want.prop : ('idl' in want ? want.idl : want.attr);
-            const channel = 'prop' in want ? 'prop' : ('idl' in want ? 'idl' : 'attr');
-            if (!threw && got.via !== 'missing' && got.via !== 'threw') {
-                got = channelRead(lastEl, job.attr, channel);
-            }
-            if (threw || !same(got.value, wantValue)) {
-                rows.push({
-                    kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,
-                    domKind: c.kind, source: v.label, oracle: 'rule',
-                    got: `${got.via}=${show(got.value)}`,
-                    want: `${channel}=${show(wantValue)}`
-                });
+            for (const chk of checks) {
+                // Read the SAME channel the rule speaks about. Comparing an
+                // expected attribute against a measured IDL property (or the
+                // reverse) manufactures disagreements that are not there.
+                const measured = (threw || !lastEl)
+                    ? got
+                    : channelRead(lastEl, job.attr, chk.channel);
+                if (threw || !same(measured.value, chk.value)) {
+                    rows.push({
+                        kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,
+                        domKind: c.kind, source: v.label, oracle: 'rule',
+                        got: `${measured.via}=${show(measured.value)}`,
+                        want: `${chk.channel}=${show(chk.value)}`
+                    });
+                }
             }
             if (host) host.remove();
         }

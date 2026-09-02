@@ -60,7 +60,11 @@ function readIdl(el, attr) {
 
 /* ------------------------------------------------- empirical classification */
 
-const OFF_CANDIDATES = ['false', 'no', 'off'];
+// Probed as PAIRS, never independently. An invalid value falls back to the
+// attribute's default, so for translate (which defaults to on) the word 'true'
+// reads as the on-word when it is really just invalid. Requiring one word to
+// produce true AND its partner to produce false removes the ambiguity.
+const VOCAB_PAIRS = [['true', 'false'], ['yes', 'no'], ['on', 'off']];
 
 /**
  * How does this attribute behave on this element, according to the DOM itself?
@@ -101,84 +105,89 @@ function classify(tag, attr, ns) {
         return { kind: 'presence', hasIdl: true, offValue: null, defaultIdl };
     }
 
-    // Enumerated: constrained vocabulary. Find how it spells off, if it can.
-    let offValue = null;
-    for (const cand of OFF_CANDIDATES) {
-        const el = make();
-        el.setAttribute(attr, cand);
-        const v = readIdl(el, attr).value;
-        if (v === false || v === 'false') { offValue = cand; break; }
+    // Enumerated: find the on/off word pair this attribute actually speaks.
+    for (const [on, off] of VOCAB_PAIRS) {
+        const a = make(); a.setAttribute(attr, on);
+        const b = make(); b.setAttribute(attr, off);
+        const av = readIdl(a, attr).value;
+        const bv = readIdl(b, attr).value;
+        if ((av === true || av === 'true') && (bv === false || bv === 'false')) {
+            return { kind: 'value', hasIdl: true, onValue: on, offValue: off, defaultIdl };
+        }
     }
-    return { kind: offValue === null ? 'plain' : 'value', hasIdl: true, offValue, defaultIdl };
+    // Enumerated but with no boolean vocabulary (autocapitalize: none/sentences/
+    // words/characters). Treated as plain: strings pass through, and whatever
+    // the DOM does with an invalid one is the DOM's business, not VDX's.
+    return { kind: 'plain', hasIdl: true, offValue: null, onValue: null, defaultIdl };
 }
 
 /* ------------------------------------------------------------------ the rule */
 
 /**
- * THE CONTRACT, stated as opinion rather than borrowed from another framework.
+ * THE CONTRACT (ratified).
  *
- *   literal text   -> HTML source; the parser decides (handled by the oracle).
- *   ${null/undef}  -> off / absent.
- *   ${true}        -> ON, however this attribute spells on.
- *   ${false}       -> OFF, however this attribute spells off. For a `value`-kind
- *                     attribute that is the literal off-value, NOT removal:
- *                     removal means inherit, which is the opposite of what the
- *                     author wrote. This is the opinionated clause.
- *   ${'' , 0}      -> falsy JS value, so off, same as ${false}.
- *   ${string|num}  -> that literal value, set as an attribute. Never routed
- *                     through a property setter that coerces it.
+ * Native elements - "what would a VDX component do, given what this DOM node
+ * means?"
  *
- * On a component every name is an ordinary prop name and nothing is coerced.
+ *   pure boolean (presence) - plain JS Boolean coercion. A non-empty string is
+ *       truthy, so disabled="${'false'}" is disabled; ${0} and ${''} are off.
+ *   enumerated (value-typed) - nullish means "do not set the attribute" (the
+ *       node keeps its inherited/default behaviour). A string passes through
+ *       verbatim, because the string IS that attribute's own vocabulary.
+ *       Anything else coerces onto the attribute's on/off words.
+ *   plain - nullish removes; null/undefined are NEVER stringified into the DOM.
  *
- * Returns { idl } where the attribute reflects (behaviour is what matters, not
- * the attribute text), { attr } where it does not, or **null for "no opinion"** -
- * a cell the contract genuinely does not speak to. Those are counted separately
- * rather than guessed at, because a guessed expectation is noise in a triage
- * list.
+ * VDX components - the prop is the contract, the attribute is only a devtools
+ * hint. The ${} value reaches the component losslessly, always. The attribute
+ * mirrors it only when it is a string; a non-string shows no attribute, because
+ * a lossy string form in the DOM would be worse than looking at the node.
+ * `class` and `style` are carved out: they affect the host element rather than
+ * informing the component, so they are not ordinary props.
+ *
+ * Returns a list of {channel, value} checks, or null for "no opinion".
  */
+const HOST_APPLIED = new Set(['class', 'style']);
+
 function ruleFor(kind, attr, cls, v) {
-    if (kind === 'component') {
-        return { prop: v.value };
-    }
-
     const val = v.value;
-    const flag = cls.kind === 'presence' || cls.kind === 'value';
 
-    if (val === null || val === undefined) {
-        return flag ? { idl: offIdl(cls) } : { attr: null };
+    if (kind === 'component') {
+        if (HOST_APPLIED.has(attr)) return null;   // host-applied, separate contract
+        return [
+            { channel: 'prop', value: val },
+            { channel: 'attr', value: typeof val === 'string' ? val : null }
+        ];
     }
 
-    if (flag) {
-        if (val === true) return { idl: onIdl(cls) };
-        if (val === false || val === '' || val === 0) return { idl: offIdl(cls) };
-
-        // A non-empty string or number aimed at a flag. For a value-kind
-        // attribute the string IS that attribute's own vocabulary, so it must
-        // land verbatim - this is exactly where a coercing property setter
-        // turns 'false' into true. For a presence attribute the author is
-        // passing a value to something that only understands present/absent,
-        // and the contract does not say which reading wins: no opinion.
-        if (cls.kind === 'value') return { attr: String(val) };
-        return null;
+    if (cls.kind === 'presence') {
+        return [{ channel: 'idl', value: Boolean(val) }];
     }
 
+    if (cls.kind === 'value') {
+        if (val === null || val === undefined) return [{ channel: 'attr', value: null }];
+        // A NON-EMPTY string is this attribute's own vocabulary and passes
+        // through. '' is not a member of any vocabulary, so it coerces like any
+        // other falsy value rather than being emitted as an invalid word.
+        if (typeof val === 'string' && val !== '') return [{ channel: 'attr', value: val }];
+        const word = Boolean(val) ? cls.onValue : cls.offValue;
+        return word === null ? null : [{ channel: 'attr', value: word }];
+    }
+
+    // plain
+    if (val === null || val === undefined) return [{ channel: 'attr', value: null }];
     if (typeof val === 'string' || typeof val === 'number') {
-        // Where a plain attribute reflects, behaviour lives in the property -
-        // a form control's `value` deliberately sets the property and leaves
-        // the attribute (the *default* value) alone, and comparing attribute
-        // text there would report that correct behaviour as a defect.
-        return cls.hasIdl ? { idl: String(val) } : { attr: String(val) };
+        // Compare the attribute VDX wrote, not the DOM's normalisation of it -
+        // autocapitalize="xyz" reflecting as "sentences" is the DOM rejecting an
+        // invalid value, not VDX getting it wrong. The exception is a form
+        // control, where the property is live state and the attribute is only
+        // the default.
+        const live = FORM_LIVE.has(attr) && cls.hasIdl;
+        return [{ channel: live ? 'idl' : 'attr', value: String(val) }];
     }
     return null;
 }
 
-/** The IDL reading that means "on" / "off" for a classified flag attribute. */
-function onIdl(cls) {
-    return typeof cls.defaultIdl === 'string' ? 'true' : true;
-}
-function offIdl(cls) {
-    return typeof cls.defaultIdl === 'string' ? 'false' : false;
-}
+const FORM_LIVE = new Set(['value', 'checked']);
 
 /* ---------------------------------------------------------------- rendering */
 
