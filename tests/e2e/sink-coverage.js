@@ -17,9 +17,9 @@
 const SINKS = {
     '/lib/core/template-renderer.js': [
         // the three phases
-        'applyAttributeDirect', 'sanitizeUrlAttr', 'deliverToOwner',
-        'applyComponentAttr', 'applyNativeAttr'
+        'applyAttributeDirect', 'deliverToOwner', 'applyComponentAttr', 'applyNativeAttr'
     ],
+    '/lib/core/literal-attr.js': ['writeLiteralAttr', 'sanitizeUrlAttr'],
     '/lib/core/host-attrs.js': [
         // the table and every rule it can return
         'hostAppliedRule', 'applyAriaAttr', 'applyEnumeratedAttr', 'applyClassAttr',
@@ -46,7 +46,7 @@ const EXPLAINED = {
         'defensive - attribute names come from the compiler and are always strings',
     "if (isRefusedAttr(lname, isCustomTag)) {":
         'security refusal - tests/framework/security.test.js "refuses innerHTML/srcdoc"',
-    "const isSvgLink = lname === 'xlink:href' && el.namespaceURI === RENDERER_SVG_NS;":
+    "const isSvgLink = lname === 'xlink:href' && el.namespaceURI === SVG_NS;":
         'xlink:href sanitisation - tests/framework/security.test.js "sanitizes javascript:"',
     "if ((urlTags && urlTags.has(el.tagName)) || isSvgLink) {":
         'URL sanitisation - tests/framework/security.test.js "sanitizes javascript:"',

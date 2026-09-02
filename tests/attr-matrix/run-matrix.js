@@ -40,6 +40,8 @@ const ATTR_SPEC = [
     { attr: 'title',           class: 'ordinary',       tags: ['div'] },
     { attr: 'tabindex',        class: 'ordinary',       tags: ['div'] },
     { attr: 'placeholder',     class: 'ordinary',       tags: ['input'] },
+    // `for` reflects as htmlFor, the one literal the writer sets by property
+    { attr: 'for',             class: 'ordinary',       tags: ['label'] },
     { attr: 'aria-hidden',     class: 'aria',           tags: ['div'] },
     { attr: 'aria-label',      class: 'aria',           tags: ['div'] },
     { attr: 'data-x',          class: 'data',           tags: ['div'] },
@@ -315,19 +317,34 @@ export function runMatrix() {
         if (thost) thost.remove();
 
         /* ---- literal: the HTML parser is the oracle --------------------- */
+        // Twice per literal: in a fully static subtree the compiler's
+        // static-DOM path builds it; with a ${} anywhere in the subtree the
+        // renderer's literal path does. Both are held to the parser, and two
+        // sinks that disagree with each other show up as one of them
+        // disagreeing with it.
         if (COMPONENT_KIND_IDS.has(kind.id)) continue;
         for (const lit of (job.attr === 'style' ? STYLE_LITERAL : LITERAL)) {
+          for (const sink of ['static', 'dynamic']) {
             cells++;
             const attrText = lit === null ? job.attr : `${job.attr}="${esc(lit)}"`;
-            const markup = (kind.wrap ? `<${kind.wrap}>` : '') +
-                `<${kind.tag} ${attrText}></${kind.tag}>` +
-                (kind.wrap ? `</${kind.wrap}>` : '');
+            const open = (kind.wrap ? `<${kind.wrap}>` : '') + `<${kind.tag} ${attrText}>`;
+            const close = `</${kind.tag}>` + (kind.wrap ? `</${kind.wrap}>` : '');
+            const markup = open + close;
 
             let got;
             try {
-                const host = renderCell(cellTemplate(markup, '', false), null);
+                // A dynamic attribute on the element itself takes it off the
+                // compiler's static path. Nothing less does: a static child
+                // of a dynamic parent is still pre-built, and a void element
+                // like input has no children to put a ${} in.
+                const dynOpen = (kind.wrap ? `<${kind.wrap}>` : '') + `<${kind.tag} ${attrText} data-dyn="`;
+                const dynClose = `"></${kind.tag}>` + (kind.wrap ? `</${kind.wrap}>` : '');
+                const host = sink === 'static'
+                    ? renderCell(cellTemplate(markup, '', false), null)
+                    : renderCell(cellTemplate(dynOpen, dynClose, true), '');
                 const el = findEl(host, kind);
                 got = el ? observable(el, job.attr, c) : { via: 'missing', value: undefined };
+                got.el = el;
                 host.remove();
             } catch (e) { got = { via: 'threw', value: e.message }; }
 
@@ -348,16 +365,30 @@ export function runMatrix() {
                 ? { via: 'attr', value: null }
                 : observable(refEl, job.attr, c);
 
+            const source = (lit === null ? '<bare>' : `="${lit}"`) + (sink === 'dynamic' ? ' +${}' : '');
             if (!sameFor(job.attr, got.value, ref.value)) {
                 rows.push({
                     kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,
-                    domKind: c.kind,
-                    source: lit === null ? '<bare>' : `="${lit}"`,
-                    oracle: 'parser',
+                    domKind: c.kind, source, oracle: 'parser',
                     got: `${got.via}=${show(got.value)}`,
                     want: `${ref.via}=${show(ref.value)}`
                 });
             }
+            // A form control's literal value/checked is its DEFAULT - what a
+            // form reset restores and [value] selectors see - and that lives
+            // in the attribute, which the live property does not show.
+            if ((job.attr === 'value' || job.attr === 'checked') && got.el && refEl) {
+                const gotAttr = got.el.hasAttribute(job.attr);
+                const refAttr = refEl.hasAttribute(job.attr);
+                if (gotAttr !== refAttr) {
+                    rows.push({
+                        kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,
+                        domKind: c.kind, source, oracle: 'parser',
+                        got: `presence=${gotAttr}`, want: `presence=${refAttr}`
+                    });
+                }
+            }
+          }
         }
     }
 
