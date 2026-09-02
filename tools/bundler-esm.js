@@ -2079,10 +2079,15 @@ function generateBundle(modules, sortedFiles, entryFile, baseDir, keepComments, 
             }
         }
 
-        // Detect duplicate function declarations
+        // Detect duplicate function declarations. Over the masked code: a
+        // commented-out `function helper()` at column 0 matches this
+        // ^-anchored regex too, and reported the file as a duplicate of
+        // itself. A guard that cries wolf is how the real duplicate - the
+        // one that made dist/ a SyntaxError - gets scrolled past.
+        const declScan = maskStringsAndComments(code, { keepStringContents: true });
         const funcRegex = /^function\s+([A-Za-z_$][A-Za-z0-9_$]*)/gm;
         let match;
-        while ((match = funcRegex.exec(code)) !== null) {
+        while ((match = funcRegex.exec(declScan)) !== null) {
             const funcName = match[1];
             if (definedNames.has(funcName)) {
                 console.log(`  ⚠ Duplicate '${funcName}' in ${path.basename(filePath)} (first in ${path.basename(definedNames.get(funcName))})`);

@@ -247,8 +247,17 @@ behaviour is unchanged, which the lint's 106 fixture assertions hold it to.
 was reaching the output moves. `tools/scripts/test-bundler-scan.mjs` pins
 both halves - prose creates no edge, and a real import still does, because a
 mask that is too eager would silently unbundle the framework while every
-other check stayed green. Falsified against the pre-fix bundler: 2 of its 6
+other check stayed green. Falsified against the pre-fix bundler: 2 of its
 checks fail there.
+
+The same scan was reaching one more place. `5a5817f`'s duplicate-declaration
+guard - the one that catches two modules declaring the same top-level name,
+which is what made `dist/` a SyntaxError - uses a `^`-anchored regex, so a
+commented-out `function helper()` at column 0 matched and the file was
+reported as a duplicate of itself. Only a warning, but a guard that cries
+wolf is how the real duplicate gets scrolled past. It scans masked code now,
+and the test holds both directions: prose is not a duplicate, and a genuine
+one across two modules is still reported AND still refused at the write.
 
 ## Still open, found during the re-read
 

@@ -38,16 +38,24 @@ function orderOf(files) {
             fs.mkdirSync(path.dirname(full), { recursive: true });
             fs.writeFileSync(full, content);
         }
-        const out = execFileSync(process.execPath,
-            [BUNDLER, '-e', 'lib/entry.js', '-o', 'out.js'],
-            { cwd: dir, encoding: 'utf-8' });
+        // A refused bundle is a legitimate outcome to assert on (the
+        // duplicate-name guard exits non-zero on purpose), so failure is
+        // captured rather than thrown.
+        let out;
+        try {
+            out = execFileSync(process.execPath,
+                [BUNDLER, '-e', 'lib/entry.js', '-o', 'out.js'],
+                { cwd: dir, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
+        } catch (e) {
+            return { order: [], stdout: (e.stdout || '') + (e.stderr || ''), refused: true };
+        }
         const bundle = fs.readFileSync(path.join(dir, 'out.js'), 'utf-8');
         const order = Object.keys(files)
             .map(rel => ({ rel, at: bundle.indexOf(`MARK_${path.basename(rel, '.js').toUpperCase()}`) }))
             .filter(m => m.at !== -1)
             .sort((a, b) => a.at - b.at)
             .map(m => m.rel);
-        return { order, stdout: out };
+        return { order, stdout: out, refused: false };
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -105,6 +113,29 @@ const withStringInCode = orderOf({
 check('a real import beside a string literal still resolves',
     withStringInCode.order.indexOf('lib/beta.js') < withStringInCode.order.indexOf('lib/alpha.js'),
     withStringInCode.order.join(', '));
+
+// The duplicate-declaration guard is the one that catches the failure mode
+// that made dist/ a SyntaxError (two modules declaring the same top-level
+// name). Both halves matter: it must not fire on prose, and it must still
+// fire on the real thing.
+const commentedOutDupe = orderOf({
+    ...base,
+    'lib/alpha.js': "/*\nfunction helper() { return 1; }\n*/\nfunction helper() { return 'MARK_ALPHA'; }\nexport const a = helper();\n"
+});
+check('a commented-out function is not a duplicate declaration',
+    !/Duplicate 'helper'/.test(commentedOutDupe.stdout),
+    commentedOutDupe.stdout.split('\n').filter(l => /Duplicate/.test(l)).join(' | '));
+
+const realDupe = orderOf({
+    ...base,
+    'lib/alpha.js': "function shared() { return 1; }\nexport const a = 'MARK_ALPHA' + shared();\n",
+    'lib/beta.js': "function shared() { return 2; }\nexport const b = 'MARK_BETA' + shared();\n"
+});
+check('a real duplicate across two modules is still reported',
+    /Duplicate 'shared'/.test(realDupe.stdout),
+    realDupe.stdout.split('\n').filter(l => /Duplicate|⚠/.test(l)).join(' | '));
+check('...and the bundle it would have produced is refused',
+    realDupe.refused && /does not parse/.test(realDupe.stdout));
 
 console.log(`\n${failed === 0 ? '✓' : '✗'} ${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);
