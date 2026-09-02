@@ -49,18 +49,11 @@ const KINDS = {
     // meaningless value has no behaviour to relate.
 };
 
-// kind -> why the two sides differ today. The containment dispatcher handles
-// a Node inside an ARRAY (template-renderer.js, "Handle arrays") but
-// stringifies a bare one, and does not unwrap a contain() marker its own
-// render function returned. Scheduled for the value-classifier unification
-// (STRUCTURAL-REFACTORING-REVIEW.md item 6). A passing kind here means that
-// work landed - remove the entry.
-const KNOWN_DIVERGENT = {
-    'text node':      'containment stringifies a bare Node to "[object Text]"',
-    'element':        'containment stringifies a bare Node to "[object HTMLElement]"',
-    'fragment':       'containment stringifies a bare Node to "[object DocumentFragment]"',
-    'nested contain': 'containment renders a nested contain() marker as nothing'
-};
+// kind -> why the two sides differ today. Empty since the slot value
+// classifier (slotKind / materialize in template-renderer.js) became the one
+// answer for both dispatchers. An entry here is a scheduled fix with its
+// reason, asserted to diverge so the fix is told to delete it.
+const KNOWN_DIVERGENT = {};
 
 let CURRENT = null;
 class SrPlain extends Component {
