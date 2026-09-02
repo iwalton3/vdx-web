@@ -43,6 +43,38 @@ const URL = process.env.MATRIX_URL || 'http://localhost:9000/tests/attr-matrix/'
         console.log('');
     }
 
+    // Baseline diff. The residue is not zero and will not be: some cells are
+    // deliberate (itemscope normalisation), some are the browser's own doing
+    // (cssText adds a trailing ';'), some are probe artifacts. Recording them
+    // is what makes a CHANGE in the residue loud - without this the matrix is a
+    // one-shot audit that silently rots as soon as anyone edits a sink.
+    const fs = require('fs');
+    const path = require('path');
+    const BASELINE = path.join(__dirname, '..', 'attr-matrix', 'expected-disagreements.json');
+    const sig = row => `${row.kind}|${row.attr}|${row.source}|${row.oracle}|${row.got}|${row.want}`;
+    const current = r.rows.map(sig).sort();
+
+    if (process.env.UPDATE_BASELINE) {
+        fs.writeFileSync(BASELINE, JSON.stringify(current, null, 1) + '\n');
+        console.log(`baseline updated: ${current.length} entries`);
+    } else if (fs.existsSync(BASELINE)) {
+        const expected = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
+        const exp = new Set(expected);
+        const cur = new Set(current);
+        const added = current.filter(x => !exp.has(x));
+        const removed = expected.filter(x => !cur.has(x));
+        if (added.length || removed.length) {
+            console.error(`\nBASELINE DRIFT: ${added.length} new, ${removed.length} resolved`);
+            added.forEach(x => console.error('  NEW      ' + x));
+            removed.forEach(x => console.error('  RESOLVED ' + x));
+            console.error('\nA new row is a regression. A resolved row is a fix worth recording.');
+            console.error('Re-run with UPDATE_BASELINE=1 once the change is intended.');
+            process.exitCode = 1;
+        } else {
+            console.log(`baseline matches (${expected.length} known disagreements)`);
+        }
+    }
+
     const byKind = {};
     for (const row of r.rows) (byKind[row.kind] ||= []).push(row);
 

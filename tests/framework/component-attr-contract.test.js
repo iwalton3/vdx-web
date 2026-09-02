@@ -124,6 +124,40 @@ describe('Component Attribute Contract', function(it) {
         document.body.removeChild(el);
     });
 
+    it('a lazily-registered component still receives non-string props', () => {
+        // The attribute is a mirror only when a property channel exists to
+        // carry the real value. Before the tag registers there is none, so the
+        // attribute is the ONLY transport - _parseAttributes reads it on
+        // upgrade. Removing it because the value "is not a string" silently
+        // dropped every numeric and boolean prop passed to a lazy() component.
+        class CacLazyHost extends Component {
+            constructor(p) { super(p); this.state = { n: 5, f: true, s: 'hi' }; }
+            template() {
+                return html`<cac-lazy count="${this.state.n}" flag="${this.state.f}"
+                                      label="${this.state.s}"></cac-lazy>`;
+            }
+        }
+        defineComponent('cac-lazy-host', CacLazyHost);
+        const el = mount('cac-lazy-host');
+        const recv = el.querySelector('cac-lazy');
+
+        assert.equal(recv.getAttribute('count'), '5',
+            'a number survives as an attribute while the tag is unregistered');
+        assert.equal(recv.getAttribute('flag'), 'true', 'so does a boolean');
+
+        class CacLazy extends Component {
+            static props = { count: null, flag: null, label: null };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-lazy', CacLazy);   // upgrade
+
+        assert.equal(recv.props.count, '5', 'and reaches props on upgrade');
+        assert.equal(recv.props.flag, 'true', 'boolean too');
+        assert.equal(recv.props.label, 'hi', 'alongside the string');
+
+        document.body.removeChild(el);
+    });
+
     it('host-affecting attributes keep DOM semantics on a component', () => {
         class CacHostAttr extends Component {
             static props = { spellcheck: null };
