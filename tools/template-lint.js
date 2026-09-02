@@ -1336,9 +1336,9 @@ export function lintTemplates(source, filePath, registry, options = {}) {
                 const line = locate('t10:' + attrName, escapeRegex(attrName) + '\\s*=');
                 report(line, 't10-inline-events', 'error',
                     `${attrName}="…" is an inline DOM handler - VDX binds events with `
-                    + `on-${event}="handler". A static ${attrName}="fn()" runs outside the `
-                    + `framework and outside CSP with no warning; the dynamic `
-                    + `${attrName}="\${fn}" form is refused at render instead`);
+                    + `on-${event}="handler". Both the static ${attrName}="fn()" and the `
+                    + `dynamic ${attrName}="\${fn}" form are refused at render with a `
+                    + `console warning; this is the report at the source line`);
             }
         };
 
