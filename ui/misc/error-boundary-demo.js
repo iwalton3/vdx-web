@@ -26,15 +26,15 @@ class ClErrorDemoContent extends Component {
     }
 
     // Use cl-error-boundary for pre-styled error display
-    // Note: We use showRetry="true" and let the parent listen for the 'retry' event
+    // Note: We use showRetry="${true}" and let the parent listen for the 'retry' event
     // (props may not be fully available when renderError is called during a throw)
     renderError(error) {
         return html`
             <cl-error-boundary
                 error="${error}"
                 title="Render Failed"
-                showDetails="true"
-                showRetry="true">
+                showDetails="${true}"
+                showRetry="${true}">
             </cl-error-boundary>
         `;
     }

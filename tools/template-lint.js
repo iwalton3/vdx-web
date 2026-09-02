@@ -942,7 +942,7 @@ export const ALL_CHECKS = new Set([
     't1-handler', 't2-xmodel', 't3-refs', 't4-modifiers', 't5-props',
     't6-events', 't6-prop-docs', 't7-binding', 't8-list-control',
     't9-list-item', 't10-inline-events', 't11-attr-stringify', 't12-manual-bind',
-    't13-bool-false',
+    't13-bool-false', 't14-bool-string',
 ]);
 
 // HTML boolean attributes. A literal ="false" on one of these names is wrong
@@ -1358,9 +1358,24 @@ export function lintTemplates(source, filePath, registry, options = {}) {
                 return BOOL_ATTRS.has(attrName);
             };
 
-            // Only ="false" is flagged. A literal ="" is the standard HTML way to
-            // write a bare boolean attribute and means ON, which is both correct
-            // and what boolProp() returns for it - flagging it would be noise.
+            // ="true" is correct but not the idiom: boolProp() reads it as true,
+            // yet the value is a string and the reader has to know that. ${true}
+            // says what it means. Warn, don't error - nothing is broken.
+            // A literal ="" is left alone entirely: it is the standard HTML way
+            // to write a bare boolean attribute, means ON, and boolProp agrees.
+            if (on('t14-bool-string')) {
+                for (const [attrName, def] of Object.entries(node.attrs || {})) {
+                    if (!def || def.value !== 'true') continue;
+                    if (attrName.startsWith('aria-')) continue;   // ARIA wants the string
+                    if (!isFlag(attrName)) continue;
+                    const line = locate('t14:' + attrName, escapeRegex(attrName) + '\\s*=\\s*["\']true["\']');
+                    report(line, 't14-bool-string', 'warn',
+                        `${attrName}="true" works but passes the STRING "true" - write `
+                        + `${attrName}="\${true}" (or a bare ${attrName}) so the value is `
+                        + `an actual boolean`);
+                }
+            }
+
             for (const [attrName, def] of Object.entries(node.attrs || {})) {
                 if (!def || def.value !== 'false') continue;   // literal text only
                 if (!isFlag(attrName)) continue;

@@ -127,7 +127,7 @@ class BestPracticesChapter extends TutChapter {
                 Every banned pattern above either <strong>throws</strong> or renders silently
                 wrong DOM, and the template lint catches all of them statically — run it in CI:
             </p>
-            <cl-code-block code="${this.state.lintCmd}" copyable="true"></cl-code-block>
+            <cl-code-block code="${this.state.lintCmd}" copyable="${true}"></cl-code-block>
             <p>
                 Findings name their check id
                 (<code>t7-binding</code>, <code>t8-list-control</code>,

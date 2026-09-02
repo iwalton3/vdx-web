@@ -2075,6 +2075,7 @@ node tools/optimize.js -i ./src --lint-only
 | `rows="${JSON.stringify(items)}"` | The child receives a string it has to parse back, and reference-based change detection stops working. | `rows="${items}"` | `t11-attr-stringify` |
 | `this.method.bind(this)` | Redundant — methods are already bound onto the element — and the copy is a *different* function, so `removeEventListener(…, this.method)` misses it. | `this.method` | `t12-manual-bind` |
 | `disabled="false"` (any HTML boolean attribute) | Does not mean false, and fails in two opposite ways. Literal text is HTML source, so on a native element the attribute is *present* and the flag is ON. On a component the name is an ordinary prop, so it arrives as the string `"false"` — truthy in any plain check. Nothing re-coerces it. | `disabled="${false}"`, or omit the attribute | `t13-bool-false` |
+| `disabled="true"` on a flag | Works — `boolProp()` reads `"true"` as true — but the value is a string, and the reader has to know that. Warning, not an error. Static HTML pages have no `${}`, so they are exempt and rely on `boolProp()`. | `disabled="${true}"`, or a bare `disabled` | `t14-bool-string` |
 | `remove() { … }` as a method name | **Throws at definition.** Methods are bound onto the custom element, so a structural DOM name shadows the native one and breaks teardown. | `dismiss() { … }` | — (runtime guard) |
 | Reading `this.props.x` in `propsChanged` | `this.props` may still hold the old value at that point. | Use the `newValue` parameter | — |
 

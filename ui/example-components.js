@@ -93,7 +93,7 @@ class ExampleInputText extends Component {
                     label="Email Validation"
                     placeholder="email@example.com"
                     pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$"
-                    required="true"
+                    required="${true}"
                     helptext="Enter a valid email address"
                     x-model="email">
                 </cl-input-text>
@@ -190,8 +190,8 @@ class ExampleTextarea extends Component {
                     label="With Character Count"
                     placeholder="Limited to 200 characters"
                     maxlength="200"
-                    showcount="true"
-                    autoresize="true"
+                    showcount="${true}"
+                    autoresize="${true}"
                     x-model="limited">
                 </cl-textarea>
             </div>
@@ -224,8 +224,8 @@ class ExampleCheckbox extends Component {
 
                 <cl-checkbox
                     label="Disabled checkbox"
-                    checked="true"
-                    disabled="true">
+                    checked="${true}"
+                    disabled="${true}">
                 </cl-checkbox>
 
                 <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
@@ -346,7 +346,7 @@ class ExampleCalendar extends Component {
 
                 <cl-calendar
                     label="Inline Calendar"
-                    inline="true"
+                    inline="${true}"
                     x-model="inline">
                 </cl-calendar>
 
@@ -390,7 +390,7 @@ class ExampleDropdown extends Component {
                 <cl-dropdown
                     label="City (with filter)"
                     options="${this.state.cities}"
-                    filter="true"
+                    filter="${true}"
                     placeholder="Select a city"
                     x-model="selectedCity">
                 </cl-dropdown>
@@ -424,7 +424,7 @@ class ExampleMultiselect extends Component {
                 <cl-multiselect
                     label="Select Colors"
                     options="${this.state.colors}"
-                    filter="true"
+                    filter="${true}"
                     x-model="selected">
                 </cl-multiselect>
 
@@ -726,7 +726,7 @@ class ExampleCard extends Component {
                     <p>High quality product with great features.</p>
                     <div slot="footer" style="display: flex; gap: 8px;">
                         <cl-button label="Buy" severity="primary"></cl-button>
-                        <cl-button label="Details" severity="secondary" outlined="true"></cl-button>
+                        <cl-button label="Details" severity="secondary" outlined="${true}"></cl-button>
                     </div>
                 </cl-card>
             </div>
@@ -747,7 +747,7 @@ class ExampleFieldset extends Component {
                     <p>Role: Administrator</p>
                 </cl-fieldset>
 
-                <cl-fieldset legend="Advanced Options" toggleable="true">
+                <cl-fieldset legend="Advanced Options" toggleable="${true}">
                     <p>These are advanced configuration options.</p>
                     <p>Click the legend to toggle visibility.</p>
                 </cl-fieldset>
@@ -832,7 +832,7 @@ class ExampleDialog extends Component {
                     <cl-input-text label="Name" placeholder="Enter name..."></cl-input-text>
                     <cl-input-text label="Email" placeholder="Enter email..." style="margin-top: 16px;"></cl-input-text>
                     <div slot="footer">
-                        <cl-button label="Cancel" severity="secondary" text="true" on-click="${() => this.state.formVisible = false}"></cl-button>
+                        <cl-button label="Cancel" severity="secondary" text="${true}" on-click="${() => this.state.formVisible = false}"></cl-button>
                         <cl-button label="Save Changes" severity="primary" on-click="handleFormSubmit"></cl-button>
                     </div>
                 </cl-dialog>
@@ -1019,9 +1019,9 @@ class ExampleButton extends Component {
                 </div>
 
                 <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                    <cl-button label="Outlined" severity="primary" outlined="true"></cl-button>
-                    <cl-button label="Text" severity="primary" text="true"></cl-button>
-                    <cl-button label="Disabled" disabled="true"></cl-button>
+                    <cl-button label="Outlined" severity="primary" outlined="${true}"></cl-button>
+                    <cl-button label="Text" severity="primary" text="${true}"></cl-button>
+                    <cl-button label="Disabled" disabled="${true}"></cl-button>
                     <cl-button
                         label="Loading"
                         loading="${this.state.loading}"
@@ -1184,14 +1184,14 @@ class ExampleFileupload extends Component {
         return html`
             <div style="display: flex; flex-direction: column; gap: 24px; max-width: 600px;">
                 <cl-fileupload
-                    multiple="true"
+                    multiple="${true}"
                     label="Choose Files"
                     on-change="${(e, val) => this.state.files = val}">
                 </cl-fileupload>
 
                 <cl-fileupload
-                    dropzone="true"
-                    multiple="true"
+                    dropzone="${true}"
+                    multiple="${true}"
                     on-change="${(e, val) => this.state.files = val}">
                 </cl-fileupload>
             </div>
@@ -1223,8 +1223,8 @@ class ExampleDropzone extends Component {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px; max-width: 600px;">
                 <cl-dropzone
-                    multiple="true"
-                    paste="true"
+                    multiple="${true}"
+                    paste="${true}"
                     on-select="onSelect"
                     on-reject="onReject">
                 </cl-dropzone>
@@ -1269,7 +1269,7 @@ class ExampleColorpicker extends Component {
 
                 <cl-colorpicker
                     label="Inline Color Picker"
-                    inline="true"
+                    inline="${true}"
                     x-model="inlineColor">
                 </cl-colorpicker>
 
@@ -1399,11 +1399,11 @@ class ExampleCompleteForm extends Component {
             <cl-card header="User Registration">
                 <div class="form-grid">
                     <!-- Row 1: Name -->
-                    <cl-input-text label="First Name" required="true" x-model="form.firstName"></cl-input-text>
-                    <cl-input-text label="Last Name" required="true" x-model="form.lastName"></cl-input-text>
+                    <cl-input-text label="First Name" required="${true}" x-model="form.firstName"></cl-input-text>
+                    <cl-input-text label="Last Name" required="${true}" x-model="form.lastName"></cl-input-text>
 
                     <!-- Row 2: Contact -->
-                    <cl-input-text label="Email" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" required="true" x-model="form.email"></cl-input-text>
+                    <cl-input-text label="Email" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" required="${true}" x-model="form.email"></cl-input-text>
                     <cl-input-text label="Phone" placeholder="+1 (555) 000-0000" x-model="form.phone"></cl-input-text>
 
                     <!-- Row 3: Date & Country -->
@@ -1427,7 +1427,7 @@ class ExampleCompleteForm extends Component {
 
                     <!-- Row 6: Bio -->
                     <div class="form-full">
-                        <cl-textarea label="Bio" rows="3" maxlength="500" showcount="true" x-model="form.bio"></cl-textarea>
+                        <cl-textarea label="Bio" rows="3" maxlength="500" showcount="${true}" x-model="form.bio"></cl-textarea>
                     </div>
 
                     <!-- Row 7: Experience -->
@@ -1443,7 +1443,7 @@ class ExampleCompleteForm extends Component {
                 </div>
 
                 <div slot="footer" class="form-actions">
-                    <cl-button label="Reset" severity="secondary" text="true" on-click="handleReset"></cl-button>
+                    <cl-button label="Reset" severity="secondary" text="${true}" on-click="handleReset"></cl-button>
                     <cl-button label="Submit" severity="primary" icon="✓" on-click="handleSubmit"></cl-button>
                 </div>
             </cl-card>
@@ -1548,7 +1548,7 @@ class ExampleStepper extends Component {
                 <cl-stepper
                     steps="${this.state.steps}"
                     activeIndex="${this.state.currentStep}"
-                    linear="true"
+                    linear="${true}"
                     on-change="handleStepChange"
                     on-validate="handleValidate"
                     on-complete="handleComplete">
@@ -1705,7 +1705,7 @@ class ExampleInputPassword extends Component {
                 <cl-input-password
                     label="Password"
                     placeholder="Enter password..."
-                    showStrength="true"
+                    showStrength="${true}"
                     helptext="Use a strong password with mixed characters"
                     x-model="password">
                 </cl-input-password>
@@ -1790,8 +1790,8 @@ class ExampleToggle extends Component {
                 <div>
                     <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">States</h4>
                     <div style="display: flex; gap: 32px; align-items: center; flex-wrap: wrap;">
-                        <cl-toggle label="Disabled (off)" disabled="true"></cl-toggle>
-                        <cl-toggle label="Disabled (on)" disabled="true" checked="true"></cl-toggle>
+                        <cl-toggle label="Disabled (off)" disabled="${true}"></cl-toggle>
+                        <cl-toggle label="Disabled (on)" disabled="${true}" checked="${true}"></cl-toggle>
                     </div>
                 </div>
 
@@ -1846,7 +1846,7 @@ class ExampleInputSearch extends Component {
                 <cl-input-search
                     label="Loading State"
                     placeholder="Searching..."
-                    loading="true">
+                    loading="${true}">
                 </cl-input-search>
 
                 <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
@@ -1942,7 +1942,7 @@ class ExampleVirtualList extends Component {
                         height="400px"
                         scrollContainer="self"
                         keyFn="${this.getItemKey}"
-                        selectable="true"
+                        selectable="${true}"
                         on-select="handleSelect">
                     </cl-virtual-list>
                 `)}
@@ -1953,7 +1953,7 @@ class ExampleVirtualList extends Component {
                         itemHeight="60"
                         scrollContainer="window"
                         keyFn="${this.getItemKey}"
-                        selectable="true"
+                        selectable="${true}"
                         on-select="handleSelect">
                     </cl-virtual-list>
                 `)}
@@ -1974,7 +1974,7 @@ class ExampleVirtualList extends Component {
                     height="320px"
                     scrollContainer="self"
                     keyFn="${this.getItemKey}"
-                    reorderable="true"
+                    reorderable="${true}"
                     on-reorder="handleReorder">
                 </cl-virtual-list>
                 <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
@@ -2024,9 +2024,9 @@ class ExampleBadge extends Component {
                 <div>
                     <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Pill Style</h4>
                     <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                        <cl-badge value="New" severity="primary" rounded="true"></cl-badge>
-                        <cl-badge value="99+" severity="danger" rounded="true"></cl-badge>
-                        <cl-badge value="Active" severity="success" rounded="true"></cl-badge>
+                        <cl-badge value="New" severity="primary" rounded="${true}"></cl-badge>
+                        <cl-badge value="99+" severity="danger" rounded="${true}"></cl-badge>
+                        <cl-badge value="Active" severity="success" rounded="${true}"></cl-badge>
                     </div>
                 </div>
 
@@ -2042,19 +2042,19 @@ class ExampleBadge extends Component {
                 <div>
                     <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Dot Indicators</h4>
                     <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
-                        <span>Online <cl-badge dot="true" severity="success"></cl-badge></span>
-                        <span>Away <cl-badge dot="true" severity="warning"></cl-badge></span>
-                        <span>Busy <cl-badge dot="true" severity="danger"></cl-badge></span>
-                        <span>Offline <cl-badge dot="true" severity="secondary"></cl-badge></span>
+                        <span>Online <cl-badge dot="${true}" severity="success"></cl-badge></span>
+                        <span>Away <cl-badge dot="${true}" severity="warning"></cl-badge></span>
+                        <span>Busy <cl-badge dot="${true}" severity="danger"></cl-badge></span>
+                        <span>Offline <cl-badge dot="${true}" severity="secondary"></cl-badge></span>
                     </div>
                 </div>
 
                 <div>
                     <h4 style="margin: 0 0 16px 0; color: var(--text-muted, #666);">Removable</h4>
                     <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                        <cl-badge value="Tag 1" severity="primary" removable="true"></cl-badge>
-                        <cl-badge value="Tag 2" severity="success" removable="true"></cl-badge>
-                        <cl-badge value="Tag 3" severity="info" removable="true"></cl-badge>
+                        <cl-badge value="Tag 1" severity="primary" removable="${true}"></cl-badge>
+                        <cl-badge value="Tag 2" severity="success" removable="${true}"></cl-badge>
+                        <cl-badge value="Tag 3" severity="info" removable="${true}"></cl-badge>
                     </div>
                 </div>
             </div>
@@ -2087,17 +2087,17 @@ class ExampleAlert extends Component {
 
                 <h4 style="margin: 24px 0 8px 0; color: var(--text-muted, #666);">Closable Alerts</h4>
 
-                <cl-alert severity="info" closable="true">
+                <cl-alert severity="info" closable="${true}">
                     This alert can be dismissed by clicking the X button.
                 </cl-alert>
 
                 <h4 style="margin: 24px 0 8px 0; color: var(--text-muted, #666);">Outline Style</h4>
 
-                <cl-alert severity="info" outline="true">
+                <cl-alert severity="info" outline="${true}">
                     Outlined info alert for a lighter appearance.
                 </cl-alert>
 
-                <cl-alert severity="success" outline="true">
+                <cl-alert severity="success" outline="${true}">
                     Outlined success alert.
                 </cl-alert>
 
@@ -2872,7 +2872,7 @@ class ExampleSegmented extends Component {
 
                 <cl-segmented options="${this.state.sizes}" size="small" x-model="range"></cl-segmented>
 
-                <cl-segmented options="${['Off', 'On']}" value="On" disabled="true"></cl-segmented>
+                <cl-segmented options="${['Off', 'On']}" value="On" disabled="${true}"></cl-segmented>
 
                 <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
                     View: ${this.state.view} · Range: ${this.state.range}
@@ -2920,7 +2920,7 @@ class ExampleRating extends Component {
             <div style="display: flex; flex-direction: column; gap: 20px;">
                 <div>Interactive: <cl-rating x-model="score"></cl-rating> (${this.state.score})</div>
                 <div>Half steps: <cl-rating x-model="halfScore" precision="0.5"></cl-rating> (${this.state.halfScore})</div>
-                <div>Read-only: <cl-rating value="4" readonly="true"></cl-rating></div>
+                <div>Read-only: <cl-rating value="4" readonly="${true}"></cl-rating></div>
             </div>
         `;
     }
@@ -2941,7 +2941,7 @@ class ExampleOtp extends Component {
         return html`
             <div style="display: flex; flex-direction: column; gap: 20px;">
                 <cl-otp length="6" type="number" x-model="code"></cl-otp>
-                <div>Masked PIN: <cl-otp length="4" type="number" mask="true"></cl-otp></div>
+                <div>Masked PIN: <cl-otp length="4" type="number" mask="${true}"></cl-otp></div>
                 <div style="padding: 12px; background: var(--table-header-bg, #f8f9fa); border-radius: 4px;">
                     ${complete ? 'Complete: ' + this.state.code : 'Waiting for code…'}
                 </div>
@@ -3118,7 +3118,7 @@ defineComponent('like-button', LikeButton);`
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px; max-width: 720px;">
                 <cl-code-block code="${this.state.sample}"></cl-code-block>
-                <cl-code-block code="${this.state.sample}" wrap="true" maxHeight="180px"></cl-code-block>
+                <cl-code-block code="${this.state.sample}" wrap="${true}" maxHeight="180px"></cl-code-block>
             </div>
         `;
     }

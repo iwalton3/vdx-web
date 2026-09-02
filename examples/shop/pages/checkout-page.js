@@ -383,14 +383,14 @@ export class ShopCheckoutPage extends Component {
                                 <cl-button
                                     label="Back"
                                     severity="secondary"
-                                    text="true"
+                                    text="${true}"
                                     on-click="prevStep">
                                 </cl-button>
                             `, html`
                                 <cl-button
                                     label="Return to Cart"
                                     severity="secondary"
-                                    text="true"
+                                    text="${true}"
                                     on-click="goToCart">
                                 </cl-button>
                             `)}

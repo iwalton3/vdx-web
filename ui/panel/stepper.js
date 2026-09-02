@@ -9,7 +9,7 @@
  *         { label: 'Review', icon: '✓' }
  *     ]}"
  *     activeIndex="${this.state.currentStep}"
- *     linear="true"
+ *     linear="${true}"
  *     on-change="handleStepChange"
  *     on-complete="handleComplete">
  *

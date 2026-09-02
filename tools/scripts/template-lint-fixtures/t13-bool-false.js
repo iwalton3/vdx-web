@@ -45,7 +45,7 @@ class BoolFalse extends Component {
             <button disabled="${this.props.flag}">c</button>
             <button disabled>d</button>
             <button disabled="">e</button>
-            <button disabled="true">f</button>
+            <button disabled="true">f</button> <!-- LINT-EXPECT: t14-bool-string -->
             <t13-flag flag="${false}"></t13-flag>
             <div data-disabled="false">g</div>
             <div title="false">h</div>
@@ -54,3 +54,25 @@ class BoolFalse extends Component {
 }
 
 defineComponent('t13-bool-false', BoolFalse);
+
+// T14 lives on the same type information: ="true" works (boolProp reads it as
+// true) but passes a string, so it is a warning rather than an error. ARIA is
+// exempt - aria-* attributes genuinely want the literal "true"/"false" strings.
+class BoolTrue extends Component {
+    static props = { flag: false };
+    template() {
+        return html`
+            <button disabled="true">a</button> <!-- LINT-EXPECT: t14-bool-string -->
+            <t13-flag flag="true"></t13-flag> <!-- LINT-EXPECT: t14-bool-string -->
+
+            <!-- string prop, ARIA, and the correct forms - all silent -->
+            <t13-text flag="true"></t13-text>
+            <t13-flag label="true"></t13-flag>
+            <div aria-expanded="true">b</div>
+            <button disabled="${true}">c</button>
+            <button disabled>d</button>
+        `;
+    }
+}
+
+defineComponent('t14-bool-true', BoolTrue);
