@@ -23,6 +23,27 @@ function mount(tag) {
 }
 
 describe('Enumerated Attributes', function(it) {
+    it('an enumerated attribute is matched case-insensitively', () => {
+        // HTML attribute names are case-insensitive, and the sink already
+        // lowercases the name for every other decision it makes. Indexing the
+        // vocabulary with the raw spelling meant <div SPELLCHECK="${false}">
+        // missed the enumerated branch entirely, removed the attribute, and so
+        // INHERITED spellcheck-on - the exact inversion this file exists for.
+        class EaCaseHost extends Component {
+            constructor(p) { super(p); this.state = { v: false }; }
+            template() { return html`<div id="u" SPELLCHECK="${this.state.v}"></div>`; }
+        }
+        defineComponent('ea-case-host', EaCaseHost);
+        const el = mount('ea-case-host');
+        const div = el.querySelector('#u');
+
+        assert.equal(div.getAttribute('spellcheck'), 'false',
+            'the off-word was written, not the attribute removed');
+        assert.equal(div.spellcheck, false, 'and spellcheck really is off');
+
+        document.body.removeChild(el);
+    });
+
     it('the vocabulary table matches what the DOM actually does', () => {
         // Anti-rot: the table is hand-written, so a browser that disagrees must
         // fail here rather than silently invert a value at a render site.

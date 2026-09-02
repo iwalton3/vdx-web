@@ -4,7 +4,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { defineComponent, html, createStore, Component } from '../../lib/framework.js';
+import { flushSync, defineComponent, html, createStore, Component } from '../../lib/framework.js';
 
 describe('Prototype Pollution Prevention', function(it) {
     it('blocks __proto__ in x-model paths', (done) => {
@@ -342,6 +342,31 @@ describe('XSS Prevention - style and script sinks (pre-v1 hardening)', function(
 
         assert.equal(el.querySelector('#a').getAttribute('style') || '', '', '@import refused');
         assert.equal(el.querySelector('#b').getAttribute('style') || '', '', 'expression() refused');
+        el.remove();
+    });
+
+    it('a refused style update does not leave the previous one applied', async () => {
+        // Refusing the new value is right; keeping the old one on screen is
+        // not. The DOM then shows a style the template no longer says, and the
+        // existing refusal test only ever goes dangerous-then-benign, so it
+        // could not see this.
+        defineComponent('sec-style-stale', {
+            data() { return { s: 'color: rgb(255, 0, 0)' }; },
+            template() { return html`<div id="s" style="${this.state.s}">x</div>`; }
+        });
+        const el = document.createElement('sec-style-stale');
+        document.body.appendChild(el);
+        await tick();
+        const div = el.querySelector('#s');
+        assert.equal(div.style.color, 'rgb(255, 0, 0)', 'the benign style applied first');
+
+        const origWarn = console.warn;
+        console.warn = () => {};
+        flushSync(() => { el.state.s = "width: expression(alert(1))"; });
+        console.warn = origWarn;
+
+        assert.equal(div.style.color, '', 'the refused update cleared the stale style');
+        assert.equal(div.style.width, '', 'and did not apply the dangerous one');
         el.remove();
     });
 
