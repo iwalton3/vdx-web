@@ -214,6 +214,32 @@ describe('Guard 3: renderer rejects a raw array of templates in a slot', functio
             'true branch renders, false branch is no item, nested items render');
     });
 
+    it('resolves a when() item whose branch is an array, and refuses what is inside it', () => {
+        // The branch is only an array AFTER the when() resolves, so a walk that
+        // flattens before it resolves never sees these items: they reached
+        // materialize() as a whole array and were stringified - "a,b" for
+        // primitives, "" for templates, "[contain]" for a marker - past the two
+        // refusals below, which exist to make exactly that impossible.
+        const tpl = html`<div>${['x', when(true, () => ['a', 'b']), 'y']}</div>`;
+        const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        assert.equal(fragment.querySelector('div').textContent, 'xaby',
+            'the branch is its items, not String(array)');
+
+        const errHtml = captureRenderError(() => {
+            const t = html`<div>${['x', when(true, () => [html`<b>1</b>`, html`<b>2</b>`])]}</div>`;
+            instantiateTemplate(t._compiled, t._values || [], null);
+        });
+        assert.ok(errHtml && String(errHtml.message).includes('each('),
+            `templates inside the branch should still hit the array refusal, got: ${errHtml && errHtml.message}`);
+
+        const errMarker = captureRenderError(() => {
+            const t = html`<div>${['x', when(true, () => [contain(() => 'c')])]}</div>`;
+            instantiateTemplate(t._compiled, t._values || [], null);
+        });
+        assert.ok(errMarker && String(errMarker.message).includes('contain('),
+            `contain() inside the branch should still be refused, got: ${errMarker && errMarker.message}`);
+    });
+
     it('resolves a when() in attribute position to its branch', () => {
         const tpl = html`<div class="${when(true, () => 'on', () => 'off')}" title="${when(false, () => 'x')}"></div>`;
         const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
