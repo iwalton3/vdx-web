@@ -100,7 +100,29 @@ boundary reset, moved imports, three narrating comments.
 | lint / fixtures / computed | clean 200 files / 106 assertions / 14/14 |
 | `dist/` | regenerated, idempotent |
 | benchmark | floor-bound on both trees, see above |
-| mrepo-web / codemap | re-run after the fixes - see the note below |
+| mrepo-web / codemap | 427/0 and 134/0 at `5a5817f`, bundle checksummed, lint suite ran |
+
+## The one the round did not find, and the suites could not
+
+The first post-fix downstream run failed catastrophically: `dist/framework.js`
+did not parse. `host-attrs.js` and `literal-attr.js` each declared a
+top-level `SVG_NS` (and `nullish`), and the bundler concatenates modules.
+Every suite in this repo runs `lib/`, so every one was green; mrepo-web lost
+34 of 35 suites at page load. The `bundler-dist-verification` memory note had
+said exactly this could happen, and the real-bundle check it prescribes was
+skipped after the review fixes.
+
+Fixed in `5a5817f`, and made structurally impossible to repeat: the two
+constants are exported once from `constants.js` (the renderer's
+`RENDERER_SVG_NS` workaround for the same hazard is gone with them); the
+bundler refuses to write a bundle that fails `node --check`;
+`tests/node/dist-check.mjs` fails on a bundle that does not parse or lags
+`lib/`, and regenerates it; `run-framework-tests.js` runs that before the
+browser opens; and `tests/framework/dist-bundle.test.js` renders through the
+real `/dist/framework.js`. Both guards were falsified: a used duplicate in
+`lib/` stops the build with a non-zero exit, a corrupted bundle stops the
+runner before any test. The rule for `lib/core/`: a top-level name is
+unique across files.
 
 ## What this round says about the process
 
