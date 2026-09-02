@@ -39,6 +39,12 @@ cd tests/e2e
 node run-framework-tests.js
 ```
 
+The page's console is streamed as it runs; the verdict and the list of
+failing tests (suite, name, message, expected/received) are read back from
+the page's own results object after the run and printed under the summary, so
+a failure can never be lost to console ordering. A test module that fails to
+load ends the run at once instead of at the timeout.
+
 ### Component Library E2E Tests
 
 ```bash
@@ -54,7 +60,10 @@ node test-runner.js --only-errors
 Walks the cross product and fails on any divergence from the ruled contract.
 Prints V8 branch coverage of the attribute sinks with the run: an uncovered
 block is either an axis the matrix is missing or dead code, which is the one
-stopping condition an HTML taxonomy cannot supply.
+stopping condition an HTML taxonomy cannot supply. The same run walks the
+metamorphic relations in `tests/attr-matrix/relations.js` (update against
+fresh render, setter against `setProps`, lazy against eager registration),
+which need no rule to judge against; see `tests/attr-matrix/README.md`.
 
 ```bash
 cd tests/e2e
