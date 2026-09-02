@@ -135,3 +135,129 @@ code that predates the session - is not reached yet: eight of ten were in
 this session's commits. The right next step is not a third round on the
 same code; it is a re-read of `instantiateSlot` whole, which is the one
 place this session touched three times.
+
+## The re-read of `instantiateSlot`, and what it found
+
+The step this record called for. `instantiateSlot` and the helpers it owns
+(`slotKind`, `materialize`, `materializeArray`, `materializeKeyed`,
+`memoEachToFragment`) read whole rather than by finding. Two defects, one
+site each - the site count was checked before either fix, and neither
+generalised into a class worth a guard.
+
+**A contain() boundary's DOM outlived the slot that owned it** (`1d5d7dc`).
+A boundary's nodes are `containNodes`, not the `currentNodes` the slot's
+dispose walks, and nothing else removed them. The parent records the
+boundary's FIRST nodes when it instantiates the branch, so while the
+boundary reuses its DOM the two agree; once it replaces what it shows - a
+structure change, or a keyed list that grew - the nodes on the page are ones
+no dispose can reach. Hiding a `when()` branch left them behind and
+re-showing it rendered a second copy. `clearBoundary`/`cleanupContain` move
+to slot scope so dispose can reach them.
+
+*This one predates the branch*: the dispose wrapper is `1105dc69`
+(2025-12-26) and it reproduces unchanged on `main`. That is the stop signal
+this record was looking for - the first finding of the session that is not
+in the session's own code.
+
+**A `when()` branch that is an array escaped every refusal** (`d22d784`).
+`c55593a` dropped the array arm of the refusal so a nested array could
+flatten, but the walk flattens BEFORE it resolves, so an array that only
+exists after a `when()` resolves was neither flattened nor refused - it
+reached `materialize()` whole and fell to `String(value)`. Three shapes that
+threw a describing error at `2163479` rendered silently wrong DOM at HEAD
+(`"xa,b"`, `"x,"`, `"x[contain]"`). `flattenSlotItems` interleaves the two.
+
+*This one is the session's own fix regressing*, and it is the shape the
+notes warn about: the repair moved a line to the wrong side of an operation
+and the hole it left was the exact one the removed refusal had plugged.
+
+### Two things about the tests
+
+The first cleanup fixture **passed against the broken code**: each
+`contain()` was wrapped in a `<p>`, and removing that `<p>` takes the
+orphans with it. The leak needs the boundary at the top level of the slot's
+content. The fixture was the reason the bug was invisible, again.
+
+`slot-relations.test.js` could not have caught the second: it asserts the
+two dispatchers AGREE, and they did - both stringified the array. The
+relation is blind to any defect the two dispatchers share, and they share
+`materializeArray` outright. Hence an assertion on rendered output rather
+than a KINDS row.
+
+## The loose ends, closed
+
+**The hot-path note is answered: no change is justified.** This record said a
+benchmark measuring the sink and the setter directly would be the way to
+rule on it. Measured in-browser, against one prop update that rewrites three
+attributes and a text node (5755 ns):
+
+| | ns/op | share of one update |
+|---|---|---|
+| `hostAppliedRule`, all names mixed-case (worst case) | 36.3 | 0.63% |
+| `hostAppliedRule`, all names lowercase | 15.4 | 0.27% |
+| `isOwnElementProp` | 29.7 | 1.08% |
+| `commitProp`'s `[name, value, old]` | 0.8 | 0.03% |
+
+The unconditional `name.toLowerCase()` costs 20.9 ns only when it must
+actually allocate; V8 returns an already-lowercase string unchanged. The
+allocation the reviewer flagged is 1/3600th of the update it accompanies,
+next to a `setAttribute` that costs 171 ns on its own. Memoising either
+classifier would cost a Map lookup to save less than a percent. Closed.
+
+**Array holes are not a hazard.** `flattenSlotItems` iterates holes that
+`.flat(Infinity)` dropped, so `['a', , 'b']` yields three items where it
+used to yield two. Probed across holes added, filled, moved, doubled,
+trailing, and grown/shrunk: identical DOM and identical node counts every
+time. A hole classifies as `'empty'`, the same as the `null`/`false`/
+`undefined` that a `[cond && x]` idiom already produces, and a plain array
+slot re-instantiates whole on every change, so there is no positional state
+to desync.
+
+**The bundler's `File not found` warning is a comment being read as code.**
+`lib/core/versioned-list.js:15` carries a JSDoc `@example` line reading
+`import { versionedList } from './lib/framework.js';`. `parseImports`
+regex-scans the whole file including comments - the same class as the July
+`stripImportsExports` break, fixed then only in the stripper. Today it is
+inert: the phantom path does not exist and `topologicalSort` guards with
+`modules.has(dep)`.
+
+It is not only noise. A doc comment naming a REAL sibling creates a real
+ordering edge: injecting one `@example` line into `x-await-then.js` moved
+`pending-props.js` from position 19 to 12 in the emitted order, and order is
+what a concatenating bundler depends on. Seven comment lines across `lib/`
+are currently scanned as code; the one that names a real file
+(`lib/opt.js:27` -> `./utils.js`) is in a module that is minified in place
+rather than discovered, and the two phantom `export` lines in
+`component-class.js` do not reach the bundle's export list (which comes from
+the entry). So: no live bug, one latent hazard, one comment away. The
+enforceable repair is to mask comments before both scans, as the template
+lint already does for its own.
+
+## Still open, found during the re-read
+
+**A mutated array in a slot does not update the DOM.** The slot's identity
+fast path (`value === previousValue`) skips a re-render when an array is
+mutated in place, because the reference is unchanged. Measured with the
+component's own render counter: `push`, `items[0] = 'A'`, `splice` and
+`delete` all re-render the component and update `each()` correctly, while
+the plain-array slot beside them stays frozen until the reference changes.
+
+Pre-existing, and untouched by either fix above (`materializeArray` only
+runs once that check has passed). It is the same family as the two closed
+here - a silently stale render rather than an error - and the repair is
+plausibly one clause, exempting arrays from the identity skip, which costs
+nothing in the common case because a template-literal array is a fresh
+reference on every render anyway. Not taken: it is a third finding, and this
+record's own lesson is that findings closed in a burst come back.
+
+## Verified, after the re-read
+
+| | |
+|---|---|
+| framework | 785/785 |
+| componentlib e2e | 18/18 |
+| matrix + relations | 3528 cells, 0 disagreements, baseline empty, 0 unexplained |
+| lint / fixtures / computed | clean 202 files / 106 assertions / 14/14 |
+| `dist/` | regenerated, parses, idempotent |
+| mrepo-web | 35 suites, 427/0, on a bundle checksummed against `dist/` |
+| codemap | 134/134, 8 suites, `vdx-lint` suite ran rather than skipped |
