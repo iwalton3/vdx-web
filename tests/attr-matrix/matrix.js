@@ -165,10 +165,11 @@ function ruleFor(kind, attr, cls, v) {
 
     if (cls.kind === 'value') {
         if (val === null || val === undefined) return [{ channel: 'attr', value: null }];
-        // A NON-EMPTY string is this attribute's own vocabulary and passes
-        // through. '' is not a member of any vocabulary, so it coerces like any
-        // other falsy value rather than being emitted as an invalid word.
-        if (typeof val === 'string' && val !== '') return [{ channel: 'attr', value: val }];
+        // Every string is this attribute's own vocabulary and passes through,
+        // '' included: a valueless attribute parses to '', and for
+        // contenteditable that means ON. Coercing it would also split the two
+        // sinks, since the compiler's static path writes literals untouched.
+        if (typeof val === 'string') return [{ channel: 'attr', value: val }];
         const word = Boolean(val) ? cls.onValue : cls.offValue;
         return word === null ? null : [{ channel: 'attr', value: word }];
     }
