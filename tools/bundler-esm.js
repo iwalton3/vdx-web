@@ -45,6 +45,7 @@ function assertParses(content, file) {
 }
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { maskStringsAndComments } from './template-lint.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -351,8 +352,16 @@ function discoverDependencies(entryFile, baseDir, verbose) {
 
         const module = new ModuleInfo(filePath);
         module.content = fs.readFileSync(absolutePath, 'utf-8');
-        module.imports = parseImports(module.content);
-        module.exports = parseExports(module.content);
+        // Scan code, not prose. A JSDoc `@example` line reading `import { x }
+        // from './y.js'` is not a dependency, but both scanners are regexes
+        // over the whole file, so it used to become one - and a phantom edge
+        // to a REAL sibling silently reorders the bundle, which is the only
+        // thing a concatenator guarantees. Comments are blanked in place
+        // (length and newlines preserved), string CONTENTS are not: the module
+        // specifier being read is itself a string.
+        const scanned = maskStringsAndComments(module.content, { keepStringContents: true });
+        module.imports = parseImports(scanned);
+        module.exports = parseExports(scanned);
 
         if (verbose) {
             console.log(`  ${filePath}`);

@@ -39,6 +39,10 @@ node test-runner.js
 node tools/template-lint.js lib ui site examples
 node tools/scripts/test-template-lint.mjs   # its own fixture suite
 
+# Bundler scans code, not prose - a JSDoc @example import must not become a
+# dependency edge (it reorders the bundle), and a real one still must
+node tools/scripts/test-bundler-scan.mjs
+
 # computed() flag machine - every cell, in node, no server (~0.1s)
 node tests/node/computed-cells.mjs
 

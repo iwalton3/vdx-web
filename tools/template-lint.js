@@ -52,8 +52,13 @@ import { startsRegexLiteral, skipRegex } from './js-scan.js';
  * it spliced in a recursive mask of the remainder computed from the wrong
  * starting state, silently blanking real code downstream (e.g. the class
  * declarations after the first such template in a file).
+ *
+ * `keepStringContents` blanks comments and regex bodies only. The bundler
+ * needs it: it scans for imports, and the module specifier it is looking for
+ * IS a string, so blanking string text would erase the thing being read.
+ * Default off - every other caller wants the full mask.
  */
-export function maskStringsAndComments(source) {
+export function maskStringsAndComments(source, { keepStringContents = false } = {}) {
     const chars = source.split('');
 
     const blank = (from, to) => {
@@ -90,14 +95,14 @@ export function maskStringsAndComments(source) {
                     if (source[i] === c) { i++; break; }
                     i++;
                 }
-                blank(start + 1, i - 1);
+                if (!keepStringContents) blank(start + 1, i - 1);
                 lastSig = c; lastWord = '';
                 continue;
             }
             if (c === '`') {
                 const t = scanTemplateLiteral(source, i);
                 if (!t) { blank(i + 1, to); return; } // unterminated
-                for (const p of t.parts) blank(p.start, p.end);
+                if (!keepStringContents) for (const p of t.parts) blank(p.start, p.end);
                 for (const ex of t.exprs) walkCode(ex.start + 2, ex.end - 1);
                 i = t.end + 1;
                 lastSig = '`'; lastWord = '';

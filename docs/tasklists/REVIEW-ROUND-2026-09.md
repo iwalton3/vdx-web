@@ -222,16 +222,33 @@ inert: the phantom path does not exist and `topologicalSort` guards with
 `modules.has(dep)`.
 
 It is not only noise. A doc comment naming a REAL sibling creates a real
-ordering edge: injecting one `@example` line into `x-await-then.js` moved
-`pending-props.js` from position 19 to 12 in the emitted order, and order is
-what a concatenating bundler depends on. Seven comment lines across `lib/`
-are currently scanned as code; the one that names a real file
-(`lib/opt.js:27` -> `./utils.js`) is in a module that is minified in place
-rather than discovered, and the two phantom `export` lines in
-`component-class.js` do not reach the bundle's export list (which comes from
-the entry). So: no live bug, one latent hazard, one comment away. The
-enforceable repair is to mask comments before both scans, as the template
-lint already does for its own.
+ordering edge, and order is the one thing a concatenating bundler
+guarantees. Measured on a three-module fixture, reading the order back out
+of the emitted bundle: a single `@example` line in `alpha.js` naming
+`beta.js` flipped emission from `alpha, beta, entry` to `beta, alpha,
+entry`. (An earlier note here cited a 19-to-12 move in `lib/`; that was the
+verbose log's DISCOVERY order, which is a different list and only influences
+emission through the sort's iteration order. The fixture measures emission
+directly.)
+
+Seven comment lines across `lib/` are currently scanned as code; the one
+that names a real file (`lib/opt.js:27` -> `./utils.js`) is in a module that
+is minified in place rather than discovered, and the two phantom `export`
+lines in `component-class.js` do not reach the bundle's export list (which
+comes from the entry). So there was no live bug - one latent hazard, one
+comment away.
+
+**Fixed.** `maskStringsAndComments` (the template lint's scanner, already
+shared with `optimize.js`) grew a `keepStringContents` option, and the
+bundler masks with it before both scans - comments blanked in place, string
+contents kept, because the module specifier being read IS a string. Default
+behaviour is unchanged, which the lint's 106 fixture assertions hold it to.
+`dist/` is byte-identical after the change, which is the point: nothing that
+was reaching the output moves. `tools/scripts/test-bundler-scan.mjs` pins
+both halves - prose creates no edge, and a real import still does, because a
+mask that is too eager would silently unbundle the framework while every
+other check stayed green. Falsified against the pre-fix bundler: 2 of its 6
+checks fail there.
 
 ## Still open, found during the re-read
 
