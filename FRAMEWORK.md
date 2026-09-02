@@ -172,6 +172,21 @@ Objects, arrays, and functions pass automatically:
 </child-component>
 ```
 
+They keep their type even if the child's class has not been imported yet - a lazy
+`import()` that registers a component after its call site has rendered produces
+the same props as one registered up front. A non-string never reaches the DOM,
+so the attribute shows nothing for `items` above; read the node (`$0.items`) to
+inspect it, not the DOM.
+
+`undefined` means "not provided" and resolves to the prop's declared default, on
+an update as well as on the first render. `null` is an explicit null.
+
+The full rules - native attribute kinds, which name goes to a prop and which to
+the host, and what the mirror shows - are in
+[docs/templates.md](docs/templates.md#the-attribute-contract). They are
+machine-checked by `tests/attr-matrix/`; if the docs and that run disagree, the
+run is right.
+
 In static HTML (outside templates), camelCase props are set via kebab-case attributes:
 ```html
 <unit-converter from-unit="liters" initial-value="10"></unit-converter>

@@ -9,6 +9,7 @@ Complete guide to the template system, two-way data binding, and template helper
 - [Two-Way Data Binding (x-model)](#two-way-data-binding-x-model)
 - [Template Helpers](#template-helpers)
 - [Boolean Attributes](#boolean-attributes)
+- [The Attribute Contract](#the-attribute-contract)
 - [Form Handling](#form-handling)
 
 ## Template Basics
@@ -1139,6 +1140,110 @@ When the value is `true`, the attribute is added with an empty value (`selected=
 > name and throws at render (`'?disabled' is not a valid attribute name`).
 > Likewise there is no `@event`/`.prop` sugar — use `on-event` and plain
 > attribute binding. The `t7-binding` lint check flags all three.
+
+## The Attribute Contract
+
+One rule decides everything below: **literal template text is HTML source, `${}`
+passes the JS value.** `<button disabled="false">` is *disabled*, because in HTML
+presence is what counts; `disabled="${false}"` is not.
+
+The contract is machine-checked. `tests/attr-matrix/` walks the cross product of
+element kind x attribute x value x transition and fails on any divergence -
+`cd tests/e2e && node run-attr-matrix.js`. If this document and that run ever
+disagree, the run is right.
+
+### Native elements
+
+Three kinds, and the difference that matters is what *absence* means.
+
+| kind | examples | `${}` behaviour |
+|------|----------|-----------------|
+| **pure boolean** | `disabled`, `hidden`, `checked` | Plain JS `Boolean()`. Absence means off. |
+| **enumerated** | `spellcheck`, `draggable`, `translate`, `contenteditable` | A string is that attribute's own vocabulary and passes through verbatim. Anything else coerces onto its on/off words. Nullish removes. |
+| **plain** | `id`, `title`, `placeholder` | Stringified. Nullish removes; `null`/`undefined` are never written as text. |
+
+Pure booleans follow JS truthiness, so a non-empty string is on:
+
+```javascript
+disabled="${'false'}"   // DISABLED - a non-empty string is truthy
+disabled="${0}"         // not disabled
+disabled="${''}"        // not disabled
+```
+
+Enumerated attributes are the trap. Removing one does **not** mean off - it means
+*inherit the default*, and for `spellcheck` and `translate` the default is on. So
+`${false}` writes the off-word rather than removing the attribute, and the word
+is not guessable: `translate` spells off as `"no"`, not `"false"`.
+
+```javascript
+spellcheck="${false}"   // spellcheck="false"  - off
+translate="${false}"    // translate="no"      - off, note the word
+contenteditable=""      // ON: a valueless attribute parses to "", which
+                        // contenteditable reads as true
+```
+
+### Components
+
+**The prop is the contract; the attribute is a devtools mirror.** A `${}` value
+reaches the prop with its type intact - objects, arrays and functions included.
+The mirror can only hold a string, so a non-string shows *no attribute*. To
+inspect one, read the node (`$0.propName`), not the DOM.
+
+Which channel a name takes is decided by **ownership**:
+
+| the name is | what happens |
+|-------------|--------------|
+| declared in `static props` | goes straight to the prop; the mirror is maintained for strings only |
+| an inherited DOM name (`id`, `title`) | keeps native semantics, exactly as on any element |
+| owned by nothing | goes to the attribute, which is where an unregistered tag will read it |
+
+Being a component does not make every name on it a prop. `tabindex="${0}"` still
+makes the element focusable, because `tabindex` means what it means everywhere.
+
+Some names are handled by the host element before they reach your props and so do
+*not* preserve their JS type - `class`, `style`, `aria-*`, `data-*`, the global
+booleans and the enumerated attributes. See **Reserved host attributes** in
+[FRAMEWORK.md](../FRAMEWORK.md).
+
+### `undefined` means "not provided"
+
+`undefined` resolves to the prop's declared default - on an update as well as on
+the first render. `null` stays an explicit `null`.
+
+```javascript
+class Badge extends Component {
+    static props = { tone: 'neutral' };
+}
+
+tone="${undefined}"     // props.tone === 'neutral'  (the default)
+tone="${null}"          // props.tone === null       (explicitly nothing)
+```
+
+This is why `${maybeMissing}` cannot silently blow past a default the second time
+it evaluates. One consequence: the mirror follows the *resolved* value, so a
+string default shows up in the DOM where the template said `${undefined}`.
+
+### Registration timing does not change a prop
+
+A lazy `import()` that registers a component after its call site has already
+rendered is ordinary. Identical markup either side of registration produces
+identical props:
+
+```javascript
+// <lazy-widget> is still unknown here
+html`<lazy-widget count="${5}" config="${obj}" onPick="${this.pick}"></lazy-widget>`
+
+await import('./lazy-widget.js');   // registers, and the element upgrades
+
+// props.count === 5      (a number, not "5")
+// props.config === obj   (the object, not "[object Object]")
+// props.onPick           callable
+```
+
+The values are held off to the side until the upgrade
+(`lib/core/pending-props.js`) rather than routed through attributes, which could
+only carry their string forms. The attribute still mirrors primitives so devtools
+shows something readable, and is not written at all for an object or a function.
 
 ## Form Handling
 
