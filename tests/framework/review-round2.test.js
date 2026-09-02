@@ -21,7 +21,7 @@ describe('Review Round 2', function(it) {
         // throw. Left true, the next dependency write takes the eager healing
         // branch instead of ordinary invalidation - and that branch never
         // reaches trigger(), so dependents keep the stale value silently.
-        const prev = setEffectErrorHandler(() => {});
+        const prev = setEffectErrorHandler(() => {});   // returns the one it replaced
         try {
             const state = reactive({ n: 0 });
             let throwNow = false;
@@ -45,7 +45,7 @@ describe('Review Round 2', function(it) {
 
             assert.deepEqual(seen, [1, 'transient'], 'dependent is told the getter threw again');
         } finally {
-            setEffectErrorHandler(typeof prev === 'function' ? prev : null);
+            setEffectErrorHandler(prev ?? null);
         }
     });
 
@@ -172,6 +172,144 @@ describe('Review Round 2', function(it) {
         assert.equal(el.querySelector('#bound').value, '',
             'but a value this binding did set is still cleared on nullish');
 
+        document.body.removeChild(el);
+    });
+
+    it('a healed computed wakes dependents even when healed by a manual read', () => {
+        // The eager branch triggers dependents after healing; the lazy get()
+        // cleared the flag but never told anyone, so whoever observed the throw
+        // stayed stranded on it.
+        const prev = setEffectErrorHandler(() => {});
+        try {
+            const state = reactive({ n: 0 });
+            let bad = false;
+            const c = computed(() => { const n = state.n; if (bad) throw new Error('transient'); return n; });
+            const seen = [];
+            createEffect(() => seen.push(c.get()), { onError: e => seen.push(e.message) });
+
+            bad = true; state.n = 1; flushEffects();
+            bad = false;
+            c.get();                 // heals through a manual read, not a dep write
+            flushEffects();
+
+            assert.deepEqual(seen, [0, 'transient', 1], 'the dependent is given the healed value');
+        } finally {
+            setEffectErrorHandler(prev ?? null);
+        }
+    });
+
+    it('setEffectErrorHandler returns the handler it replaced', () => {
+        const mine = () => {};
+        const a = setEffectErrorHandler(mine);
+        const b = setEffectErrorHandler(a ?? null);
+        assert.equal(b, mine, 'so a caller can actually restore what it replaced');
+    });
+
+    it('a bound class is not wrapped, but a frozen-prototype function still is', () => {
+        class Thing {}
+        class R3Child extends Component { static props = { fn: null }; template() { return html`<i></i>`; } }
+        defineComponent('r3-fn-child', R3Child);
+
+        const Bound = Thing.bind(null);
+        class R3BoundHost extends Component {
+            constructor(props) { super(props); this.state = { fn: Bound }; }
+            template() { return html`<r3-fn-child fn="${this.state.fn}"></r3-fn-child>`; }
+        }
+        defineComponent('r3-bound-host', R3BoundHost);
+        const bh = mount('r3-bound-host');
+        // A bound class refuses .apply() exactly as a class does, and has no own
+        // `prototype` - which is why the descriptor test could not see it.
+        assert.ok(Reflect.construct(bh.querySelector('r3-fn-child').props.fn, []),
+            'a bound class is still constructable');
+        document.body.removeChild(bh);
+
+        class R3FrozenHost extends Component {
+            constructor(props) { super(props); this.state = { n: 1 }; }
+            template() {
+                const n = this.state.n;
+                const fn = function () { return n; };
+                Object.defineProperty(fn, 'prototype', { writable: false });
+                return html`<r3-fn-child fn="${fn}"></r3-fn-child>`;
+            }
+        }
+        defineComponent('r3-frozen-host', R3FrozenHost);
+        const fh = mount('r3-frozen-host');
+        const child = fh.querySelector('r3-fn-child');
+        const first = child.props.fn;
+        flushSync(() => { fh.state.n = 2; });
+        assert.equal(child.props.fn, first, 'a callable function keeps its stable wrapper');
+        assert.equal(child.props.fn(), 2, 'and still dispatches to the latest closure');
+        document.body.removeChild(fh);
+    });
+
+    it('a template compiled before registration still delivers nullish updates', () => {
+        const tpl = v => html`<r3-early payload="${v}"></r3-early>`;
+        tpl(0);   // compiled before defineComponent
+        class R3Early extends Component { static props = { payload: null }; template() { return html`<i></i>`; } }
+        defineComponent('r3-early', R3Early);
+        class R3EarlyHost extends Component {
+            constructor(props) { super(props); this.state = { v: 42 }; }
+            template() { return tpl(this.state.v); }
+        }
+        defineComponent('r3-early-host', R3EarlyHost);
+
+        const el = mount('r3-early-host');
+        const child = el.querySelector('r3-early');
+        assert.equal(child.props.payload, 42, 'initial value arrives');
+        flushSync(() => { el.state.v = null; });
+        assert.equal(child.props.payload, null, 'and so does the nullish update');
+        document.body.removeChild(el);
+    });
+
+    it('a DocumentFragment returned straight into a slot is tracked by its children', () => {
+        class R3Frag extends Component {
+            constructor(props) { super(props); this.state = { n: 1 }; }
+            template() {
+                const f = document.createDocumentFragment();
+                f.append(document.createTextNode('A' + this.state.n));
+                return html`<div id="out">${f}</div>`;
+            }
+        }
+        defineComponent('r3-scalar-frag', R3Frag);
+        const el = mount('r3-scalar-frag');
+        assert.equal(el.querySelector('#out').textContent, 'A1');
+        // Cleanup called .remove() on the emptied fragment, which has none.
+        flushSync(() => { el.state.n = 2; });
+        assert.equal(el.querySelector('#out').textContent, 'A2', 'the rerun cleans up and re-renders');
+        document.body.removeChild(el);
+    });
+
+    it('a hyphenated tag inside SVG is an SVG element, not a component', () => {
+        class R3Svg extends Component {
+            template() {
+                return html`<svg>
+                    <g id="n" disabled="${true}"></g>
+                    <x-piece id="h" disabled="${true}"></x-piece>
+                </svg>`;
+            }
+        }
+        defineComponent('r3-svg-hyphen', R3Svg);
+        const el = mount('r3-svg-hyphen');
+        assert.equal(el.querySelector('#h').getAttribute('disabled'),
+            el.querySelector('#n').getAttribute('disabled'),
+            'the hyphen rule is an HTML-namespace rule');
+        document.body.removeChild(el);
+    });
+
+    it('inert reaches the host even when a component declares it', () => {
+        class R3Inert extends Component { static props = { inert: false }; template() { return html`<i></i>`; } }
+        defineComponent('r3-inert-child', R3Inert);
+        class R3InertHost extends Component {
+            constructor(props) { super(props); this.state = { inert: false }; }
+            template() { return html`<r3-inert-child inert="${this.state.inert}"></r3-inert-child>`; }
+        }
+        defineComponent('r3-inert-host', R3InertHost);
+        const el = mount('r3-inert-host');
+        const child = el.querySelector('r3-inert-child');
+        flushSync(() => { el.state.inert = true; });
+        // The component's own accessor shadows HTMLElement.prototype.inert, so
+        // only the attribute can activate host inertness.
+        assert.equal(child.getAttribute('inert'), '', 'the attribute is set');
         document.body.removeChild(el);
     });
 

@@ -960,8 +960,12 @@ const BOOL_ATTRS = new Set([
     'muted', 'open', 'reversed', 'hidden', 'async', 'defer',
     'ismap', 'declare', 'noresize', 'nowrap', 'noshade', 'compact',
     'default', 'scoped', 'seamless', 'sortable', 'novalidate',
-    'formnovalidate', 'itemscope',
+    'formnovalidate', 'itemscope', 'inert',
 ]);
+
+// The UA acts on these for any element, so a component declaring one as a
+// string prop does not make ="false" safe - the host still reacts to presence.
+const GLOBAL_BOOL_ATTRS = new Set(['hidden', 'itemscope', 'autofocus', 'inert']);
 
 // Native DOM events bubble through components without documentation - only
 // custom event names participate in the T6 @fires check.
@@ -1359,6 +1363,7 @@ export function lintTemplates(source, filePath, registry, options = {}) {
                 ? registry.byTag.get(tag).harvest
                 : null;
             const isFlag = (attrName) => {
+                if (GLOBAL_BOOL_ATTRS.has(attrName)) return true;   // host wins
                 if (target && !target.opaque && target.props.size > 0) {
                     if (attrMatchesProp(attrName, target.boolProps)) return true;
                     // Declared with a string/number literal - a real type statement,
