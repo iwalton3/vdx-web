@@ -38,6 +38,8 @@ const KINDS = {
     },
     'array of strings':  () => ['a', 'b'],
     'array of raw':      () => [raw('<b>r1</b>'), raw('<b>r2</b>')],
+    'array with when':   () => ['a', when(true, () => 'b'), when(false, () => 'c'), 'd'],
+    'nested array':      () => ['Tags: ', ['a', 'b']],
     'when true':         () => when(true, () => html`<em>W</em>`),
     'when false':        () => when(false, () => html`<em>W</em>`),
     'each':              () => each([1, 2], i => html`<li>${i}</li>`),

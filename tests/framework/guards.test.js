@@ -203,6 +203,25 @@ describe('Guard 3: renderer rejects a raw array of templates in a slot', functio
         }
     });
 
+    it('resolves a when() item of a slot array to its branch, and flattens a nested array', () => {
+        // A function-form when() is an html-marked marker: it used to trip the
+        // array-of-templates refusal with a message about each(), or be handed
+        // to the renderer as a marker inside a contain() boundary. A nested
+        // array is its items, as the outer one is.
+        const tpl = html`<div>${['a', when(true, () => 'b'), when(false, () => 'c'), ['d', 'e']]}</div>`;
+        const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        assert.equal(fragment.querySelector('div').textContent, 'abde',
+            'true branch renders, false branch is no item, nested items render');
+    });
+
+    it('resolves a when() in attribute position to its branch', () => {
+        const tpl = html`<div class="${when(true, () => 'on', () => 'off')}" title="${when(false, () => 'x')}"></div>`;
+        const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
+        const div = fragment.querySelector('div');
+        assert.equal(div.getAttribute('class'), 'on', 'the selected branch, not "[when]"');
+        assert.equal(div.hasAttribute('title'), false, 'an empty branch is nothing, not "[when]"');
+    });
+
     it('does NOT throw for each()', () => {
         const tpl = html`<ul>${each([1, 2, 3], i => html`<li>${i}</li>`, i => i)}</ul>`;
         const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);
