@@ -7,7 +7,7 @@
  * findings that matter.
  */
 
-import { classify, ruleFor, renderCell, cellTemplate, parserOracle, readIdl } from './matrix.js';
+import { classify, ruleFor, renderCell, cellTemplate, parserOracle, readIdl, sameFor } from './matrix.js';
 
 /* -------------------------------------------------------------------- axes */
 
@@ -93,13 +93,18 @@ function esc(s) { return String(s).replace(/"/g, '&quot;'); }
  * normalises a literal boolean to ""). Where it does not reflect, or reflects
  * to an object (style), the attribute text is the observable.
  */
-function observable(el, attr) {
+function observable(el, attr, cls) {
     if (attr === 'style' || attr === 'class') return { via: 'attr', value: el.getAttribute(attr) };
     const idl = readIdl(el, attr);
-    if (!idl.has || idl.value === '<object>' || idl.value === '<function>') {
-        return { via: 'attr', value: el.getAttribute(attr) };
+    if (idl.has && idl.value !== '<object>' && idl.value !== '<function>') {
+        return { via: 'idl', value: idl.value };
     }
-    return { via: 'idl', value: idl.value };
+    // Nothing to read. For an attribute whose meaning IS presence, the text is
+    // not the observable - <div itemscope="false"> is an item scope - so
+    // comparing text made VDX's deliberate normalisation to "" look like a
+    // disagreement with the parser on every literal cell.
+    if (cls && cls.kind === 'presence') return { via: 'presence', value: el.hasAttribute(attr) };
+    return { via: 'attr', value: el.getAttribute(attr) };
 }
 
 /** Read exactly the channel the rule expressed an opinion about. */
@@ -110,6 +115,9 @@ function channelRead(el, attr, channel) {
         if (typeof p === 'object' && p !== null) p = '<object>';
         if (typeof p === 'function') p = '<function>';
         return { via: 'prop', value: p };
+    }
+    if (channel === 'presence') {
+        return { via: 'presence', value: el.hasAttribute(attr) };
     }
     if (channel === 'idl') {
         // class and style reflect to objects (SVGAnimatedString,
@@ -127,11 +135,6 @@ function channelRead(el, attr, channel) {
 function findEl(host, kind) {
     const sel = kind.wrap ? `${kind.wrap} ${kind.tag}` : kind.tag;
     return host.querySelector(sel);
-}
-
-function same(a, b) {
-    if (a === null || a === undefined) return b === null || b === undefined;
-    return Object.is(a, b) || String(a) === String(b);
 }
 
 function show(v) { return JSON.stringify(v === undefined ? '<undefined>' : v); }
@@ -181,10 +184,10 @@ export function runMatrix() {
             try {
                 host = renderCell(cellTemplate(open, close, v.value, true));
                 lastEl = findEl(host, kind);
-                got = lastEl ? observable(lastEl, job.attr) : { via: 'missing', value: undefined };
+                got = lastEl ? observable(lastEl, job.attr, c) : { via: 'missing', value: undefined };
             } catch (e) { threw = e.message; got = { via: 'threw', value: e.message }; }
 
-            const checks = ruleFor(kind.id === 'component' ? 'component' : 'native', job.attr, c, v);
+            const checks = ruleFor(kind.id === 'component' ? 'component' : 'native', job.attr, c, v, kind.ns);
             if (!checks) { noOpinion++; if (host) host.remove(); continue; }
 
             for (const chk of checks) {
@@ -194,7 +197,7 @@ export function runMatrix() {
                 const measured = (threw || !lastEl)
                     ? got
                     : channelRead(lastEl, job.attr, chk.channel);
-                if (threw || !same(measured.value, chk.value)) {
+                if (threw || !sameFor(job.attr, measured.value, chk.value)) {
                     rows.push({
                         kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,
                         domKind: c.kind, source: v.label, oracle: 'rule',
@@ -219,7 +222,7 @@ export function runMatrix() {
             try {
                 const host = renderCell(cellTemplate(markup, '', null, false));
                 const el = findEl(host, kind);
-                got = el ? observable(el, job.attr) : { via: 'missing', value: undefined };
+                got = el ? observable(el, job.attr, c) : { via: 'missing', value: undefined };
                 host.remove();
             } catch (e) { got = { via: 'threw', value: e.message }; }
 
@@ -230,9 +233,9 @@ export function runMatrix() {
                 return d.querySelector(sel);
             })();
             if (!refEl) continue;
-            const ref = observable(refEl, job.attr);
+            const ref = observable(refEl, job.attr, c);
 
-            if (!same(got.value, ref.value)) {
+            if (!sameFor(job.attr, got.value, ref.value)) {
                 rows.push({
                     kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,
                     domKind: c.kind,

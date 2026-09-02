@@ -43,11 +43,13 @@ const URL = process.env.MATRIX_URL || 'http://localhost:9000/tests/attr-matrix/'
         console.log('');
     }
 
-    // Baseline diff. The residue is not zero and will not be: some cells are
-    // deliberate (itemscope normalisation), some are the browser's own doing
-    // (cssText adds a trailing ';'), some are probe artifacts. Recording them
-    // is what makes a CHANGE in the residue loud - without this the matrix is a
-    // one-shot audit that silently rots as soon as anyone edits a sink.
+    // Baseline diff. The baseline is EMPTY and should stay that way: a
+    // deliberate divergence belongs in ruleFor as a clause with a reason, a
+    // normalisation the browser applies belongs in sameFor, and a probe
+    // artifact belongs in the harness. Anything left over is a finding.
+    //
+    // It used to hold 37 entries, and a real regression sat in it for two
+    // rounds looking like the other 36.
     const fs = require('fs');
     const path = require('path');
     const BASELINE = path.join(__dirname, '..', 'attr-matrix', 'expected-disagreements.json');

@@ -33,22 +33,40 @@ attribute's default). That is what finds `translate` spelling off as `"no"`.
 
 ## The baseline
 
-`expected-disagreements.json` records the residue. It is not zero and is not
-expected to reach zero. A **new** row is a regression; a **resolved** row is a
-fix worth recording. Either fails the run, which is what stops this from being a
-one-shot audit that rots the next time someone edits a sink.
+`expected-disagreements.json` is **empty, and is meant to stay empty**. A
+nonzero row is a finding to rule on, not a table entry to add.
 
-The 37 recorded entries are, in full:
+It held 37 rows until the restructure. They were four different things wearing
+one label, and a genuine regression - a lazily-registered component losing every
+non-string prop - sat among them for two rounds because it looked like the other
+36. Each category went to the place that could express it:
 
-| count | what | why it stays |
-|-------|------|--------------|
-| 14 | SVG / `svg-hyphen` `hidden`, and bare attributes in SVG | `isBooleanAttr` special-cases `GLOBAL_BOOLEAN_ATTRS` past the `notHtmlElement` guard (`constants.js`), so these keep presence semantics inside SVG. Harmless: the UA `[hidden]` rule is HTML-namespace-scoped, so nothing renders differently either way. |
-| 11 | `itemscope` normalised to `""` | Deliberate: it is a global boolean, so VDX gives it presence semantics. Diverges from the parser on literal text; observable behaviour is the same. |
-| 10 | `style` gaining a trailing `;` | The browser's own cssText normalisation, not VDX. Belongs in the comparator, not here. |
-| 2 | `component` `hidden` with nullish | Probe artifact: the probe declares `hidden` as a prop, so its own accessor shadows the DOM one. Note that declaring a host attribute (`hidden`/`class`/`style`) as a prop is itself a bad idea and nothing currently warns against it. |
+| rows | what | where it went |
+|------|------|---------------|
+| 14 | SVG / `svg-hyphen` `hidden` | a `ruleFor` clause. `isBooleanAttr()` tests `GLOBAL_BOOLEAN_ATTRS` *before* its `notHtmlElement` guard, so global booleans keep presence semantics in SVG - deliberately, so an unregistered component stays hideable. |
+| 11 | `itemscope` | `classify()`. Chrome ships no microdata IDL, so the DOM probe read nothing and called a spec boolean attribute "plain". Presence, not text, is its observable. |
+| 10 | `style` trailing `;` | `sameFor()`. The browser's own cssText normalisation; both sides now round-trip through one declaration block. |
+| 2 | `component` `hidden` nullish | the harness. The probe declared `hidden` as a prop, installing an accessor that shadowed the DOM's - it was reporting on itself. |
 
-If that table and the JSON ever disagree in count, the JSON is authoritative -
-re-derive the table rather than trusting it.
+Only the first is a VDX opinion. The other three were the instrument measuring
+the wrong thing.
+
+### Keeping it honest
+
+Reaching zero by teaching the oracle to agree is the failure mode this whole
+arc keeps producing, so the restructure was checked by breaking the sink and
+confirming the matrix still fails:
+
+| mutation in `lib/` | rows |
+|---|---|
+| string `style` writes corrupted | 5 |
+| `GLOBAL_BOOLEAN_ATTRS` early return deleted from `isBooleanAttr` | 4 |
+
+Repeat that before trusting any future change that lowers the count. Note the
+second figure: deleting that early return - a live proposal in
+`docs/tasklists/ATTR-CONTRACT-HANDOFF.md` - changes behaviour in **4** cells,
+all SVG `${''}`/`${0}`, and in none on components. The 14 rows it used to
+produce were the classifier's blind spot, not its blast radius.
 
 ## What this does NOT cover
 

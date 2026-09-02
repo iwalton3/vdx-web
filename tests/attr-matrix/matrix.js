@@ -67,6 +67,21 @@ function readIdl(el, attr) {
 const VOCAB_PAIRS = [['true', 'false'], ['yes', 'no'], ['on', 'off']];
 
 /**
+ * Boolean in the HTML spec, but exposing no IDL property in this browser - so
+ * the probe below has nothing to read and would call them plain.
+ *
+ * That is the probe's blind spot, not a fact about the attribute. Presence is
+ * what a boolean content attribute MEANS (HTML §2.3.2, "Boolean attributes"),
+ * so `<div itemscope="false">` is an item scope and the attribute's text
+ * carries nothing. Chrome ships no microdata IDL, hence no `itemScope`.
+ *
+ * Stated rather than derived because there is no DOM probe for it: a browser
+ * with no reflection cannot tell us the attribute is boolean. Every other
+ * classification on this page is measured.
+ */
+const SPEC_BOOLEAN_NO_IDL = new Set(['itemscope']);
+
+/**
  * How does this attribute behave on this element, according to the DOM itself?
  *
  *   presence - any value means ON; only removal turns it off (a real HTML
@@ -83,6 +98,9 @@ function classify(tag, attr, ns) {
 
     const bare = make();
     const idl = readIdl(bare, attr);
+    if (SPEC_BOOLEAN_NO_IDL.has(attr)) {
+        return { kind: 'presence', hasIdl: idl.has, offValue: null, defaultIdl: idl.value };
+    }
     if (!idl.has || idl.value === '<object>' || idl.value === '<function>') {
         return { kind: 'plain', hasIdl: idl.has, offValue: null, defaultIdl: idl.value };
     }
@@ -161,8 +179,44 @@ function isHostApplied(attr) {
 // element really is editable, so they follow DOM semantics everywhere.
 const ENUMERATED_NAMES = { spellcheck: 1, draggable: 1, translate: 1, contenteditable: 1 };
 
-function ruleFor(kind, attr, cls, v) {
+/**
+ * The check for an attribute whose meaning is presence.
+ *
+ * Where it reflects, the IDL property IS the behaviour and the attribute text
+ * may differ harmlessly (VDX normalises a literal to ""). Where it does not
+ * reflect, presence is the only thing carrying meaning, so comparing text
+ * would measure punctuation.
+ */
+function presenceCheck(cls, val) {
+    return cls.hasIdl
+        ? { channel: 'idl', value: Boolean(val) }
+        : { channel: 'presence', value: Boolean(val) };
+}
+
+/**
+ * Global booleans keep HTML presence semantics in SVG too.
+ *
+ * `isBooleanAttr()` tests GLOBAL_BOOLEAN_ATTRS *before* its notHtmlElement
+ * guard (constants.js), deliberately, so a component that has not registered
+ * yet is still hideable. The DOM probe cannot see this - SVGElement has no
+ * `hidden` IDL, so classify() calls it plain and every SVG cell disagrees.
+ *
+ * Restated here rather than imported from lib/: an oracle that reads the
+ * implementation agrees with it by construction. If the two drift apart, that
+ * shows up as a row, which is the point.
+ *
+ * Under review - deleting the early return collapses these cells but takes
+ * hidden-on-a-component with it. See "Candidates for deletion" in
+ * docs/tasklists/ATTR-CONTRACT-HANDOFF.md.
+ */
+const GLOBAL_BOOLEANS_IN_SVG = new Set(['hidden', 'itemscope', 'autofocus', 'inert']);
+
+function ruleFor(kind, attr, cls, v, ns) {
     const val = v.value;
+
+    if (ns && GLOBAL_BOOLEANS_IN_SVG.has(attr)) {
+        return [presenceCheck(cls, val)];
+    }
 
     if (kind === 'component' || kind === 'unregistered') {
         if (isHostApplied(attr)) {
@@ -178,7 +232,7 @@ function ruleFor(kind, attr, cls, v) {
     }
 
     if (cls.kind === 'presence') {
-        return [{ channel: 'idl', value: Boolean(val) }];
+        return [presenceCheck(cls, val)];
     }
 
     if (cls.kind === 'value') {
@@ -208,6 +262,36 @@ function ruleFor(kind, attr, cls, v) {
 
 const FORM_LIVE = new Set(['value', 'checked']);
 
+/* -------------------------------------------------------------- comparator */
+
+const CSS_SCRATCH = document.createElement('div');
+
+/**
+ * Round-trip a style value through a real declaration block.
+ *
+ * VDX assigns `el.style.cssText = value` verbatim; the trailing ';' and the
+ * property re-casing that come back are the BROWSER's normalisation, not ours.
+ * Canonicalising both sides through the same block compares the CSS rather than
+ * its punctuation, and a genuinely different declaration still differs.
+ */
+function canonicalCss(v) {
+    if (v === null || v === undefined) return v;
+    CSS_SCRATCH.style.cssText = '';
+    CSS_SCRATCH.style.cssText = String(v);
+    return CSS_SCRATCH.style.cssText;
+}
+
+function same(a, b) {
+    if (a === null || a === undefined) return b === null || b === undefined;
+    return Object.is(a, b) || String(a) === String(b);
+}
+
+/** same(), plus the per-attribute normalisation the DOM applies on its own. */
+function sameFor(attr, a, b) {
+    if (attr === 'style') return same(canonicalCss(a), canonicalCss(b));
+    return same(a, b);
+}
+
 /* ---------------------------------------------------------------- rendering */
 
 let CURRENT = null;
@@ -217,10 +301,13 @@ class AmCell extends Component {
 }
 defineComponent('am-cell', AmCell);
 
-// Every attribute the matrix tries must be a declared prop, or it never
-// reaches props and every component cell reports undefined.
-const PROBE_PROPS = ['disabled', 'hidden', 'spellcheck', 'draggable', 'translate',
-                     'id', 'class', 'style', 'aria-hidden', 'data-x', 'value'];
+// Only the names the rule actually checks a PROP channel for, which is exactly
+// the names that are not host-applied. Declaring a host-applied one installs a
+// prototype accessor that shadows the DOM's own - so the probe read `hidden`
+// back as a free string and reported two disagreements about its own probe.
+// Declaring `hidden`/`class`/`style` as props is a bad idea in real components
+// too, and nothing currently warns about it.
+const PROBE_PROPS = ['disabled', 'id', 'value'];
 
 class AmProbe extends Component {
     static props = PROBE_PROPS.reduce((acc, n) => { acc[n] = null; return acc; }, {});
@@ -259,4 +346,4 @@ function parserOracle(markup, sel, attr) {
     };
 }
 
-export { classify, ruleFor, renderCell, cellTemplate, parserOracle, readIdl, idlName };
+export { classify, ruleFor, renderCell, cellTemplate, parserOracle, readIdl, idlName, same, sameFor };
