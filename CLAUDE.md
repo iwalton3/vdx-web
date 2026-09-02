@@ -42,6 +42,10 @@ node tools/scripts/test-template-lint.mjs   # its own fixture suite
 # computed() flag machine - every cell, in node, no server (~0.1s)
 node tests/node/computed-cells.mjs
 
+# dist/ parses and is fresh - in node, no server. run-framework-tests.js runs
+# this first; the suite itself also renders through the real bundle
+node tests/node/dist-check.mjs
+
 # Attribute contract matrix - the cross product, in a browser
 cd tests/e2e && node run-attr-matrix.js
 ```
@@ -57,6 +61,10 @@ node tools/bundler-esm.js
 ```
 
 The no-arg mode rebuilds the standard set of `dist/*` bundles (and source maps).
+The bundler concatenates modules, so a top-level name must be unique across
+`lib/core/` - two `const X` in different files is a SyntaxError in `dist/` that
+the suites (which run `lib/`) never see. The bundler refuses to write a bundle
+that does not parse, and `node tests/node/dist-check.mjs` fails on a stale one.
 
 ## Required Reading (VERY IMPORTANT)
 

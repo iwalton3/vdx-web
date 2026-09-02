@@ -11,12 +11,25 @@
  */
 
 const puppeteer = require('puppeteer');
+const { spawnSync } = require('child_process');
+const path = require('path');
 
 const TEST_URL = process.env.TEST_URL || 'http://localhost:9000/tests/framework/';
 const VIEWPORT = { width: 1400, height: 900 };
 const TIMEOUT_MS = 90000;
 
 async function runFrameworkTests() {
+    // dist/ first: the suite below runs lib/, and dist/ is what ships. A
+    // bundle that does not parse, or lags lib/, fails here before a single
+    // browser test runs - and tests/framework/dist-bundle.test.js then
+    // renders through the real bundle.
+    const distCheck = spawnSync(process.execPath,
+        [path.join(__dirname, '..', 'node', 'dist-check.mjs')], { stdio: 'inherit' });
+    if (distCheck.status !== 0) {
+        console.error('\n💥 dist/ check failed - see above\n');
+        return 1;
+    }
+
     console.log('🧪 Running Framework Unit Tests...\n');
 
     const browser = await puppeteer.launch({

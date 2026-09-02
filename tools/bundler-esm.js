@@ -21,6 +21,28 @@
  */
 
 import fs from 'fs';
+import { execFileSync } from 'child_process';
+
+/**
+ * A bundle that does not parse must never reach dist/. Concatenating modules
+ * turns two top-level `const X` in different files into a SyntaxError that no
+ * suite in this repo sees - they run lib/ - and that every downstream page
+ * hits at load. Refuse loudly, with a non-zero exit. `node --check` on an
+ * .mjs path is the parser that reads a bundle as the module it is.
+ */
+function assertParses(content, file) {
+    const probe = file + '.check.mjs';
+    fs.writeFileSync(probe, content);
+    try {
+        execFileSync(process.execPath, ['--check', probe], { stdio: 'pipe' });
+    } catch (e) {
+        const why = String(e.stderr || e.message).trim().split('\n').filter(l => /Error/.test(l)).join(' ');
+        console.error(`\n✗ refusing to write ${file}: it does not parse\n  ${why}`);
+        process.exit(1);
+    } finally {
+        fs.unlinkSync(probe);
+    }
+}
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -2267,6 +2289,7 @@ function bundleSingleFile(options) {
     }
 
     // Write output
+    assertParses(bundleContent, outputFile);
     fs.writeFileSync(outputFile, bundleContent);
 
     // Write source map if generated
@@ -2373,6 +2396,7 @@ function processSimpleFile(srcPath, destPath, version) {
     }
 
     // Write minified file
+    assertParses(minContent, destPath);
     fs.writeFileSync(destPath, minContent);
 
     // Write source map
@@ -2445,6 +2469,7 @@ function bundleAll(verbose) {
 
     // Write minified bundle and source map
     const frameworkPath = path.join(distDir, 'framework.js');
+    assertParses(frameworkContent, frameworkPath);
     fs.writeFileSync(frameworkPath, frameworkContent);
     fs.writeFileSync(frameworkPath + '.map', JSON.stringify(frameworkMap));
     console.log(`  ✓ framework.js (${(frameworkContent.length / 1024).toFixed(2)} KB) + .map`);
