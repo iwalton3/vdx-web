@@ -1,1 +1,17 @@
-[]
+[
+ "component|children|${''} -> 'UPDATED'|relation:children|child-text=\"\"|child-text=\"UPDATED\"",
+ "component|children|${''} -> 'UPDATED'|relation:children|click-reached-handler=0|click-reached-handler=1",
+ "component|children|${''}|relation:children|click-reached-handler=0|click-reached-handler=1",
+ "component|children|${'text'} -> 'UPDATED'|relation:children|child-text=\"text\"|child-text=\"UPDATED\"",
+ "component|children|${'text'} -> 'UPDATED'|relation:children|click-reached-handler=0|click-reached-handler=1",
+ "component|children|${'text'}|relation:children|click-reached-handler=0|click-reached-handler=1",
+ "component|children|${0} -> 'UPDATED'|relation:children|child-text=\"0\"|child-text=\"UPDATED\"",
+ "component|children|${0} -> 'UPDATED'|relation:children|click-reached-handler=0|click-reached-handler=1",
+ "component|children|${0}|relation:children|click-reached-handler=0|click-reached-handler=1",
+ "component|children|${false} -> 'UPDATED'|relation:children|child-text=\"\"|child-text=\"UPDATED\"",
+ "component|children|${false} -> 'UPDATED'|relation:children|click-reached-handler=0|click-reached-handler=1",
+ "component|children|${false}|relation:children|click-reached-handler=0|click-reached-handler=1",
+ "component|children|${null} -> 'UPDATED'|relation:children|child-text=\"\"|child-text=\"UPDATED\"",
+ "component|children|${null} -> 'UPDATED'|relation:children|click-reached-handler=0|click-reached-handler=1",
+ "component|children|${null}|relation:children|click-reached-handler=0|click-reached-handler=1"
+]

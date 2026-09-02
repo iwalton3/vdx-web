@@ -8,6 +8,7 @@
  */
 
 import { classify, ruleFor, renderCell, cellTemplate, updateCell, parserOracle, readIdl, same, sameFor, probeFn } from './matrix.js';
+import { runRelations } from './relations.js';
 // The SAME resolution the renderer uses - reimplementing it here would let the
 // instrument agree with a bug in lib/ by making the identical mistake.
 import { kebabToCamel } from '/lib/core/constants.js';
@@ -237,7 +238,8 @@ export function runMatrix() {
     for (const k of OTHER_KINDS) {
         for (const attr of OTHER_ATTRS) {
             const spec = ATTR_SPEC.find(s => s.attr === attr);
-            jobs.push({ kindId: k.id, tag: k.tag, wrap: k.wrap, ns: k.ns, attr, class: spec ? spec.class : '?' });
+            jobs.push({ kindId: k.id, tag: k.tag, wrap: k.wrap, ns: k.ns, attr, class: spec ? spec.class : '?',
+                        registered: k.id === 'component' || k.id === 'component-bare' });
         }
     }
 
@@ -366,5 +368,11 @@ export function runMatrix() {
             `update pass is inert: ${transitions} updates, none changed the DOM`);
     }
 
-    return { cells, noOpinion, rows, classifications, transitions, moved };
+    // The relations need no ruleFor opinion; their rows join the same list so
+    // the baseline diff and the exit code treat them as cells.
+    const rel = runRelations(jobs, OTHER_ATTRS,
+        job => job.attr === 'style' ? STYLE_INTERP : INTERP);
+    rows.push(...rel.rows);
+
+    return { cells, noOpinion, rows, classifications, transitions, moved, relations: rel.counts };
 }

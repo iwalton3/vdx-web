@@ -31,10 +31,49 @@ enumerated ones, then on/off words are probed as PAIRS (probing them
 independently is ambiguous, because an invalid value falls back to the
 attribute's default). That is what finds `translate` spelling off as `"no"`.
 
+## The relations
+
+`relations.js` adds a third source of truth that needs no rule at all. A
+metamorphic relation says two ways of reaching one state must land in one
+state, and reads both sides through the same snapshot - so it cannot encode
+an opinion the way `ruleFor` can, and every mistake in this arc was made in
+an opinion:
+
+| relation | what is compared | walked over |
+|---|---|---|
+| `update` | update-to-X against a fresh render of X | every (prior, next) value pair, every job |
+| `ingress` | `el.p = x` against `el.setProps({ p: x })`, `propsChanged` included | every pair, registered kinds |
+| `timing` | render-then-register against register-then-render, plus two updates | every value, declared and undeclared |
+| `children` | the same, for light-DOM children: present, text, handler, binding | a handful of text values |
+
+Rows carry `oracle: relation:<name>` and join the same baseline diff. The one
+stated exception is in `relTiming`: `${undefined}` compares on the prop channel
+only, because the mirror is documented to differ there (the eager path mirrors
+the resolved default, an omitted or lazy value takes it unmirrored).
+
+The relations found two things the cells could not: a `style` withdrawn on
+update leaving `style=""` behind (Blink re-serialises lazily, and the matrix's
+own before-read was masking it), and the attribute mirror written by four
+sites with two rules, so a lazily registered component kept the text mirror
+the renderer wrote before upgrade. Both fixed; both fail-first through the
+relation itself.
+
 ## The baseline
 
-`expected-disagreements.json` is **empty, and is meant to stay empty**. A
-nonzero row is a finding to rule on, not a table entry to add.
+`expected-disagreements.json` is **meant to be empty**. A nonzero row is a
+finding to rule on, not a table entry to add. A ratified divergence belongs in
+`ruleFor` (or the relation) as a clause with a reason; only a finding that is
+scheduled, not shrugged at, may wait here - and it must say where it is going.
+
+**15 rows, `relation:children`, waiting on the registry-answerer collapse
+(ATTR-CONTRACT-CYCLE-4.md, "what to do next").** A component registered after
+its call site rendered captures its light DOM through an `innerHTML` round
+trip (`connectedCallback`), which drops every `on-*` listener and every
+binding the parent put on those children. Registered first, the same children
+arrive as deferred descriptors and keep both. The prop half of the timing
+promise in `docs/templates.md` holds; the children half does not yet. When the
+capture adopts the live nodes, these rows show as RESOLVED and the file goes
+back to empty.
 
 It held 37 rows until the restructure. They were four different things wearing
 one label, and a genuine regression - a lazily-registered component losing every
@@ -70,7 +109,8 @@ produce were the classifier's blind spot, not its blast radius.
 
 ## What this does NOT cover
 
-The `computed()` flag machine and the Node/`DocumentFragment` insertion sites -
-the other two areas the handoff names. The method transfers (derive the
-classification, enumerate, diff) but the harness does not: it is DOM-shaped, and
-`computed()` is a state machine that wants a six-cell test in node.
+The `computed()` flag machine (`tests/node/computed-cells.mjs` has it) and the
+slot value dispatchers. The slot relation `contain(() => v) == v` lives in the
+framework suite instead (`tests/framework/slot-relations.test.js`), because it
+is about what a slot renders rather than what an attribute holds; it carries
+its own known-divergent list for the same reason this file carries a baseline.

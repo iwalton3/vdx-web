@@ -447,9 +447,12 @@ let PENDING;
 class AmCell extends Component {
     // Read from module scope rather than set after construction: a class
     // component's constructor runs on first connect, so there is no instance
-    // to assign to between createElement and appendChild.
+    // to assign to between createElement and appendChild. The factory is
+    // pinned per host for the same reason a value is: with two hosts alive at
+    // once (the relations), a re-render must not pick up the other's template.
     state = { v: PENDING };
-    template() { return CURRENT(this.state.v); }
+    tpl = CURRENT;
+    template() { return this.tpl(this.state.v); }
 }
 defineComponent('am-cell', AmCell);
 

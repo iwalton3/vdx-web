@@ -40,7 +40,10 @@ const URL = process.env.MATRIX_URL || 'http://localhost:9000/tests/attr-matrix/'
     console.log(`\n${r.cells} cells walked, ${r.rows.length} disagreements, ` +
                 `${r.noOpinion} with no oracle`);
     // Evidence the update pass is live rather than quietly inert.
-    console.log(`${r.transitions} updates, ${r.moved} of them moved the DOM\n`);
+    console.log(`${r.transitions} updates, ${r.moved} of them moved the DOM`);
+    const rc = r.relations;
+    console.log(`relations: ${rc.update} update, ${rc.ingress} ingress, ` +
+                `${rc.timing} timing, ${rc.children} children\n`);
 
     // The count is the instrument's own stopping condition, so it has to be
     // able to fail the run - printing it and discarding it let a sink that was
@@ -101,9 +104,11 @@ const URL = process.env.MATRIX_URL || 'http://localhost:9000/tests/attr-matrix/'
     for (const [kind, rows] of Object.entries(byKind)) {
         console.log(`=== ${kind} (${rows.length}) ===`);
         for (const row of rows) {
-            const tag = row.oracle === 'parser' ? '[parser]' : '[rule]  ';
-            console.log(`  ${tag} ${row.attr.padEnd(16)} ${row.source.padEnd(12)} got ${row.got}`);
-            console.log(`           ${''.padEnd(16)} ${''.padEnd(12)} want ${row.want}`);
+            const tag = row.oracle === 'parser' ? '[parser]  '
+                      : row.oracle.startsWith('relation:') ? `[${row.oracle.slice(9).padEnd(8)}]`
+                      : '[rule]    ';
+            console.log(`  ${tag} ${row.attr.padEnd(16)} ${row.source.padEnd(24)} got ${row.got}`);
+            console.log(`             ${''.padEnd(16)} ${''.padEnd(24)} want ${row.want}`);
         }
         console.log('');
     }

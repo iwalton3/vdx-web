@@ -44,14 +44,19 @@ const EXPLAINED = {
         'no element carries an own property for a prop name, by design - setting one ' +
         'shadows the prototype accessor forever (ATTR-CONTRACT-HANDOFF.md, "Do not")',
     "} catch {":
-        'a native DOM setter that throws; no attribute in the matrix has one'
+        'a native DOM setter that throws; no attribute in the matrix has one',
+    "return isBooleanAttr(name, notHtmlElement) ? true : value;":
+        'a literal boolean attribute inside a dynamic subtree - the matrix has none; ' +
+        'pinned by tests/framework/boolean-attrs.test.js'
 };
 
 /**
  * A tiny function can report zero calls after TurboFan inlines it, because
  * precise coverage counts the interpreter's entries and inlined code never
  * makes one. Reporting that as dead is how a confident wrong signal gets into
- * a report, so name the ones whose behaviour a real test already pins.
+ * a report, so name the ones whose behaviour a real test already pins. Once
+ * something does call it (the relations do), its blocks are judged like any
+ * other sink's, against EXPLAINED.
  */
 const UNMEASURABLE = {
     literalAttrValue:
