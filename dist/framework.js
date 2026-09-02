@@ -298,7 +298,9 @@ return false;}
 function propNameFor(name){return name.includes('-')?kebabToCamel(name):name;}
 function isNonRenderable(value){return typeof value==='object'||typeof value==='function'||typeof value==='symbol';}
 function applyAttributeDirect(el,name,value,isCustomTag){const notHtmlElement=isCustomTag||el.namespaceURI===RENDERER_SVG_NS;const lname=typeof name==='string'?name.toLowerCase():name;if (isRefusedAttr(lname,isCustomTag)){if (typeof console!=='undefined') console.warn(refusedAttrMessage(name));return;}
-value=sanitizeUrlAttr(el,lname,value);const host=hostAppliedRule(el,name,lname);if (host){host(el,name,value);return;}if (isCustomTag){applyComponentAttr(el,name,value);}else{applyNativeAttr(el,name,value,notHtmlElement);}}
+value=sanitizeUrlAttr(el,lname,value);const host=hostAppliedRule(el,name,lname);if (host){if (isCustomTag&&isOwnElementProp(el,propNameFor(name))){el[propNameFor(name)]=value;el._suppressAttributeChange=true;try{host(el,name,value);}finally{el._suppressAttributeChange=false;}
+return;}
+host(el,name,value);return;}if (isCustomTag){applyComponentAttr(el,name,value);}else{applyNativeAttr(el,name,value,notHtmlElement);}}
 function sanitizeUrlAttr(el,lname,value){if (typeof lname!=='string'||value==null||typeof value==='boolean') return value;const urlTags=URL_ATTR_TAGS[lname];const isSvgLink=lname==='xlink:href'&&el.namespaceURI===RENDERER_SVG_NS;if ((urlTags&&urlTags.has(el.tagName))||isSvgLink){return sanitizeUrl(String(value))||'';}
 return value;}
 const nullish=(value)=>value==null||value===false;function applyAriaAttr(el,name,value){if (value==null){el.removeAttribute(name);}else{el.setAttribute(name,String(value));}}
@@ -308,7 +310,7 @@ function applyStyleAttr(el,name,value){if (nullish(value)){el.getAttribute('styl
 if (typeof value==='object'){const previous=stylesByElement.get(el);if (previous===STRING_STYLE){el.style.cssText='';}else if (previous){for (const key of previous){if (!(key in value)) el.style[key]='';}}
 stylesByElement.set(el,Object.keys(value));Object.assign(el.style,value);}else if (DANGEROUS_CSS.test(String(value))){el.style.cssText='';stylesByElement.set(el,STRING_STYLE);if (typeof console!=='undefined'){console.warn('[VDX Security] Refused a style value containing a dangerous CSS '+'construct (expression()/javascript:/@import/behavior). Use object-form styles.');}}else{el.style.cssText=value;stylesByElement.set(el,STRING_STYLE);}}
 function applyDataAttr(el,name,value){if (nullish(value)||isNonRenderable(value)){el.removeAttribute(name);}else{el.setAttribute(name,value===true?'':String(value));}}
-function applyGlobalBooleanAttr(el,name,value){const on=!!value;if (name in el) el[name]=on;if (on){el.setAttribute(name,'');}else{el.removeAttribute(name);}}
+function applyGlobalBooleanAttr(el,name,value){const on=!!value;if (name in el&&!isOwnElementProp(el,name)) el[name]=on;if (on){el.setAttribute(name,'');}else{el.removeAttribute(name);}}
 function hostAppliedRule(el,name,lname){if (name.startsWith('aria-')) return applyAriaAttr;if (ENUMERATED_ATTRS[lname]&&el.namespaceURI!==RENDERER_SVG_NS) return applyEnumeratedAttr;if (name==='class'||name==='className') return applyClassAttr;if (name==='style') return applyStyleAttr;if (GLOBAL_BOOLEAN_ATTRS.has(name)&&BOOLEAN_ATTRS.has(name)) return applyGlobalBooleanAttr;if (name.startsWith('data-')) return applyDataAttr;return null;}
 function applyComponentAttr(el,name,value){const propName=propNameFor(name);if (nullish(value)){el.removeAttribute(name);if (isOwnElementProp(el,propName)){el[propName]=value;}else{recordPendingProp(el,propName,value);}
 return;}

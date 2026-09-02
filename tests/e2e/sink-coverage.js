@@ -51,6 +51,11 @@ const EXPLAINED = {
     "if (Object.prototype.hasOwnProperty.call(el, name)) return true;":
         'no element carries an own property for a prop name, by design - setting one ' +
         'shadows the prototype accessor forever (ATTR-CONTRACT-HANDOFF.md, "Do not")',
+    "if (isCustomTag && isOwnElementProp(el, propNameFor(name))) {":
+        'a class declaring a host-applied name - the matrix declares none on purpose (a prop ' +
+        'accessor shadows the DOM one); component-attr-contract.test.js "reaches the host AND the prop"',
+    "if (name in el && !isOwnElementProp(el, name)) el[name] = on;":
+        'same case - component-attr-contract.test.js "reaches the host AND the prop"',
     "} catch {":
         'a native DOM setter that throws; no attribute in the matrix has one',
     "return isBooleanAttr(name, notHtmlElement) ? true : value;":
