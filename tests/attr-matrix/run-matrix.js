@@ -7,7 +7,7 @@
  * findings that matter.
  */
 
-import { classify, ruleFor, renderCell, cellTemplate, parserOracle, readIdl, sameFor } from './matrix.js';
+import { classify, ruleFor, renderCell, cellTemplate, updateCell, parserOracle, readIdl, same, sameFor, probeFn } from './matrix.js';
 
 /* -------------------------------------------------------------------- axes */
 
@@ -64,7 +64,12 @@ const INTERP = [
     { label: "${'no'}",      value: 'no' },
     { label: "${'xyz'}",     value: 'xyz' },
     { label: '${0}',         value: 0 },
-    { label: '${1}',         value: 1 }
+    { label: '${1}',         value: 1 },
+    // Non-string, non-primitive. The implementation branches on value TYPE -
+    // object-form style, and the lossless-prop rule for components - and the
+    // taxonomy of HTML attributes has no way to reach that axis.
+    { label: '${object}',    value: { a: 1 } },
+    { label: '${function}',  value: probeFn }
 ];
 
 const LITERAL = [null, '', 'true', 'false', 'no', 'xyz'];
@@ -79,7 +84,13 @@ const STYLE_INTERP = [
     { label: '${undefined}',       value: undefined },
     { label: "${''}",              value: '' },
     { label: "${'color: red'}",    value: 'color: red' },
-    { label: "${'margin: 0px'}",   value: 'margin: 0px' }
+    { label: "${'margin: 0px'}",   value: 'margin: 0px' },
+    { label: '${{color:red}}',     value: { color: 'red' } },
+    // Two objects in a row, deliberately, and with DISJOINT keys. Only an
+    // object following another object reaches the branch that clears the keys
+    // the previous one set - and dropping `color` here is the failure that
+    // branch exists to prevent.
+    { label: '${{margin:0px}}',    value: { margin: '0px' } }
 ];
 const STYLE_LITERAL = [null, '', 'color: red'];
 
@@ -111,10 +122,14 @@ function observable(el, attr, cls) {
 function channelRead(el, attr, channel) {
     if (!el) return { via: 'missing', value: undefined };
     if (channel === 'prop') {
-        let p = el.props ? el.props[attr] : undefined;
-        if (typeof p === 'object' && p !== null) p = '<object>';
-        if (typeof p === 'function') p = '<function>';
-        return { via: 'prop', value: p };
+        // Raw, not tokenised: the contract is that the ${} value arrives
+        // intact, and same() compares objects by identity to check exactly
+        // that. Tokenising here made every object equal to every other one.
+        return { via: 'prop', value: el.props ? el.props[attr] : undefined };
+    }
+    if (channel === 'prop-call') {
+        const f = el.props ? el.props[attr] : undefined;
+        return { via: 'prop-call', value: typeof f === 'function' ? f() : '<not-callable>' };
     }
     if (channel === 'presence') {
         return { via: 'presence', value: el.hasAttribute(attr) };
@@ -132,12 +147,56 @@ function channelRead(el, attr, channel) {
     return { via: 'attr', value: el.getAttribute(attr) };
 }
 
+/**
+ * Compare one cell in its current state against the rule, recording any
+ * disagreement. Shared by the initial-render and update passes: they differ
+ * only in how the element reached this state, and that is precisely the part
+ * that must not be written twice.
+ *
+ * Returns true when the rule had an opinion.
+ */
+function judge(ctx, label, threw, rows) {
+    const { job, kind, c, host, el, oracle } = ctx;
+    // The value the template interpolated, not the literal from the table. It
+    // arrives through reactive state, which hands back a PROXY for an object -
+    // so the raw one is a different reference by design (see "Reactive
+    // Proxies" in CLAUDE.md) and comparing against it would report the
+    // framework's documented behaviour as a defect.
+    const applied = { label, value: host ? host.state.v : undefined };
+    const checks = ruleFor(kind.id === 'component' ? 'component' : 'native',
+                           job.attr, c, applied, kind.ns);
+    if (!checks) return false;
+
+    for (const chk of checks) {
+        // Read the SAME channel the rule speaks about. Comparing an expected
+        // attribute against a measured IDL property (or the reverse)
+        // manufactures disagreements that are not there.
+        const measured = (threw || !el)
+            ? { via: 'threw', value: threw }
+            : channelRead(el, job.attr, chk.channel);
+        if (threw || !sameFor(job.attr, measured.value, chk.value)) {
+            rows.push({
+                kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,
+                domKind: c.kind, source: label, oracle,
+                got: `${measured.via}=${show(measured.value)}`,
+                want: `${chk.channel}=${show(chk.value)}`
+            });
+        }
+    }
+    return true;
+}
+
 function findEl(host, kind) {
     const sel = kind.wrap ? `${kind.wrap} ${kind.tag}` : kind.tag;
     return host.querySelector(sel);
 }
 
-function show(v) { return JSON.stringify(v === undefined ? '<undefined>' : v); }
+function show(v) {
+    if (v === undefined) return '"<undefined>"';
+    if (typeof v === 'function') return '"<function>"';
+    if (typeof v === 'object' && v !== null) return '"<object>"';
+    return JSON.stringify(v);
+}
 
 /* -------------------------------------------------------------------- run */
 
@@ -145,6 +204,8 @@ export function runMatrix() {
     const rows = [];
     const classifications = [];
     let cells = 0, noOpinion = 0;
+    // Guards against an update pass that silently stopped updating anything.
+    let transitions = 0, moved = 0;
 
     const jobs = [];
     for (const spec of ATTR_SPEC) {
@@ -174,40 +235,62 @@ export function runMatrix() {
             domKind: c.kind, offValue: c.offValue, defaultIdl: c.defaultIdl
         });
 
-        /* ---- interpolated: the rule ------------------------------------ */
-        for (const v of (job.attr === 'style' ? STYLE_INTERP : INTERP)) {
+        const open = (kind.wrap ? `<${kind.wrap}>` : '') + `<${kind.tag} ${job.attr}="`;
+        const close = `"></${kind.tag}>` + (kind.wrap ? `</${kind.wrap}>` : '');
+        const seq = job.attr === 'style' ? STYLE_INTERP : INTERP;
+
+        /* ---- interpolated: the rule, on an initial render --------------- */
+        for (const v of seq) {
             cells++;
-            const open = (kind.wrap ? `<${kind.wrap}>` : '') + `<${kind.tag} ${job.attr}="`;
-            const close = `"></${kind.tag}>` + (kind.wrap ? `</${kind.wrap}>` : '');
-
-            let got, threw = null, lastEl = null, host = null;
+            let threw = null, el = null, host = null;
             try {
-                host = renderCell(cellTemplate(open, close, v.value, true));
-                lastEl = findEl(host, kind);
-                got = lastEl ? observable(lastEl, job.attr, c) : { via: 'missing', value: undefined };
-            } catch (e) { threw = e.message; got = { via: 'threw', value: e.message }; }
+                host = renderCell(cellTemplate(open, close, true), v.value);
+                el = findEl(host, kind);
+            } catch (e) { threw = e.message; }
 
-            const checks = ruleFor(kind.id === 'component' ? 'component' : 'native', job.attr, c, v, kind.ns);
-            if (!checks) { noOpinion++; if (host) host.remove(); continue; }
-
-            for (const chk of checks) {
-                // Read the SAME channel the rule speaks about. Comparing an
-                // expected attribute against a measured IDL property (or the
-                // reverse) manufactures disagreements that are not there.
-                const measured = (threw || !lastEl)
-                    ? got
-                    : channelRead(lastEl, job.attr, chk.channel);
-                if (threw || !sameFor(job.attr, measured.value, chk.value)) {
-                    rows.push({
-                        kind: job.kindId, tag: job.tag, attr: job.attr, class: job.class,
-                        domKind: c.kind, source: v.label, oracle: 'rule',
-                        got: `${measured.via}=${show(measured.value)}`,
-                        want: `${chk.channel}=${show(chk.value)}`
-                    });
-                }
+            if (!judge({ job, kind, c, host, el, oracle: 'rule' }, v.label, threw, rows)) {
+                noOpinion++;
             }
             if (host) host.remove();
         }
+
+        /* ---- transition: the same rule, reached by UPDATE --------------- */
+        // applyAttributeDirect runs on the first render; every later change
+        // goes through applyAttribute and a deferred commit. Walking the value
+        // list on ONE element measures every value again with a real prior
+        // value behind it - the only way to reach the branches that compare
+        // against what is already there (a form control's applied value, the
+        // keys the previous style object set).
+        let thost = null, tel = null;
+        try {
+            thost = renderCell(cellTemplate(open, close, true), seq[0].value);
+            tel = findEl(thost, kind);
+        } catch { /* the initial pass above already recorded this */ }
+
+        if (tel) {
+            // Nullish last as well as wherever it falls in seq. seq happens to
+            // contain ${null} at index 2 today, but the "value applied, then
+            // withdrawn" transition is the whole point of this pass and must
+            // not depend on the order of a table someone may reorder.
+            const steps = seq.slice(1).concat([
+                { label: '${null}', value: null },
+                { label: '${undefined}', value: undefined }
+            ]);
+            for (const v of steps) {
+                cells++;
+                transitions++;
+                const before = observable(tel, job.attr, c).value;
+                let threw = null;
+                try { updateCell(thost, v.value); } catch (e) { threw = e.message; }
+                if (!same(before, observable(tel, job.attr, c).value)) moved++;
+
+                if (!judge({ job, kind, c, host: thost, el: tel, oracle: 'update' },
+                           `-> ${v.label}`, threw, rows)) {
+                    noOpinion++;
+                }
+            }
+        }
+        if (thost) thost.remove();
 
         /* ---- literal: the HTML parser is the oracle --------------------- */
         if (kind.id === 'component' || kind.id === 'unregistered') continue;
@@ -220,7 +303,7 @@ export function runMatrix() {
 
             let got;
             try {
-                const host = renderCell(cellTemplate(markup, '', null, false));
+                const host = renderCell(cellTemplate(markup, '', false), null);
                 const el = findEl(host, kind);
                 got = el ? observable(el, job.attr, c) : { via: 'missing', value: undefined };
                 host.remove();
@@ -248,5 +331,15 @@ export function runMatrix() {
         }
     }
 
-    return { cells, noOpinion, rows, classifications };
+    // A cell that cannot change state cannot test a transition. The first draft
+    // of this pass silently updated nothing, which would have looked like a
+    // clean run forever - the same shape as the registration-timing test that
+    // recompiled after the fact (ATTR-CONTRACT-HANDOFF.md, "a test that could
+    // not fail").
+    if (transitions > 0 && moved === 0) {
+        throw new Error(
+            `update pass is inert: ${transitions} updates, none changed the DOM`);
+    }
+
+    return { cells, noOpinion, rows, classifications, transitions, moved };
 }

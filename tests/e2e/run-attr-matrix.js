@@ -38,7 +38,9 @@ const URL = process.env.MATRIX_URL || 'http://localhost:9000/tests/attr-matrix/'
     }
 
     console.log(`\n${r.cells} cells walked, ${r.rows.length} disagreements, ` +
-                `${r.noOpinion} with no oracle\n`);
+                `${r.noOpinion} with no oracle`);
+    // Evidence the update pass is live rather than quietly inert.
+    console.log(`${r.transitions} updates, ${r.moved} of them moved the DOM\n`);
 
     coverage.print(coverage.report(covEntries), console.log);
 

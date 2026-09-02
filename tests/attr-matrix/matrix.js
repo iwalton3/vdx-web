@@ -21,7 +21,7 @@
  * shows up as a classification diff instead of silence.
  */
 
-import { defineComponent, html, Component } from '/lib/framework.js';
+import { defineComponent, html, Component, flushSync } from '/lib/framework.js';
 
 /* ---------------------------------------------------------------- IDL names */
 
@@ -139,6 +139,9 @@ function classify(tag, attr, ns) {
     return { kind: 'plain', hasIdl: true, offValue: null, onValue: null, defaultIdl };
 }
 
+// Shared by ruleFor (object-form style) and the comparator below.
+const CSS_SCRATCH = document.createElement('div');
+
 /* ------------------------------------------------------------------ the rule */
 
 /**
@@ -226,7 +229,17 @@ function ruleFor(kind, attr, cls, v, ns) {
             const checks = [{ channel: 'attr', value: typeof val === 'string' ? val : null }];
             // An unregistered tag has no component behind it yet, so there is
             // no prop to check - only the attribute it will read on upgrade.
-            if (kind === 'component') checks.unshift({ channel: 'prop', value: val });
+            if (kind === 'component') {
+                // A function prop is WRAPPED, deliberately: the child gets one
+                // stable handler identity across renders while the wrapper
+                // dispatches to whatever the slot currently holds
+                // (component.js:1077-1110). Identity is therefore the wrong
+                // question; whether a call reaches the real function is the
+                // right one.
+                checks.unshift(typeof val === 'function'
+                    ? { channel: 'prop-call', value: FN_SENTINEL }
+                    : { channel: 'prop', value: val });
+            }
             return checks;
         }
     }
@@ -246,8 +259,28 @@ function ruleFor(kind, attr, cls, v, ns) {
         return word === null ? null : [{ channel: 'attr', value: word }];
     }
 
+    // Object-form style is the documented way to set styles, and the failure
+    // mode is real - an object that misses this branch reaches the DOM as
+    // "[object Object]". The expected text is built by the DOM from the same
+    // object, so this asserts the declarations ARRIVED; it cannot check our
+    // spelling of cssText, and is not meant to.
+    if (attr === 'style' && val !== null && typeof val === 'object') {
+        CSS_SCRATCH.style.cssText = '';
+        Object.assign(CSS_SCRATCH.style, val);
+        return [{ channel: 'attr', value: CSS_SCRATCH.style.cssText }];
+    }
+
     // plain
-    if (val === null || val === undefined) return [{ channel: 'attr', value: null }];
+    if (val === null || val === undefined) {
+        // A form control's live value does not track its value attribute, so
+        // removing the attribute is not enough: the old text stays on screen
+        // and reachable through el.value. Nullish means empty for HTML, and
+        // the property is the observable here for the same reason it is for a
+        // string below - checking only the attribute passes whatever is left
+        // in the field.
+        if (FORM_LIVE.has(attr) && cls.hasIdl) return [{ channel: 'idl', value: '' }];
+        return [{ channel: 'attr', value: null }];
+    }
     if (typeof val === 'string' || typeof val === 'number') {
         // Compare the attribute VDX wrote, not the DOM's normalisation of it -
         // autocapitalize="xyz" reflecting as "sentences" is the DOM rejecting an
@@ -262,9 +295,12 @@ function ruleFor(kind, attr, cls, v, ns) {
 
 const FORM_LIVE = new Set(['value', 'checked']);
 
-/* -------------------------------------------------------------- comparator */
+// What the matrix's ${function} value returns when called. The prop is a
+// wrapper, so the only way to ask "did the real function arrive" is to call it.
+const FN_SENTINEL = 'vdx-fn-probe';
+function probeFn() { return FN_SENTINEL; }
 
-const CSS_SCRATCH = document.createElement('div');
+/* -------------------------------------------------------------- comparator */
 
 /**
  * Round-trip a style value through a real declaration block.
@@ -283,6 +319,12 @@ function canonicalCss(v) {
 
 function same(a, b) {
     if (a === null || a === undefined) return b === null || b === undefined;
+    // Identity, not text, once either side is an object or a function. The
+    // component contract is that the ${} value arrives INTACT, and String()
+    // reports every object as '[object Object]' - which would pass whatever
+    // actually landed on the prop.
+    if (typeof a === 'object' || typeof a === 'function' ||
+        typeof b === 'object' || typeof b === 'function') return Object.is(a, b);
     return Object.is(a, b) || String(a) === String(b);
 }
 
@@ -295,9 +337,25 @@ function sameFor(attr, a, b) {
 /* ---------------------------------------------------------------- rendering */
 
 let CURRENT = null;
+let PENDING;
 
+/**
+ * The cell host. Its template re-reads `this.state.v` on every render, so
+ * writing to it re-renders with a new value in the same template - which is
+ * exactly what `<div attr="${this.state.x}">` does in an application, and the
+ * only way to reach the UPDATE path (`applyAttribute` and the deferred commit)
+ * rather than a fresh initial render.
+ *
+ * Hand-marking a VALUE_GETTER does not work: the component wraps raw values in
+ * getters of its own, and resolveDynamicProp unwraps exactly once - a
+ * pre-marked getter arrives at the sink as a function.
+ */
 class AmCell extends Component {
-    template() { return CURRENT(); }
+    // Read from module scope rather than set after construction: a class
+    // component's constructor runs on first connect, so there is no instance
+    // to assign to between createElement and appendChild.
+    state = { v: PENDING };
+    template() { return CURRENT(this.state.v); }
 }
 defineComponent('am-cell', AmCell);
 
@@ -315,21 +373,43 @@ class AmProbe extends Component {
 }
 defineComponent('am-probe', AmProbe);
 
-function renderCell(factory) {
+function renderCell(factory, value) {
     CURRENT = factory;
+    PENDING = value;
     const host = document.createElement('am-cell');
     document.body.appendChild(host);
     return host;
 }
 
-/** Build a compiled template for one cell, bypassing the tagged-literal form. */
-function cellTemplate(open, close, value, hasInterp) {
+/**
+ * Build a compiled template for one cell, bypassing the tagged-literal form.
+ *
+ * The returned factory takes the value from the host's state on each render,
+ * so a cell can be re-rendered with a different one. `reactive` is false for
+ * the literal half, which has no interpolation to move.
+ */
+function cellTemplate(open, close, hasInterp) {
     if (!hasInterp) {
         const strings = [open + close];
         return () => html(strings);
     }
     const strings = [open, close];
-    return () => html(strings, value);
+    return (v) => html(strings, v);
+}
+
+/**
+ * Push a new value through an already-rendered cell and settle the DOM.
+ *
+ * flushSync drains the effect queue and the deferred attribute commits. It does
+ * not synchronously mount a new conditional branch, which is irrelevant here -
+ * the element exists already and only its attribute is moving.
+ */
+function updateCell(host, value) {
+    // flushSync takes the mutation as a callback and drains the effect queue
+    // and the deferred attribute commits around it. It does not synchronously
+    // mount a new conditional branch, which is irrelevant here - the element
+    // exists already and only its attribute is moving.
+    flushSync(() => { host.state.v = value; });
 }
 
 /* ------------------------------------------------------------------ oracle */
@@ -346,4 +426,4 @@ function parserOracle(markup, sel, attr) {
     };
 }
 
-export { classify, ruleFor, renderCell, cellTemplate, parserOracle, readIdl, idlName, same, sameFor };
+export { classify, ruleFor, renderCell, cellTemplate, updateCell, parserOracle, readIdl, idlName, same, sameFor, probeFn, FN_SENTINEL };
