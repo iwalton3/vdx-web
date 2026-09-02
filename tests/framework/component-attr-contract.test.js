@@ -262,6 +262,35 @@ describe('Component Attribute Contract', function(it) {
         document.body.removeChild(el);
     });
 
+    it('a camelCase prop survives registration through its kebab attribute', () => {
+        // The side channel records under the name the TEMPLATE used, which is
+        // the kebab form. _parseAttributes iterates camelCase prop names, so it
+        // has to map back through propAttrNames - and a prop whose value is a
+        // number or an object has no other way home.
+        const cfg = { unit: 'litres' };
+        class CacKebabHost extends Component {
+            constructor(p) { super(p); this.state = { u: cfg, n: 42 }; }
+            template() {
+                return html`<cac-kebab from-unit="${this.state.u}"
+                                       max-rows="${this.state.n}"></cac-kebab>`;
+            }
+        }
+        defineComponent('cac-kebab-host', CacKebabHost);
+        const el = mount('cac-kebab-host');
+        const recv = el.querySelector('cac-kebab');
+
+        class CacKebab extends Component {
+            static props = { fromUnit: 'DEF', maxRows: 'DEF' };
+            template() { return html`<i></i>`; }
+        }
+        defineComponent('cac-kebab', CacKebab);   // upgrade
+
+        assert.equal(recv.props.fromUnit, el.state.u, 'the object reached the camelCase prop');
+        assert.equal(recv.props.maxRows, 42, 'and the number stayed a number');
+
+        document.body.removeChild(el);
+    });
+
     it('registration timing does not change what a prop is', () => {
         // The control for the test above, and the contract stated in
         // registration-timing.test.js: byte-identical markup either side of
