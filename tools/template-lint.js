@@ -1323,12 +1323,10 @@ export function lintTemplates(source, filePath, registry, options = {}) {
         };
 
         // ---- T10: inline DOM event attributes (onclick=, oninput=, ...) ----
-        // VDX routes every handler through on-*. The two forms fail differently:
-        // a DYNAMIC `onclick="${fn}"` is refused by the renderer's on[a-z] guard
-        // (console warning, handler never binds), but a STATIC `onclick="fn()"`
-        // is applied by the compile-time static-DOM path, which has no such
-        // guard - it reaches the DOM and runs, outside the framework and outside
-        // CSP, with nothing said. The static form is the one only lint catches.
+        // VDX routes every handler through on-*. Both forms are refused at
+        // render by isRefusedAttr (shared by the compiler's static path and the
+        // renderer); the lint is what reports it at the source line, before
+        // anything renders.
         const checkInlineEvents = (node) => {
             for (const attrName of Object.keys(node.attrs || {})) {
                 if (attrName === '__ref__' || attrName.includes('-')) continue;

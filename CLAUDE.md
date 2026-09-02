@@ -107,8 +107,9 @@ table with fixes in [docs/tutorial.md](docs/tutorial.md#banned-patterns);
 - `items.map(i => html\`...\`)` / inline ternary in a slot -> `each()` / `when()` (`t8-list-control`)
 - `contain()` / `memoEach()` / a plain value as a whole `each()` item -> wrap in `html\`<li>...</li>\`` (`t9-list-item`).
   `when()` as a whole item is fine.
-- `onclick="..."` -> `on-click="handler"` (`t10-inline-events`). The static form reaches the DOM
-  and runs, outside the framework and outside CSP, unguarded; the `${fn}` form is refused at render
+- `onclick="..."` -> `on-click="handler"` (`t10-inline-events`). Both the static and the `${fn}`
+  form are refused at render with a console warning (one rule, `isRefusedAttr`, in both sinks);
+  the lint is what tells you at the source line
 - Lit/Vue sigils `?attr @evt .prop :attr` -> plain attributes / `on-*` (`t7-binding`)
 - `JSON.stringify()` into a prop -> pass the object (`t11-attr-stringify`)
 - `this.method.bind(this)` -> `this.method`, already bound (`t12-manual-bind`)

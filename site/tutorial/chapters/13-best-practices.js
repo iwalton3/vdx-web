@@ -114,9 +114,9 @@ class BestPracticesChapter extends TutChapter {
                 <li>Don't write <code>this.method.bind(this)</code> — methods are already bound
                     onto the element, and the copy is a different function, so
                     <code>removeEventListener</code> and identity checks miss it.</li>
-                <li>A dynamic <code>onclick="\${fn}"</code> is refused at render; a static
-                    <code>onclick="fn()"</code> is not guarded at all and runs outside the
-                    framework and your CSP. Always <code>on-click="handler"</code>.</li>
+                <li>Both <code>onclick="\${fn}"</code> and a static <code>onclick="fn()"</code>
+                    are refused at render - an inline handler would run outside the framework
+                    and your CSP. Always <code>on-click="handler"</code>.</li>
                 <li>Write components as classes. Very old code may use a deprecated
                     options-object form of <code>defineComponent</code> — it still runs, but don't
                     write new code in it.</li>

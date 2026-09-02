@@ -42,7 +42,7 @@ installs. The comment at the read says so.
 
 | | |
 |---|---|
-| framework | 769/769 |
+| framework | 771/771 |
 | componentlib e2e | 18/18 |
 | matrix | 3138 cells, 0 rows, baseline **empty**, 0 unexplained blocks |
 | relations | all four, 0 rows |
@@ -50,30 +50,32 @@ installs. The comment at the read says so.
 | `dist/` | regenerated, idempotent |
 | mrepo-web / codemap | see the verification section at the end |
 
-## Two latent two-sink divergences, found and NOT fixed here
+## Two two-sink divergences, surfaced and fixed
 
 Both surfaced when the first compiler draft routed `svg-hyphen` through the
-renderer instead of the compiler's static path. They are pre-existing, reach
-only a literal attribute inside a *dynamic* subtree (a static one takes the
-compiler path), and the matrix has no such cell. They belong to the
-three-phase attribute table (step 6), whose refusal phase must be shared by
-both sinks:
+renderer instead of the compiler's static path. Both were pre-existing and
+reached only a literal attribute inside a *dynamic* subtree, where the matrix
+had no cell.
 
 - **Literal `on*` and `srcdoc`-class names.** The compiler's static path
-  writes literal source text through (the README ratifies this: literal
-  inline-handler text is caught by the `t10-inline-events` lint, not at
-  render). The renderer's `staticProps` loop feeds the same literal into
-  `applyAttributeDirect`, whose refusal guard does not know it is literal, so
-  `<svg><rect onclick="x">${dyn}</rect></svg>` drops the attribute while the
-  same markup without `${dyn}` keeps it.
-- **Global booleans on SVG elements.** For a literal `hidden` inside `<svg>`,
-  the compiler writes the attribute only; the renderer's boolean branch also
-  does `el.hidden = true`, which on an `SVGElement` is an expando, not IDL.
-  Harmless, but it is two answers.
-
-Decide the rule once - "literal text is HTML source, in both sinks" is the
-matrix's stated contract - and make the compiler's static sink and the
-renderer's literal path share the refusal table.
+  wrote literal source text through; the renderer refused it. Izzie's call:
+  refusing `on*` is a security feature for static text too, since a literal
+  inline handler runs outside the framework and outside CSP just the same.
+  Now one `isRefusedAttr()` in `constants.js`, used by both sinks. The matrix's
+  literal half asserts *absence* for `on*` names instead of asking the parser
+  (the one stated departure from "literal text is HTML source"); falsified by
+  disabling the compiler's guard. Every doc that said the static form was
+  unguarded says otherwise now (CLAUDE.md, FRAMEWORK.md, optimization.md, the
+  lint's comment, tutorial chapters 3 and 13). Pinned by `security.test.js`
+  "literal script sinks".
+- **Global booleans on SVG elements.** The renderer's boolean branch did
+  `el.hidden = true`, an expando on an `SVGElement`; the compiler wrote the
+  attribute only. A previous audit called the expando fine because `hidden`
+  means nothing on SVG. It is inert on the page, but it fakes an IDL property
+  that instruments read back (that is exactly what the 11 `svg-hyphen` rows
+  were), and the guard is `name in el`. Presence only in SVG now, in both the
+  set and the clear paths. Pinned by `boolean-attrs.test.js` "Global booleans
+  in SVG".
 
 ## Next (from the plan)
 
@@ -82,4 +84,6 @@ renderer's literal path share the refusal table.
    the closure.
 5. One value classifier for `instantiateSlot`; the slot relation's
    known-divergent list is the acceptance test.
-6. The three-phase attribute table, and the two divergences above with it.
+6. The three-phase attribute table. Its refusal phase already has its one
+   rule (`isRefusedAttr`); the host-applied and ownership phases are what is
+   left to lift out of the ladder.
