@@ -9,7 +9,11 @@ class TestRunner {
         this.results = {
             passed: 0,
             failed: 0,
-            total: 0
+            total: 0,
+            // One record per failed test. The console stream is for reading
+            // along; this is what a driver reads back, so a failure can never
+            // be lost to console ordering.
+            failures: []
         };
     }
 
@@ -81,6 +85,13 @@ class TestRunner {
                     console.log(`  ✅ ${test.name}`);
                 } catch (error) {
                     this.results.failed++;
+                    this.results.failures.push({
+                        suite: suite.name,
+                        name: test.name,
+                        message: error.message,
+                        expected: error.expected === undefined ? undefined : safeShow(error.expected),
+                        actual: error.expected === undefined ? undefined : safeShow(error.actual)
+                    });
                     console.error(`  ❌ ${test.name}`);
                     console.error(`     ${error.message}`);
                     if (error.expected !== undefined) {
@@ -110,6 +121,13 @@ class TestRunner {
             console.log('\n🎉 All tests passed!');
         } else {
             console.log('\n💥 Some tests failed');
+            // Repeated at the end so a failure is not buried under several
+            // hundred passing lines above it.
+            console.error(`\nFailures (${this.results.failures.length}):`);
+            for (const f of this.results.failures) {
+                console.error(`  ❌ ${f.suite} > ${f.name}`);
+                console.error(`     ${f.message}`);
+            }
         }
     }
 
@@ -142,6 +160,13 @@ class TestRunner {
         `;
         container.innerHTML = html;
     }
+}
+
+// Failure records cross a page boundary (puppeteer serialises them), so
+// values are rendered to text here rather than carried as objects.
+function safeShow(v) {
+    if (typeof v === 'function') return '<function>';
+    try { return JSON.stringify(v); } catch { return String(v); }
 }
 
 /**
