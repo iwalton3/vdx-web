@@ -51,15 +51,28 @@ and the differing deferred-child trust checks.
 | lint / computed | clean / 14/14 |
 | `dist/` | regenerated, idempotent |
 
-## Still two answers, noted
+## Follow-up, same day
 
-- `memoEach()` inside a contain() boundary renders as text ("[object
-  Object]"), as it always did: its cache lives at the slot, and a boundary is
-  not a slot. `toKeyedChild` throws for the same case with a message; the
-  boundary could too.
-- The security refusals at the top of `instantiateSlot` (script and style
-  parents) are the slot's own; the attribute sink's are `isRefusedAttr`. Two
-  sinks, two refusal tables, by kind of sink.
+Izzie: "we're rendering elements as text? that sounds bad" - it was. Two
+places still stringified a marker object:
+
+- **memoEach() inside a contain() boundary** rendered "[memoEach]". It is
+  the each() fragment its cache says it is; `memoEachToFragment()` is the one
+  conversion for slot and boundary, and `materializeKeyed()` the one way a
+  keyed list is first put on the page for both. The boundary re-renders the
+  list whole on change (a boundary has no keyed reconciliation of its own);
+  the slot reconciles by key as before.
+- **A contain(), memoEach() or array as an item of a slot array** rendered
+  "[object Object]". Refused now, by name, before anything is inserted - an
+  item has no slot of its own to hold their state (`guards.test.js`).
+
+The slot relation carries `memoEach` as a kind now, so a boundary and a slot
+must agree on it. The one remaining stringification of a non-primitive is a
+plain object (`${{a: 1}}` renders "[object Object]"), which is JavaScript's
+own answer and the same in both paths.
+
+The slot's script/style refusals and the attribute sink's `isRefusedAttr`
+remain two tables, by kind of sink.
 
 ## Next
 

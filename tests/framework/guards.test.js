@@ -183,6 +183,26 @@ describe('Guard 3: renderer rejects a raw array of templates in a slot', functio
         );
     });
 
+    it('reports a contain() or memoEach() inside a slot array as a render error', () => {
+        // Neither has a slot of its own inside an array to own its state (the
+        // boundary effect, the memo cache), and stringifying the marker rendered
+        // "[object Object]" as text - an element rendered as text is never right.
+        for (const [label, item] of [
+            ['contain', contain(() => html`<b>c</b>`)],
+            ['memoEach', memoEach([1], i => html`<li>${i}</li>`, i => i)]
+        ]) {
+            const err = captureRenderError(() => {
+                const tpl = html`<div>${['text', item]}</div>`;
+                instantiateTemplate(tpl._compiled, tpl._values || [], null);
+            });
+            assert.ok(err, `${label}() inside an array should raise a render error`);
+            assert.ok(
+                String(err.message).includes(label + '('),
+                `error should name ${label}(), got: ${err && err.message}`
+            );
+        }
+    });
+
     it('does NOT throw for each()', () => {
         const tpl = html`<ul>${each([1, 2, 3], i => html`<li>${i}</li>`, i => i)}</ul>`;
         const { fragment } = instantiateTemplate(tpl._compiled, tpl._values || [], null);

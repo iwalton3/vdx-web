@@ -13,7 +13,7 @@
  */
 
 import { describe, assert } from './test-runner.js';
-import { defineComponent, html, raw, when, each, contain, Component, flushSync } from '../../lib/framework.js';
+import { defineComponent, html, raw, when, each, memoEach, contain, Component, flushSync } from '../../lib/framework.js';
 
 // Value factories, not values: a Node can be inserted once, and an html``
 // result is consumed by the render that receives it.
@@ -41,6 +41,7 @@ const KINDS = {
     'when true':         () => when(true, () => html`<em>W</em>`),
     'when false':        () => when(false, () => html`<em>W</em>`),
     'each':              () => each([1, 2], i => html`<li>${i}</li>`),
+    'memoEach':          () => memoEach([1, 2], i => html`<li>${i}</li>`, i => i),
     'nested contain':    () => contain(() => 'inner'),
     'object':            () => ({ a: 1 })
     // Not listed: an array holding html`` results is banned in an ordinary
