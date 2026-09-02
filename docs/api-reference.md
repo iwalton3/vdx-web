@@ -1278,6 +1278,12 @@ if (boolProp(this.props.disabled)) return;
 return html`<input disabled="${boolProp(this.props.disabled)}">`;
 ```
 
+**Reserved host attributes:** `class`, `style`, `aria-*` and `data-*` are
+consumed by the host element before reaching props, so `${}` does not preserve
+their type — `aria-expanded="${true}"` arrives as the string `"true"`. This is
+deliberate: ARIA is defined in terms of the literal strings, and `data-*` is a
+string map.
+
 **See also:** the `t13-bool-false` lint check, which flags the `flag="false"`
 form this exists to survive. It reads your `static props` declaration, so a prop
 declared `flag: false` is treated as a flag while one declared `flag: ''` is

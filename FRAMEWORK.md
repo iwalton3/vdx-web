@@ -213,6 +213,13 @@ class ClToggle extends Component {
 }
 ```
 
+**Reserved host attributes.** Four names are handled by the host element before
+they ever reach your props, so `${}` does *not* preserve their JS type:
+`class` and `style` are element state, `aria-*` requires the literal strings
+`"true"`/`"false"` to mean anything to a screen reader, and `data-*` is a string
+map by definition. `aria-expanded="${true}"` arrives as `"true"`, not `true`.
+Everything else follows the rule above.
+
 `boolProp` is true for anything except the string `"false"` and JS-falsy values,
 so bare `disabled`, `disabled=""` and `disabled="true"` all come out true, as
 HTML says they should. It is exported from both `lib/framework.js` and

@@ -6,3 +6,6 @@ public/bundle.*
 .public
 remote
 release/
+
+# scratch worktree created by /code-review
+_mainwt/
