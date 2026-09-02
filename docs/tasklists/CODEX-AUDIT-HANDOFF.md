@@ -79,6 +79,69 @@ same rule. There may be a fourth.
   list was arrived at by two reviewers naming omissions. Check it against the
   spec rather than against what someone noticed.
 
+## The e2e silence is structural, and it is the real lesson
+
+Both downstream suites passed identically before and after every round -
+mrepo-web 427/0, codemap 133/133 - including the rounds that fixed two
+high-severity bugs. That is not reassurance. Those apps **cannot reach** the
+cells the highs lived in:
+
+- mrepo has **zero** module-scope `html\`\`` templates, so the
+  compiled-before-registration bug was structurally unreachable there.
+- Its 53 `value="${...}"` bindings are all on initialized state, so the
+  undefined-binding input wipe was unreachable too.
+
+A downstream suite is a regression gate for *the shapes that app uses*. It is
+not evidence about the contract. Treating 427 green tests as a merge signal for
+framework-contract changes was a mistake in this session's reasoning.
+
+## Why this keeps happening: the bugs are combinatorial
+
+Every one of the 22 findings sat at an intersection of independent axes, not in
+a single function. For the attribute contract alone:
+
+| axis | values |
+|------|--------|
+| element kind | native HTML, registered component, unregistered custom tag, SVG, hyphenated-in-SVG |
+| attribute class | HTML boolean, global boolean, enumerated, ordinary, `aria-`, `data-`, `class`, `style`, form-control `value` |
+| value source | bare literal, `""`, `"true"`, `"false"`, other literal, `${true}`, `${false}`, `${null}`, `${undefined}`, `${string}`, `${number}`, `${object}`, `${function}`, `${class}` |
+| compile timing | after registration, before registration |
+| transition | initial, update-same, update-different, update-to-nullish |
+
+**5040 reachable cells. 73 hand-written assertions across the three new test
+files — about 1.4%.** Every finding was a cell a reviewer happened to poke, and
+every fix addressed that cell. Reviewers sample; they do not enumerate. That is
+why three rounds did not converge and a fourth would not either.
+
+### The risk reduction that actually fits this shape
+
+1. **Generate the matrix; stop writing cells by hand.** One rule function that
+   encodes the contract, then a table-driven test over the cross product. 5040
+   cases run in seconds. Where rule and implementation disagree it is either a
+   bug or a deliberate exception - and the exceptions become one explicit list
+   instead of special cases scattered across two sinks. This would have caught
+   essentially all 22 findings in one pass.
+2. **Collapse the representation.** Three custom-element notions
+   (`isCustomElement`, `isCustomTag`, `notHtmlElement`) multiply the space for
+   no benefit. Derive one value, once, at a single place.
+3. **Fail loudly.** `isCustomTag = isCustomElement` as a default parameter is
+   what made a missed call site silent for a whole round. Remove the default.
+4. **Keep the e2e suites for what they are** - a downstream regression gate -
+   and stop reading them as contract evidence.
+
+The same framing applies to the other two areas: the `computed()` flag machine
+is 3 flags x 2 entry paths x 2 outcomes, small enough to enumerate exhaustively,
+and node insertion is node-type x insertion-path. Both are matrices that were
+being sampled one cell at a time.
+
+### A different reader for the next pass
+
+Izzie's suggestion, and it fits: consult **Claude Fable** on the next round. The
+work needed is not another defect hunt - three of those are already recorded
+here. It is holding a five-axis contract in view at once and noticing which
+combinations nobody has reasoned about. That is a different task from the one
+this session kept performing, and plausibly wants a different reader.
+
 ## Deliberately open, not forgotten
 
 Pure refactors the structural audit itself ranked low: a `resolveWhen()`
@@ -94,7 +157,8 @@ fixtures - `dist/` regenerated and import-checked.
 Downstream, both re-vendored from this build with a clean unresolved-import
 check first: **mrepo-web 427/0** (35 suites, real backend, auth, playback,
 drag-reorder against server state) and **codemap 133/133** (browser UI suite
-plus its own vdx-lint run against `/working/vdx-web/tools`).
+plus its own vdx-lint run against `/working/vdx-web/tools`). Read the section
+below before treating either number as a merge signal.
 
 `docs/tasklists/CODEX-AUDIT-WORKLIST.md` has the full record of what was fixed
 and why, including the boolean-attribute contract and the reasoning for
