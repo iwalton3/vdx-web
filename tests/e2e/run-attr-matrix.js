@@ -42,7 +42,11 @@ const URL = process.env.MATRIX_URL || 'http://localhost:9000/tests/attr-matrix/'
     // Evidence the update pass is live rather than quietly inert.
     console.log(`${r.transitions} updates, ${r.moved} of them moved the DOM\n`);
 
-    coverage.print(coverage.report(covEntries), console.log);
+    // The count is the instrument's own stopping condition, so it has to be
+    // able to fail the run - printing it and discarding it let a sink that was
+    // never measured report alongside "0 unexplained blocks".
+    const unexplained = coverage.print(coverage.report(covEntries), console.log);
+    if (unexplained > 0) process.exitCode = 1;
 
     if (process.env.SHOW_CLASS) {
         console.log('--- DOM classification (derived, not a hand-kept list) ---');

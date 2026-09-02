@@ -125,9 +125,12 @@ function print(rows, log) {
     let unexplained = 0;
     for (const r of rows) {
         if (r.missing) {
-            // Almost always a bundler rename or an inlined function, not real
-            // dead code - but silence here would look like full coverage.
-            log(`  ${r.name.padEnd(22)} NOT FOUND in ${r.path}`);
+            // A sink that was not measured at all is the worst case, not a
+            // neutral one: it used to print alongside "0 unexplained blocks",
+            // which is the same "a checker that checked nothing reports clean"
+            // defect this repo fixed in its own lint (bd02166).
+            unexplained++;
+            log(`  ${r.name.padEnd(22)} NOT MEASURED in ${r.path} - renamed, or coverage never started`);
             continue;
         }
         if (r.unmeasurable) {
@@ -148,6 +151,12 @@ function print(rows, log) {
     // A gap is an axis the matrix does not have, or code nothing reaches.
     // Either way it is the list to work from - the taxonomy cannot tell you
     // when to stop, and this can.
+    if (!rows.length) {
+        // No rows at all means coverage never ran. Reporting "0 unexplained"
+        // for that is a false pass.
+        unexplained++;
+        log('  NO SINKS MEASURED - coverage produced no rows at all');
+    }
     log(`  ${unexplained} unexplained block(s) - each is a missing axis or dead code`);
     log('');
     return unexplained;
