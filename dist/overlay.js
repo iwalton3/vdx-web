@@ -1,4 +1,4 @@
-/*! VDX overlay v1.1.0 | MIT | https://vanilladx.dev | https://github.com/iwalton3/vdx-web */
+/*! VDX overlay v1.2.0 | MIT | https://vanilladx.dev | https://github.com/iwalton3/vdx-web */
 import{rafThrottle,clamp}from'./utils.js';const POPOVER_SUPPORTED=typeof HTMLElement!=='undefined'&&typeof HTMLElement.prototype.showPopover==='function'&&HTMLElement.prototype.hasOwnProperty('popover');function resolveEl(value){const el=typeof value==='function'?value():value;return el||null;}
 function anchorRect(ref){if (typeof ref.getBoundingClientRect==='function') return ref.getBoundingClientRect();const x=ref.x||0,y=ref.y||0,w=ref.width||0,h=ref.height||0;return{left:x,top:y,right:x+w,bottom:y+h,width:w,height:h};}
 function parsePlacement(placement){const[rawSide,rawAlign='start']=String(placement||'bottom-start').split('-');const side=['top','bottom','left','right'].includes(rawSide)?rawSide:'bottom';const align=rawAlign==='end'?'end':rawAlign==='center'?'center':'start';return{side,align};}
