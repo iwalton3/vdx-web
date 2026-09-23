@@ -171,6 +171,86 @@ Props may be `null` in `renderError()` - use CustomEvents for recovery actions.
 ### No Shadow DOM
 This framework does not use shadow DOM. Light-DOM children are captured at mount, exposed as `this.props.children` / `this.props.slots`, and rendered by the framework's own fine-grained template renderer (no virtual DOM library involved).
 
+## Reviewing Changes Here
+
+What a reviewer or a repair plan needs that is specific to this repo. The general
+method - group findings by the rule they violate, count the sites, give each repair
+an exit predicate - is not written down here; what follows is only what that method
+needs to know about *this* codebase to produce a count that is not quietly wrong.
+
+### What the suites do not see
+
+Green suites are not coverage of these. Each has cost a real defect.
+
+- **`dist/`.** Every suite runs `lib/`. A `dist/` that does not even parse was
+  shipped under a fully green run - the bundler concatenates, so two `const X` in
+  different `lib/core/` files is a SyntaxError only in the bundle. `node
+  tests/node/dist-check.mjs` and the bundler's own `node --check` refusal are the
+  guards; regenerate and check the bundle before believing a green suite.
+- **Vendored copies downstream.** Other repos carry their own snapshot of
+  `tools/template-lint.js`, `tools/optimize.js` and the framework bundle, with
+  known one-line divergences. A fix here does not reach them, so a search scoped
+  to this repo reads 0 while a sibling copy still has the defect. Say so rather
+  than counting it as done.
+- **The checkers themselves.** `maskStringsAndComments` has twice had a bug that
+  silently *suppressed* lint rules rather than failing them. A checker reporting
+  clean is a claim that needs its own evidence: the lint prints how many files it
+  checked and exits 1 on zero (`bd02166`), and `tools/scripts/test-template-lint.mjs`
+  is the fixture suite. **Prove a checker works by injecting a defect it must
+  catch - every time.**
+
+### Which instrument counts what
+
+**For anything inside an `html\`\`` template, `tools/template-lint.js` is the
+counting instrument and grep is only the sanity check.** Source text cannot decide
+the questions these rules are actually about, so a grep here does not undercount -
+it answers a different question and returns a confident small number:
+
+- position, not spelling: `title="${JSON.stringify(x)}"` is correct on a native
+  element and a defect on a component, and the characters are identical (`t11`
+  keys off the parse tree's `context: 'custom-element-attr'`);
+- declaration, not name: `t13` reads the component's declared default to tell a
+  flag from a string prop, because no name-based rule can - it found 18 live sites
+  a name-based grep could not see;
+- nesting: `findTemplates` yields nested `html\`\`` literals as templates of their
+  own, so a whole-range scan sees an inner call once per enclosing template. Dedupe
+  by position or the count comes out high instead.
+
+The other structural counter is the metric this repo actually refactors against:
+**answerers per question** (`rg -n "componentDefinitions.has" lib/core/*.js`), not
+lines or branches or cells.
+
+`/usr/bin/grep` on at least one machine used for this repo is **ugrep**, not GNU
+grep; check before trusting a count. Counts have agreed with `rg` in spot checks
+there, but the output shapes differ (`grep -c` prints a `file:0` line for
+every non-matching file; `rg -c` prints nothing), so a predicate written as
+`-> 0` is ambiguous between them. Pin the tool in the predicate; prefer `rg`.
+
+### Settled - do not re-litigate
+
+These look like defects to anyone who has not read the reasoning, so an outside
+report will raise them again. Each is a decision, and the reasoning is written down.
+
+- **The boolean-attribute contract**: literal template text is a string and follows
+  HTML, `${}` passes the JS value, and a component gets a boolean-attribute *name*
+  as an ordinary prop with nothing re-coercing it. So `<button disabled="false">`
+  is disabled, and that is correct. Runtime coercion by declared type was weighed
+  and rejected - `boolProp()` and the type-aware `t13` lint are what shipped
+  instead. Do not propose coercion again without new evidence.
+- **`tests/framework/class-component.test.js:269`** (`title = 'field-value'`)
+  trips the prop-shadow guard on purpose. It is reported by
+  `node tools/optimize.js --lint-only -i tests/framework` as `[TcShadow]`, which
+  exits 2; `tools/template-lint.js` is a different checker and does not flag it.
+  The non-zero exit is tolerated rather than suppressed.
+- **`applyAttributeDirect` is not to be restructured first** - its side-effect
+  ordering is load-bearing and restructuring it would not have prevented any
+  finding so far.
+
+Round records live in `docs/tasklists/`, versioned, and are the input the next
+round reads. Write them there, not into the git dir - this checkout is a worktree,
+so `git rev-parse --git-dir` is per-worktree and a record written there is
+invisible from a sibling checkout.
+
 ## Getting Help
 
 - `tests/framework/` - Working examples
