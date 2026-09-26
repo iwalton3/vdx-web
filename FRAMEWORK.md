@@ -517,7 +517,8 @@ Common components from `vdx/ui/`:
 <cl-checkbox x-model="agreed" label="I agree"></cl-checkbox>
 
 // Dialogs
-<cl-dialog visible="${showDialog}" header="Confirm" on-hide="closeDialog">
+<cl-dialog visible="${this.state.showDialog}" header="Confirm"
+           on-change="${(e, open) => this.state.showDialog = open}">
     <p>Are you sure?</p>
 </cl-dialog>
 
