@@ -1051,7 +1051,7 @@ static styles = /*css*/`
 **Important:** Since this isn't Shadow DOM:
 - Styles can still be overridden by external CSS
 - Use specific class names to avoid conflicts
-- `:host-context()` works for ancestor-based styling (e.g., dark mode)
+- `:host-context(X)` styles the component when an **ancestor** matches `X` (e.g., dark mode): `:host-context(body.dark) .primary` becomes `my-button:is(body.dark *) .primary`. Unlike Shadow DOM it does not match the element itself - use `:host(X)` for that
 
 ### Keyframe Animation Scoping
 

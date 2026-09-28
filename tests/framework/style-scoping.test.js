@@ -30,3 +30,36 @@ describe('Style scoping - :host', function(it) {
             `final rule intact, got: ${css}`);
     });
 });
+
+describe('Style scoping - :host-context()', function(it) {
+    it('expands to the component under a matching ancestor', async () => {
+        const css = await scopedCss('ss-ctx-a', `
+            :host-context(.dark) .b { color: red; }
+            :host-context(body.dark) { color: blue; }
+            :host-context(:not(.x)) .c, .d { color: green; }
+            @media (min-width: 1px) { :host-context(.dark) .e { color: red; } }
+        `);
+        assert.ok(css.includes('ss-ctx-a:is(.dark *) .b'), `descendant form, got: ${css}`);
+        assert.ok(css.includes('ss-ctx-a:is(body.dark *) {'), 'bare form');
+        assert.ok(css.includes('ss-ctx-a:is(:not(.x) *) .c, ss-ctx-a .d'),
+            'nested parens, and mixed with a plain selector in a list');
+        assert.ok(css.includes('ss-ctx-a:is(.dark *) .e'), 'inside @media');
+        assert.ok(!css.includes('-context'), 'no mangled :host-context left');
+    });
+
+    it('matches only when an ancestor matches', async () => {
+        defineComponent('ss-ctx-live', {
+            styles: ':host-context(.ss-dark) .t { color: rgb(255, 0, 0); }',
+            template() { return html`<span class="t">t</span>`; }
+        });
+        const wrap = document.createElement('div');
+        wrap.innerHTML = '<ss-ctx-live></ss-ctx-live>';
+        document.body.appendChild(wrap);
+        await tick();
+        const t = wrap.querySelector('.t');
+        assert.notEqual(getComputedStyle(t).color, 'rgb(255, 0, 0)', 'no ancestor: no match');
+        wrap.classList.add('ss-dark');
+        assert.equal(getComputedStyle(t).color, 'rgb(255, 0, 0)', 'ancestor matches');
+        wrap.remove();
+    });
+});
