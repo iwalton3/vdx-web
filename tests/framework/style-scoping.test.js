@@ -29,6 +29,13 @@ describe('Style scoping - :host', function(it) {
         assert.ok(/ss-a-rather-long-component-tag \.last \{\s*width: auto;\s*\}/.test(css),
             `final rule intact, got: ${css}`);
     });
+
+    it(':host(X) keeps X whole when X has parens before its end', async () => {
+        const css = await scopedCss('ss-host-nested',
+            ':host(:not(.x).y) .c { color: red; } :host(:not(:is(.a, .b))) .d { color: red; }');
+        assert.ok(css.includes('ss-host-nested:not(.x).y .c'), `got: ${css}`);
+        assert.ok(css.includes('ss-host-nested:not(:is(.a, .b)) .d'), `got: ${css}`);
+    });
 });
 
 describe('Style scoping - :host-context()', function(it) {

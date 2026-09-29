@@ -380,7 +380,11 @@ function namespaceKeyframes(css,tagName){const keyframeNames=new Set();const key
 if (keyframeNames.size===0){return css;}const prefix=tagName+'--';let result=css.replace(/@(-webkit-)?keyframes\s+([a-zA-Z_][\w-]*)/g,(match,webkit,name)=>{if (keyframeNames.has(name)){return`@${webkit||''}keyframes ${prefix}${name}`;}
 return match;});for (const name of keyframeNames){const animationRegex=new RegExp(`(animation(?:-name)?\\s*:[^;]*?)\\b(${name})\\b`,'g');result=result.replace(animationRegex,`$1${prefix}${name}`);}
 return result;}
-function scopeComponentStyles(css,tagName){let result='';let i=0;css=stripCSSComments(css);css=namespaceKeyframes(css,tagName);css=css.replace(/:host-context\(((?:[^()]|\([^()]*\))*)\)/g,(match,selector)=>`${tagName}:is(${selector.trim()} *)`);css=css.replace(/:host(?![-\w])(\([^)]*(?:\([^)]*\)[^)]*)*\))?/g,(match,selector)=>{if (selector){return tagName+selector.slice(1,-1);}return tagName;});const len=css.length;while (i<len){while (i<len&&/\s/.test(css[i])){result+=css[i];i++;}
+function expandHost(css,tagName){let out='';let i=0;for (;;){const at=css.indexOf(':host',i);if (at===-1) return out+css.slice(i);out+=css.slice(i,at);let j=at+5;const isContext=css.startsWith('-context(',j);if (isContext){j+=8;}else if (/[-\w]/.test(css[j]??'')){out+=':host';i=j;continue;}
+let arg=null;if (css[j]==='('){let depth=0;let k=j;for (;k<css.length;k++){if (css[k]==='(') depth++;else if (css[k]===')'&&--depth===0) break;}
+arg=css.slice(j+1,k).trim();j=k+1;}
+out+=isContext?`${tagName}:is(${arg} *)`:tagName+(arg??'');i=j;}}
+function scopeComponentStyles(css,tagName){let result='';let i=0;css=stripCSSComments(css);css=namespaceKeyframes(css,tagName);css=expandHost(css,tagName);const len=css.length;while (i<len){while (i<len&&/\s/.test(css[i])){result+=css[i];i++;}
 if (i>=len) break;if (css[i]==='@'){let j=i;while (j<len&&css[j]!=='{'){j++;}const atRuleDecl=css.substring(i,j);const isKeyframes=/^@keyframes\s/i.test(atRuleDecl)||/^@-webkit-keyframes\s/i.test(atRuleDecl);result+=css.substring(i,j+1);i=j+1;let depth=1;let atRuleBody='';while (i<len&&depth>0){if (css[i]==='{') depth++;if (css[i]==='}') depth--;if (depth>0){atRuleBody+=css[i];}
 i++;}if (isKeyframes){result+=atRuleBody;}else{result+=scopeComponentStyles(atRuleBody,tagName);}
 result+='}';continue;}let selector='';while (i<len&&css[i]!=='{'){selector+=css[i];i++;}
