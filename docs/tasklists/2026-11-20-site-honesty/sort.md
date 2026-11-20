@@ -81,7 +81,7 @@ otherwise instructional and already states its limits (ch 3, 5, 13, 15). Wording
 
 ## Choice lines
 
-- Session 1 (2026-11-20): opening — _pending_
+- Session 1 (2026-11-20): opening — Discuss First; outcome — _pending_
 
 ## Counts
 
