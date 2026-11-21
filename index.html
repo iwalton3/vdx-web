@@ -273,7 +273,8 @@ unzip vdx-full.zip -d your-app/   <span class="c"># smaller cuts: vdx-core.zip, 
                     <div><span>codemap</span><span>A code graph and review tool.
                         <a href="https://github.com/iwalton3/codemap">Source</a></span></div>
                     <div><span>My personal website</span><span>A launcher and a handful of small tools. A copy
-                        lives in this repository: <a href="/examples/personal/">examples/personal</a>.</span></div>
+                        of its source lives in this repository:
+                        <a href="https://github.com/iwalton3/vdx-web/tree/main/examples/personal">examples/personal</a>.</span></div>
                 </div>
 
                 <h3>Before and after</h3>
@@ -289,8 +290,11 @@ rollup-prod.config.js</pre></div>
                     <div><span class="cap">its replacement, on VDX</span>
                         <pre class="code">index.html
 app.js
+home.js
+api.js
 components/
-vdx/        <span class="c"># vendored</span>
+auth/
+<span class="c"># imports the framework's lib/ as files</span>
 <span class="c"># no package.json</span>
 <span class="c"># no build config</span></pre></div>
                 </div>
