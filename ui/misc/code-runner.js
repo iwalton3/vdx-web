@@ -325,7 +325,7 @@ export class ClCodeRunner extends Component {
         }
         .cl-tab:hover { color: var(--text-color, #24292e); }
         .cl-tab:focus-visible { outline: 2px solid var(--primary-color, #0969da); outline-offset: -2px; }
-        .cl-tab.active { color: var(--primary-color, #0969da); border-bottom-color: var(--primary-color, #0969da); }
+        .cl-tab.active { color: var(--primary-text, var(--primary-color, #0969da)); border-bottom-color: var(--primary-color, #0969da); }
 
         .cl-tab-close {
             font-size: 14px; line-height: 1; opacity: 0.5;
@@ -338,7 +338,7 @@ export class ClCodeRunner extends Component {
             padding: 4px 12px; border: none; border-bottom: 2px solid transparent;
             background: transparent; color: var(--text-muted, #6c757d);
         }
-        .cl-tab-add:hover { color: var(--primary-color, #0969da); }
+        .cl-tab-add:hover { color: var(--primary-text, var(--primary-color, #0969da)); }
 
         .cl-actions { display: flex; gap: 4px; flex-shrink: 0; }
 

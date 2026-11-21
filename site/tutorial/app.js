@@ -106,9 +106,9 @@ export class TutApp extends Component {
 
         return html`
             <div class="tut-shell ${this.state.menuOpen ? 'menu-open' : ''}">
+                <a class="tut-brand" href="#${chapters[0].id}">VDX · Interactive Tutorial</a>
                 <header class="tut-topbar">
                     <button class="tut-burger" on-click="toggleMenu" aria-label="Toggle chapters">☰</button>
-                    <a class="tut-brand" href="#${chapters[0].id}">VDX · Interactive Tutorial</a>
                     <span class="tut-top-spacer"></span>
                     <a class="tut-toplink" href="./tutorial/playground.html">Playground ↗</a>
                     <a class="tut-toplink" href="./showcase/">Components ↗</a>
@@ -270,7 +270,7 @@ export class TutApp extends Component {
             border-radius: 8px;
             border: 1px solid var(--border-color, #e1e4e8);
             background: var(--card-bg, #fff);
-            color: var(--primary-color, #0969da);
+            color: var(--primary-text, #0a58ca);
             max-width: 46%;
             text-align: left;
         }

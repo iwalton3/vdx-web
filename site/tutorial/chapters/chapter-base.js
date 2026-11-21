@@ -25,7 +25,7 @@ export class TutChapter extends Component {
             font-weight: 600;
             letter-spacing: 0.08em;
             text-transform: uppercase;
-            color: var(--primary-color, #0969da);
+            color: var(--primary-text, #0a58ca);
             margin: 0 0 6px;
         }
 
@@ -37,7 +37,7 @@ export class TutChapter extends Component {
         ul, ol { margin: 14px 0; padding-left: 22px; }
         li { margin: 6px 0; }
 
-        a { color: var(--primary-color, #0969da); text-decoration: none; }
+        a { color: var(--primary-text, #0a58ca); text-decoration: none; }
         a:hover { text-decoration: underline; }
 
         strong { font-weight: 650; }

@@ -23,6 +23,9 @@ body {
     /* Primary colors */
     --primary-color: #007bff;
     --primary-hover: #0056b3;
+    /* Primary as TEXT on the page background: --primary-color is ~4:1 there,
+       under AA for small text. Backgrounds keep --primary-color. */
+    --primary-text: #0a58ca;
 
     /* Text colors */
     --text-color: #333;
@@ -98,6 +101,7 @@ body.dark {
 
     --primary-color: #0d6efd;
     --primary-hover: #0a58ca;
+    --primary-text: #6ea8fe;
 
     --text-color: #ccc;
     --text-secondary: #aaa;

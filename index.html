@@ -82,6 +82,11 @@
             background: var(--vdx-surface); color: var(--vdx-text-dim);
         }
         .theme-btn:hover { border-color: var(--vdx-accent); color: var(--vdx-text); }
+        @media (max-width: 560px) {
+            .nav-in { gap: 6px 14px; }
+            .nav-in .nav-wide { display: none; }
+            .theme-btn .theme-word { display: none; }
+        }
 
         .hero-demo { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 14px; color: var(--vdx-text-dim); }
         .links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 15px; }
@@ -115,10 +120,10 @@
             <a class="brand" href="/">VDX</a>
             <a href="/site/tutorial.html">Tutorial</a>
             <a href="/site/showcase/">Components</a>
-            <a href="/docs/">Docs</a>
-            <a href="/site/tutorial/playground.html">Playground</a>
+            <a class="nav-wide" href="/docs/">Docs</a>
+            <a class="nav-wide" href="/site/tutorial/playground.html">Playground</a>
             <a href="https://github.com/iwalton3/vdx-web">GitHub</a>
-            <button class="theme-btn" id="theme-toggle" title="Toggle theme">◐ Theme</button>
+            <button class="theme-btn" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">◐<span class="theme-word"> Theme</span></button>
         </div>
     </nav>
 
@@ -167,6 +172,14 @@
             <div class="col">
                 <p class="dim">The <a href="/site/tutorial.html">tutorial</a> has twenty chapters of
                     examples like these, all editable in the browser.</p>
+                <p>Two complete example apps:</p>
+                <ul class="plain">
+                    <li><a href="/examples/shop/">A demo shop</a>: product catalog, filtering and a cart,
+                        using the router, a store and the UI library.</li>
+                    <li><a href="https://github.com/iwalton3/vdx-web/tree/main/examples/ts-demo">A task
+                        manager in TypeScript</a> with typed components, stores and routes. TypeScript
+                        needs a compile step, so this one is source to read and build.</li>
+                </ul>
             </div>
         </section>
 
@@ -354,6 +367,7 @@ auth/
             <a href="/site/tutorial.html">Tutorial</a>
             <a href="/site/showcase/">Components</a>
             <a href="/docs/">Docs</a>
+            <a href="/site/tutorial/playground.html">Playground</a>
             <a href="https://github.com/iwalton3/vdx-web">GitHub</a>
         </div>
     </footer>
