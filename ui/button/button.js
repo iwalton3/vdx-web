@@ -175,7 +175,7 @@ export class ClButton extends Component {
         }
 
         .cl-button.outlined.primary {
-            color: var(--primary-color, #007bff);
+            color: var(--primary-text, var(--primary-color, #007bff));
         }
 
         .cl-button.outlined.primary:hover:not(:disabled) {
@@ -213,7 +213,7 @@ export class ClButton extends Component {
         }
 
         .cl-button.text.primary {
-            color: var(--primary-color, #007bff);
+            color: var(--primary-text, var(--primary-color, #007bff));
         }
 
         .cl-button.text.secondary {

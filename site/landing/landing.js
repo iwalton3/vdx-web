@@ -16,13 +16,12 @@ export class LandingLive extends Component {
         files: null,
         entry: '',
         activeFile: '',
-        previewLabel: 'Live preview',
-        toggle: false          // security mode: run the component by default, reveal markup on Edit
+        previewLabel: 'Live preview'
     };
 
     constructor(props) {
         super(props);
-        this.state = { filesData: null, editing: false };
+        this.state = { filesData: null };
     }
 
     mounted() {
@@ -51,32 +50,18 @@ export class LandingLive extends Component {
         return [];
     }
 
-    // Toggle mode: apply any edits, then collapse back to the running component.
-    showRun() {
-        try { this.refs.runner && this.refs.runner.runNow && this.refs.runner.runNow(); } catch (e) { /* not mounted yet */ }
-        this.state.editing = false;
-    }
-    showEdit() { this.state.editing = true; }
 
     template() {
-        const toggle = this.props.toggle;
-        const editing = this.state.editing;
         return html`
-            <div class="landing-live ${toggle ? 'toggle' : ''} ${editing ? 'editing' : ''}">
-                ${when(toggle, html`
-                    <button type="button" class="ll-toggle" title="${editing ? 'Run the component' : 'See the markup'}"
-                        on-click="${() => (this.state.editing ? this.showRun() : this.showEdit())}">
-                        ${editing ? '▶ Run' : '✎ Edit'}
-                    </button>
-                `)}
+            <div class="landing-live">
                 ${when(this.state.filesData,
                     html`
-                        <cl-code-runner ref="runner"
+                        <cl-code-runner
                             files="${this.state.filesData}"
                             entry="${this.props.entry}"
                             activeFile="${this.props.activeFile}"
                             previewLabel="${this.props.previewLabel}"
-                            height="${toggle ? '260px' : '330px'}"
+                            height="330px"
                             previewHeight="330px">
                         </cl-code-runner>
                     `,
@@ -98,38 +83,20 @@ export class LandingLive extends Component {
         .landing-live cl-code-runner .cl-runner { border: 0; border-radius: 0; }
 
         /* Side-by-side on wide screens: code left, preview right (light DOM, so we
-           can flip the runner's own layout). Stacks back to a column on mobile.
-           Toggle mode opts out - it stays vertical (code above the component). */
+           can flip the runner's own layout). Stacks back to a column on mobile. */
         @media (min-width: 760px) {
-            .landing-live:not(.toggle) cl-code-runner .cl-runner { flex-direction: row; align-items: stretch; }
-            .landing-live:not(.toggle) cl-code-runner .cl-pane-code {
+            .landing-live cl-code-runner .cl-runner { flex-direction: row; align-items: stretch; }
+            .landing-live cl-code-runner .cl-pane-code {
                 flex: 1 1 55%; min-width: 0;
                 border-bottom: 0;
                 border-right: 1px solid var(--border-color, #e1e4e8);
             }
-            .landing-live:not(.toggle) cl-code-runner .cl-pane-preview { flex: 1 1 45%; min-width: 0; border-top: 0; }
+            .landing-live cl-code-runner .cl-pane-preview { flex: 1 1 45%; min-width: 0; border-top: 0; }
         }
         .landing-live-loading {
             padding: 60px 16px; text-align: center;
             color: var(--text-muted, #6c757d); font-size: 14px;
         }
-
-        /* ---- Toggle (security) mode: run the component; reveal markup on Edit ----
-           Preview stays on top (order:0) so the Edit button, pinned to the top-right,
-           always sits in the "Running component" header. Code drops in below on Edit. */
-        .landing-live.toggle { position: relative; }
-        .landing-live.toggle cl-code-runner .cl-runner { flex-direction: column; }
-        .landing-live.toggle cl-code-runner .cl-pane-preview { order: 0; border-top: 0; }
-        .landing-live.toggle cl-code-runner .cl-pane-code { order: 1; border-top: 1px solid var(--border-color, #e1e4e8); border-bottom: 0; }
-        .landing-live.toggle:not(.editing) cl-code-runner .cl-pane-code { display: none; }
-        .ll-toggle {
-            position: absolute; top: 5px; right: 10px; z-index: 3;
-            font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
-            padding: 5px 12px; border-radius: 7px;
-            border: 1px solid var(--border-color, #e1e4e8);
-            background: var(--card-bg, #fff); color: var(--text-secondary, #57606a);
-        }
-        .ll-toggle:hover { border-color: var(--primary-color, #0969da); color: var(--primary-color, #0969da); }
     `;
 }
 
