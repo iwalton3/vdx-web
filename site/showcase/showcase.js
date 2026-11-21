@@ -288,6 +288,7 @@ export class ComponentShowcase extends Component {
         :host {
             display: block;
             height: 100vh;
+            height: 100dvh; /* visible height on mobile, see tutorial/app.js */
         }
 
         .topbar-controls {

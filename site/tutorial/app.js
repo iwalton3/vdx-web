@@ -147,7 +147,9 @@ export class TutApp extends Component {
     }
 
     static styles = /*css*/`
-        :host { display: block; height: 100vh; }
+        /* dvh, not vh: on mobile 100vh is the height with the browser toolbar
+           hidden, so the bottom of the scroll area sat under the toolbar. */
+        :host { display: block; height: 100vh; height: 100dvh; }
 
         .tut-shell {
             display: grid;
@@ -155,6 +157,7 @@ export class TutApp extends Component {
             grid-template-rows: 54px 1fr;
             grid-template-areas: "brand topbar" "sidebar content";
             height: 100vh;
+            height: 100dvh;
         }
 
         .tut-topbar {
