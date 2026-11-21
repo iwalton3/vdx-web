@@ -19,8 +19,8 @@ class PerformanceChapter extends TutChapter {
             <p class="eyebrow">Chapter 11 · Building apps</p>
             <h1>Performance</h1>
             <p class="lead">
-                VDX is fast by default, but two tools handle the demanding cases: windowed lists
-                and reactive boundaries.
+                Plain <code>each()</code> and ordinary state are enough for most lists. Two tools
+                handle the demanding cases: windowed lists and reactive boundaries.
             </p>
 
             <h2>Windowed lists</h2>

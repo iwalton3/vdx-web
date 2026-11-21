@@ -38,7 +38,7 @@ class TypeScriptChapter extends TutChapter {
             <p class="eyebrow">Chapter 20 · Guides</p>
             <h1>TypeScript</h1>
             <p class="lead">
-                TypeScript is fully supported and entirely optional. VDX ships hand-written
+                TypeScript is supported and entirely optional. VDX ships hand-written
                 <code>.d.ts</code> declarations, so you get types and editor autocomplete — with or
                 without a compile step.
             </p>

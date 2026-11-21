@@ -129,11 +129,8 @@ class BestPracticesChapter extends TutChapter {
             </p>
             <cl-code-block code="${this.state.lintCmd}" copyable="${true}"></cl-code-block>
             <p>
-                Findings name their check id
-                (<code>t7-binding</code>, <code>t8-list-control</code>,
-                <code>t9-list-item</code>, <code>t10-inline-events</code>,
-                <code>t11-attr-stringify</code>, <code>t12-manual-bind</code>). Suppress one you
-                have deliberately decided on with a comment on the line above it:
+                Each finding names its check id. Suppress one you have deliberately decided on with a
+                comment on the line above it:
                 <code>&lt;!-- vdx-lint-disable-next-line t11-attr-stringify --&gt;</code>. The full
                 table, with what each pattern actually does at runtime, is in
                 <a href="https://github.com/iwalton3/vdx-web/blob/main/docs/tutorial.md#banned-patterns">docs/tutorial.md</a>.

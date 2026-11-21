@@ -55,9 +55,8 @@ class StaticChapter extends TutChapter {
             </p>
 
             <div class="callout">
-                This is one of VDX's core strengths: progressive enhancement without a toolchain.
-                The same components also work inside a full single-page app — the framework doesn't
-                care whether it owns the page or a corner of it.
+                The same components also work inside a full single-page app. The framework behaves
+                the same whether it owns the whole page or one corner of it.
             </div>
         `;
     }

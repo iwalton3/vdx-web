@@ -9,7 +9,7 @@ class InteractiveListsChapter extends TutChapter {
             <h1>Interactive lists</h1>
             <p class="lead">
                 Drag-reorder, right-click menus, long-press — the fiddly parts of a list UI,
-                already packaged. This stack was extracted from a production music player's queue.
+                already packaged. This stack was extracted from a music player's play queue.
             </p>
 
             <h2>Drag-reorder in one tag</h2>
@@ -66,7 +66,7 @@ class InteractiveListsChapter extends TutChapter {
                 (<code>on-touchstart-passive</code>, <code>on-touchmove-passive</code> — chapter 3)
                 and the drag-suppressing ones without it. The table at the top of
                 <a href="https://github.com/iwalton3/vdx-web/blob/main/lib/gestures.js">lib/gestures.js</a>
-                is the contract — follow it and long-press tracking never janks a scroll.
+                is the contract. Follow it and long-press tracking won't block scrolling.
             </div>
         `;
     }

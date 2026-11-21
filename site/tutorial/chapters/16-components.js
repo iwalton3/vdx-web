@@ -8,9 +8,11 @@ class ComponentsChapter extends TutChapter {
             <p class="eyebrow">Chapter 16 · Guides</p>
             <h1>The component library</h1>
             <p class="lead">
-                VDX ships <strong>vdx-ui</strong> — 60+ ready-made <code>cl-*</code> components
-                (forms, data tables, overlays, panels, menus). They're built with the same framework
-                you've been learning, so they behave exactly like your own components.
+                VDX ships <strong>vdx-ui</strong>, a library of <span data-measure="ui-count">63</span>
+                <code>cl-*</code> components (forms, data tables, overlays, panels, menus). They're built
+                with the same framework you've been learning and follow the same rules as your own
+                components: props are attributes, binding is <code>x-model</code>, events are
+                <code>on-*</code>.
             </p>
 
             <h2>Import and use</h2>

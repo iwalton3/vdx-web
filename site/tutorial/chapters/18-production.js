@@ -42,9 +42,8 @@ class ProductionChapter extends TutChapter {
     ui/        # optional: the cl-* component library
     styles/    # optional: theme.css</code></pre>
             <p>
-                That's the whole deploy artifact. Clones and updates pull nothing; there's no
-                lockfile and nothing to get compromised on <code>npm update</code>, because there is
-                no npm.
+                That's the whole deploy artifact. Clones and updates don't download anything, and
+                there's no lockfile.
             </p>
 
             <h2>Clean import paths with an import map</h2>
@@ -64,7 +63,8 @@ class ProductionChapter extends TutChapter {
             <p>
                 If you'd rather ship a single self-contained file than a folder, the
                 <code>dist/</code> bundles are tree-shaken and minified. <code>dist/framework.js</code>
-                (~27&nbsp;KB gzipped) has no imports of its own, so one file is all you vendor:
+                (about <span data-measure="framework-gz">32</span>&nbsp;KB gzipped) has no imports of its
+                own, so one file is all you vendor:
             </p>
             <cl-code-block code="${this.state.bundleImportEx}" language="js" copyable="${false}"></cl-code-block>
             <p>
@@ -108,8 +108,8 @@ node tools/spider-deps.js ./your-site .</code></pre>
             <h2>That's the whole pipeline</h2>
             <p>
                 Vendor the folder, add an import map, and deploy to any static host. Minify and go
-                offline only if you want to. There's no step where a toolchain stands between your
-                source and the browser — which is the entire point.
+                offline only if you want to. No toolchain sits between your source and the
+                browser.
             </p>
         `;
     }
