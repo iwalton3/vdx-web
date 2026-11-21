@@ -33,8 +33,12 @@ rewrite the load-bearing parts". So:
      `utils.js`; and the count of unique `defineComponent('cl-…'` names under `ui/`.
    - **Claims it reads:** every element carrying `data-measure="<key>"` in the scanned files:
      `index.html`, `site/**/*.{html,js}`, `README.md` and `docs/**/*.md`. In Markdown, use an
-     inline `<span data-measure="…">` (GitHub renders the span's text). Keys: `framework-gz`,
-     `framework-router-utils-gz`, `ui-count`. Parse the element's leading number.
+     inline `<span data-measure="…">` (GitHub renders the span's text). Keys: `<bundle>-gz` and
+     `<bundle>-raw` for any file in `dist/` (e.g. `framework-gz`, `router-raw`),
+     `framework-router-utils-gz`, and `ui-count`. Parse the element's leading number.
+   - **Not scanned:** historical records whose figures describe the past, listed by path in the
+     script, with the reason beside each. Today that is only `docs/fine-grained-migration-history.md`
+     ("~2KB savings from Preact removal"). This is a file list in the checker, not a markup escape.
    - **Fail** when a claim is more than 10% off the measurement, when a `data-measure` key is
      unknown, or when the scan reads zero claims.
    - **Also fail on unmarked figures** in the scanned files: any `\d+(\.\d+)?\s*(&nbsp;)?[KM]B`,
@@ -52,12 +56,12 @@ rewrite the load-bearing parts". So:
 3. **Red on the claim (T1):**
    - Write the script first and run it on the current tree before touching any page. It must fail,
      naming the unmarked `~27&nbsp;KB` (index.html:475, ch 18:67), `23&nbsp;KB`
-     (site/embedding/index.html:145, :183), README.md:277 `23KB`, `docs/bundles.md:339-340`, and the
-     "60+" component counts. That failure is the red.
+     (site/embedding/index.html:145, :183), README.md:277 (`~99KB`, `23KB`), `docs/tutorial.md:80`
+     (`~92KB`), the per-bundle sizes in `docs/bundles.md` (lines 17, 48, 71, 95, 98, 101, 339-340,
+     348-349; `framework.js` is listed as ~92 KB and is now 124 KB), and the "60+" component counts.
+     That failure is the red.
    - Green only after §7 step 5, once the page, the embedding stub, the tutorial pass, README.md:277
-     and `docs/bundles.md` are all marked or fixed. In `docs/bundles.md`, check what its `~92 KB` /
-     `~21 KB` refer to before marking them; the uncompressed figure needs its own key
-     (`framework-raw`) or rewording.
+     `docs/tutorial.md:80` and `docs/bundles.md` are all marked with their measured values.
    - Then set one `data-measure` value to 27, watch it fail, restore it, and write that down in the
      commit message.
 4. Every size figure on the site gets a `data-measure` wrapper. Current values: framework ~32 KB
@@ -266,7 +270,7 @@ by the implementing session).
 3. §2 landing rebuild, including §5 I.
 4. §3 embedding stub and link repoints.
 5. §6 tutorial and blurb pass, including §5 J, and mark or fix README.md:277 and
-   `docs/bundles.md:339-340`.
+   the figures in `docs/tutorial.md:80` and `docs/bundles.md`.
 6. §1 green, plus the injected-stale-value red.
 7. The automated and browser checks in §8.
 8. Hand the diff to the owner for the phrase check. Only after that is the work done (§8).
@@ -307,8 +311,9 @@ are listed in decisions.md's second pass. Items added after the coherence check 
   break.
 - Unused landing example dirs are deleted.
 - *(post-check)* No commit count in §2.7. The OT already says agents develop it.
-- *(post-check)* The figure check also scans README.md and `docs/**/*.md`, has no skip attribute,
-  and has a `--self-test`. The same cause (hand-typed figures) lives there too.
+- *(post-check)* The figure check also scans README.md and `docs/**/*.md` (13 hand-typed size
+  figures there today, most of them stale), has no skip attribute, excludes one historical file by
+  path, and has a `--self-test`. The same cause (hand-typed figures) lives there too.
 - *(post-check)* J drops ch 13's hand-copied id list instead of extending it.
 - *(post-check)* Rule C: narrow rather than drop. It follows the owner's own rewrites and the
   "accuracy and clarity pass" ruling.
