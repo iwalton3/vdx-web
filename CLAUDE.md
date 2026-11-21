@@ -50,6 +50,11 @@ node tests/node/computed-cells.mjs
 # this first; the suite itself also renders through the real bundle
 node tests/node/dist-check.mjs
 
+# Size/component-count figures in index.html, site/, README.md, docs/ must be
+# wrapped in <span data-measure="key"> and match dist/ and ui/ (10%). No server.
+# run-framework-tests.js runs this (and its --self-test) after dist-check
+node tests/node/site-numbers.mjs
+
 # Attribute contract matrix - the cross product, in a browser
 cd tests/e2e && node run-attr-matrix.js
 ```

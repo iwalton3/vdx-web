@@ -30,6 +30,16 @@ async function runFrameworkTests() {
         return 1;
     }
 
+    // Size and component-count figures on the site/docs must match dist/ and ui/.
+    for (const args of [['--self-test'], []]) {
+        const r = spawnSync(process.execPath,
+            [path.join(__dirname, '..', 'node', 'site-numbers.mjs'), ...args], { stdio: 'inherit' });
+        if (r.status !== 0) {
+            console.error('\n💥 site figure check failed - see above\n');
+            return 1;
+        }
+    }
+
     console.log('🧪 Running Framework Unit Tests...\n');
 
     const browser = await puppeteer.launch({
