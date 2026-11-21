@@ -121,3 +121,15 @@ checked against the registry.
    Session's reading, not the owner's: the page's content becomes a homepage section carrying the four
    worked demos; the standalone pitch page goes. Put back to the owner with the plan.
 4. **Numbers.** Q: how should the page keep size figures honest? A: "A node check".
+
+## Session 1 (2026-11-20) — Plan with Questions, batch 2 (asked with AskUserQuestion)
+
+The session printed its decision log in its own message (numbers, copy, build, done-means) before
+this batch; it is in decisions.md.
+
+1. **Legacy site/playground.html.** Options (session's): "Retire it" / "Restyle it" / "Leave it".
+   A (owner's words): "Leave it, don't bother linking to it. The component framework covers most of what it demos."
+   Session's reading, not the owner's: the page stays untouched and the new site does not link it;
+   the existing README.md / apps.json links are left as they are.
+2. **Tutorial light pass.** A (owner's words): "Yeah do a light pass, it predates a lot of the more dense Opus 5.0 style verbiage, but still deserves an accuracy and clarity pass."
+3. **Decision log — any problem?** A: "No, it's fine".
