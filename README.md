@@ -274,7 +274,7 @@ import { notify, darkTheme } from './lib/utils.js';
 **2. Pre-bundled (embedding/simple projects):**
 ```javascript
 import { defineComponent, html, reactive } from './dist/framework.js';
-// Everything in one ~99KB file (23KB gzipped)
+// Everything in one file - sizes in docs/bundles.md
 ```
 
 ## Security Features

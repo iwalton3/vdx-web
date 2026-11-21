@@ -14,7 +14,7 @@ Complete guide to using the pre-bundled versions of the framework for embedding 
 
 Located in `dist/`:
 
-### framework.js (~92 KB)
+### framework.js (~<span data-measure="framework-raw">121</span> KB)
 Complete framework bundle including:
 - **Component system:** `defineComponent`
 - **Reactivity:** `reactive`, `createEffect`, `computed`, `isReactive`, `watch`, `memo`, `trackAllDependencies`
@@ -45,7 +45,7 @@ Complete framework bundle including:
 <my-app></my-app>
 ```
 
-### router.js (~10 KB)
+### router.js (~<span data-measure="router-raw">13</span> KB)
 Router library for client-side routing:
 - Hash-based routing (default)
 - HTML5 History API routing (with `<base>` tag)
@@ -68,7 +68,7 @@ Router library for client-side routing:
 <router-outlet></router-outlet>
 ```
 
-### utils.js (~7 KB)
+### utils.js (~<span data-measure="utils-raw">9</span> KB)
 Utility functions for common tasks:
 - **Notifications:** `notify(message, severity, ttl)`, `notifications` store
 - **Dark theme:** `darkTheme` reactive store
@@ -92,13 +92,13 @@ Utility functions for common tasks:
 </script>
 ```
 
-### opt.js (~4 KB)
+### opt.js (~<span data-measure="opt-raw">4</span> KB)
 Runtime `opt()` transformer for fine-grained reactivity (`eval(opt(...))` pattern). Only needed if you use `opt()` at runtime instead of the build-time optimizer.
 
-### windowing.js (~7 KB)
+### windowing.js (~<span data-measure="windowing-raw">7</span> KB)
 `createWindowing()` virtual-scroll controller for windowed lists (see [performance.md](performance.md#windowed-virtual-scrolling)).
 
-### gestures.js (~10 KB)
+### gestures.js (~<span data-measure="gestures-raw">13</span> KB)
 `createRowGestures()` list-row gesture controller (drag-reorder with midpoint gap targeting, touch drag, long-press/tap) plus pure reorder-math helpers. Composes with windowing.js.
 
 ## Usage Examples
@@ -336,8 +336,8 @@ Then open: http://localhost:9000/bundle-demo/
 ## Size Comparison
 
 **framework.js:**
-- Uncompressed: ~92 KB
-- Gzipped: ~21 KB
+- Uncompressed: ~<span data-measure="framework-raw">121</span> KB
+- Gzipped: ~<span data-measure="framework-gz">32</span> KB
 
 **Includes:**
 - Reactive system (reactive, createEffect, computed, watch, memo, isReactive)
@@ -345,8 +345,8 @@ Then open: http://localhost:9000/bundle-demo/
 - Component system (defineComponent)
 - Store system (Store class, createStore)
 
-**router.js:** ~10 KB uncompressed
-**utils.js:** ~7 KB uncompressed
+**router.js:** ~<span data-measure="router-raw">13</span> KB uncompressed
+**utils.js:** ~<span data-measure="utils-raw">9</span> KB uncompressed
 
 ## Use Cases
 

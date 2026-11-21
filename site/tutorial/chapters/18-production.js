@@ -70,7 +70,7 @@ class ProductionChapter extends TutChapter {
             <p>
                 Regenerate them after changing framework source with
                 <code>node tools/bundler-esm.js</code>. This is the approach the
-                <a href="/site/embedding/">embedding demo</a> uses.
+                <a href="/#embed">embedding section</a> uses.
             </p>
 
             <h2>Optional: the optimizer</h2>

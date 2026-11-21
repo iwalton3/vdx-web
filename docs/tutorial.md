@@ -77,7 +77,7 @@ app/
 import { defineComponent, html } from './lib/framework.js';
 ```
 
-**Bundled (single file, ~92KB):**
+**Bundled (single file, ~<span data-measure="framework-raw">121</span> KB):**
 ```javascript
 import { defineComponent, html } from './dist/framework.js';
 ```

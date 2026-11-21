@@ -32,7 +32,7 @@
         "name": "ComponentLib",
         "path": "/site/showcase/",
         "icon": "/theme/control-panel.svg",
-        "info": "Professional UI component library with 30+ components - forms, data tables, overlays, panels and more. PrimeReact-level features, zero dependencies."
+        "info": "The cl-* component library: forms, data tables, overlays, panels and menus, each editable live."
     },
     {
         "spa": false,
@@ -52,9 +52,9 @@
     {
         "spa": false,
         "name": "Embedding",
-        "path": "/site/embedding/",
+        "path": "/#embed",
         "icon": "/theme/embedded.svg",
-        "info": "Self-contained framework bundle demo - single file, no build step, perfect for embedding in static sites."
+        "info": "Using VDX components inside an existing static page, from the single-file bundle."
     },
     {
         "spa": false,

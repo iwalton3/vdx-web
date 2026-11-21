@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VDX Build-less Component Framework</title>
-    <meta name="description" content="Reactive components, two-way binding, routing and a 60+ component UI library — running straight from source in the browser. No build step, no npm, no dependencies.">
+    <meta name="description" content="A web application framework you deploy as the same files you edit: components, stores, two-way binding, a router and a UI library, with no required build step or npm dependencies.">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2310897a'/%3E%3Ctext x='16' y='22' font-family='system-ui,Arial' font-size='14' font-weight='800' fill='white' text-anchor='middle' letter-spacing='-1'%3Evdx%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="/styles/theme.css">
     <style>
@@ -16,14 +16,9 @@
             --vdx-text: #17201d;
             --vdx-text-dim: #5b6763;
             --vdx-line: #e2e7e2;
-            --vdx-accent: #10897a;      /* evergreen — the thing that doesn't rot; display/decorative use */
+            --vdx-accent: #10897a;      /* display/decorative use */
             --vdx-accent-strong: #0c6a5e;  /* AA-readable accent for small text + links */
-            --vdx-btn: #0c7568;         /* button bg — white text clears AA (5.6:1) */
-            --vdx-btn-hover: #0a5f54;
-            --vdx-on-accent: #ffffff;
-            --vdx-danger: #b8442c;
             --vdx-code: #eef1ee;
-            --vdx-shadow: 24px 40px -32px rgba(16,40,34,.28);
             --vdx-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
             --vdx-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
@@ -36,12 +31,7 @@
             --vdx-line: #21302b;
             --vdx-accent: #2bbda9;
             --vdx-accent-strong: #4fd3c1;
-            --vdx-btn: #2bbda9;         /* bright teal + dark text clears AA (7.2:1) */
-            --vdx-btn-hover: #3fd0bc;
-            --vdx-on-accent: #06211d;
-            --vdx-danger: #e0714f;
             --vdx-code: #16211e;
-            --vdx-shadow: 24px 44px -34px rgba(0,0,0,.7);
         }
 
         * { box-sizing: border-box; }
@@ -49,496 +39,314 @@
         @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
         body {
             margin: 0; background: var(--vdx-bg); color: var(--vdx-text);
-            font-family: var(--vdx-sans);
-            line-height: 1.6; -webkit-font-smoothing: antialiased;
+            font-family: var(--vdx-sans); font-size: 16.5px;
+            line-height: 1.65; -webkit-font-smoothing: antialiased;
         }
         a { color: var(--vdx-accent-strong); }
-        code { font-family: var(--vdx-mono); font-size: .9em; background: var(--vdx-code); padding: 1px 5px; border-radius: 4px; }
-        .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
-        .eyebrow {
-            font-family: var(--vdx-mono); font-size: 12.5px; letter-spacing: .02em;
-            color: var(--vdx-accent-strong); margin: 0 0 14px;
+        code { font-family: var(--vdx-mono); font-size: .88em; background: var(--vdx-code); padding: 1px 5px; border-radius: 4px; }
+        pre.code {
+            font-family: var(--vdx-mono); font-size: 13px; line-height: 1.6;
+            background: var(--vdx-surface); border: 1px solid var(--vdx-line);
+            border-radius: 8px; padding: 14px 16px; margin: 0; overflow-x: auto; color: var(--vdx-text);
         }
-        section { border-top: 1px solid var(--vdx-line); }
+        pre.code code { background: none; padding: 0; font-size: inherit; }
+        pre.code .c { color: var(--vdx-text-dim); }
+        pre.code .k { color: var(--vdx-accent-strong); }
+
+        /* One reading column; the live examples are allowed to run wider. */
+        .col { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+        .wide { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+        main { display: grid; gap: 72px; padding: 48px 0 88px; }
+        section { display: grid; gap: 16px; }
+        section > .col { display: grid; gap: 16px; }
+        h1 { font-size: clamp(30px, 5vw, 42px); line-height: 1.12; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+        h2 { font-size: 24px; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+        h3 { font-size: 16.5px; margin: 0; }
+        p { margin: 0; }
+        .dim { color: var(--vdx-text-dim); }
+        ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
 
         /* ---- Nav ---- */
-        .nav {
-            position: sticky; top: 0; z-index: 20;
-            background: color-mix(in srgb, var(--vdx-bg) 88%, transparent);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--vdx-line);
-        }
-        .nav-in { display: flex; align-items: center; gap: 20px; height: 60px; }
-        .brand { display: flex; align-items: baseline; gap: 0; font-weight: 800; letter-spacing: -.02em; font-size: 20px; text-decoration: none; color: var(--vdx-text); }
-        .brand .dot { color: var(--vdx-accent); margin: 0 2px; }
-        .brand .tld { color: var(--vdx-accent); }
-        .brand small { margin-left: 12px; font-family: var(--vdx-mono); font-weight: 400; font-size: 11px; color: var(--vdx-text-dim); letter-spacing: 0; }
-        .nav-links { margin-left: auto; display: flex; align-items: center; gap: 22px; }
-        .nav-links a:not(.nav-cta) { color: var(--vdx-text-dim); text-decoration: none; font-size: 14.5px; }
-        .nav-links a:not(.nav-cta):hover { color: var(--vdx-text); }
+        .nav { border-bottom: 1px solid var(--vdx-line); }
+        .nav-in { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; min-height: 58px; }
+        .brand { font-weight: 800; font-size: 19px; letter-spacing: -.02em; text-decoration: none; color: var(--vdx-text); margin-right: auto; }
+        .nav-in a:not(.brand) { color: var(--vdx-text-dim); text-decoration: none; font-size: 14.5px; }
+        .nav-in a:not(.brand):hover { color: var(--vdx-text); }
         .theme-btn {
-            font: inherit; font-size: 13px; cursor: pointer; padding: 6px 12px;
+            font: inherit; font-size: 13px; cursor: pointer; padding: 5px 11px;
             border: 1px solid var(--vdx-line); border-radius: 8px;
             background: var(--vdx-surface); color: var(--vdx-text-dim);
         }
         .theme-btn:hover { border-color: var(--vdx-accent); color: var(--vdx-text); }
 
-        .nav-cta, .btn {
-            display: inline-flex; align-items: center; gap: 8px;
-            font-family: var(--vdx-sans); font-size: 14.5px; font-weight: 600;
-            text-decoration: none; cursor: pointer; border: 0;
-            padding: 11px 18px; border-radius: 10px;
-            background: var(--vdx-btn); color: var(--vdx-on-accent);
-            transition: transform .06s ease, background .15s ease;
-        }
-        .nav-cta { padding: 8px 14px; }
-        .btn:hover, .nav-cta:hover { background: var(--vdx-btn-hover); }
-        .btn:active { transform: translateY(1px); }
-        .btn.ghost { background: transparent; color: var(--vdx-text); border: 1px solid var(--vdx-line); }
-        .btn.ghost:hover { border-color: var(--vdx-accent); background: var(--vdx-surface); }
+        .hero-demo { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 14px; color: var(--vdx-text-dim); }
+        .links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 15px; }
 
-        /* Mobile nav: drop the tagline and the text links; keep brand, theme, CTA. */
-        @media (max-width: 820px) {
-            .nav-links a:not(.nav-cta) { display: none; }
-            .nav-in { gap: 12px; }
-            .nav-links { gap: 12px; }
-            .brand small { display: none; }
-        }
-        @media (max-width: 400px) {
-            .theme-btn { padding: 6px 9px; }
-            .wrap { padding: 0 18px; }
-        }
+        /* ---- Built with it ---- */
+        .built { display: grid; gap: 12px; }
+        .built > div { display: grid; grid-template-columns: 9.5em 1fr; gap: 12px; }
+        .built > div > :first-child { font-weight: 700; }
+        @media (max-width: 520px) { .built > div { grid-template-columns: 1fr; gap: 2px; } }
+        .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .pair > div { min-width: 0; display: grid; gap: 6px; align-content: start; }
+        .pair .cap { font-family: var(--vdx-mono); font-size: 12px; color: var(--vdx-text-dim); }
+        @media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
 
-        /* ---- Hero ---- */
-        .hero { padding: 92px 0 76px; }
-        .hero-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 56px; align-items: center; }
-        @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; gap: 40px; } .hero { padding: 60px 0 52px; } }
-        .hero h1 {
-            font-size: clamp(38px, 6vw, 60px); line-height: 1.04; letter-spacing: -.03em;
-            font-weight: 850; margin: 0 0 22px;
-        }
-        .hero h1 .u { color: var(--vdx-accent); }
-        .hero p.lead { font-size: 19px; color: var(--vdx-text-dim); margin: 0 0 30px; max-width: 34ch; }
-        .hero .cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-        .hero .inline-note { margin-top: 26px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--vdx-text-dim); font-size: 13.5px; }
+        /* ---- What this isn't ---- */
+        .isnt { display: grid; gap: 14px; }
+        .isnt > div { display: grid; gap: 2px; }
+        .isnt h3 { font-size: 16px; }
+        .isnt p { color: var(--vdx-text-dim); font-size: 15px; }
 
-        /* ---- Signature: the vendored tree ---- */
-        .tree {
-            background: var(--vdx-surface); border: 1px solid var(--vdx-line);
-            border-radius: 16px; box-shadow: var(--vdx-shadow);
-            overflow: hidden; font-family: var(--vdx-mono); font-size: 13px;
-        }
-        .tree-head { display: flex; align-items: center; gap: 7px; padding: 12px 16px; border-bottom: 1px solid var(--vdx-line); color: var(--vdx-text-dim); }
-        .tree-head .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--vdx-line); }
-        .tree-head .label { margin-left: 6px; font-size: 12px; }
-        .tree-body { padding: 14px 16px; display: grid; gap: 5px; }
-        .tree-body .row { display: flex; align-items: center; gap: 8px; color: var(--vdx-text); }
-        .tree-body .row.dir { color: var(--vdx-accent-strong); }
-        .tree-body .row.dim { color: var(--vdx-text-dim); padding-left: 18px; }
-        .tree-body .row .sz { margin-left: auto; color: var(--vdx-text-dim); font-size: 11.5px; }
-        .tree-foot { padding: 11px 16px; border-top: 1px solid var(--vdx-line); font-size: 11.5px; color: var(--vdx-text-dim); }
-        .tree-foot b { color: var(--vdx-accent-strong); font-weight: 600; }
-
-        /* ---- Ship comparison (node_modules vs vdx) ---- */
-        .ship { padding: 72px 0; background: var(--vdx-surface-2); }
-        .ship h2 { font-size: clamp(26px, 4vw, 34px); letter-spacing: -.02em; margin: 0 0 8px; }
-        .ship .sub { color: var(--vdx-text-dim); margin: 0 0 40px; font-size: 17px; }
-        .ship-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
-        @media (max-width: 760px) { .ship-cols { grid-template-columns: 1fr; } }
-        .ship-card { background: var(--vdx-surface); border: 1px solid var(--vdx-line); border-radius: 14px; padding: 22px 24px; }
-        .ship-card.bad { border-style: dashed; }
-        .ship-card h3 { font-family: var(--vdx-mono); font-size: 15px; margin: 0 0 4px; }
-        .ship-card.bad h3 { color: var(--vdx-danger); }
-        .ship-card.good h3 { color: var(--vdx-accent-strong); }
-        .ship-card .stat { font-size: 30px; font-weight: 800; letter-spacing: -.02em; margin: 12px 0 2px; }
-        .ship-card .cap { color: var(--vdx-text-dim); font-size: 14px; margin: 0; }
-        .ship-card ul { margin: 16px 0 0; padding-left: 18px; color: var(--vdx-text-dim); font-size: 14px; }
-        .ship-card ul li { margin: 5px 0; }
-
-        /* ---- Live examples ---- */
-        .examples { padding: 84px 0; }
-        .examples > .wrap > h2 { font-size: clamp(26px, 4vw, 34px); letter-spacing: -.02em; margin: 0 0 8px; }
-        .examples > .wrap > p.sub { color: var(--vdx-text-dim); font-size: 17px; margin: 0 0 8px; max-width: 60ch; }
-        .example { margin-top: 46px; }
-        .example .cap { font-family: var(--vdx-mono); font-size: 13px; color: var(--vdx-text-dim); margin: 0 0 6px; }
-        .example .cap b { color: var(--vdx-accent-strong); font-weight: 600; }
-        .example h3 { font-size: 20px; letter-spacing: -.01em; margin: 0 0 16px; }
-
-        /* ---- Feature grid ---- */
-        .features { padding: 80px 0; background: var(--vdx-surface-2); }
-        .features h2 { font-size: clamp(26px, 4vw, 34px); letter-spacing: -.02em; margin: 0 0 36px; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        @media (max-width: 860px) { .grid { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
-        .card { background: var(--vdx-surface); border: 1px solid var(--vdx-line); border-radius: 14px; padding: 24px; }
-        .card .ico { font-family: var(--vdx-mono); font-size: 13px; color: var(--vdx-accent-strong); margin: 0 0 12px; }
-        .card h3 { font-size: 17px; margin: 0 0 8px; letter-spacing: -.01em; }
-        .card p { margin: 0; color: var(--vdx-text-dim); font-size: 14.5px; }
-
-        /* ---- Comparison table ---- */
-        .compare { padding: 82px 0; }
-        .compare h2 { font-size: clamp(26px, 4vw, 34px); letter-spacing: -.02em; margin: 0 0 8px; }
-        .compare .sub { color: var(--vdx-text-dim); margin: 0 0 34px; font-size: 17px; }
-        .table-scroll { overflow-x: auto; border: 1px solid var(--vdx-line); border-radius: 14px; }
-        table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14.5px; }
-        thead th { text-align: left; padding: 16px 18px; background: var(--vdx-surface-2); font-weight: 700; }
-        thead th.vdx { color: var(--vdx-accent-strong); }
-        tbody th { text-align: left; font-weight: 600; padding: 14px 18px; color: var(--vdx-text); white-space: nowrap; }
-        tbody td { padding: 14px 18px; color: var(--vdx-text-dim); border-top: 1px solid var(--vdx-line); }
-        tbody th { border-top: 1px solid var(--vdx-line); }
-        td.y { color: var(--vdx-accent-strong); font-weight: 600; }
-        td.n { color: var(--vdx-danger); }
-        col.vdx-col, th.vdx { background: color-mix(in srgb, var(--vdx-accent) 8%, var(--vdx-surface)); }
-        tbody td.vdx { background: color-mix(in srgb, var(--vdx-accent) 7%, transparent); color: var(--vdx-text); font-weight: 600; }
-
-        /* ---- AI-native ---- */
-        .ai { padding: 82px 0; background: color-mix(in srgb, var(--vdx-accent) 6%, var(--vdx-bg)); }
-        .ai h2 { font-size: clamp(26px, 4vw, 34px); letter-spacing: -.02em; margin: 0 0 8px; }
-        .ai .sub { color: var(--vdx-text-dim); font-size: 17px; margin: 0 0 36px; max-width: 62ch; }
-        .ai .card code.line { display: block; margin-top: 12px; font-size: 11.5px; padding: 8px 10px; overflow-x: auto; white-space: nowrap; }
-
-        /* ---- Defense in depth ---- */
-        .depth { padding: 80px 0; background: var(--vdx-surface-2); }
-        .depth-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 44px; align-items: start; }
-        @media (max-width: 860px) { .depth-grid { grid-template-columns: 1fr; gap: 30px; } }
-        .depth h2 { font-size: clamp(26px, 4vw, 34px); letter-spacing: -.02em; margin: 0 0 16px; }
-        .depth p.depth-lead { color: var(--vdx-text-dim); font-size: 16px; margin: 0 0 26px; }
-        .depth .points { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
-        .depth .points li { padding-left: 26px; position: relative; font-size: 15px; color: var(--vdx-text-dim); }
-        .depth .points li::before { content: "→"; position: absolute; left: 0; color: var(--vdx-accent); font-family: var(--vdx-mono); }
-        .depth .points b { color: var(--vdx-text); }
-        pre.code {
-            font-family: var(--vdx-mono); font-size: 13px; line-height: 1.7;
-            background: var(--vdx-surface); border: 1px solid var(--vdx-line);
-            border-radius: 14px; padding: 20px 22px; margin: 0; overflow-x: auto; color: var(--vdx-text);
-        }
-        pre.code .c { color: var(--vdx-text-dim); }
-        pre.code .k { color: var(--vdx-accent-strong); }
-        pre.code .bad { color: var(--vdx-danger); }
-
-        /* ---- FAQ / straight answers ---- */
-        .faq { padding: 80px 0; }
-        .faq h2 { font-size: clamp(26px, 4vw, 34px); letter-spacing: -.02em; margin: 0 0 8px; }
-        .faq .sub { color: var(--vdx-text-dim); margin: 0 0 36px; font-size: 17px; }
-        .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 34px; }
-        @media (max-width: 820px) { .faq-grid { grid-template-columns: 1fr; } }
-        .faq-grid h3 { font-size: 16.5px; letter-spacing: -.01em; margin: 0 0 8px; }
-        .faq-grid p { margin: 0; color: var(--vdx-text-dim); font-size: 14.5px; }
-
-        /* ---- Quickstart / CTA ---- */
-        .start { padding: 92px 0; }
-        .start h2 { font-size: clamp(28px, 4.4vw, 38px); letter-spacing: -.025em; margin: 0 0 14px; text-align: center; }
-        .start p.sub { text-align: center; color: var(--vdx-text-dim); font-size: 17px; margin: 0 auto 36px; max-width: 52ch; }
-        .steps { max-width: 640px; margin: 0 auto; display: grid; gap: 14px; }
-        .step { display: grid; grid-template-columns: 30px 1fr; gap: 14px; align-items: start; }
-        .step .n { font-family: var(--vdx-mono); font-weight: 700; color: var(--vdx-accent); padding-top: 12px; }
-        .step pre { margin: 0; }
-        .start .cta-row { display: flex; justify-content: center; gap: 12px; margin-top: 34px; flex-wrap: wrap; }
-
-        footer { border-top: 1px solid var(--vdx-line); padding: 40px 0; }
-        .foot-in { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; color: var(--vdx-text-dim); font-size: 13.5px; }
-        .foot-in .flinks { display: flex; gap: 18px; flex-wrap: wrap; }
-        .foot-in a { color: var(--vdx-text-dim); text-decoration: none; }
-        .foot-in a:hover { color: var(--vdx-text); }
+        footer { border-top: 1px solid var(--vdx-line); padding: 28px 0 40px; }
+        .foot-in { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--vdx-text-dim); font-size: 14px; }
+        .foot-in a { color: var(--vdx-text-dim); }
     </style>
 </head>
 <body>
     <script src="/styles/theme-init.js"></script>
 
-    <!-- NAV -->
     <nav class="nav">
-        <div class="wrap nav-in">
-            <a class="brand" href="/">VDX<span class="dot">·</span><span class="tld">web</span> <small>vanilla developer experience</small></a>
-            <div class="nav-links">
-                <a href="/docs/">Docs</a>
-                <a href="/site/showcase/">UI Library</a>
-                <a href="/site/tutorial.html">Tutorial</a>
-                <a href="/site/tutorial/playground.html">Playground</a>
-                <a href="https://github.com/iwalton3/vdx-web">GitHub</a>
-                <button class="theme-btn" id="theme-toggle" title="Toggle theme">◐ Theme</button>
-                <a class="nav-cta" href="/site/tutorial.html">Get started</a>
-            </div>
+        <div class="wide nav-in">
+            <a class="brand" href="/">VDX</a>
+            <a href="/site/tutorial.html">Tutorial</a>
+            <a href="/site/showcase/">Components</a>
+            <a href="/docs/">Docs</a>
+            <a href="/site/tutorial/playground.html">Playground</a>
+            <a href="https://github.com/iwalton3/vdx-web">GitHub</a>
+            <button class="theme-btn" id="theme-toggle" title="Toggle theme">◐ Theme</button>
         </div>
     </nav>
 
-    <!-- HERO -->
-    <header class="hero">
-        <div class="wrap hero-grid">
-            <div>
-                <p class="eyebrow"># no build · no deps · no rot · ai-native</p>
-                <h1>Build like it's a modern framework. <span class="u">Ship like it's just files.</span></h1>
-                <p class="lead">Reactive components, two-way binding, routing and a 60+ component UI
-                    library — running straight from source in the browser.</p>
-                <div class="cta-row">
-                    <a class="btn" href="/site/tutorial.html">Start the tutorial</a>
-                    <a class="btn ghost" href="/site/showcase/">Browse components</a>
-                    <a class="btn ghost" href="/site/embedding/">Embed in a static site</a>
-                </div>
-                <div class="inline-note">
+    <main>
+        <!-- What it is -->
+        <section>
+            <div class="col">
+                <h1>VDX, a component framework that runs from plain files</h1>
+                <p>VDX is a modern web application framework that aims to keep the "vanilla" experience of
+                    deploying the same files you edit directly, while having a feature set comparable to modern
+                    React and Svelte frameworks such as two-way data binding, stores, and components. There's no
+                    required build step or npm dependencies, so the code you write now should "just work" five
+                    years from now. It's batteries included, with a UI library, router, offline service worker,
+                    and optional linter/typescript support included.</p>
+                <div class="hero-demo">
                     <vdx-hero-demo></vdx-hero-demo>
-                    <span>— a VDX component dropped into this page. Nothing compiled it.</span>
+                    <span>This button is a VDX component on this page. Nothing compiled it.</span>
+                </div>
+                <div class="links">
+                    <a href="/site/tutorial.html">Start the tutorial</a>
+                    <a href="/site/showcase/">Browse the components</a>
                 </div>
             </div>
+        </section>
 
-            <!-- Signature: what you actually vendor -->
-            <div class="tree" aria-hidden="true">
-                <div class="tree-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="label">your repo / vendor</span></div>
-                <div class="tree-body">
-                    <div class="row dir">vdx/</div>
-                    <div class="row dim">lib/<span class="sz">reactivity · templates · router</span></div>
-                    <div class="row dim">ui/<span class="sz">60+ components</span></div>
-                    <div class="row dim">styles/<span class="sz">light + dark theme</span></div>
-                </div>
-                <div class="tree-foot">Checked in once. <b>No node_modules.</b> No lockfile. No install step to trust.</div>
+        <!-- What writing it looks like -->
+        <section>
+            <div class="col">
+                <h2>What writing it looks like</h2>
+                <p>A component is a class. Its state is a plain object: assign to it, and the parts of the
+                    page that read it update. Templates are tagged template literals, so there is nothing to
+                    compile. Edit the code below and press Run.</p>
             </div>
-        </div>
-    </header>
-
-    <!-- SHIP: node_modules vs vdx -->
-    <section class="ship">
-        <div class="wrap">
-            <h2>What actually lands in your repository</h2>
-            <p class="sub">The dependency you never installed can't be the one that bites you.</p>
-            <div class="ship-cols">
-                <div class="ship-card bad">
-                    <h3>node_modules/</h3>
-                    <div class="stat">hundreds of packages</div>
-                    <p class="cap">pulled transitively, from maintainers you'll never meet</p>
-                    <ul>
-                        <li>Re-resolved on every clone and CI run</li>
-                        <li>A live attack surface — Shai-Hulud &amp; friends ship through updates</li>
-                        <li>Rots underneath you; upgrade or rewrite every few years</li>
-                    </ul>
-                </div>
-                <div class="ship-card good">
-                    <h3>vdx/</h3>
-                    <div class="stat">one folder of files</div>
-                    <p class="cap">read once, reviewed once, then simply yours</p>
-                    <ul>
-                        <li>Vendored into the repo — clones and updates pull nothing</li>
-                        <li>Nothing to compromise on <code>npm update</code>, because there is no npm</li>
-                        <li>Runs the same in five years as it does today</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- LIVE EXAMPLES -->
-    <section class="examples">
-        <div class="wrap">
-            <h2>Edit it. Run it. No build in the loop.</h2>
-            <p class="sub">These run in a sandbox from the same source you'd write — code on the left,
-                the living result on the right. Change the code and hit Run.</p>
-
-            <div class="example">
-                <p class="cap"><b>// a component is a class</b> — reactive state, no setState, no virtual DOM</p>
-                <h3>Reactive by assignment</h3>
+            <div class="wide">
                 <landing-live base="/site/landing/examples/counter" files="App.js, index.html"
                     entry="index.html" activeFile="App.js" previewLabel="Running component"></landing-live>
             </div>
-
-            <div class="example">
-                <p class="cap"><b>// two-way binding + lists</b> — x-model, each(), when(), on-* handlers</p>
-                <h3>Forms that sync themselves</h3>
-                <landing-live base="/site/landing/examples/binding" files="App.js, index.html"
-                    entry="index.html" activeFile="App.js" previewLabel="Running component"></landing-live>
+            <div class="col">
+                <p>State that several components share goes in a store. Any component that reads it
+                    re-renders when it changes.</p>
             </div>
-
-            <div class="example">
-                <p class="cap"><b>// shared state, zero ceremony</b> — one store, many components, no prop-drilling or provider</p>
-                <h3>Shared state without the boilerplate</h3>
+            <div class="wide">
                 <landing-live base="/site/landing/examples/stores" files="App.js, store.js, index.html"
                     entry="index.html" activeFile="App.js" previewLabel="Running components"></landing-live>
             </div>
-        </div>
-    </section>
-
-    <!-- FEATURES -->
-    <section class="features">
-        <div class="wrap">
-            <h2>A modern framework, without the modern tax</h2>
-            <div class="grid">
-                <div class="card"><p class="ico">$ (no build)</p><h3>No build step</h3><p>ES modules run directly in the browser. Save a file, refresh. There is no compiler between you and the page.</p></div>
-                <div class="card"><p class="ico">deps: 0</p><h3>Zero dependencies</h3><p>Nothing from npm — not even transitively. The whole framework is a small set of files you can read.</p></div>
-                <div class="card"><p class="ico">router + ui</p><h3>Batteries included</h3><p>Hash and HTML5 routing, reactive stores, and a 60+ component <code>cl-*</code> UI library, all in the box.</p></div>
-                <div class="card"><p class="ico">&lt;my-widget&gt;</p><h3>Static-site friendly</h3><p>Import a component into any HTML page and use its tag. Perfect for a backend that just serves files.</p></div>
-                <div class="card"><p class="ico">xss ✕</p><h3>Defense in depth</h3><p>Auto-escaping, URL-scheme allowlisting, and raw HTML gated behind an explicit, trust-marked opt-in.</p></div>
-                <div class="card"><p class="ico">light DOM</p><h3>DevTools-native</h3><p>No shadow DOM. Your components are right there in the element tree — inspect, tweak, and debug them like normal HTML.</p></div>
+            <div class="col">
+                <p class="dim">The <a href="/site/tutorial.html">tutorial</a> has twenty chapters of
+                    examples like these, all editable in the browser.</p>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- COMPARISON -->
-    <section class="compare">
-        <div class="wrap">
-            <h2>You don't have to pick your poison</h2>
-            <p class="sub">A modern component model without React's build chain — or vanilla's manual DOM wiring.</p>
-            <div class="table-scroll">
-                <table>
-                    <colgroup><col><col class="vdx-col"><col><col><col></colgroup>
-                    <thead>
-                        <tr><th>&nbsp;</th><th class="vdx">VDX</th><th>React</th><th>Vanilla JS</th><th>htmx</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr><th>Build step</th><td class="vdx">None</td><td class="n">Required</td><td class="y">None</td><td class="y">None</td></tr>
-                        <tr><th>Bundling &amp; linting</th><td class="vdx">Optional</td><td class="n">Required</td><td>DIY</td><td>None</td></tr>
-                        <tr><th>TypeScript</th><td class="vdx">Optional</td><td>Via build</td><td>DIY</td><td class="n">—</td></tr>
-                        <tr><th>npm dependencies</th><td class="vdx">Zero</td><td class="n">Many</td><td class="y">Zero</td><td>One script</td></tr>
-                        <tr><th>Reactive state</th><td class="vdx">Built in</td><td class="y">Built in</td><td class="n">Roll your own</td><td class="n">Server round-trip</td></tr>
-                        <tr><th>Manual DOM sync</th><td class="vdx">Never</td><td class="y">Never</td><td class="n">Constant</td><td>Server-driven</td></tr>
-                        <tr><th>XSS-safe by default</th><td class="vdx">Yes</td><td class="y">Yes</td><td class="n">On you</td><td class="n">On you</td></tr>
-                        <tr><th>Two-way binding</th><td class="vdx">x-model</td><td class="n">Manual</td><td class="n">Manual</td><td class="n">—</td></tr>
-                        <tr><th>Router + UI library</th><td class="vdx">Included</td><td class="n">Add packages</td><td class="n">Add packages</td><td class="n">—</td></tr>
-                        <tr><th>Supply-chain surface</th><td class="vdx">None</td><td class="n">Large</td><td class="y">None</td><td class="y">Tiny</td></tr>
-                        <tr><th>Survives a framework era</th><td class="vdx">Vendored</td><td class="n">Churns</td><td class="y">Forever</td><td class="y">Stable</td></tr>
-                    </tbody>
-                </table>
+        <!-- What you're trusting -->
+        <section>
+            <div class="col">
+                <h2>What you're trusting</h2>
+                <p>VDX is maintained by a single party using AI assistance. There are no additional packages
+                    or delicate dependency chains to trust. There's one changelog for everything, and having
+                    been through several breaking change cycles forced on me before by other libraries, I have
+                    a commitment to avoiding breaking changes unless something was already obviously
+                    broken.</p>
+                <p>You vendor it: copy the folder into your project and commit it. To update, replace the
+                    folder and read the release notes.</p>
+                <pre class="code">your-app/
+  index.html
+  app.js
+  vdx/
+    lib/      <span class="c"># framework, router, utils</span>
+    ui/       <span class="c"># optional: the cl-* component library</span>
+    styles/   <span class="c"># optional: light and dark theme</span></pre>
+                <pre class="code">curl -LO https://github.com/iwalton3/vdx-web/releases/latest/download/vdx-full.zip
+unzip vdx-full.zip -d your-app/   <span class="c"># smaller cuts: vdx-core.zip, vdx-framework.zip, vdx-ui.zip</span></pre>
+                <p class="dim">If you'd rather vendor one file, <code>dist/framework.js</code> is the whole
+                    framework as a single module, about <span data-measure="framework-gz">32</span>&nbsp;KB
+                    gzipped (<span data-measure="framework-router-utils-gz">39</span>&nbsp;KB with the router
+                    and utils).</p>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- AI-NATIVE -->
-    <section class="ai">
-        <div class="wrap">
-            <p class="eyebrow"># ai-native</p>
-            <h2>An agent can read the whole thing</h2>
-            <p class="sub">Most frameworks assume a human who already knows them — the right hooks, this
-                year's patterns, the current build config. VDX assumes a reader starting from the files in
-                front of them, human or model.</p>
-            <div class="grid">
-                <div class="card">
-                    <p class="ico"># one file</p>
-                    <h3>Small enough to hold in context</h3>
-                    <p>Point an agent at the source — or the single-file <code>FRAMEWORK.md</code> — and it has the whole model. No plugin matrix, no version-specific lore, no build config to reverse-engineer.</p>
-                </div>
-                <div class="card">
-                    <p class="ico">el.state</p>
-                    <h3>Inspect the running app</h3>
-                    <p>No shadow DOM, so any component is reachable from the DOM. Read or poke its live state in plain JS (<code>$</code> is your devtools' querySelector) — no framework extension needed.<code class="line">$('cart-badge').stores.cart.count</code></p>
-                </div>
-                <div class="card">
-                    <p class="ico">no hooks</p>
-                    <h3>Testing without the ceremony</h3>
-                    <p>No hooks, no renderer, no <code>act()</code>. Grab the element, call its methods, read its state. The wiring that made React hooks a testing chore simply isn't here.</p>
-                </div>
+        <!-- It drops into what you already have -->
+        <section id="embed">
+            <div class="col">
+                <h2>It drops into what you already have</h2>
+                <p>Components are custom elements, so they work in any HTML page. A .NET app serving static
+                    files, a PHP site on cPanel, the output of a static site generator: copy the files in, add
+                    a module script, and use the tag.</p>
+                <ul class="plain">
+                    <li>Any web server works in hash-routing mode: Apache, nginx, IIS, GitHub Pages,
+                        <code>python3 -m http.server</code>. HTML5 routing needs the usual rule that serves
+                        <code>index.html</code> for unknown paths.</li>
+                    <li>A page can hand a component structured data through a <code>json-*</code> attribute
+                        that names a <code>&lt;script type="application/json"&gt;</code> block, which a static
+                        site generator can write directly.</li>
+                </ul>
+                <p>Below is a whole static page with one component in it, importing from the single-file
+                    bundle.</p>
             </div>
-        </div>
-    </section>
-
-    <!-- DEFENSE IN DEPTH -->
-    <section class="depth">
-        <div class="wrap depth-grid">
-            <div>
-                <h2>You opt out of safety, never into it</h2>
-                <p class="depth-lead">Escaping isn't a function you remember to call — it's the default.
-                    Paste hostile input into the demo: the markup renders as plain text and the
-                    <code>javascript:</code> URL goes nowhere. Rendering raw HTML is the part you ask for —
-                    hit <b>Edit</b> to read the markup.</p>
-                <ul class="points">
-                    <li><b>Raw HTML is trust-marked</b> — <code>raw()</code> tags its output at runtime, so a JSON string from an API can never masquerade as trusted markup.</li>
-                    <li><b>Misuse is legible</b> — an unsafe render is a literal <code>raw(userInput)</code> in the source, easy to spot in review and to grep for.</li>
-                    <li><b>Nothing is hidden</b> — no shadow DOM, so every node your components render is right there in DevTools to inspect and audit.</li>
+            <div class="wide">
+                <landing-live base="/site/embedding/examples/embed" files="index.html"
+                    entry="index.html" activeFile="index.html" previewLabel="Your page"></landing-live>
+            </div>
+            <div class="col">
+                <p>Larger examples, each a static page you can view the source of:</p>
+                <ul class="plain">
+                    <li><a href="/site/embedding/static-integration-demo.html">Static site integration</a>:
+                        components inside a plain HTML page, driven from vanilla JS.</li>
+                    <li><a href="/site/embedding/jellyfin-modal-demo.html">A settings modal</a> that replaced
+                        230 lines of hand-written DOM code
+                        (<a href="https://github.com/iwalton3/vdx-web/blob/main/site/embedding/COMPARISON.md">side by side</a>).</li>
+                    <li><a href="/site/embedding/pwa-offline/">Offline caching</a> with a service worker and
+                        versioned caches, without a bundler.</li>
+                    <li><a href="/site/embedding/test-bundle.html">Bundle self-test</a>: a page that exercises
+                        the framework straight from the single bundle.</li>
                 </ul>
             </div>
-            <div class="depth-live">
-                <landing-live toggle="true" base="/site/landing/examples/safe" files="App.js, index.html"
+        </section>
+
+        <!-- What's in the box -->
+        <section>
+            <div class="col">
+                <h2>What's in the box</h2>
+                <ul class="plain">
+                    <li><b>A UI library</b> of <span data-measure="ui-count">63</span> <code>cl-*</code>
+                        components: form inputs, dropdowns, data tables, dialogs, menus, tree views, tabs.
+                        <a href="/site/showcase/">Browse and edit them live.</a></li>
+                    <li><b>A router</b> with hash or HTML5 mode, lazy-loaded routes, and route guards that deny
+                        by default.</li>
+                    <li><b>Offline support</b>: a service worker template and a manifest tool that give
+                        versioned caches without a bundler.</li>
+                    <li><b>Interactive lists</b>: windowed scrolling for very long lists, drag to reorder with
+                        a mouse or by touch, multi-select, and long-press or right-click menus. These came out
+                        of a music player's play queue.</li>
+                    <li><b>Escaping by default</b>: values in templates are escaped for where they land, and raw
+                        HTML needs an explicit <code>raw()</code>. <a href="/site/tutorial.html#security">How
+                        that works.</a></li>
+                </ul>
+                <p>The queue below has 10,000 tracks. Drag a row to move it (on touch, use the ⣿ handle),
+                    right-click or long-press for a menu, or press Select to move several at once.</p>
+            </div>
+            <div class="wide">
+                <landing-live base="/site/landing/examples/lists" files="App.js, QueueList.js, index.html"
                     entry="index.html" activeFile="App.js" previewLabel="Running component"></landing-live>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- FAQ -->
-    <section class="faq">
-        <div class="wrap">
-            <h2>Straight answers</h2>
-            <p class="sub">The questions you'd actually ask before betting on a small framework.</p>
-            <div class="faq-grid">
-                <div>
-                    <h3>Is anyone actually using this?</h3>
-                    <p>Honestly: it's a side project, not a movement. But it's one the author builds
-                        real software with — the largest app on it is an extensive <a href="https://github.com/iwalton3/mrepo-web">music player</a> whose
-                        windowed 10,000-track queues and touch gestures are the reason those are
-                        first-class features here — and it's maintained for the most reliable reason
-                        there is: so those apps never rot.</p>
+        <!-- Built with it -->
+        <section>
+            <div class="col">
+                <h2>Built with it</h2>
+                <div class="built">
+                    <div><span>mrepo-web</span><span>A music player with large libraries, long queues and
+                        touch gestures. <a href="https://github.com/iwalton3/mrepo-web">Source</a></span></div>
+                    <div><span>codemap</span><span>A code graph and review tool.
+                        <a href="https://github.com/iwalton3/codemap">Source</a></span></div>
+                    <div><span>My personal website</span><span>A launcher and a handful of small tools. A copy
+                        lives in this repository: <a href="/examples/personal/">examples/personal</a>.</span></div>
                 </div>
-                <div>
-                    <h3>What if the maintainer walks away?</h3>
-                    <p>Then you have exactly what you had yesterday: a folder of readable source with
-                        zero upstream dependencies. The long-term bet is that browsers keep not
-                        breaking userspace — a far safer bet than every package in a typical React
-                        tree staying healthy. The codebase is also small and legible enough that AI
-                        agents do real maintenance on it today; the commit history is the proof.</p>
-                </div>
-                <div>
-                    <h3>How big is it, really?</h3>
-                    <p>The framework is a single ~27&nbsp;KB gzipped file (~33&nbsp;KB with the router
-                        and utils), and the readable core is about 8,000 lines — an afternoon, not an
-                        archaeology project. That loads faster than many bundled SPAs; a heavily
-                        optimized SSR stack will still beat it to first paint. It's small and honest,
-                        and there's no hydration step to pay for.</p>
-                </div>
-                <div>
-                    <h3>Which browsers?</h3>
-                    <p>Anything modern — evergreen desktop and mobile. The polyfill era is over:
-                        build steps today mostly exist for TypeScript and JSX, and here both are
-                        unnecessary — templates are tagged literals, and TypeScript is supported via
-                        shipped <code>.d.ts</code> files and <code>tsc --noEmit</code>.</p>
-                </div>
-                <div>
-                    <h3>What about SEO and SSR?</h3>
-                    <p>No SSR, on purpose. Where SEO actually matters — content pages — the islands
-                        model keeps your content (or whatever your backend, CMS, or Hugo generates)
-                        as real static HTML and drops components into it,
-                        so there's nothing to hydrate and no server-side rendering surface to secure.
-                        For app screens behind a login, SSR was never buying you much. Service
-                        workers and offline support are in the box.</p>
-                </div>
-                <div>
-                    <h3>How do I update a vendored copy?</h3>
-                    <p>VDX ships as versioned releases (v1 up) with release notes. Updating is:
-                        replace your <code>vdx/</code> folder, skim the notes, run your tests. No
-                        lockfile solver, no peer-dependency sudoku — the diff is the whole story.</p>
-                </div>
-            </div>
-        </div>
-    </section>
 
-    <!-- QUICKSTART -->
-    <section class="start">
-        <div class="wrap">
-            <h2>Vendor it in two minutes</h2>
-            <p class="sub">No installer to trust, no toolchain to set up. Drop the files in, serve them, done.</p>
-            <div class="steps">
-                <div class="step"><span class="n">1</span><pre class="code">curl -LO https://github.com/iwalton3/vdx-web/releases/latest/download/vdx-full.zip
-unzip vdx-full.zip -d your-app/   <span class="c"># vendored into your-app/vdx/</span>
-<span class="c"># smaller cuts: vdx-core.zip · vdx-framework.zip · vdx-ui.zip — or clone the repo and copy lib/ui/styles</span></pre></div>
-                <div class="step"><span class="n">2</span><pre class="code">cd your-app &amp;&amp; python3 -m http.server 9000   <span class="c"># any static server — nothing to install</span></pre></div>
-                <div class="step"><span class="n">3</span><pre class="code"><span class="c">&lt;!-- in your page --&gt;</span>
-&lt;my-widget&gt;&lt;/my-widget&gt;
-&lt;script type="module"&gt;
-  <span class="k">import</span> { defineComponent, Component, html } <span class="k">from</span> './vdx/lib/framework.js';
-&lt;/script&gt;</pre></div>
+                <h3>Before and after</h3>
+                <div class="pair">
+                    <div><span class="cap">my old personal website (2019)</span>
+                        <pre class="code">package.json
+  svelte, rollup 1, babel,
+  node-sass 4, core-js
+  22 dev dependencies
+package-lock.json   <span class="c"># 7,292 lines</span>
+rollup.config.js
+rollup-prod.config.js</pre></div>
+                    <div><span class="cap">its replacement, on VDX</span>
+                        <pre class="code">index.html
+app.js
+components/
+vdx/        <span class="c"># vendored</span>
+<span class="c"># no package.json</span>
+<span class="c"># no build config</span></pre></div>
+                </div>
+                <p>The old website is a great example of web framework archeology. 5 years later, and the whole
+                    build system moved and there's a major version of half the packages. With a mile-long
+                    package-lock.json, it is easier just to start from scratch, and VDX aims to make it the
+                    last time you have to do that.</p>
+                <p>VDX doesn't claim to never break backwards compatibility, but it does it for good reason.
+                    The framework did have several extensive changes in the early (pre-v1) experimental phase,
+                    but the design is now largely settled. Working patterns will generally continue to work,
+                    while if something appears off or needs a workaround, it will get fixed.</p>
             </div>
-            <div class="cta-row">
-                <a class="btn" href="/site/tutorial.html">Start the tutorial</a>
-                <a class="btn ghost" href="https://github.com/iwalton3/vdx-web/blob/main/docs/api-reference.md">API reference</a>
+        </section>
+
+        <!-- Agents can work on it -->
+        <section>
+            <div class="col">
+                <h2>Agents can work on it</h2>
+                <p>The whole framework model is described in one file,
+                    <a href="https://github.com/iwalton3/vdx-web/blob/main/FRAMEWORK.md"><code>FRAMEWORK.md</code></a>,
+                    and there's no build configuration or plugin system to learn first. A coding agent can read
+                    that and the source and work on an app built with VDX.</p>
+                <p>Since the project is extensively documented, has thorough unit/e2e tests, and is already
+                    developed by agents, anyone can maintain the framework even if the maintainer steps
+                    away.</p>
             </div>
-        </div>
-    </section>
+        </section>
+
+        <!-- What this isn't -->
+        <section>
+            <div class="col">
+                <h2>What this isn't</h2>
+                <div class="isnt">
+                    <div><h3>Not server-rendered</h3><p>There is no SSR. For pages that need SEO, keep the
+                        content as static HTML and put components into it.</p></div>
+                    <div><h3>Not a large ecosystem</h3><p>There is one maintainer and no plugin market. React
+                        and JSX libraries won't drop in.</p></div>
+                    <div><h3>Not style-isolated</h3><p>There is no shadow DOM, so your page's CSS reaches into
+                        components. That is deliberate, since it makes components easy to inspect and theme,
+                        but it's something you have to manage.</p></div>
+                    <div><h3>Not for old browsers</h3><p>Current desktop and mobile browsers only.</p></div>
+                    <div><h3>Not free of rules</h3><p>A few template patterns, such as <code>.map()</code>
+                        inside a template or Vue-style <code>@click</code>, throw at runtime. A lint script
+                        catches them before then. The lint, optimizer and bundler are optional Node scripts;
+                        there is nothing to install.</p></div>
+                    <div><h3>Not frozen</h3><p>Correct, defined behaviour of the framework doesn't break.
+                        Something that feels broken, or only works through a workaround, can change, and the
+                        release notes say what to check.</p></div>
+                </div>
+            </div>
+        </section>
+    </main>
 
     <footer>
-        <div class="wrap foot-in">
-            <div>VDX — vanilla developer experience · MIT · zero dependencies</div>
-            <div class="flinks">
-                <a href="/docs/">Docs</a>
-                <a href="/site/showcase/">UI Library</a>
-                <a href="/site/tutorial.html">Tutorial</a>
-                <a href="/site/tutorial/playground.html">Playground</a>
-                <a href="/site/embedding/">Embedding</a>
-                <a href="/examples/shop/">Demo shop</a>
-                <a href="https://github.com/iwalton3/vdx-web">GitHub</a>
-            </div>
+        <div class="wide foot-in">
+            <span>VDX · MIT</span>
+            <a href="/site/tutorial.html">Tutorial</a>
+            <a href="/site/showcase/">Components</a>
+            <a href="/docs/">Docs</a>
+            <a href="https://github.com/iwalton3/vdx-web">GitHub</a>
         </div>
     </footer>
 
