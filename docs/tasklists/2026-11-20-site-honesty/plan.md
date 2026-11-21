@@ -19,7 +19,8 @@ rewrite the load-bearing parts". So:
 - **Owner text (OT)** is used word for word, quoted below from `owner.md`. There are exactly two
   grammar fixes, both approved in the decision log: "React and Svelte framework" →
   "React and Svelte frameworks"; "There's no additional packages" → "There are no additional
-  packages". Nothing else in an OT block is edited.
+  packages". The one insertion is the owner's own stability sentence from batch 1 #1, given as
+  "something along the lines of" (§2.6). Nothing else in an OT block is edited.
 - **Session text (ST)** is drafted by the implementer. Use plain statements and short sentences.
   Avoid slogans, three-beat taglines ("One file. One tag. Live."), mono "eyebrow" tags, card grids
   used as decoration, "not X, but Y" constructions and em-dash asides. The owner phrase-checks all
@@ -30,20 +31,33 @@ rewrite the load-bearing parts". So:
 1. Add `tests/node/site-numbers.mjs` (node builtins only: `fs`, `zlib`, `path`).
    - **Measure:** the gzip size of `dist/framework.js`; the gzip size of framework + `router.js` +
      `utils.js`; and the count of unique `defineComponent('cl-…'` names under `ui/`.
-   - **Claims it reads:** every element carrying `data-measure="<key>"` in `index.html` and
-     `site/**/*.{html,js}`. Keys: `framework-gz`, `framework-router-utils-gz`, `ui-count`. Parse the
-     element's leading number.
-   - **Fail** when a claim is more than 10% off the measurement, or when a `data-measure` key is
-     unknown. Print each claim with its file, its line and the measured value.
-   - **Also fail on unmarked figures:** any `\d+(\.\d+)?(&nbsp;| )KB` in those files outside a
-     `data-measure` element. That way a new hand-typed figure can't skip the check.
+   - **Claims it reads:** every element carrying `data-measure="<key>"` in the scanned files:
+     `index.html`, `site/**/*.{html,js}`, `README.md` and `docs/**/*.md`. In Markdown, use an
+     inline `<span data-measure="…">` (GitHub renders the span's text). Keys: `framework-gz`,
+     `framework-router-utils-gz`, `ui-count`. Parse the element's leading number.
+   - **Fail** when a claim is more than 10% off the measurement, when a `data-measure` key is
+     unknown, or when the scan reads zero claims.
+   - **Also fail on unmarked figures** in the scanned files: any `\d+(\.\d+)?\s*(&nbsp;)?[KM]B`,
+     and any `\d+\+?\s*(ready-made\s+)?(<[^>]+>)?cl-\*?` component count, outside a `data-measure`
+     element. There is no skip attribute. A figure that isn't a measured claim is written so it
+     doesn't match (e.g. the lockfile in §2.6 is given in lines).
+   - Print each claim with its file, its line and the measured value.
+   - **`--self-test`** runs in-memory fixtures, one per failure branch (off by more than 10%, unknown
+     key, unmarked KB figure, unmarked component count, zero claims), plus one passing fixture. Each
+     fixture must produce its expected outcome. This proves the checker catches what it's for
+     (CLAUDE.md: "Prove a checker works by injecting a defect it must catch - every time").
+     `run-framework-tests.js` runs `--self-test` and then the real scan.
 2. Run it from `tests/e2e/run-framework-tests.js` right after `dist-check.mjs` (line ~27, same
    pattern), and list it in CLAUDE.md's "Running Tests" block.
 3. **Red on the claim (T1):**
    - Write the script first and run it on the current tree before touching any page. It must fail,
-     naming the unmarked `~27&nbsp;KB` (index.html:475, ch 18:67) and `23&nbsp;KB`
-     (site/embedding/index.html:183, plus the stat block). That failure is the red.
-   - After step 2's page work: green.
+     naming the unmarked `~27&nbsp;KB` (index.html:475, ch 18:67), `23&nbsp;KB`
+     (site/embedding/index.html:145, :183), README.md:277 `23KB`, `docs/bundles.md:339-340`, and the
+     "60+" component counts. That failure is the red.
+   - Green only after §7 step 5, once the page, the embedding stub, the tutorial pass, README.md:277
+     and `docs/bundles.md` are all marked or fixed. In `docs/bundles.md`, check what its `~92 KB` /
+     `~21 KB` refer to before marking them; the uncompressed figure needs its own key
+     (`framework-raw`) or rewording.
    - Then set one `data-measure` value to 27, watch it fail, restore it, and write that down in the
      commit message.
 4. Every size figure on the site gets a `data-measure` wrapper. Current values: framework ~32 KB
@@ -140,25 +154,32 @@ toggle.
   shows:
   - svelte, rollup 1, babel, node-sass 4, core-js;
   - 22 dev dependencies;
-  - a 270 KB `package-lock.json`;
+  - a 7,292-line `package-lock.json`;
   - two rollup configs.
 
   On the right, its VDX replacement: no package.json and no build config.
 
-  These figures describe an archived repo and don't drift, so they carry no `data-measure`.
-  "270 KB" is not a bundle size: the regex in §1.1 must not match it. Write it as "270&#8239;KB
-  lockfile", or exclude it with a `data-measure-skip` attribute that the script honours. Pick one,
-  and the check's own test proves it.
+  Sources: 22 is the count of `devDependencies` in that repo's package.json, and 7,292 is
+  `gh api repos/iwalton3/swapi-svelte/contents/package-lock.json -H "Accept: application/vnd.github.raw" | wc -l`
+  (2026-11-20; it matches the owner's own figure in memory). The repo is archived, so these don't
+  drift. Lines, not KB, keep it out of §1's figure pattern.
 - **OT `before-after`:**
   > The old website is a great example of web framework archeology. 5 years later, and the whole build system moved and there's a major version of half the packages. With a mile-long package-lock.json, it is easier just to start from scratch, and VDX aims to make it the last time you have to do that.
+
+  **Verify before ship.** "A major version of half the packages" rests on the session's knowledge,
+  not the registry (owner.md batch 1). Run `npm view <pkg> version` for each of the 25 packages in
+  that package.json against its pinned major. Write the count into the commit message. If fewer
+  than half have a new major or are deprecated, put the result to the owner rather than edit their
+  sentence.
 - **OT `stability`,** with the owner's sentence from batch 1 #1 added after the first sentence
   ("Something along the lines of"). Use it as given unless the owner rewords it in review:
   > VDX doesn't claim to never break backwards compatibility, but it does it for good reason. The framework did have several extensive changes in the early (pre-v1) experimental phase, but the design is now largely settled. Working patterns will generally continue to work, while if something appears off or needs a workaround, it will get fixed.
 
 ### 2.7 Agents can work on it (replaces "ai-native"; owner turn 2)
-- ST, one or two sentences: `FRAMEWORK.md` describes the whole model in one file, and agents work
-  both on apps built with VDX and on the framework itself. Say "most of its commits were made with
-  an agent". That stays true (224 of 355 today) and doesn't drift the way a count does.
+- ST, one or two sentences on what makes it agent-friendly for someone building on it:
+  `FRAMEWORK.md` describes the whole model in one file, and there is no build config or plugin
+  system to learn first. The fact that the framework itself is developed by agents is the OT's
+  point. The ST doesn't repeat it, and no commit count is stated.
 - **OT `abandonment`:**
   > Since the project is extensively documented, has thorough unit/e2e tests, and is already developed by agents, anyone can maintain the framework even if the maintainer steps away.
 - The ST must not restate the OT's point.
@@ -202,18 +223,24 @@ VDX · MIT · Tutorial · Components · Docs · GitHub. Nothing else.
 
 ## 5. Small fixes
 
-- **J:** `site/tutorial/chapters/13-best-practices.js`, the check-id list gains `t13-bool-false`
-  and `t14-bool-string`.
-  Check: `rg -c "t13-bool-false|t14-bool-string" site/tutorial/chapters/13-best-practices.js` → 0
-  before, ≥2 after.
+- **J:** `site/tutorial/chapters/13-best-practices.js:133-135` hand-copies part of the lint's check
+  ids (the source is `ALL_CHECKS`, `tools/template-lint.js:953-958`). It is missing t13/t14 and
+  would drift again with the next rule. Drop the enumeration. Keep the sentence saying findings name
+  their check id, the suppression-comment example, and the existing link to the full table in
+  docs/tutorial.md, which already lists t13/t14.
+  Check: `rg -c "t12-manual-bind" site/tutorial/chapters/13-best-practices.js` → 1 before, 0 after.
+  The suppression example still names one id.
 - **I:** constructor state in every class snippet on the page (§2.4). It's moot if the snippet has no
   class.
   Check: `rg -n "^\s*state = \{" index.html site/embedding` → 0.
 
 ## 6. Tutorial and blurb pass (owner: "an accuracy and clarity pass")
 
-Read all 20 chapters. For each claim, check it against the code or docs. Reword promotional lines
-to plain statements, or cut them. Leave teaching content alone unless it's inaccurate. Known lines:
+Read all 20 chapters. For each claim, check it against the code or docs. Narrow each promotional
+line to what is true. Cut a line only where nothing true and useful remains. Leave teaching content
+alone unless it's inaccurate. (Rule C: narrow rather than drop is how the owner handled every
+overstated claim they rewrote, e.g. the trust and durability copy, and it is what an "accuracy and
+clarity pass" asks for.) Known lines:
 
 | Chapter | Line |
 |---|---|
@@ -224,22 +251,25 @@ to plain statements, or cut them. Leave teaching content alone unless it's inacc
 | ch 18 | "which is the entire point"; the 27 KB figure gets `data-measure` |
 | ch 19 | "refreshingly plain"; "~600 tests" → a floor such as "over 600 tests", checked against the current suite count |
 
-Also `examples/personal/apps.json`: the ComponentLib blurb ("30+ components … PrimeReact-level
-features") becomes a plain, accurate line.
+Also `examples/personal/apps.json:35`: the ComponentLib blurb ("30+ components … PrimeReact-level
+features") becomes a plain, accurate line with no count. JSON is outside §1's scan, so it states no
+figure that could drift. ch 19's test count becomes a floor ("over 600"). The suite only grows, so
+a floor stays true without a check.
 
 Each change is visible in the diff for the owner's phrase check. Agent cost: none (a one-off pass
 by the implementing session).
 
 ## 7. Order of work
 
-1. §1 script, red on the current tree.
+1. §1 script, `--self-test` passing, and the real scan red on the current tree.
 2. §4 list demo, so §2.5 has something to embed.
 3. §2 landing rebuild, including §5 I.
 4. §3 embedding stub and link repoints.
-5. §6 tutorial and blurb pass, including §5 J.
+5. §6 tutorial and blurb pass, including §5 J, and mark or fix README.md:277 and
+   `docs/bundles.md:339-340`.
 6. §1 green, plus the injected-stale-value red.
-7. Done-checks (§8).
-8. Hand the diff to the owner for the phrase check.
+7. The automated and browser checks in §8.
+8. Hand the diff to the owner for the phrase check. Only after that is the work done (§8).
 
 ## 8. Done means (decision log; run all of these before the work is called done)
 
@@ -249,8 +279,9 @@ by the implementing session).
   count.
 - `cd tests/e2e && node run-framework-tests.js` → green. This also runs the two node checks.
 - `cd tests/e2e && node test-runner.js --only-errors` → green.
-- In a browser (test server on :9000): `/`, `/site/embedding/` (redirects), and tutorial ch 10, 11,
-  13, 16–19. Check:
+- `node tests/node/site-numbers.mjs --self-test` → pass.
+- In a browser (test server on :9000): `/`, `/site/embedding/` (redirects), and every tutorial
+  chapter §6 changed. Check:
   - at about 400 px and about 1200 px;
   - in light and dark;
   - every `landing-live` loads and runs;
@@ -260,7 +291,10 @@ by the implementing session).
   work is not called done before it. A green suite says nothing about "honest" or "less
   auto-generated".
 
-## Decided instead of asked (each logged and shown to the owner, who answered "No, it's fine")
+## Decided instead of asked
+
+The items printed to the owner before batch 2, who answered "No, it's fine" (owner.md batch 2 #3),
+are listed in decisions.md's second pass. Items added after the coherence check are marked *(post-check)*.
 
 - Replacement numbers come from measurement. The check is the owner's pick.
 - The two grammar fixes in OT blocks.
@@ -271,13 +305,39 @@ by the implementing session).
 - The embedding page becomes a homepage section plus a redirect stub. This is the session's reading
   of "trim and shrink to a section". The stub is the session's choice, so external links don't
   break.
-- "Most of its commits" instead of a count.
 - Unused landing example dirs are deleted.
+- *(post-check)* No commit count in §2.7. The OT already says agents develop it.
+- *(post-check)* The figure check also scans README.md and `docs/**/*.md`, has no skip attribute,
+  and has a `--self-test`. The same cause (hand-typed figures) lives there too.
+- *(post-check)* J drops ch 13's hand-copied id list instead of extending it.
+- *(post-check)* Rule C: narrow rather than drop. It follows the owner's own rewrites and the
+  "accuracy and clarity pass" ruling.
+- *(post-check)* The "half the packages" claim is verified against the registry before ship.
 
 ## Out of scope
 
 - `site/playground.html`: left as is and not linked from the new site. Its README.md and apps.json
   links are untouched (session's reading of "Leave it, don't bother linking to it").
-- README.md copy, `docs/`, the showcase and playground pages: not reviewed in this run.
+- README.md copy, `docs/`, the showcase and playground pages: not reviewed for tone in this run.
+  The only edits there are the size figures (§1) and one link in `docs/pwa.md` (§3).
 - Downstream vendored copies (mrepo-web, codemap): this plan changes no `lib/`, `dist/` or `tools/`
   file they vendor, except the new test script, which they don't carry.
+
+## Coherence check (one agent, 2026-11-20) — what it found and what changed
+
+- **Decision log not in decisions.md:** fixed. decisions.md now has the second pass.
+- **§1 green before the edits that make it green:** fixed in §1.3 and §7.
+- **OT rule against the stability insertion:** the rule now names the insertion.
+- **Skip escape in the figure guard; regex too narrow; no proof of the other branches:** no skip
+  attribute; KB/MB and component counts; `--self-test`; lockfile figure in lines.
+- **§2.7 ST restating the OT:** commit count dropped.
+- **§7/§8 order, and docs/ wording:** fixed.
+- **Rule C unanswered:** settled at level 6 from the owner's own rewrites and the "accuracy and
+  clarity" ruling; see decisions.md.
+- **Unverified "half the packages":** verify-before-ship step in §2.6.
+- **Figures without sources:** sources added in §2.6. The commit count is no longer used.
+- **Same cause outside the scan (README.md:277, docs/bundles.md, apps.json):** scan extended;
+  apps.json states no figure.
+- **J at the wrong level (hand copy of `ALL_CHECKS`):** the list is dropped.
+- **Browser pass narrower than the tutorial pass:** it now covers every chapter §6 changes.
+- **Directions a recorded measurement ruled out:** none.
