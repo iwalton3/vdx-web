@@ -100,3 +100,24 @@ asked for rewrite boxes under each load-bearing block and filled them in; read b
 > Alright, I updated the reworded versions!
 
 Discussion ended: plan here.
+
+## Session 1 (2026-11-20) — Plan with Questions, batch 1 (asked with AskUserQuestion)
+
+Before the batch the session reported, at the owner's request in the stability box: pre-v1
+(258 commits) held the large changes (Preact VDOM → fine-grained rendering 2025-12-26, options
+objects → classes July 2026, rename, localStore prefix swapi → vdx at v1); since v1 (95 commits)
+v1.1 made silent mistakes throw and v1.2 shipped the attribute contract whose changelog says no
+correct code should need changing (two of its nine upgrade notes can affect code that worked by
+accident). Session also said "a major version of half the packages" holds from its knowledge, not
+checked against the registry.
+
+1. **Stability.** Q: should the paragraph say when the big changes happened? Options (session's):
+   "Add a dating sentence" / "Keep it as written" / "I'll reword it".
+   A (owner's words): "Something along the lines of: The framework did have several extensive changes in the early (pre-v1) experimental phase, but the design is now largely settled."
+2. **"What this isn't".** Q: which of the five unruled drafts stay? (multi-select)
+   A: "Not server-rendered,Not a large ecosystem,Not style-isolated,Not for old browsers / not free of rules" — all five.
+3. **Embedding page.** Q: what happens to site/embedding/? Options (session's): "Trim to an examples page" / "Fold in and remove" / "Leave it, fix numbers".
+   A (owner's words): "I lean towards trim and shrink to a section, it is 4 main demos and some fluffy marketing text that could be condensed."
+   Session's reading, not the owner's: the page's content becomes a homepage section carrying the four
+   worked demos; the standalone pitch page goes. Put back to the owner with the plan.
+4. **Numbers.** Q: how should the page keep size figures honest? A: "A node check".
