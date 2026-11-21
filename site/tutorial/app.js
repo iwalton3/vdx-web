@@ -198,6 +198,7 @@ export class TutApp extends Component {
         .tut-theme, .tut-burger {
             font-size: 18px;
             line-height: 1;
+            color: var(--text-color, #24292e);
             background: none;
             border: none;
             cursor: pointer;

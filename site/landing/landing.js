@@ -146,7 +146,6 @@ export class HeroDemo extends Component {
     template() {
         return html`
             <button class="hero-chip" on-click="${() => this.state.count++}">
-                <span class="hero-chip-dot"></span>
                 clicked <strong>${this.state.count}</strong> ${this.state.count === 1 ? 'time' : 'times'}
             </button>
         `;
@@ -164,10 +163,6 @@ export class HeroDemo extends Component {
         .hero-chip:hover { border-color: var(--vdx-accent); }
         .hero-chip:active { transform: scale(.97); }
         .hero-chip strong { color: var(--vdx-accent); font-variant-numeric: tabular-nums; }
-        .hero-chip-dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: var(--vdx-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--vdx-accent) 22%, transparent);
-        }
     `;
 }
 
